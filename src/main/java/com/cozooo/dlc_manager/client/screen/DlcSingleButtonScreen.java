@@ -10,7 +10,7 @@ public class DlcSingleButtonScreen extends DlcPageScreen {
     }
     @Override protected void buildPage() {
         rich(node(content, "div", "page-dialog"), message);
-        String key = buttonLabel.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents contents ? contents.getKey() : "";
+        String key = java.util.Objects.requireNonNullElse(DlcScreenCompat.translationKey(buttonLabel), "");
         if (!java.util.Set.of("gui.back", "dlc_manager.back", "dlc_manager.pack.back").contains(key)) primary(buttonLabel.getString(), this::onClose);
     }
 }

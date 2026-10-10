@@ -29,6 +29,7 @@ bin/
 .gradle
 **/build/
 !src/**/build/
+**/.fabric/
 
 # Ignore Gradle GUI config
 gradle-app.setting

@@ -1,9 +1,11 @@
 package com.cozooo.dlc_manager.client.screen
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import com.cozooo.dlc_manager.core.DlcConfig
-class DlcAlarmConfirmScreen(parent: Screen?, tip: String?, private val onConfirm: Runnable?) : DlcPageScreen(DlcUiPage.ALARM_CONFIRM, parent, Component.translatable("dlc_manager.alarm.title")) {
+class DlcAlarmConfirmScreen(parent: Screen?, tip: String?, private val onConfirm: Runnable?) : DlcPageScreen(DlcUiPage.ALARM_CONFIRM, parent, DlcTextCompat.translatable("dlc_manager.alarm.title")) {
     private val tip = tip.orEmpty()
     private var acknowledged = false
     private val waitEndMillis = System.currentTimeMillis() + DlcConfig.getAlarmWaitingTime().coerceIn(0, 10) * 1000L

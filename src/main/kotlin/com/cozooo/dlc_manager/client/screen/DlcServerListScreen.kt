@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.server.DlcServerCache
 import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
@@ -11,7 +15,7 @@ import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import java.util.concurrent.CompletableFuture
 
-class DlcServerListScreen(private val parent: Screen?) : DlcPageScreen(DlcUiPage.SERVER_LIST, parent, Component.translatable("dlc_manager.server.list_title")) {
+class DlcServerListScreen(private val parent: Screen?) : DlcPageScreen(DlcUiPage.SERVER_LIST, parent, DlcTextCompat.translatable("dlc_manager.server.list_title")) {
     private var servers: MutableList<DlcServerEntry> = ArrayList()
     private var scrollIndex = 0
     private var selectedIndex = -1
@@ -48,22 +52,22 @@ class DlcServerListScreen(private val parent: Screen?) : DlcPageScreen(DlcUiPage
         val row2Total = buttonWidth * 2 + gap
         val row1X = centerX - row1Total / 2
         val row2X = centerX - row2Total / 2
-        val delete = Button.builder(Component.translatable("selectServer.delete")) { deleteSelected() }
+        val delete = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("selectServer.delete")) { deleteSelected() }
             .bounds(row1X, row1Y, buttonWidth, buttonHeight)
             .build()
-        val edit = Button.builder(Component.translatable("selectServer.edit")) { editSelected() }
+        val edit = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("selectServer.edit")) { editSelected() }
             .bounds(row1X + buttonWidth + gap, row1Y, buttonWidth, buttonHeight)
             .build()
-        val add = Button.builder(Component.translatable("selectServer.add")) { openAdd() }
+        val add = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("selectServer.add")) { openAdd() }
             .bounds(row1X + (buttonWidth + gap) * 2, row1Y, buttonWidth, buttonHeight)
             .build()
-        val connect = Button.builder(Component.translatable("dlc_manager.server.connect")) { connectSelected() }
+        val connect = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.connect")) { connectSelected() }
             .bounds(row2X, row2Y, buttonWidth, buttonHeight)
             .build()
-        val back = Button.builder(Component.translatable("gui.back")) {
+        val back = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("gui.back")) {
             if (parent != null) {
                 Minecraft.getInstance().setScreen(parent)
-                return@builder
+                return@buttonBuilder
             }
             Minecraft.getInstance().setScreen(DlcManagerScreen(null))
         }
@@ -110,8 +114,8 @@ class DlcServerListScreen(private val parent: Screen?) : DlcPageScreen(DlcUiPage
 
     private fun deleteSelected() {
         val entry = selectedEntry ?: return
-        val title = Component.translatable("selectServer.deleteQuestion")
-        val message = Component.translatable("selectServer.deleteWarning", entry.getDisplayName())
+        val title = DlcTextCompat.translatable("selectServer.deleteQuestion")
+        val message = DlcTextCompat.translatable("selectServer.deleteWarning", entry.getDisplayName())
         Minecraft.getInstance().setScreen(
             DlcConfirmScreen({ result ->
                 if (result && selectedIndex >= 0 && selectedIndex < servers.size) {
@@ -135,9 +139,9 @@ class DlcServerListScreen(private val parent: Screen?) : DlcPageScreen(DlcUiPage
         val entry = selectedEntry
         if (entry == null) {
             DlcScreenCompat.addOrUpdatePeriodicNotification(
-                Minecraft.getInstance().toasts,
-                Component.translatable("dlc_manager.server.select_required"),
-                Component.empty(),
+                DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                DlcTextCompat.translatable("dlc_manager.server.select_required"),
+                DlcTextCompat.empty(),
             )
             return
         }
@@ -151,9 +155,9 @@ class DlcServerListScreen(private val parent: Screen?) : DlcPageScreen(DlcUiPage
                     updateButtonStates()
                     if (info == null) {
                         DlcScreenCompat.addOrUpdatePeriodicNotification(
-                            Minecraft.getInstance().toasts,
-                            Component.translatable("dlc_manager.server.connect_failed"),
-                            Component.empty(),
+                            DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                            DlcTextCompat.translatable("dlc_manager.server.connect_failed"),
+                            DlcTextCompat.empty(),
                         )
                         return@execute
                     }
@@ -197,7 +201,7 @@ class DlcServerListScreen(private val parent: Screen?) : DlcPageScreen(DlcUiPage
         connectButton?.let { mount(footer, it).getElement().setAttribute("class", "button primary") }
     }
     private fun searchServers() {
-        val entries = servers.mapIndexedNotNull { index, entry -> entry?.let { DlcUiAsyncSearch.Entry(index.toString(), it.getDisplayName(), it.getKey()) } }
+        val entries = servers.mapIndexed { index, entry -> DlcUiAsyncSearch.Entry(index.toString(), entry.getDisplayName(), entry.getKey()) }
         content.setAttribute("style", "pointer-events:none"); content.setAttribute("aria-busy", "true")
         filterAsync(query, entries) { matches ->
             matchedServers = matches; renderServers(); content.removeAttribute("style"); content.removeAttribute("aria-busy")

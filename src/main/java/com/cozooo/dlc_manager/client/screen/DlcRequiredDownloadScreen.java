@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.DlcClientRuntime;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
@@ -66,7 +70,7 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
     }
 
     public DlcRequiredDownloadScreen(Screen parent, List<DlcRequiredEntry> entries, UpdateApplyResult postUpdateResult) {
-        super(DlcUiPage.REQUIRED_DOWNLOAD, parent, Component.translatable("dlc_manager.required.title"));
+        super(DlcUiPage.REQUIRED_DOWNLOAD, parent, DlcTextCompat.translatable("dlc_manager.required.title"));
         this.parent = parent;
         this.postUpdateResult = postUpdateResult;
         this.entries = entries == null ? List.of() : entries;
@@ -90,14 +94,14 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
         int buttonHeight = 20;
         int y = this.height - 40;
         int downloadX = this.width / 2 - buttonWidth / 2;
-        downloadButton = Button.builder(Component.translatable("dlc_manager.required.download"), button -> handleDownloadButton())
+        downloadButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.required.download"), button -> handleDownloadButton())
             .bounds(downloadX, y, buttonWidth, buttonHeight)
             .build();
         downloadButton.active = false;
         downloadButton.visible = false;
         addRenderableWidget(downloadButton);
         detecting = true;
-        statusText = Component.translatable("dlc_manager.required.preparing").getString();
+        statusText = DlcTextCompat.translatable("dlc_manager.required.preparing").getString();
         new Thread(this::detectEntries, "dlc-required-detect").start();
     }
 
@@ -129,7 +133,7 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
         applyQueue.addAll(applyCandidates);
         updatePackageRequired = hasUpdatePackageTargets(applyQueue);
         detecting = false;
-        statusText = Component.translatable("dlc_manager.required.ready").getString();
+        statusText = DlcTextCompat.translatable("dlc_manager.required.ready").getString();
         scrollIndex = 0;
         Minecraft.getInstance().execute(() -> {
             if (downloadQueue.isEmpty() && applyQueue.isEmpty()) {
@@ -158,7 +162,7 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
             return;
         }
         cancelRequested = true;
-        statusText = Component.translatable("dlc_manager.required.canceling").getString();
+        statusText = DlcTextCompat.translatable("dlc_manager.required.canceling").getString();
         downloadButton.active = false;
     }
 
@@ -166,7 +170,7 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
         if (downloadButton == null) {
             return;
         }
-        downloadButton.setMessage(Component.translatable(isDownloading
+        downloadButton.setMessage(DlcTextCompat.translatable(isDownloading
             ? "dlc_manager.required.cancel"
             : "dlc_manager.required.download"));
     }
@@ -191,7 +195,7 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
                     });
                     applyAll();
                 } catch (Exception e) {
-                    errorText = Component.translatable("dlc_manager.required.error", e.getMessage()).getString();
+                    errorText = DlcTextCompat.translatable("dlc_manager.required.error", e.getMessage()).getString();
                     Minecraft.getInstance().execute(() -> {
                         updateDownloadButtonLabel(false);
                         downloadButton.active = true;
@@ -217,9 +221,9 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
                     String key = progressKey(entry);
                     if (maxConcurrentDownloads <= 1) {
                         activeDownloadEntry = entry;
-                        statusText = Component.translatable("dlc_manager.required.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).getString();
+                        statusText = DlcTextCompat.translatable("dlc_manager.required.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).getString();
                     } else {
-                        statusText = Component.translatable("dlc_manager.required.downloading_multi").getString();
+                        statusText = DlcTextCompat.translatable("dlc_manager.required.downloading_multi").getString();
                     }
                 }
 
@@ -245,11 +249,11 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
                 @Override
                 public void onEntryStatus(DlcRequiredEntry entry, String statusKey, int completed, int total) {
                     if ("selecting_source".equals(statusKey)) {
-                        statusText = Component.translatable("dlc_manager.required.selecting_source").getString();
+                        statusText = DlcTextCompat.translatable("dlc_manager.required.selecting_source").getString();
                     } else if (maxConcurrentDownloads <= 1 && entry != null) {
-                        statusText = Component.translatable("dlc_manager.required.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).getString();
+                        statusText = DlcTextCompat.translatable("dlc_manager.required.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).getString();
                     } else {
-                        statusText = Component.translatable("dlc_manager.required.downloading_multi").getString();
+                        statusText = DlcTextCompat.translatable("dlc_manager.required.downloading_multi").getString();
                     }
                 }
 
@@ -265,7 +269,7 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
                 @Override
                 public void onEntryFailure(DlcRequiredEntry entry, Throwable error, int completed, int total) {
                     completedCount = completed;
-                    errorText = Component.translatable("dlc_manager.required.error", error == null ? "" : error.getMessage()).getString();
+                    errorText = DlcTextCompat.translatable("dlc_manager.required.error", error == null ? "" : error.getMessage()).getString();
                 }
 
                 @Override
@@ -298,7 +302,7 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
         }
         if (cancelRequested) {
             downloading = false;
-            statusText = Component.translatable("dlc_manager.required.canceled").getString();
+            statusText = DlcTextCompat.translatable("dlc_manager.required.canceled").getString();
             Minecraft.getInstance().execute(() -> {
                 updateDownloadButtonLabel(false);
                 downloadButton.active = true;
@@ -328,7 +332,7 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
             });
             applyAll();
         } catch (Exception e) {
-            errorText = Component.translatable("dlc_manager.required.error", e.getMessage()).getString();
+            errorText = DlcTextCompat.translatable("dlc_manager.required.error", e.getMessage()).getString();
             downloading = false;
             Minecraft.getInstance().execute(() -> {
                 updateDownloadButtonLabel(false);
@@ -410,9 +414,9 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
                     minecraft.setScreen(parent);
                 }
             }
-        }, Component.translatable("dlc_manager.title"), Component.translatable("dlc_manager.required.restart_prompt"),
-            Component.translatable("dlc_manager.restart_now"),
-            Component.translatable("dlc_manager.restart_later"))));
+        }, DlcTextCompat.translatable("dlc_manager.title"), DlcTextCompat.translatable("dlc_manager.required.restart_prompt"),
+            DlcTextCompat.translatable("dlc_manager.restart_now"),
+            DlcTextCompat.translatable("dlc_manager.restart_later"))));
     }
 
     private boolean ensureAllRequiredReady() {
@@ -456,8 +460,8 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
 
     private Screen createPostUpdateResultScreen(UpdateApplyResult result) {
         Component message = result != null && result.isHelperScheduled()
-            ? Component.translatable("dlc_manager.update.deferred_restart")
-            : Component.translatable("dlc_manager.update.success");
+            ? DlcTextCompat.translatable("dlc_manager.update.deferred_restart")
+            : DlcTextCompat.translatable("dlc_manager.update.success");
         return new DlcUpdateResultScreen(parent, true, message);
     }
 

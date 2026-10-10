@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.server;
 
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.server.DlcServerItem;
 import com.cozooo.dlc_manager.client.server.DlcServerPackApplyStatus;
 import com.cozooo.dlc_manager.client.server.DlcServerPackInfo;
@@ -152,7 +154,7 @@ public class DlcServerService {
         } else {
             combined = motd + "\n" + label;
         }
-        DlcServerCompat.setStatusDescription(server, Component.literal(combined));
+        DlcServerCompat.setStatusDescription(server, DlcTextCompat.literal(combined));
     }
 
     public static String getServerVersionLabel() {
@@ -396,7 +398,29 @@ public class DlcServerService {
         if (player == null) {
             return false;
         }
-        return server.getPlayerList().isOp(player.getGameProfile()) || player.hasPermissions(4);
+        return invokeOperatorCheck(server, player);
+    }
+
+
+    private static boolean invokeOperatorCheck(Object server, Object player) {
+        try {
+            Object list = server.getClass().getMethod("getPlayerList").invoke(server);
+            Object profile = player.getClass().getMethod("getGameProfile").invoke(player);
+            for (var method : list.getClass().getMethods()) {
+                if (method.getName().equals("isOp") && method.getParameterCount() == 1) {
+                    Object result = method.invoke(list, profile);
+                    if (result instanceof Boolean && (Boolean) result) return true;
+                }
+            }
+            for (var method : player.getClass().getMethods()) {
+                if (method.getName().equals("hasPermissions") && method.getParameterCount() == 1) {
+                    Object result = method.invoke(player, 4);
+                    return result instanceof Boolean && (Boolean) result;
+                }
+            }
+        } catch (ReflectiveOperationException ignored) {
+        }
+        return false;
     }
 
     private static void writeList(BufferedWriter writer, String lang) throws IOException {

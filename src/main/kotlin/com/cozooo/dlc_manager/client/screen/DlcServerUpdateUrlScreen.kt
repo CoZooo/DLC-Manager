@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.download.DlcDownloadService
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil
 import com.cozooo.dlc_manager.client.server.DlcServerConnection
@@ -19,7 +23,7 @@ import java.util.Locale
 class DlcServerUpdateUrlScreen(
     private val parent: Screen?,
     private val entry: DlcServerEntry?,
-) : DlcUrlPageScreen(DlcUiPage.SERVER_UPDATE_URL, parent, Component.translatable("dlc_manager.update.import_url_title")) {
+) : DlcUrlPageScreen(DlcUiPage.SERVER_UPDATE_URL, parent, DlcTextCompat.translatable("dlc_manager.update.import_url_title")) {
     private var urlField: EditBox? = null
     private var downloadButton: Button? = null
     private var pasteButton: Button? = null
@@ -37,9 +41,9 @@ class DlcServerUpdateUrlScreen(
         val fieldHeight = 18
         val fieldX = width / 2 - fieldWidth / 2
         val fieldY = height / 2 - 20
-        val field = EditBox(font, fieldX, fieldY, fieldWidth, fieldHeight, Component.empty()).apply {
+        val field = EditBox(font, fieldX, fieldY, fieldWidth, fieldHeight, DlcTextCompat.empty()).apply {
             setMaxLength(Int.MAX_VALUE)
-            isFocused = true
+            DlcScreenCompat.setFocused(this, true)
             value = urlValue
         }
         urlField = field
@@ -52,13 +56,13 @@ class DlcServerUpdateUrlScreen(
         val centerX = width / 2 - buttonWidth / 2
         val rightX = width / 2 + buttonWidth / 2 + 10
 
-        val download = Button.builder(Component.translatable("dlc_manager.update.url_download")) { startDownload() }
+        val download = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.url_download")) { startDownload() }
             .bounds(leftX, buttonY, buttonWidth, buttonHeight)
             .build()
-        val paste = Button.builder(Component.translatable("dlc_manager.update.url_paste")) { pasteClipboard() }
+        val paste = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.url_paste")) { pasteClipboard() }
             .bounds(centerX, buttonY, buttonWidth, buttonHeight)
             .build()
-        val back = Button.builder(Component.translatable("gui.back")) { Minecraft.getInstance().setScreen(parent) }
+        val back = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("gui.back")) { Minecraft.getInstance().setScreen(parent) }
             .bounds(rightX, buttonY, buttonWidth, buttonHeight)
             .build()
         downloadButton = download
@@ -71,9 +75,14 @@ class DlcServerUpdateUrlScreen(
 
     private fun pasteClipboard() {
         val clipboard = Minecraft.getInstance().keyboardHandler.clipboard
+        //? if >=26.1 {
+        /*urlField?.value = clipboard.trim()
+        *///?}
+        //? if <26.1 {
         if (clipboard != null) {
             urlField?.value = clipboard.trim()
         }
+        //?}
     }
 
     private fun startDownload() {
@@ -82,7 +91,7 @@ class DlcServerUpdateUrlScreen(
         }
         val url = urlField?.value?.trim() ?: ""
         if (url.isBlank()) {
-            errorText = Component.translatable("dlc_manager.update.url_empty").string
+            errorText = DlcTextCompat.translatable("dlc_manager.update.url_empty").string
             return
         }
         downloading = true
@@ -90,7 +99,7 @@ class DlcServerUpdateUrlScreen(
         downloadedBytes = 0L
         totalBytes = 0L
         errorText = null
-        statusText = Component.translatable("dlc_manager.update.url_downloading").string
+        statusText = DlcTextCompat.translatable("dlc_manager.update.url_downloading").string
         downloadButton?.active = false
         pasteButton?.active = false
         backButton?.active = false
@@ -117,7 +126,7 @@ class DlcServerUpdateUrlScreen(
                     downloading = false
                     setButtonsActive(true)
                     if (!imported) {
-                        errorText = Component.translatable("dlc_manager.update.failed").string
+                        errorText = DlcTextCompat.translatable("dlc_manager.update.failed").string
                         return@execute
                     }
                     if (parent is DlcServerUpdateManagerScreen) {
@@ -135,7 +144,7 @@ class DlcServerUpdateUrlScreen(
                 }
                 val msg = error.message ?: "download failed"
                 Minecraft.getInstance().execute {
-                    errorText = Component.translatable("dlc_manager.update.url_failed", msg).string
+                    errorText = DlcTextCompat.translatable("dlc_manager.update.url_failed", msg).string
                     downloading = false
                     setButtonsActive(true)
                 }
@@ -163,7 +172,7 @@ class DlcServerUpdateUrlScreen(
             updateDir,
             fileName,
             DlcDownloadService.ProgressListener { done, total ->
-                statusText = Component.translatable("dlc_manager.update.url_downloading").string
+                statusText = DlcTextCompat.translatable("dlc_manager.update.url_downloading").string
                 downloadedBytes = done
                 totalBytes = total
                 progress = if (total > 0) done / total.toFloat() else 0f

@@ -148,7 +148,7 @@ object DlcDcFormatUtil {
                 branches.add(node)
                 replacement = formatHeader(node)
             } else if (relationChild) {
-                node = node + listOf(parent.relation!!, names.joinToString("."))
+                node = node + listOf(parent.relation, names.joinToString("."))
                 branches.add(node)
                 if (header.bracketed()) replacement = formatHeader(node)
             } else if (names.size > 1) {

@@ -1,5 +1,10 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.core.DlcFilePicker
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
@@ -8,14 +13,11 @@ import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.client.server.DlcServerPackInfo
 import com.mojang.blaze3d.platform.NativeImage
-import net.minecraft.Util
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.renderer.texture.DynamicTexture
 import net.minecraft.network.chat.Component
-import net.minecraft.resources.ResourceLocation
 import java.io.ByteArrayInputStream
 import java.nio.file.Path
 import java.util.Base64
@@ -27,7 +29,7 @@ import kotlin.math.roundToInt
 class DlcServerPackManagerScreen(
     private val parent: Screen?,
     private val entry: DlcServerEntry,
-) : DlcPackPageScreen(DlcUiPage.SERVER_PACKS, parent, Component.translatable("dlc_manager.server.pack.manager_title")) {
+) : DlcPackPageScreen(DlcUiPage.SERVER_PACKS, parent, DlcTextCompat.translatable("dlc_manager.server.pack.manager_title")) {
     private var importButton: Button? = null
     private var urlButton: Button? = null
     private var applyButton: Button? = null
@@ -59,7 +61,7 @@ class DlcServerPackManagerScreen(
 
     fun refresh(finalStatus: Component? = null) {
         loading = true
-        status = Component.translatable("dlc_manager.server.files_loading")
+        status = DlcTextCompat.translatable("dlc_manager.server.files_loading")
         Thread({
             val result = try {
                 DlcServerConnection.fetchPackList(entry, TIMEOUT_MS)
@@ -73,10 +75,10 @@ class DlcServerPackManagerScreen(
                     archiveGroups = emptyList()
                     entryOrder = emptyList()
                     currentOrder = emptyList()
-                    status = Component.translatable("dlc_manager.server.pack.load_failed")
+                    status = DlcTextCompat.translatable("dlc_manager.server.pack.load_failed")
                 } else {
                     rebuildEntries(result.packs, result.order)
-                    status = finalStatus ?: Component.translatable("dlc_manager.pack.archive_count", archiveGroups.sumOf { it.versions.size })
+                    status = finalStatus ?: DlcTextCompat.translatable("dlc_manager.pack.archive_count", archiveGroups.sumOf { it.versions.size })
                 }
                 rebuildButtons()
             }
@@ -91,19 +93,19 @@ class DlcServerPackManagerScreen(
         val total = buttonWidth * 4 + gap * 3
         val startX = width / 2 - total / 2
         val y = height - 28
-        importButton = Button.builder(Component.translatable("dlc_manager.pack.import")) { importPack() }
+        importButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack.import")) { importPack() }
             .bounds(startX, y, buttonWidth, buttonHeight)
             .build()
-        urlButton = Button.builder(Component.translatable("dlc_manager.pack.import_url")) {
+        urlButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack.import_url")) {
             Minecraft.getInstance().setScreen(DlcServerPackUrlScreen(this, entry))
         }.bounds(startX + buttonWidth + gap, y, buttonWidth, buttonHeight).build()
-        applyButton = Button.builder(Component.translatable("dlc_manager.pack.apply")) { applyPendingChanges() }
+        applyButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack.apply")) { applyPendingChanges() }
             .bounds(startX + (buttonWidth + gap) * 2, y, buttonWidth, buttonHeight)
             .build()
-        backButton = Button.builder(if (hasPendingChanges()) Component.translatable("dlc_manager.pack.cancel_changes") else Component.translatable("dlc_manager.pack.back")) {
+        backButton = DlcScreenCompat.buttonBuilder(if (hasPendingChanges()) DlcTextCompat.translatable("dlc_manager.pack.cancel_changes") else DlcTextCompat.translatable("dlc_manager.pack.back")) {
             onBackOrCancel()
         }.bounds(startX + (buttonWidth + gap) * 3, y, buttonWidth, buttonHeight).build()
-        refreshButton = Button.builder(Component.translatable("dlc_manager.server.files_refresh")) { refresh() }
+        refreshButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.files_refresh")) { refresh() }
             .bounds(width - 24 - 70, 8, 70, 20)
             .build()
         addRenderableWidget(importButton!!)
@@ -123,20 +125,20 @@ class DlcServerPackManagerScreen(
         refreshButton?.active = active && !hasPendingChanges()
     }
 
-    private fun drawSizedButton(guiGraphics: GuiGraphics, x: Int, y: Int, width: Int, label: Component, mouseX: Int, mouseY: Int, textColor: Int = 0xFFFFFF) {
+    private fun drawSizedButton(guiGraphics: Any, x: Int, y: Int, width: Int, label: Component, mouseX: Int, mouseY: Int, textColor: Int = 0xFFFFFF) {
         val hover = mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + BUTTON_HEIGHT
-        guiGraphics.fill(x, y, x + width, y + BUTTON_HEIGHT, if (hover) 0xFF5A5A5A.toInt() else 0xFF404040.toInt())
-        guiGraphics.drawCenteredString(font, label, x + width / 2, y + 4, textColor)
+        DlcScreenCompat.fill(guiGraphics, x, y, x + width, y + BUTTON_HEIGHT, if (hover) 0xFF5A5A5A.toInt() else 0xFF404040.toInt())
+        DlcScreenCompat.drawCenteredString(guiGraphics, font, label, x + width / 2, y + 4, textColor)
     }
 
     private fun importPack() {
-        val zip: Path = DlcFilePicker.pickAnyFile(Component.translatable("dlc_manager.pack.import").string) ?: return
-        startWork(Component.translatable("dlc_manager.pack.importing"), Component.translatable("dlc_manager.pack.import_staged", zip.fileName.toString())) {
+        val zip: Path = DlcFilePicker.pickAnyFile(DlcTextCompat.translatable("dlc_manager.pack.import").string) ?: return
+        startWork(DlcTextCompat.translatable("dlc_manager.pack.importing"), DlcTextCompat.translatable("dlc_manager.pack.import_staged", zip.fileName.toString())) {
             try {
                 val ok = DlcServerConnection.importPackPackage(entry, TIMEOUT_MS, zip)
-                if (!ok) Component.translatable("dlc_manager.pack.import_failed", "upload failed") else null
+                if (!ok) DlcTextCompat.translatable("dlc_manager.pack.import_failed", "upload failed") else null
             } catch (error: Exception) {
-                Component.translatable("dlc_manager.pack.import_failed", error.message ?: error.javaClass.simpleName)
+                DlcTextCompat.translatable("dlc_manager.pack.import_failed", error.message ?: error.javaClass.simpleName)
             }
         }
     }
@@ -144,14 +146,14 @@ class DlcServerPackManagerScreen(
     private fun applyPendingChanges() {
         if (!hasPendingChanges()) return
         if (pendingInstalls.isEmpty() && pendingUninstalls.isEmpty()) {
-            startWork(Component.translatable("dlc_manager.pack.applying"), Component.translatable("dlc_manager.pack.order_applied")) {
+            startWork(DlcTextCompat.translatable("dlc_manager.pack.applying"), DlcTextCompat.translatable("dlc_manager.pack.order_applied")) {
                 val orderResponse = try {
                     DlcServerConnection.savePackOrder(entry, TIMEOUT_MS, currentOrder)
                 } catch (error: Exception) {
-                    return@startWork Component.translatable("dlc_manager.pack.apply_failed", error.message ?: error.javaClass.simpleName)
+                    return@startWork DlcTextCompat.translatable("dlc_manager.pack.apply_failed", error.message ?: error.javaClass.simpleName)
                 }
                 if (orderResponse == null || !orderResponse.ok) {
-                    return@startWork Component.translatable("dlc_manager.pack.apply_failed", orderResponse?.message ?: "save order failed")
+                    return@startWork DlcTextCompat.translatable("dlc_manager.pack.apply_failed", orderResponse?.message ?: "save order failed")
                 }
                 entryOrder = currentOrder.toList()
                 null
@@ -176,9 +178,9 @@ class DlcServerPackManagerScreen(
         if (success) {
             pendingInstalls.clear()
             pendingUninstalls.clear()
-            refresh(Component.translatable("dlc_manager.pack.apply_success"))
+            refresh(DlcTextCompat.translatable("dlc_manager.pack.apply_success"))
         } else {
-            status = Component.translatable("dlc_manager.pack.apply_failed", message ?: "failed")
+            status = DlcTextCompat.translatable("dlc_manager.pack.apply_failed", message ?: "failed")
             rebuildButtons()
         }
     }
@@ -194,10 +196,10 @@ class DlcServerPackManagerScreen(
                 }, "dlc-server-pack-restart").start()
             }
             Minecraft.getInstance().setScreen(this)
-        }, Component.translatable("dlc_manager.server.restart_title"), Component.translatable("dlc_manager.server.restart_prompt"), Component.translatable("dlc_manager.restart_now"), Component.translatable("dlc_manager.restart_later")))
+        }, DlcTextCompat.translatable("dlc_manager.server.restart_title"), DlcTextCompat.translatable("dlc_manager.server.restart_prompt"), DlcTextCompat.translatable("dlc_manager.restart_now"), DlcTextCompat.translatable("dlc_manager.restart_later")))
     }
 
-    private fun startWork(workingText: Component, successText: Component = Component.translatable("dlc_manager.pack.apply_success"), clearPendingOnSuccess: Boolean = false, action: () -> Component?) {
+    private fun startWork(workingText: Component, successText: Component = DlcTextCompat.translatable("dlc_manager.pack.apply_success"), clearPendingOnSuccess: Boolean = false, action: () -> Component?) {
         if (working) return
         working = true
         status = workingText
@@ -242,28 +244,28 @@ class DlcServerPackManagerScreen(
 
     private fun confirmDelete(pack: PackEntry) {
         val prompt = if (isIdentifierInstalled(pack.identifier)) {
-            Component.translatable("dlc_manager.pack.delete_confirm_uninstall", pack.displayNameText)
+            DlcTextCompat.translatable("dlc_manager.pack.delete_confirm_uninstall", pack.displayNameText)
         } else {
-            Component.translatable("dlc_manager.pack.delete_confirm", pack.displayNameText)
+            DlcTextCompat.translatable("dlc_manager.pack.delete_confirm", pack.displayNameText)
         }
         Minecraft.getInstance().setScreen(DlcConfirmScreen({ accepted ->
             Minecraft.getInstance().setScreen(this)
             if (accepted) {
                 val successText = if (isIdentifierInstalled(pack.identifier)) {
-                    Component.translatable("dlc_manager.pack.delete_uninstalled_success", pack.displayNameText)
+                    DlcTextCompat.translatable("dlc_manager.pack.delete_uninstalled_success", pack.displayNameText)
                 } else {
-                    Component.translatable("dlc_manager.pack.delete_success", pack.displayNameText)
+                    DlcTextCompat.translatable("dlc_manager.pack.delete_success", pack.displayNameText)
                 }
-                startWork(Component.translatable("dlc_manager.pack.delete"), successText) {
+                startWork(DlcTextCompat.translatable("dlc_manager.pack.delete"), successText) {
                     val response = try {
                         DlcServerConnection.deletePack(entry, TIMEOUT_MS, pack.archivePath)
                     } catch (error: Exception) {
-                        return@startWork Component.translatable("dlc_manager.pack.delete_failed", error.message ?: error.javaClass.simpleName)
+                        return@startWork DlcTextCompat.translatable("dlc_manager.pack.delete_failed", error.message ?: error.javaClass.simpleName)
                     }
-                    if (response == null || !response.ok) Component.translatable("dlc_manager.pack.delete_failed", response?.message ?: pack.displayNameText) else null
+                    if (response == null || !response.ok) DlcTextCompat.translatable("dlc_manager.pack.delete_failed", response?.message ?: pack.displayNameText) else null
                 }
             }
-        }, Component.translatable("dlc_manager.pack.delete_confirm_title"), prompt, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()))
+        }, DlcTextCompat.translatable("dlc_manager.pack.delete_confirm_title"), prompt, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()))
     }
 
     private fun confirmOpenLink(pack: PackEntry, key: String) {
@@ -272,9 +274,9 @@ class DlcServerPackManagerScreen(
         Minecraft.getInstance().setScreen(DlcConfirmScreen({ accepted ->
             Minecraft.getInstance().setScreen(this)
             if (accepted) {
-                Util.getPlatform().openUri(url)
+                DlcScreenCompat.openUri(url)
             }
-        }, Component.translatable("dlc_manager.pack.open_link_title"), Component.translatable("dlc_manager.pack.open_link_prompt", url), DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()))
+        }, DlcTextCompat.translatable("dlc_manager.pack.open_link_title"), DlcTextCompat.translatable("dlc_manager.pack.open_link_prompt", url), DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()))
     }
 
     private fun moveGroup(index: Int, delta: Int): Boolean {
@@ -307,7 +309,7 @@ class DlcServerPackManagerScreen(
             currentOrder = entryOrder.toList()
             saveOrderLive(entryOrder)
             sortGroupsByCurrentOrder()
-            status = Component.translatable("dlc_manager.pack.changes_cancelled")
+            status = DlcTextCompat.translatable("dlc_manager.pack.changes_cancelled")
             rebuildButtons()
             return
         }
@@ -348,7 +350,7 @@ class DlcServerPackManagerScreen(
         val orderKey = info.orderKey?.takeIf { it.isNotBlank() } ?: "$archivePath#$identifier@$version"
         val displayName = DlcTextFormatter.parse(info.displayName?.takeIf { it.isNotBlank() } ?: identifier)
         val description = DlcMarkdownRenderer.renderMarkdownComponent(info.description)
-        val authors = info.authors?.filter { it.isNotBlank() }?.ifEmpty { null } ?: listOf(Component.translatable("dlc_manager.pack.unknown_author").string)
+        val authors = info.authors?.filter { it.isNotBlank() }?.ifEmpty { null } ?: listOf(DlcTextCompat.translatable("dlc_manager.pack.unknown_author").string)
         return PackEntry(
             archivePath,
             orderKey,
@@ -431,10 +433,10 @@ class DlcServerPackManagerScreen(
             val loaded = image ?: return null
             val imageWidth = loaded.width
             val imageHeight = loaded.height
-            val texture = DynamicTexture(loaded)
-            image = null
             iconTextureSerial += 1
-            val location = Minecraft.getInstance().textureManager.register("dlc_server_pack_icon/$iconTextureSerial", texture)
+            val texture = DlcScreenCompat.createDynamicTexture("dlc_server_pack_icon/$iconTextureSerial", loaded)
+            image = null
+            val location = DlcScreenCompat.registerTexture(Minecraft.getInstance().textureManager, "dlc_server_pack_icon/$iconTextureSerial", texture)
             IconTexture(location, imageWidth, imageHeight)
         } catch (_: Exception) {
             image?.close()
@@ -445,7 +447,7 @@ class DlcServerPackManagerScreen(
     private fun releaseIconTextures() {
         for (group in archiveGroups) {
             for (pack in group.versions) {
-                pack.iconTexture?.let { Minecraft.getInstance().textureManager.release(it.location) }
+                pack.iconTexture?.let { DlcScreenCompat.releaseTexture(Minecraft.getInstance().textureManager, it.location) }
             }
         }
     }
@@ -463,16 +465,16 @@ class DlcServerPackManagerScreen(
         val compare = installed?.let { DlcPackMetadata.compareVersionStrings(pack.version, it.installedVersion.ifBlank { it.version }) } ?: 0
         if (pendingInstalls[pack.identifier] === pack) {
             return when {
-                installed == null -> Component.translatable("dlc_manager.pack.pending_install")
-                compare > 0 -> Component.translatable("dlc_manager.pack.pending_upgrade")
-                compare < 0 -> Component.translatable("dlc_manager.pack.pending_downgrade")
-                else -> Component.translatable("dlc_manager.pack.pending_install")
+                installed == null -> DlcTextCompat.translatable("dlc_manager.pack.pending_install")
+                compare > 0 -> DlcTextCompat.translatable("dlc_manager.pack.pending_upgrade")
+                compare < 0 -> DlcTextCompat.translatable("dlc_manager.pack.pending_downgrade")
+                else -> DlcTextCompat.translatable("dlc_manager.pack.pending_install")
             }
         }
-        if (pendingUninstalls.contains(pack.identifier)) return Component.translatable("dlc_manager.pack.pending_uninstall")
-        if (installed != null && compare == 0) return Component.translatable("dlc_manager.pack.uninstall")
-        if (installed != null) return if (compare > 0) Component.translatable("dlc_manager.pack.upgrade") else Component.translatable("dlc_manager.pack.downgrade")
-        return Component.translatable("dlc_manager.pack.install")
+        if (pendingUninstalls.contains(pack.identifier)) return DlcTextCompat.translatable("dlc_manager.pack.pending_uninstall")
+        if (installed != null && compare == 0) return DlcTextCompat.translatable("dlc_manager.pack.uninstall")
+        if (installed != null) return if (compare > 0) DlcTextCompat.translatable("dlc_manager.pack.upgrade") else DlcTextCompat.translatable("dlc_manager.pack.downgrade")
+        return DlcTextCompat.translatable("dlc_manager.pack.install")
     }
 
     private fun actionButtons(group: PackGroup): List<RowAction> {
@@ -488,17 +490,17 @@ class DlcServerPackManagerScreen(
     private fun actionLabel(group: PackGroup, action: RowAction): Component {
         return when (action) {
             RowAction.INSTALL -> installButtonLabel(group)
-            RowAction.DELETE -> Component.translatable("dlc_manager.pack.delete")
-            RowAction.FEEDBACK -> Component.translatable("dlc_manager.pack.feedback")
-            RowAction.SUPPORT -> Component.translatable("dlc_manager.pack.support_author")
-            RowAction.MOVE_UP -> Component.literal("▲")
-            RowAction.MOVE_DOWN -> Component.literal("▼")
+            RowAction.DELETE -> DlcTextCompat.translatable("dlc_manager.pack.delete")
+            RowAction.FEEDBACK -> DlcTextCompat.translatable("dlc_manager.pack.feedback")
+            RowAction.SUPPORT -> DlcTextCompat.translatable("dlc_manager.pack.support_author")
+            RowAction.MOVE_UP -> DlcTextCompat.literal("▲")
+            RowAction.MOVE_DOWN -> DlcTextCompat.literal("▼")
         }
     }
 
     private fun authorLines(entry: PackEntry, width: Int): List<List<Component>> {
-        val prefix = Component.translatable("dlc_manager.pack.author_prefix")
-        val separator = Component.literal(", ")
+        val prefix = DlcTextCompat.translatable("dlc_manager.pack.author_prefix")
+        val separator = DlcTextCompat.literal(", ")
         val lines = ArrayList<ArrayList<Component>>()
         var current = ArrayList<Component>()
         var currentWidth = 0
@@ -538,7 +540,7 @@ class DlcServerPackManagerScreen(
         return max(ROW_HEIGHT, max(contentHeight, max(buttonHeight, ROW_PADDING_TOP + ICON_SIZE)) + ROW_PADDING_BOTTOM)
     }
 
-    private fun homepagePrompt(entry: PackEntry): Component? = if (entry.links["homepage"].isNullOrBlank()) null else Component.translatable("dlc_manager.pack.double_click_homepage")
+    private fun homepagePrompt(entry: PackEntry): Component? = if (entry.links["homepage"].isNullOrBlank()) null else DlcTextCompat.translatable("dlc_manager.pack.double_click_homepage")
 
     private fun totalContentHeight(): Int {
         val right = listRight - SCROLLBAR_WIDTH - 4
@@ -553,7 +555,7 @@ class DlcServerPackManagerScreen(
     private fun versionButtonLabel(group: PackGroup): Component = versionOptionLabel(group.displayEntry)
 
     private fun versionOptionLabel(entry: PackEntry): Component {
-        return if (entry.installed) Component.translatable("dlc_manager.pack.version_installed", entry.version) else Component.literal(entry.version)
+        return if (entry.installed) DlcTextCompat.translatable("dlc_manager.pack.version_installed", entry.version) else DlcTextCompat.literal(entry.version)
     }
 
     private val maxScroll: Int
@@ -569,7 +571,7 @@ class DlcServerPackManagerScreen(
         if (!working) onBackOrCancel()
     }
 
-    private data class IconTexture(val location: ResourceLocation, val width: Int, val height: Int)
+    private data class IconTexture(val location: Any, val width: Int, val height: Int)
 
     private data class PackEntry(
         val archivePath: String,

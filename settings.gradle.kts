@@ -12,9 +12,9 @@ pluginManagement {
     plugins {
         id("gg.meza.stonecraft") version "1.14.3"
         id("dev.kikugie.stonecutter") version "0.10-alpha.12"
-        id("dev.architectury.loom") version "1.17.493"
+        id("dev.architectury.loom") version "1.17-20260912.095804-1"
         id("com.gradleup.shadow") version "8.3.11"
-        id("org.jetbrains.kotlin.jvm") version "2.2.20"
+        id("org.jetbrains.kotlin.jvm") version "2.4.10"
     }
 }
 
@@ -52,7 +52,7 @@ fun requestedStoneNodes(allVersionNodes: List<String>): List<String> {
 }
 
 gradle.beforeProject {
-    if (Regex("""\d+\.\d+\.\d+-.+""").matches(name)) {
+    if (Regex("""\d+\.\d+(?:\.\d+)?-.+""").matches(name)) {
         val javaOnly = providers.gradleProperty("enable_kotlin")
             .map { it.toBooleanStrictOrNull() == false }
             .getOrElse(false)

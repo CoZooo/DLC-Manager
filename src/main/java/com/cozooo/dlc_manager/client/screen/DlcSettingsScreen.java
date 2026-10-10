@@ -1,4 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
 import com.cozooo.dlc_manager.client.config.DlcConfigValue;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
@@ -185,7 +187,7 @@ public abstract class DlcSettingsScreen extends DlcPageScreen {
                 for (var configs : categories.values()) for (var base : configs) base.setValueFromString(original.get(base.getName()));
                 Minecraft.getInstance().setScreen(pageParent);
             }
-        }, Component.translatable("dlc_manager.config.cancel_title"), Component.translatable("dlc_manager.config.cancel_prompt"), Component.translatable("dlc_manager.config.cancel_yes"), Component.translatable("dlc_manager.config.cancel_no")));
+        }, DlcTextCompat.translatable("dlc_manager.config.cancel_title"), DlcTextCompat.translatable("dlc_manager.config.cancel_prompt"), DlcTextCompat.translatable("dlc_manager.config.cancel_yes"), DlcTextCompat.translatable("dlc_manager.config.cancel_no")));
     }
     private static String[] options(String name) {
         if (name.endsWith("Anchor")) return name.equals("titleAnchor") || name.equals("titleUpdateAnchor") ? new String[]{"auto","top_left","top","top_right","left","center","right","bottom_left","bottom","bottom_right"} : new String[]{"top_left","top","top_right","left","center","right","bottom_left","bottom","bottom_right"};

@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.preset.DlcPresetEntry
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState
 import com.cozooo.dlc_manager.client.server.DlcServerConnection
@@ -23,7 +27,7 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
     info: DlcServerInfo?,
     startTab: Tab? = null,
     private val openedFromIngame: Boolean = false,
-) : DlcPageScreen(DlcUiPage.SERVER_TOOLS, parent, Component.translatable("dlc_manager.server.title")) {
+) : DlcPageScreen(DlcUiPage.SERVER_TOOLS, parent, DlcTextCompat.translatable("dlc_manager.server.title")) {
     enum class Tab {
         SERVERS,
     }
@@ -149,19 +153,19 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
         val buttonCount = 5
         val totalHeight = buttonCount * buttonHeight + (buttonCount - 1) * buttonGap
         val startY = max(panelTop() + 12, (panelTop() + panelBottom() - totalHeight) / 2 - 6)
-        val push = Button.builder(Component.translatable("dlc_manager.server.push")) { openPush() }
+        val push = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.push")) { openPush() }
             .bounds(centerX - buttonWidth / 2, startY, buttonWidth, buttonHeight)
             .build()
-        val rcon = Button.builder(Component.translatable("dlc_manager.server.rcon")) { openRcon() }
+        val rcon = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.rcon")) { openRcon() }
             .bounds(centerX - buttonWidth / 2, startY + buttonHeight + buttonGap, buttonWidth, buttonHeight)
             .build()
-        val files = Button.builder(Component.translatable("dlc_manager.server.files")) { openFiles() }
+        val files = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.files")) { openFiles() }
             .bounds(centerX - buttonWidth / 2, startY + (buttonHeight + buttonGap) * 2, buttonWidth, buttonHeight)
             .build()
-        val updateManager = Button.builder(Component.translatable("dlc_manager.update.manager")) {
+        val updateManager = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.manager")) {
             Minecraft.getInstance().setScreen(DlcServerUpdateManagerScreen(this, entry))
         }.bounds(centerX - buttonWidth / 2, startY + (buttonHeight + buttonGap) * 3, buttonWidth, buttonHeight).build()
-        val packManager = Button.builder(Component.translatable("dlc_manager.pack.manager")) {
+        val packManager = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack.manager")) {
             openPackManager()
         }.bounds(centerX - buttonWidth / 2, startY + (buttonHeight + buttonGap) * 4, buttonWidth, buttonHeight).build()
         pushButton = push
@@ -175,7 +179,7 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
         addRenderableWidget(updateManager)
         addRenderableWidget(packManager)
         if (openedFromIngame) {
-            val returnToGame = Button.builder(Component.translatable("menu.returnToGame")) { Minecraft.getInstance().setScreen(null) }
+            val returnToGame = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("menu.returnToGame")) { Minecraft.getInstance().setScreen(null) }
                 .bounds(centerX - buttonWidth / 2, height - 22, buttonWidth, buttonHeight)
                 .build()
             returnToGameButton = returnToGame
@@ -205,7 +209,7 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
                 if (group.isNullOrEmpty()) {
                     continue
                 }
-                displayEntries.add(DisplayEntry.header(Component.translatable(type.getDisplayKey())))
+                displayEntries.add(DisplayEntry.header(DlcTextCompat.translatable(type.getDisplayKey())))
                 for (item in group) {
                     displayEntries.add(DisplayEntry.item(item))
                 }

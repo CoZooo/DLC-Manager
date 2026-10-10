@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.preset.DlcPresetEntry;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
@@ -106,7 +110,7 @@ public class DlcServerManagerScreen extends DlcPageScreen {
     }
 
     public DlcServerManagerScreen(Screen parent, DlcServerEntry entry, DlcServerInfo info, Tab startTab, boolean openedFromIngame) {
-        super(DlcUiPage.SERVER_TOOLS, parent, Component.translatable("dlc_manager.server.title"));
+        super(DlcUiPage.SERVER_TOOLS, parent, DlcTextCompat.translatable("dlc_manager.server.title"));
         this.parent = parent;
         this.entry = entry;
         this.openedFromIngame = openedFromIngame;
@@ -182,20 +186,20 @@ public class DlcServerManagerScreen extends DlcPageScreen {
         int buttonCount = 5;
         int totalHeight = buttonCount * buttonHeight + (buttonCount - 1) * buttonGap;
         int startY = Math.max(panelTop() + 12, (panelTop() + panelBottom() - totalHeight) / 2 - 6);
-        pushButton = Button.builder(Component.translatable("dlc_manager.server.push"), btn -> openPush())
+        pushButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.push"), btn -> openPush())
             .bounds(centerX - buttonWidth / 2, startY, buttonWidth, buttonHeight)
             .build();
-        rconButton = Button.builder(Component.translatable("dlc_manager.server.rcon"), btn -> openRcon())
+        rconButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.rcon"), btn -> openRcon())
             .bounds(centerX - buttonWidth / 2, startY + buttonHeight + buttonGap, buttonWidth, buttonHeight)
             .build();
-        filesButton = Button.builder(Component.translatable("dlc_manager.server.files"), btn -> openFiles())
+        filesButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.files"), btn -> openFiles())
             .bounds(centerX - buttonWidth / 2, startY + (buttonHeight + buttonGap) * 2, buttonWidth, buttonHeight)
             .build();
-        updateManagerButton = Button.builder(Component.translatable("dlc_manager.update.manager"),
+        updateManagerButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.manager"),
                 btn -> Minecraft.getInstance().setScreen(new DlcServerUpdateManagerScreen(this, entry)))
             .bounds(centerX - buttonWidth / 2, startY + (buttonHeight + buttonGap) * 3, buttonWidth, buttonHeight)
             .build();
-        packManagerButton = Button.builder(Component.translatable("dlc_manager.pack.manager"),
+        packManagerButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack.manager"),
                 btn -> openPackManager())
             .bounds(centerX - buttonWidth / 2, startY + (buttonHeight + buttonGap) * 4, buttonWidth, buttonHeight)
             .build();
@@ -205,7 +209,7 @@ public class DlcServerManagerScreen extends DlcPageScreen {
         addRenderableWidget(updateManagerButton);
         addRenderableWidget(packManagerButton);
         if (openedFromIngame) {
-            returnToGameButton = Button.builder(Component.translatable("menu.returnToGame"), btn -> Minecraft.getInstance().setScreen(null))
+            returnToGameButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("menu.returnToGame"), btn -> Minecraft.getInstance().setScreen(null))
                 .bounds(centerX - buttonWidth / 2, this.height - 22, buttonWidth, buttonHeight)
                 .build();
             addRenderableWidget(returnToGameButton);
@@ -234,7 +238,7 @@ public class DlcServerManagerScreen extends DlcPageScreen {
                 if (group == null || group.isEmpty()) {
                     continue;
                 }
-                displayEntries.add(DisplayEntry.header(Component.translatable(type.getDisplayKey())));
+                displayEntries.add(DisplayEntry.header(DlcTextCompat.translatable(type.getDisplayKey())));
                 for (DlcServerItem item : group) {
                     displayEntries.add(DisplayEntry.item(item));
                 }

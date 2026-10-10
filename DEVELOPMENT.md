@@ -52,7 +52,7 @@ From `tools/dc-editor`, use `npm run build` for the web application or `npm run 
 
 ## Contributing
 
-AI-assisted development and pull requests are welcome. Every PR description must include the following sections:
+AI-assisted development is allowed. Every PR description must include the following sections:
 
 ```markdown
 ## Summary

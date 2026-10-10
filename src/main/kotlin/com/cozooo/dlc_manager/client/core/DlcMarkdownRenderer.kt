@@ -1,4 +1,6 @@
 package com.cozooo.dlc_manager.client.core
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
 import net.minecraft.ChatFormatting
 import net.minecraft.client.gui.Font
 import net.minecraft.network.chat.ClickEvent
@@ -44,7 +46,7 @@ object DlcMarkdownRenderer {
     @JvmStatic
     fun renderMarkdownComponent(text: String?): Component {
         if (text.isNullOrBlank()) {
-            return Component.empty()
+            return DlcTextCompat.empty()
         }
         return renderMarkdown(text)
     }
@@ -56,12 +58,21 @@ object DlcMarkdownRenderer {
         }
         var match = false
         line.accept { _, style, _ ->
+            //? if >=26.1 {
+            /*if (HR_MARKER == style.insertion) {
+                match = true
+                false
+            } else {
+                true
+            }*///?}
+            //? if <26.1 {
             if (style != null && HR_MARKER == style.insertion) {
                 match = true
                 false
             } else {
                 true
             }
+            //?}
         }
         return match
     }
@@ -92,12 +103,12 @@ object DlcMarkdownRenderer {
 
     private fun renderMarkdown(text: String): Component {
         val document = MARKDOWN_PARSER.parse(text)
-        val out = Component.literal("")
+        val out = DlcTextCompat.literal("")
         var first = true
         var node = document.firstChild
         while (node != null) {
             if (!first) {
-                out.append(Component.literal("\n"))
+                out.append(DlcTextCompat.literal("\n"))
             }
             appendBlock(out, node)
             first = false
@@ -118,13 +129,13 @@ object DlcMarkdownRenderer {
                 return
             }
             is BlockQuote -> {
-                out.append(Component.literal("> ").withStyle(ChatFormatting.GRAY))
+                out.append(DlcTextCompat.literal("> ").withStyle(ChatFormatting.GRAY))
                 out.append(renderInlineChildren(node, Style.EMPTY))
                 return
             }
             is ThematicBreak -> {
                 out.append(
-                    Component.literal(" ")
+                    DlcTextCompat.literal(" ")
                         .withStyle(Style.EMPTY.withInsertion(HR_MARKER).withColor(ChatFormatting.DARK_GRAY))
                 )
                 return
@@ -135,9 +146,9 @@ object DlcMarkdownRenderer {
                 while (item != null) {
                     if (item is ListItem) {
                         if (!first) {
-                            out.append(Component.literal("\n"))
+                            out.append(DlcTextCompat.literal("\n"))
                         }
-                        out.append(Component.literal("• "))
+                        out.append(DlcTextCompat.literal("• "))
                         appendListItem(out, item)
                         first = false
                     }
@@ -152,9 +163,9 @@ object DlcMarkdownRenderer {
                 while (item != null) {
                     if (item is ListItem) {
                         if (!first) {
-                            out.append(Component.literal("\n"))
+                            out.append(DlcTextCompat.literal("\n"))
                         }
-                        out.append(Component.literal("$index. "))
+                        out.append(DlcTextCompat.literal("$index. "))
                         appendListItem(out, item)
                         index++
                         first = false
@@ -172,7 +183,7 @@ object DlcMarkdownRenderer {
         var child = item.firstChild
         while (child != null) {
             if (!first) {
-                out.append(Component.literal("\n"))
+                out.append(DlcTextCompat.literal("\n"))
             }
             if (child is Paragraph) {
                 out.append(renderInlineChildren(child, Style.EMPTY))
@@ -185,7 +196,7 @@ object DlcMarkdownRenderer {
     }
 
     private fun renderInlineChildren(parent: Node, style: Style): MutableComponent {
-        val result = Component.literal("")
+        val result = DlcTextCompat.literal("")
         var child = parent.firstChild
         while (child != null) {
             result.append(renderInline(child, style))
@@ -201,30 +212,33 @@ object DlcMarkdownRenderer {
             is StrongEmphasis -> renderInlineChildren(node, style.withBold(true))
             is Strikethrough -> renderInlineChildren(node, style.withStrikethrough(true))
             is Link -> {
-                val linkStyle = style.withUnderlined(true)
+                var linkStyle = style.withUnderlined(true)
                     .withColor(0x4EA1FF)
-                    .withClickEvent(ClickEvent(ClickEvent.Action.OPEN_URL, node.destination))
+                //? if >=26.1 {
+                //?} else {
+                linkStyle = linkStyle.withClickEvent(ClickEvent(ClickEvent.Action.OPEN_URL, node.destination))
+                //?}
                 renderInlineChildren(node, linkStyle)
             }
             is Code -> {
                 val codeStyle = style.withColor(ChatFormatting.GRAY).withItalic(false)
-                Component.literal(node.literal).withStyle(codeStyle)
+                DlcTextCompat.literal(node.literal).withStyle(codeStyle)
             }
-            is SoftLineBreak, is HardLineBreak -> Component.literal("\n").withStyle(style)
+            is SoftLineBreak, is HardLineBreak -> DlcTextCompat.literal("\n").withStyle(style)
             else -> renderInlineChildren(node, style)
         }
     }
 
     private fun renderTextWithFormatting(text: String?, style: Style): Component {
         if (text.isNullOrEmpty()) {
-            return Component.empty()
+            return DlcTextCompat.empty()
         }
         val marker = "++"
         var index = text.indexOf(marker)
         if (index < 0) {
             return DlcTextFormatter.parse(text, style)
         }
-        val result = Component.literal("")
+        val result = DlcTextCompat.literal("")
         var pos = 0
         var underline = false
         while (index >= 0) {
@@ -246,6 +260,18 @@ object DlcMarkdownRenderer {
     private fun extractHeadingLevel(line: FormattedCharSequence): Int {
         var level = 0
         line.accept { _, style, _ ->
+            //? if >=26.1 {
+            /*val marker = style.insertion
+            if (marker != null && marker.startsWith(HEADING_MARKER)) {
+                val raw = marker.substring(HEADING_MARKER.length)
+                level = try {
+                    raw.toInt()
+                } catch (_: NumberFormatException) {
+                    1
+                }
+                return@accept false
+            }*///?}
+            //? if <26.1 {
             if (style != null) {
                 val marker = style.insertion
                 if (marker != null && marker.startsWith(HEADING_MARKER)) {
@@ -258,6 +284,7 @@ object DlcMarkdownRenderer {
                     return@accept false
                 }
             }
+            //?}
             true
         }
         return level

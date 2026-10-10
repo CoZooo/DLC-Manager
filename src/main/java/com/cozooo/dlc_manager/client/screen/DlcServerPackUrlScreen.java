@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import net.minecraft.client.Minecraft;
@@ -19,7 +23,7 @@ public class DlcServerPackUrlScreen extends DlcUrlPageScreen {
     private String statusText;
 
     public DlcServerPackUrlScreen(DlcServerPackManagerScreen parent, DlcServerEntry entry) {
-        super(DlcUiPage.SERVER_PACK_URL, parent, Component.translatable("dlc_manager.pack.import_url_title"));
+        super(DlcUiPage.SERVER_PACK_URL, parent, DlcTextCompat.translatable("dlc_manager.pack.import_url_title"));
         this.parent = parent;
         this.entry = entry;
     }
@@ -29,9 +33,9 @@ public class DlcServerPackUrlScreen extends DlcUrlPageScreen {
         int fieldHeight = 18;
         int fieldX = this.width / 2 - fieldWidth / 2;
         int fieldY = this.height / 2 - 20;
-        urlField = new EditBox(this.font, fieldX, fieldY, fieldWidth, fieldHeight, Component.empty());
+        urlField = new EditBox(this.font, fieldX, fieldY, fieldWidth, fieldHeight, DlcTextCompat.empty());
         urlField.setMaxLength(Integer.MAX_VALUE);
-        urlField.setFocused(true);
+        DlcScreenCompat.setFocused(urlField, true);
         urlField.setValue(urlValue);
         addRenderableWidget(urlField);
 
@@ -41,13 +45,13 @@ public class DlcServerPackUrlScreen extends DlcUrlPageScreen {
         int leftX = this.width / 2 - buttonWidth - 10 - buttonWidth / 2;
         int centerX = this.width / 2 - buttonWidth / 2;
         int rightX = this.width / 2 + buttonWidth / 2 + 10;
-        downloadButton = Button.builder(Component.translatable("dlc_manager.update.url_download"), btn -> startDownload())
+        downloadButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.url_download"), btn -> startDownload())
             .bounds(leftX, buttonY, buttonWidth, buttonHeight)
             .build();
-        pasteButton = Button.builder(Component.translatable("dlc_manager.update.url_paste"), btn -> pasteClipboard())
+        pasteButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.url_paste"), btn -> pasteClipboard())
             .bounds(centerX, buttonY, buttonWidth, buttonHeight)
             .build();
-        backButton = Button.builder(Component.translatable("dlc_manager.pack.back"), btn -> Minecraft.getInstance().setScreen(parent))
+        backButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack.back"), btn -> Minecraft.getInstance().setScreen(parent))
             .bounds(rightX, buttonY, buttonWidth, buttonHeight)
             .build();
         addRenderableWidget(downloadButton);
@@ -69,11 +73,11 @@ public class DlcServerPackUrlScreen extends DlcUrlPageScreen {
         }
         String url = urlField.getValue() == null ? "" : urlField.getValue().trim();
         if (url.isBlank()) {
-            statusText = Component.translatable("dlc_manager.update.url_empty").getString();
+            statusText = DlcTextCompat.translatable("dlc_manager.update.url_empty").getString();
             return;
         }
         working = true;
-        statusText = Component.translatable("dlc_manager.pack.url_downloading").getString();
+        statusText = DlcTextCompat.translatable("dlc_manager.pack.url_downloading").getString();
         updateButtons();
         new Thread(() -> {
             boolean ok;
@@ -81,7 +85,7 @@ public class DlcServerPackUrlScreen extends DlcUrlPageScreen {
                 ok = DlcServerConnection.importPackPackageFromUrl(entry, 8000, url, null);
             } catch (Exception ex) {
                 ok = false;
-                statusText = Component.translatable("dlc_manager.update.url_failed", ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()).getString();
+                statusText = DlcTextCompat.translatable("dlc_manager.update.url_failed", ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()).getString();
             }
             boolean success = ok;
             Minecraft.getInstance().execute(() -> {
@@ -90,8 +94,8 @@ public class DlcServerPackUrlScreen extends DlcUrlPageScreen {
                 if (success) {
                     Minecraft.getInstance().setScreen(parent);
                     parent.refresh();
-                } else if (statusText == null || statusText.isBlank() || Component.translatable("dlc_manager.pack.url_downloading").getString().equals(statusText)) {
-                    statusText = Component.translatable("dlc_manager.pack.import_failed", "download failed").getString();
+                } else if (statusText == null || statusText.isBlank() || DlcTextCompat.translatable("dlc_manager.pack.url_downloading").getString().equals(statusText)) {
+                    statusText = DlcTextCompat.translatable("dlc_manager.pack.import_failed", "download failed").getString();
                 }
             });
         }, "dlc-server-pack-url").start();

@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerList;
@@ -40,7 +44,7 @@ public class DlcServerRconScreen extends DlcPageScreen {
     private String rconPassword = "";
 
     public DlcServerRconScreen(Screen parent, DlcServerEntry entry) {
-        super(DlcUiPage.SERVER_RCON, parent, Component.translatable("dlc_manager.server.rcon_title"));
+        super(DlcUiPage.SERVER_RCON, parent, DlcTextCompat.translatable("dlc_manager.server.rcon_title"));
         this.parent = parent;
         this.entry = entry;
     }
@@ -61,8 +65,8 @@ public class DlcServerRconScreen extends DlcPageScreen {
         int fieldWidth = Math.min(220, this.width - 80);
         int fieldX = centerX - fieldWidth / 2;
 
-        portField = new EditBox(this.font, fieldX, topY + 18, fieldWidth, 20, Component.translatable("dlc_manager.server.rcon_port"));
-        passwordField = new EditBox(this.font, fieldX, topY + 44, fieldWidth, 20, Component.translatable("dlc_manager.server.rcon_password"));
+        portField = new EditBox(this.font, fieldX, topY + 18, fieldWidth, 20, DlcTextCompat.translatable("dlc_manager.server.rcon_port"));
+        passwordField = new EditBox(this.font, fieldX, topY + 44, fieldWidth, 20, DlcTextCompat.translatable("dlc_manager.server.rcon_password"));
         portField.setMaxLength(16);
         passwordField.setMaxLength(256);
         portField.setValue(Integer.toString(rconPort));
@@ -75,10 +79,10 @@ public class DlcServerRconScreen extends DlcPageScreen {
         int gap = 8;
         int totalWidth = buttonWidth * 2 + gap;
         int startX = centerX - totalWidth / 2;
-        connectButton = Button.builder(Component.translatable("dlc_manager.server.rcon_connect"), btn -> connect())
+        connectButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.rcon_connect"), btn -> connect())
             .bounds(startX, buttonY, buttonWidth, 20)
             .build();
-        backButton = Button.builder(Component.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
+        backButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
             .bounds(startX + buttonWidth + gap, buttonY, buttonWidth, 20)
             .build();
         addRenderableWidget(connectButton);
@@ -98,16 +102,16 @@ public class DlcServerRconScreen extends DlcPageScreen {
         int buttonWidth = 140;
         int buttonHeight = 20;
         int gap = 8;
-        playersButton = Button.builder(Component.translatable("dlc_manager.server.rcon_players"), btn -> openPlayers())
+        playersButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.rcon_players"), btn -> openPlayers())
             .bounds(centerX - buttonWidth / 2, startY, buttonWidth, buttonHeight)
             .build();
-        consoleButton = Button.builder(Component.translatable("dlc_manager.server.rcon_console"), btn -> openConsole())
+        consoleButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.rcon_console"), btn -> openConsole())
             .bounds(centerX - buttonWidth / 2, startY + buttonHeight + gap, buttonWidth, buttonHeight)
             .build();
-        quickButton = Button.builder(Component.translatable("dlc_manager.server.rcon_common"), btn -> openQuickCommands())
+        quickButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.rcon_common"), btn -> openQuickCommands())
             .bounds(centerX - buttonWidth / 2, startY + (buttonHeight + gap) * 2, buttonWidth, buttonHeight)
             .build();
-        backButton = Button.builder(Component.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
+        backButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
             .bounds(centerX - buttonWidth / 2, startY + (buttonHeight + gap) * 3 + 6, buttonWidth, buttonHeight)
             .build();
         addRenderableWidget(playersButton);
@@ -135,12 +139,12 @@ public class DlcServerRconScreen extends DlcPageScreen {
                 connectingRcon = false;
                 if (response == null) {
                     connected = false;
-                    statusText = Component.translatable("dlc_manager.server.rcon_connect_failed").getString();
-                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
-                        Component.translatable("dlc_manager.server.rcon_connect_failed"), Component.empty());
+                    statusText = DlcTextCompat.translatable("dlc_manager.server.rcon_connect_failed").getString();
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                        DlcTextCompat.translatable("dlc_manager.server.rcon_connect_failed"), DlcTextCompat.empty());
                 } else {
                     connected = true;
-                    statusText = Component.translatable("dlc_manager.server.rcon_connected").getString();
+                    statusText = DlcTextCompat.translatable("dlc_manager.server.rcon_connected").getString();
                     saveRconConfig();
                     connectOnly = false;
                     refreshPage();
@@ -194,11 +198,11 @@ public class DlcServerRconScreen extends DlcPageScreen {
                     }
                 }
                 if (!rconEnabled) {
-                    statusText = Component.translatable("dlc_manager.server.rcon_disabled").getString();
+                    statusText = DlcTextCompat.translatable("dlc_manager.server.rcon_disabled").getString();
                 } else if (!passwordSet) {
-                    statusText = Component.translatable("dlc_manager.server.rcon_password_missing").getString();
+                    statusText = DlcTextCompat.translatable("dlc_manager.server.rcon_password_missing").getString();
                 } else if (!connected) {
-                    statusText = Component.translatable("dlc_manager.server.rcon_disconnected").getString();
+                    statusText = DlcTextCompat.translatable("dlc_manager.server.rcon_disconnected").getString();
                 }
                 updateButtonStates();
             }));

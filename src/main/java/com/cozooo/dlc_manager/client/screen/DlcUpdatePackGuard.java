@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard;
 import com.cozooo.dlc_manager.client.update.DlcUpdateManifest;
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
@@ -21,7 +23,7 @@ public final class DlcUpdatePackGuard {
             handler.proceed(check, false);
             return;
         }
-        Component title = Component.translatable("dlc_manager.pack.manager_title");
+        Component title = DlcTextCompat.translatable("dlc_manager.pack.manager_title");
         Component message = DlcConfirmUtil.buildPackUpdateIncompatibleConfirmMessage(check);
         Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             if (accepted) {

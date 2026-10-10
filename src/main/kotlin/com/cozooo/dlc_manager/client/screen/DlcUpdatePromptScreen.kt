@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry
@@ -22,7 +26,7 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
     private val parent: Screen?,
     private val result: UpdateCheckResult?,
     private val allowSkipThisUpdate: Boolean = false,
-) : DlcPageScreen(DlcUiPage.UPDATE_PROMPT, parent, Component.translatable("dlc_manager.update.title")) {
+) : DlcPageScreen(DlcUiPage.UPDATE_PROMPT, parent, DlcTextCompat.translatable("dlc_manager.update.title")) {
     private val forceUpdate = hasHiddenUpdates(result)
     private var applyButton: Button? = null
     private var skipThisUpdateButton: Button? = null
@@ -37,7 +41,7 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
         val buttonHeight = 20
         val y = height - 40
         if (forceUpdate) {
-            val apply = Button.builder(Component.translatable("dlc_manager.update.apply")) { confirmApply() }
+            val apply = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.apply")) { confirmApply() }
                 .bounds(width / 2 - buttonWidth / 2, y, buttonWidth, buttonHeight)
                 .build()
             applyButton = apply
@@ -49,13 +53,13 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
             val skipButtonWidth = 108
             val totalWidth = buttonWidth + skipButtonWidth + buttonWidth + spacing * 2
             val startX = width / 2 - totalWidth / 2
-            val apply = Button.builder(Component.translatable("dlc_manager.update.apply")) { confirmApply() }
+            val apply = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.apply")) { confirmApply() }
                 .bounds(startX, y, buttonWidth, buttonHeight)
                 .build()
-            val skip = Button.builder(Component.translatable("dlc_manager.self_update.skip_this_update")) { skipThisUpdate() }
+            val skip = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.self_update.skip_this_update")) { skipThisUpdate() }
                 .bounds(startX + buttonWidth + spacing, y, skipButtonWidth, buttonHeight)
                 .build()
-            val cancel = Button.builder(Component.translatable("dlc_manager.update.cancel")) { Minecraft.getInstance().setScreen(parent) }
+            val cancel = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.cancel")) { Minecraft.getInstance().setScreen(parent) }
                 .bounds(startX + buttonWidth + spacing + skipButtonWidth + spacing, y, buttonWidth, buttonHeight)
                 .build()
             applyButton = apply
@@ -65,10 +69,10 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
             addRenderableWidget(skip)
             addRenderableWidget(cancel)
         } else {
-            val apply = Button.builder(Component.translatable("dlc_manager.update.apply")) { confirmApply() }
+            val apply = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.apply")) { confirmApply() }
                 .bounds(width / 2 - buttonWidth - 6, y, buttonWidth, buttonHeight)
                 .build()
-            val cancel = Button.builder(Component.translatable("dlc_manager.update.cancel")) { Minecraft.getInstance().setScreen(parent) }
+            val cancel = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.cancel")) { Minecraft.getInstance().setScreen(parent) }
                 .bounds(width / 2 + 6, y, buttonWidth, buttonHeight)
                 .build()
             applyButton = apply
@@ -87,7 +91,7 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
     }
 
     private fun confirmApply() {
-        val title = Component.translatable("dlc_manager.update.title")
+        val title = DlcTextCompat.translatable("dlc_manager.update.title")
         val message = DlcConfirmUtil.buildUpdateConfirmApplyMessage()
         Minecraft.getInstance().setScreen(
             DlcConfirmScreen({ accepted ->
@@ -172,7 +176,7 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
             return
         }
         applying = true
-        statusText = Component.translatable("dlc_manager.update.applying").string
+        statusText = DlcTextCompat.translatable("dlc_manager.update.applying").string
         progress = -1f
         applyButton?.active = false
         cancelButton?.active = false
@@ -206,7 +210,7 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
                 val message = ex.message ?: "Failed to apply update"
                 Minecraft.getInstance().execute {
                     applying = false
-                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(parent, false, Component.literal(message)))
+                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(parent, false, DlcTextCompat.literal(message)))
                 }
             }
         }, "dlc-update-apply").start()
@@ -227,9 +231,9 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
             return
         }
         val message = if (result.isHelperScheduled) {
-            Component.translatable("dlc_manager.update.deferred_restart")
+            DlcTextCompat.translatable("dlc_manager.update.deferred_restart")
         } else {
-            Component.translatable("dlc_manager.update.success")
+            DlcTextCompat.translatable("dlc_manager.update.success")
         }
         Minecraft.getInstance().setScreen(DlcUpdateResultScreen(parent, true, message))
     }
@@ -258,9 +262,9 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
 
     private fun createSuccessResultScreen(result: UpdateApplyResult?): Screen {
         val message = if (result != null && result.isHelperScheduled) {
-            Component.translatable("dlc_manager.update.deferred_restart")
+            DlcTextCompat.translatable("dlc_manager.update.deferred_restart")
         } else {
-            Component.translatable("dlc_manager.update.success")
+            DlcTextCompat.translatable("dlc_manager.update.success")
         }
         return DlcUpdateResultScreen(parent, true, message)
     }
@@ -286,7 +290,7 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
         pageRevision = 0
 
         val list = section(null, tr("dlc_manager.update.desc"))
-        for (pkg in result?.updates.orEmpty()) { if (pkg == null) continue; val part = node(list, "section", "page-section"); text(part, formatUpdateLine(pkg), "section-title"); pkg.getManifest()?.let { markdown(part, it.resolveChangelog(DlcPlatformServices.languageCode())) } }
+        for (pkg in result?.updates.orEmpty()) { if (pkg == null) continue; val part = node(list, "section", "page-section"); text(part, formatUpdateLine(pkg), "section-title"); markdown(part, pkg.getManifest().resolveChangelog(DlcPlatformServices.languageCode())) }
         live(content, { statusText }, "page-description"); progress(content) { if (applying) progress.toDouble() else 0.0 }
         cancelButton?.let { mount(footer, it) }; skipThisUpdateButton?.let { mount(footer, it) }; applyButton?.let { mount(footer, it).getElement().setAttribute("class", "button primary") }
 

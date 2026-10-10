@@ -1,9 +1,10 @@
 package com.cozooo.dlc_manager.client.screen
 
-import com.mojang.blaze3d.platform.GlStateManager
-import com.mojang.blaze3d.systems.RenderSystem
 import com.sighs.apricityui.init.Document
 import com.sighs.apricityui.init.Element
+//? if <26.1 {
+import com.mojang.blaze3d.platform.GlStateManager
+import com.mojang.blaze3d.systems.RenderSystem
 import com.sighs.apricityui.layout.Position
 import com.sighs.apricityui.spi.AuiRenderService
 import com.sighs.apricityui.spi.AuiServices
@@ -11,11 +12,15 @@ import com.sighs.apricityui.spi.FboHandle
 import com.sighs.apricityui.spi.MeshFormat
 import com.sighs.apricityui.spi.MeshMode
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.renderer.GameRenderer
 import org.lwjgl.BufferUtils
 import org.lwjgl.opengl.GL11
 import org.lwjgl.opengl.GL30
+//?}
+//? if >=1.20.1 <26.1 {
+import net.minecraft.client.gui.GuiGraphics
+//?}
+
 
 class DlcUiTransition @JvmOverloads constructor(private val backend: Backend = GpuBackend()) {
     private var snapshot: Snapshot? = null
@@ -52,7 +57,7 @@ class DlcUiTransition @JvmOverloads constructor(private val backend: Backend = G
         }
     }
 
-    fun render(graphics: GuiGraphics?, ready: Boolean, now: Long) {
+    fun render(graphics: Any?, ready: Boolean, now: Long) {
         val current = snapshot ?: return
         try {
             if (!current.isValid()) {
@@ -95,7 +100,7 @@ class DlcUiTransition @JvmOverloads constructor(private val backend: Backend = G
 
     interface Snapshot {
         fun isValid(): Boolean
-        fun draw(graphics: GuiGraphics?, alpha: Float)
+        fun draw(graphics: Any?, alpha: Float)
         fun close()
     }
 
@@ -135,6 +140,7 @@ class DlcUiTransition @JvmOverloads constructor(private val backend: Backend = G
         }
     }
 
+    //? if <26.1 {
     private class GpuBackend : Backend {
         override fun capture(region: Element?): Snapshot? {
             val render = AuiServices.render()
@@ -190,7 +196,15 @@ class DlcUiTransition @JvmOverloads constructor(private val backend: Backend = G
             }
         }
     }
+    //?}
 
+    //? if >=26.1 {
+    /*private class GpuBackend : Backend {
+        override fun capture(region: Element?): Snapshot? = null
+    }
+    *///?}
+
+    //? if <26.1 {
     private class GpuSnapshot(private val render: AuiRenderService, private var target: FboHandle?, private val bounds: Bounds) : Snapshot {
         override fun isValid(): Boolean {
             if (target == null || !render.isOnRenderThread) return false
@@ -201,7 +215,14 @@ class DlcUiTransition @JvmOverloads constructor(private val backend: Backend = G
                 && window.guiScaledWidth == bounds.guiWidth && window.guiScaledHeight == bounds.guiHeight
         }
 
-        override fun draw(graphics: GuiGraphics?, alpha: Float) {
+        override fun draw(graphics: Any?, alpha: Float) {
+            //? if >=1.20.1 <26.1 {
+            drawModern(graphics as GuiGraphics?, alpha)
+            //?}
+        }
+
+        //? if >=1.20.1 <26.1 {
+        private fun drawModern(graphics: GuiGraphics?, alpha: Float) {
             if (graphics == null) return
             val current = target ?: return
             graphics.flush()
@@ -236,6 +257,7 @@ class DlcUiTransition @JvmOverloads constructor(private val backend: Backend = G
                 if (stencil) render.enableStencilTest() else render.disableStencilTest()
             }
         }
+        //?}
 
         override fun close() {
             val previous = target ?: return
@@ -250,10 +272,12 @@ class DlcUiTransition @JvmOverloads constructor(private val backend: Backend = G
             }
         }
     }
+    //?}
 
     companion object {
         private const val DURATION = 200_000_000L
 
+        //? if <26.1 {
         private fun destroyTarget(render: AuiRenderService, target: FboHandle) {
             val previousRead = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING)
             val previousDraw = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING)
@@ -264,6 +288,7 @@ class DlcUiTransition @JvmOverloads constructor(private val backend: Backend = G
                 GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, previousDraw)
             }
         }
+        //?}
 
         private fun release(snapshot: Snapshot?) {
             if (snapshot == null) return

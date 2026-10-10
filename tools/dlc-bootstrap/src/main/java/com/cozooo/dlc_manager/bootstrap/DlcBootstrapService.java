@@ -46,13 +46,7 @@ public final class DlcBootstrapService implements ITransformationService {
             String target = environment.getProperty(IEnvironment.Keys.LAUNCHTARGET.get())
                 .orElseThrow(() -> new IOException("Launch target is unavailable before mod discovery"));
             boolean server = target.toLowerCase(Locale.ROOT).contains("server");
-            DlcModPayload.prepare(game, target.toLowerCase(Locale.ROOT).contains("dev"));
-            DlcEarlyInstaller.install(game, game.resolve("config"), loader, minecraft, server,
-                message -> System.out.println("[dlc-manager-bootstrap] " + message), this::publish, this::isCancelled);
-            checkCancelled();
-            DlcStartupRequirements.markComplete(game);
-            checkCancelled();
-            complete = true;
+            complete = install(game, loader, minecraft, server, target.toLowerCase(Locale.ROOT).contains("dev"));
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(DlcStartupRequirements.FAILURE_MESSAGE + ": installation interrupted; startup stopped", ex);
@@ -61,6 +55,36 @@ public final class DlcBootstrapService implements ITransformationService {
         } finally {
             if (!complete || isCancelled()) System.clearProperty(DlcStartupRequirements.READY_PROPERTY);
         }
+    }
+
+    public void initialize(Path game, String loader, String minecraft, boolean server) {
+        initialize(game, loader, minecraft, server, false);
+    }
+
+    public void initialize(Path game, String loader, String minecraft, boolean server, boolean development) {
+        System.clearProperty(DlcStartupRequirements.READY_PROPERTY);
+        boolean complete = false;
+        try {
+            checkCancelled();
+            complete = install(game, loader, minecraft, server, development);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(DlcStartupRequirements.FAILURE_MESSAGE + ": installation interrupted; startup stopped", ex);
+        } catch (IOException | RuntimeException ex) {
+            throw new IllegalStateException(DlcStartupRequirements.FAILURE_MESSAGE + ": startup stopped. Check the bootstrap log and retry launching.", ex);
+        } finally {
+            if (!complete || isCancelled()) System.clearProperty(DlcStartupRequirements.READY_PROPERTY);
+        }
+    }
+
+    private boolean install(Path game, String loader, String minecraft, boolean server, boolean development) throws IOException, InterruptedException {
+        DlcModPayload.prepare(game, development);
+        DlcEarlyInstaller.install(game, game.resolve("config"), loader, minecraft, server,
+            message -> System.out.println("[dlc-manager-bootstrap] " + message), this::publish, this::isCancelled);
+        checkCancelled();
+        DlcStartupRequirements.markComplete(game);
+        checkCancelled();
+        return true;
     }
 
     private void publish(DlcEarlyInstaller.Progress value) {

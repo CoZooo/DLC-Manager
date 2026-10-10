@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry
 import com.cozooo.dlc_manager.client.remote.DlcRemoteService
 import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker
@@ -18,7 +22,7 @@ class DlcRemoteDownloadScreen(
     private val parent: Screen?,
     missing: List<DlcRemoteEntry>?,
     private val partMarkerKey: String = DlcRemoteMarker.PART_DLC,
-    title: Component = Component.translatable("dlc_manager.remote.title"),
+    title: Component = DlcTextCompat.translatable("dlc_manager.remote.title"),
 ) : DlcRemotePageScreen(if (partMarkerKey == DlcRemoteMarker.PART_DLC_PACK) DlcUiPage.REMOTE_PACK_DOWNLOAD else DlcUiPage.REMOTE_DOWNLOAD, parent, title) {
     private val missing: List<DlcRemoteEntry> = missing ?: emptyList()
     private var previewQueue: List<DlcRemoteEntry> = emptyList()
@@ -61,12 +65,12 @@ class DlcRemoteDownloadScreen(
         val buttonWidth = 120
         val buttonHeight = 20
         val y = height - 40
-        val download = Button.builder(Component.translatable("dlc_manager.remote.download")) { handleDownloadButton() }
+        val download = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.remote.download")) { handleDownloadButton() }
             .bounds(width / 2 - buttonWidth - 6, y, buttonWidth, buttonHeight)
             .build()
         download.active = false
         download.visible = false
-        val skip = Button.builder(Component.translatable("dlc_manager.remote.skip")) { handleSkip() }
+        val skip = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.remote.skip")) { handleSkip() }
             .bounds(width / 2 + 6, y, buttonWidth, buttonHeight)
             .build()
         downloadButton = download
@@ -74,14 +78,14 @@ class DlcRemoteDownloadScreen(
         addRenderableWidget(download)
         addRenderableWidget(skip)
         detecting = true
-        statusText = Component.translatable("dlc_manager.remote.preparing").string
+        statusText = DlcTextCompat.translatable("dlc_manager.remote.preparing").string
         Thread({ buildPreviewQueue() }, "dlc-remote-preview").start()
     }
 
     private fun buildPreviewQueue() {
         previewQueue = DlcRemoteService.expandWithDependencies(missing)
         detecting = false
-        statusText = Component.translatable("dlc_manager.remote.ready").string
+        statusText = DlcTextCompat.translatable("dlc_manager.remote.ready").string
         Minecraft.getInstance().execute {
             downloadButton?.visible = true
             downloadButton?.active = true
@@ -106,13 +110,13 @@ class DlcRemoteDownloadScreen(
             return
         }
         cancelRequested = true
-        statusText = Component.translatable("dlc_manager.remote.canceling").string
+        statusText = DlcTextCompat.translatable("dlc_manager.remote.canceling").string
         downloadButton?.active = false
         skipButton?.active = false
     }
 
     private fun updateDownloadButtonLabel(isDownloading: Boolean) {
-        downloadButton?.message = Component.translatable(
+        downloadButton?.message = DlcTextCompat.translatable(
             if (isDownloading) "dlc_manager.remote.cancel" else "dlc_manager.remote.download",
         )
     }
@@ -148,14 +152,14 @@ class DlcRemoteDownloadScreen(
                     override fun onEntryStart(entry: DlcRemoteEntry?, index: Int, total: Int) {
                         if (maxConcurrentDownloads <= 1 && entry != null) {
                             activeDownloadEntry = entry
-                            statusText = Component.translatable(
+                            statusText = DlcTextCompat.translatable(
                                 "dlc_manager.remote.downloading",
                                 entry.resolveDisplayName(),
                                 completedCount + 1,
                                 totalCount,
                             ).string
                         } else {
-                            statusText = Component.translatable("dlc_manager.remote.downloading_multi").string
+                            statusText = DlcTextCompat.translatable("dlc_manager.remote.downloading_multi").string
                         }
                     }
 
@@ -185,16 +189,16 @@ class DlcRemoteDownloadScreen(
 
                     override fun onEntryFailure(entry: DlcRemoteEntry?, error: Throwable?, completed: Int, total: Int) {
                         completedCount = completed
-                        errorText = Component.translatable("dlc_manager.remote.error", error?.message ?: "").string
+                        errorText = DlcTextCompat.translatable("dlc_manager.remote.error", error?.message ?: "").string
                     }
 
                     override fun onEntryStatus(entry: DlcRemoteEntry?, statusKey: String?, completed: Int, total: Int) {
                         statusText = if (statusKey == "selecting_source") {
-                            Component.translatable("dlc_manager.remote.selecting_source").string
+                            DlcTextCompat.translatable("dlc_manager.remote.selecting_source").string
                         } else if (maxConcurrentDownloads <= 1 && entry != null) {
-                            Component.translatable("dlc_manager.remote.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).string
+                            DlcTextCompat.translatable("dlc_manager.remote.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).string
                         } else {
-                            Component.translatable("dlc_manager.remote.downloading_multi").string
+                            DlcTextCompat.translatable("dlc_manager.remote.downloading_multi").string
                         }
                     }
 
@@ -231,7 +235,7 @@ class DlcRemoteDownloadScreen(
         }
         if (cancelRequested) {
             downloading = false
-            statusText = Component.translatable("dlc_manager.remote.canceled").string
+            statusText = DlcTextCompat.translatable("dlc_manager.remote.canceled").string
             Minecraft.getInstance().execute {
                 updateDownloadButtonLabel(false)
                 downloadButton?.active = true

@@ -123,7 +123,7 @@ class DlcUpdatePackage private constructor(
                     if (entry == null) {
                         return null
                     }
-                    var entryName = entry!!.name?.replace('\\', '/') ?: ""
+                    var entryName = entry.name?.replace('\\', '/') ?: ""
                     if (entryName.startsWith("./")) {
                         entryName = entryName.substring(2)
                     }

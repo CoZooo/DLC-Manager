@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.server.DlcServerCache;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
@@ -32,7 +36,7 @@ public class DlcServerPasswordScreen extends DlcPageScreen {
     }
 
     public DlcServerPasswordScreen(Screen parent, DlcServerEntry entry, boolean autoConnect, boolean openServerManagerOnSuccess) {
-        super(DlcUiPage.SERVER_PASSWORD, parent, Component.translatable("dlc_manager.server.password_title"));
+        super(DlcUiPage.SERVER_PASSWORD, parent, DlcTextCompat.translatable("dlc_manager.server.password_title"));
         this.parent = parent;
         this.entry = entry;
         this.autoConnect = autoConnect;
@@ -45,12 +49,12 @@ public class DlcServerPasswordScreen extends DlcPageScreen {
         int centerX = this.width / 2;
         int startY = this.height / 2 - 32;
 
-        portField = new EditBox(this.font, centerX - fieldWidth / 2, startY, fieldWidth, fieldHeight, Component.empty());
+        portField = new EditBox(this.font, centerX - fieldWidth / 2, startY, fieldWidth, fieldHeight, DlcTextCompat.empty());
         portField.setValue(Integer.toString(entry.port));
-        portField.setFilter(value -> value.chars().allMatch(Character::isDigit));
+        DlcScreenCompat.setNumericFilter(portField);
         addRenderableWidget(portField);
 
-        passwordField = new EditBox(this.font, centerX - fieldWidth / 2, startY + 24, fieldWidth, fieldHeight, Component.empty());
+        passwordField = new EditBox(this.font, centerX - fieldWidth / 2, startY + 24, fieldWidth, fieldHeight, DlcTextCompat.empty());
         if (entry.password != null) {
             passwordField.setValue(entry.password);
         }
@@ -59,10 +63,10 @@ public class DlcServerPasswordScreen extends DlcPageScreen {
         int buttonWidth = 90;
         int buttonHeight = 20;
         int buttonY = startY + 56;
-        connectButton = Button.builder(Component.translatable("dlc_manager.server.connect"), btn -> startConnect())
+        connectButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.connect"), btn -> startConnect())
             .bounds(centerX - buttonWidth - 6, buttonY, buttonWidth, buttonHeight)
             .build();
-        backButton = Button.builder(Component.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
+        backButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
             .bounds(centerX + 6, buttonY, buttonWidth, buttonHeight)
             .build();
         addRenderableWidget(connectButton);
@@ -101,8 +105,8 @@ public class DlcServerPasswordScreen extends DlcPageScreen {
                 connecting = false;
                 updateButtonState();
                 if (info == null) {
-                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
-                        Component.translatable("dlc_manager.server.connect_failed"), Component.empty());
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                        DlcTextCompat.translatable("dlc_manager.server.connect_failed"), DlcTextCompat.empty());
                     return;
                 }
                 saveEntry(entry);
@@ -158,14 +162,14 @@ public class DlcServerPasswordScreen extends DlcPageScreen {
         try {
             int port = Integer.parseInt(value);
             if (port < 1 || port > 65535) {
-                DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
-                    Component.translatable("dlc_manager.server.port_invalid"), Component.empty());
+                DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                    DlcTextCompat.translatable("dlc_manager.server.port_invalid"), DlcTextCompat.empty());
                 return -1;
             }
             return port;
         } catch (NumberFormatException ex) {
-            DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
-                Component.translatable("dlc_manager.server.port_invalid"), Component.empty());
+            DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                DlcTextCompat.translatable("dlc_manager.server.port_invalid"), DlcTextCompat.empty());
             return -1;
         }
     }

@@ -85,7 +85,7 @@ object DlcUpdateRowPlanner {
         }
 
         if (!rolledBackMode && updateCheck != null && updateCheck.hasUpdates()) {
-            for (pkg in updateCheck.updates ?: emptyList()) {
+            for (pkg in updateCheck.updates) {
                 val manifest = pkg?.getManifest() ?: continue
                 val version = manifest.getVersion() ?: continue
                 if (manifest.isHidden()) {

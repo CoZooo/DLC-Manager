@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.core.DlcApplyMode;
 import com.cozooo.dlc_manager.core.DlcApplier;
 import com.cozooo.dlc_manager.core.DlcStateConfig;
@@ -22,7 +26,15 @@ import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import net.minecraft.client.Minecraft;
+//? if >=1.20.1 <26.1 {
 import net.minecraft.client.gui.GuiGraphics;
+//?}
+//? if <1.20.1 {
+/*import com.mojang.blaze3d.vertex.PoseStack;
+*///?}
+//? if >=26.1 {
+/*import net.minecraft.client.gui.GuiGraphicsExtractor;
+*///?}
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
@@ -240,9 +252,9 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
                     } else {
                         minecraft.setScreen(parent);
                     }
-                }, Component.translatable("dlc_manager.title"), Component.translatable("dlc_manager.required.restart_prompt"),
-                    Component.translatable("dlc_manager.restart_now"),
-                    Component.translatable("dlc_manager.restart_later")));
+                }, DlcTextCompat.translatable("dlc_manager.title"), DlcTextCompat.translatable("dlc_manager.required.restart_prompt"),
+                    DlcTextCompat.translatable("dlc_manager.restart_now"),
+                    DlcTextCompat.translatable("dlc_manager.restart_later")));
             } else {
                 minecraft.setScreen(parent);
             }
@@ -277,9 +289,9 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
                     } else {
                         minecraft.setScreen(parent);
                     }
-                }, Component.translatable("dlc_manager.title"), Component.translatable("dlc_manager.required.restart_prompt"),
-                    Component.translatable("dlc_manager.restart_now"),
-                    Component.translatable("dlc_manager.restart_later")));
+                }, DlcTextCompat.translatable("dlc_manager.title"), DlcTextCompat.translatable("dlc_manager.required.restart_prompt"),
+                    DlcTextCompat.translatable("dlc_manager.restart_now"),
+                    DlcTextCompat.translatable("dlc_manager.restart_later")));
             } else {
                 minecraft.setScreen(parent);
             }
@@ -306,9 +318,9 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
                 } else {
                     minecraft.setScreen(parent);
                 }
-            }, Component.translatable("dlc_manager.title"), Component.translatable(message),
-                Component.translatable("dlc_manager.restart_now"),
-                Component.translatable("dlc_manager.restart_later")));
+            }, DlcTextCompat.translatable("dlc_manager.title"), DlcTextCompat.translatable(message),
+                DlcTextCompat.translatable("dlc_manager.restart_now"),
+                DlcTextCompat.translatable("dlc_manager.restart_later")));
         } else if (applyMode == DlcApplyMode.TRY_HOT_RELOAD) {
             minecraft.setScreen(new DlcConfirmScreen(accepted -> {
                 if (accepted) {
@@ -320,12 +332,12 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
                 } else {
                     minecraft.setScreen(parent);
                 }
-            }, Component.translatable("dlc_manager.title"), Component.translatable(message),
-                Component.translatable("dlc_manager.reload_now"),
-                Component.translatable("dlc_manager.reload_later")));
+            }, DlcTextCompat.translatable("dlc_manager.title"), DlcTextCompat.translatable(message),
+                DlcTextCompat.translatable("dlc_manager.reload_now"),
+                DlcTextCompat.translatable("dlc_manager.reload_later")));
         } else {
             minecraft.setScreen(new DlcConfirmScreen(accepted -> minecraft.setScreen(parent),
-                Component.translatable("dlc_manager.title"), Component.translatable(message)));
+                DlcTextCompat.translatable("dlc_manager.title"), DlcTextCompat.translatable(message)));
         }
     }
 
@@ -347,9 +359,9 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
 
     private void showApplyFailureScreen(DlcApplier.ApplyResult result) {
         minecraft.setScreen(new DlcSingleButtonScreen(parent,
-            Component.translatable("dlc_manager.server.apply_failed"),
-            Component.literal(joinFailureMessages(result)),
-            Component.translatable("dlc_manager.back")));
+            DlcTextCompat.translatable("dlc_manager.server.apply_failed"),
+            DlcTextCompat.literal(joinFailureMessages(result)),
+            DlcTextCompat.translatable("dlc_manager.back")));
     }
 
     private String joinFailureMessages(DlcApplier.ApplyResult result) {
@@ -455,14 +467,14 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
     private java.util.concurrent.CompletableFuture<Void> tryReloadResources() {
         Minecraft minecraft = Minecraft.getInstance();
         try {
-            DlcScreenCompat.addOrUpdatePeriodicNotification(minecraft.getToasts(),
-                Component.translatable("dlc_manager.toast.reload_title"),
-                Component.translatable("dlc_manager.toast.reload_start"));
+            DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(minecraft),
+                DlcTextCompat.translatable("dlc_manager.toast.reload_title"),
+                DlcTextCompat.translatable("dlc_manager.toast.reload_start"));
             var future = minecraft.reloadResourcePacks();
             future.thenRun(() -> minecraft.execute(() ->
-                DlcScreenCompat.addOrUpdatePeriodicNotification(minecraft.getToasts(),
-                    Component.translatable("dlc_manager.toast.reload_title"),
-                    Component.translatable("dlc_manager.toast.reload_done"))));
+                DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(minecraft),
+                    DlcTextCompat.translatable("dlc_manager.toast.reload_title"),
+                    DlcTextCompat.translatable("dlc_manager.toast.reload_done"))));
             return future;
         } catch (Throwable ignored) {
         }
@@ -492,7 +504,7 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
                 String fileName = item.getSourcePath().getFileName().toString();
                 String packId = resolvePackId(repo, fileName);
                 if (item.isEnabled() && packId == null) {
-                    Path target = minecraft.getResourcePackDirectory().resolve(fileName);
+                    Path target = Path.of(minecraft.getResourcePackDirectory().toString(), fileName);
                     copyRecursive(item.getSourcePath(), target);
                     repo.reload();
                     packId = resolvePackId(repo, fileName);
@@ -694,7 +706,7 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
 
     private void showBatchConflictSkipPrompt(java.util.List<DlcRuntimeState.ConflictLine> lines, Runnable onSkipConfirm) {
         Component message = DlcConfirmUtil.buildConflictMessage(lines);
-        Component title = Component.translatable("dlc_manager.batch.conflicts_title")
+        Component title = DlcTextCompat.translatable("dlc_manager.batch.conflicts_title")
             .withStyle(net.minecraft.ChatFormatting.DARK_RED);
         rememberListScroll();
         Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
@@ -706,7 +718,7 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
                 onSkipConfirm.run();
             }
         }, title, message,
-            Component.translatable("dlc_manager.batch.conflicts_skip_enable"),
+            DlcTextCompat.translatable("dlc_manager.batch.conflicts_skip_enable"),
             DlcConfirmUtil.confirmNo()));
     }
 
@@ -742,8 +754,8 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
     private void showBatchDependencyPrompt(java.util.List<DlcRuntimeState.DependencyLine> lines,
         java.util.List<DlcItem> depsToEnable, java.util.List<DlcItem> targets, Component scopeLabel) {
         Component message = DlcConfirmUtil.buildDependencyMessage(lines);
-        Component title = Component.translatable("dlc_manager.batch.dependencies_title");
-        Component enableLabel = Component.translatable("dlc_manager.batch.enable_deps", scopeLabel);
+        Component title = DlcTextCompat.translatable("dlc_manager.batch.dependencies_title");
+        Component enableLabel = DlcTextCompat.translatable("dlc_manager.batch.enable_deps", scopeLabel);
         rememberListScroll();
         Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             Minecraft.getInstance().setScreen(this);
@@ -856,8 +868,8 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
     }
 
     private void handleBatchToggle(boolean enable) {
-        Component activeFilterLabel = !searchQuery.isBlank() ? Component.translatable("dlc_manager.scope.search")
-            : activeFilter == null ? null : Component.translatable(activeFilter.getDisplayKey());
+        Component activeFilterLabel = !searchQuery.isBlank() ? DlcTextCompat.translatable("dlc_manager.scope.search")
+            : activeFilter == null ? null : DlcTextCompat.translatable(activeFilter.getDisplayKey());
         Component message = DlcConfirmUtil.buildHeaderConfirmMessage(enable, activeFilterLabel);
         rememberListScroll();
         Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
@@ -873,16 +885,16 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
                         && !item.isEnabled())
                     .toList();
                 if (!targets.isEmpty()) {
-                    Component scopeLabel = !searchQuery.isBlank() ? Component.translatable("dlc_manager.scope.search") : activeFilter == null
-                        ? Component.translatable("dlc_manager.scope.all")
-                        : Component.translatable("dlc_manager.scope.group");
+                    Component scopeLabel = !searchQuery.isBlank() ? DlcTextCompat.translatable("dlc_manager.scope.search") : activeFilter == null
+                        ? DlcTextCompat.translatable("dlc_manager.scope.all")
+                        : DlcTextCompat.translatable("dlc_manager.scope.group");
                     handleBatchEnable(targets, scopeLabel);
                 }
             } else {
                 disableItemsWithDependents(actionItems);
                 updateModeAvailability();
             }
-        }, Component.translatable("dlc_manager.title"),
+        }, DlcTextCompat.translatable("dlc_manager.title"),
             message,
             DlcConfirmUtil.confirmYes(),
             DlcConfirmUtil.confirmNo()));
@@ -1152,7 +1164,7 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
     public void rememberReturnPosition() { rememberListScroll(); }
 
     @Override
-    public Component getTitle() { return Component.translatable("dlc_manager.title"); }
+    public Component getTitle() { return DlcTextCompat.translatable("dlc_manager.title"); }
 
     @Override
     public void tick() {
@@ -1162,11 +1174,21 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
         updateModeAvailability();
     }
 
+    //? if <26.1 {
     @Override
     public void resize(Minecraft minecraft, int width, int height) {
         rememberListScroll();
         super.resize(minecraft, width, height);
     }
+    //?}
+
+    //? if >=26.1 {
+    /*@Override
+    public void resize(int width, int height) {
+        rememberListScroll();
+        super.resize(width, height);
+    }
+    *///?}
 
     void rememberListScroll() {
         Document document = getLinkedDocument();
@@ -1181,6 +1203,7 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
 
     @Override protected boolean isUiContentReady() { return !pendingScrollRestore; }
 
+    //? if >=1.20.1 <26.1 {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
@@ -1193,6 +1216,37 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
         }
         pendingScrollRestore = false;
     }
+    //?}
+
+    //? if <1.20.1 {
+    /*@Override
+    public void render(PoseStack graphics, int mouseX, int mouseY, float partialTick) {
+        super.render(graphics, mouseX, mouseY, partialTick);
+        Document document = getLinkedDocument();
+        if (!pendingScrollRestore || document == null || document.needsInitialFullCommit() || document.isInitialCommitSlicing()) return;
+        Element list = document.getElementById("manager-list");
+        if (list.getClientHeight() > 0 && ("auto".equals(list.getComputedStyle().overflowY)
+            || "scroll".equals(list.getComputedStyle().overflowY))) {
+            Document.runWithContext(document, () -> list.setScrollTop(savedScrollOffset));
+        }
+        pendingScrollRestore = false;
+    }
+    *///?}
+
+    //? if >=26.1 {
+    /*@Override
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        Document document = getLinkedDocument();
+        if (!pendingScrollRestore || document == null || document.needsInitialFullCommit() || document.isInitialCommitSlicing()) return;
+        Element list = document.getElementById("manager-list");
+        if (list.getClientHeight() > 0 && ("auto".equals(list.getComputedStyle().overflowY)
+            || "scroll".equals(list.getComputedStyle().overflowY))) {
+            Document.runWithContext(document, () -> list.setScrollTop(savedScrollOffset));
+        }
+        pendingScrollRestore = false;
+    }
+    *///?}
 
     @Override
     public void onClose() {
@@ -1203,6 +1257,6 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
         Minecraft.getInstance().setScreen(parent);
     }
 
-    private static String translate(String key, Object... args) { return plain(Component.translatable(key, args).getString()); }
+    private static String translate(String key, Object... args) { return plain(DlcTextCompat.translatable(key, args).getString()); }
     private static String plain(String value) { return value == null ? "" : DlcTextFormatter.parse(value).getString(); }
 }

@@ -12,6 +12,8 @@ import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.function.Supplier;
 import java.util.jar.JarFile;
+import java.util.Properties;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.io.TempDir;
@@ -19,6 +21,23 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class DlcBootstrapArtifactTest {
     @TempDir Path game;
+
+    @Test
+    void neoForge26ProfileUsesTheNativeLocatorEntryPoint() throws Exception {
+        Path serviceJar = Path.of(System.getProperty("neoforgeBootstrapJar26_1Artifact"));
+        try (JarFile jar = new JarFile(serviceJar.toFile())) {
+            Properties profile = new Properties();
+            try (var input = jar.getInputStream(jar.getEntry("dlc-bootstrap.properties"))) {
+                profile.load(input);
+            }
+            assertEquals("neoforge", profile.getProperty("loader"));
+            assertEquals("26.1", profile.getProperty("minecraft"));
+            assertEquals("com.cozooo.dlc_bootstrap.launch.DlcNeoForgePayloadBridge",
+                new String(jar.getInputStream(jar.getEntry("META-INF/services/net.neoforged.neoforgespi.locating.IModFileCandidateLocator")).readAllBytes(),
+                    java.nio.charset.StandardCharsets.UTF_8).trim());
+            assertNotNull(jar.getEntry("com/cozooo/dlc_bootstrap/launch/DlcNeoForgePayloadBridge.class"));
+        }
+    }
 
     @ParameterizedTest
     @ValueSource(strings = {"forge", "neoforge"})

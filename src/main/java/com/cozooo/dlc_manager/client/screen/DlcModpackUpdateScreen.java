@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.CheckResult;
@@ -11,7 +15,6 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
 import com.cozooo.dlc_manager.client.core.DlcMessageAdapter;
 import com.cozooo.dlc_manager.platform.DlcPlatformServices;
-import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
@@ -77,7 +80,7 @@ public class DlcModpackUpdateScreen extends DlcPageScreen {
     }
 
     public DlcModpackUpdateScreen(Screen parent, CheckResult checkResult, DlcServerEntry serverEntry, boolean allowSkipThisUpdate) {
-        super(serverEntry == null ? DlcUiPage.LOCAL_MODPACK_UPDATE : DlcUiPage.SERVER_MODPACK_UPDATE, parent, Component.translatable("dlc_manager.pack_update.title"));
+        super(serverEntry == null ? DlcUiPage.LOCAL_MODPACK_UPDATE : DlcUiPage.SERVER_MODPACK_UPDATE, parent, DlcTextCompat.translatable("dlc_manager.pack_update.title"));
         this.parent = parent;
         this.checkResult = checkResult == null ? new CheckResult() : checkResult;
         this.serverEntry = serverEntry;
@@ -95,23 +98,23 @@ public class DlcModpackUpdateScreen extends DlcPageScreen {
         int totalWidth = buttonWidth * buttonCount + spacing * (buttonCount - 1);
         int startX = this.width / 2 - totalWidth / 2;
         int y = this.height - 40;
-        openButton = Button.builder(Component.translatable("dlc_manager.pack_update.open_modpack"), btn -> openModpackUrl())
+        openButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack_update.open_modpack"), btn -> openModpackUrl())
             .bounds(startX + buttonWidth + spacing, y, buttonWidth, buttonHeight)
             .build();
-        downloadButton = Button.builder(Component.translatable("dlc_manager.pack_update.download"), btn -> onDownloadButton())
+        downloadButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack_update.download"), btn -> onDownloadButton())
             .bounds(startX, y, buttonWidth, buttonHeight)
             .build();
         int thirdX = startX + (buttonWidth + spacing) * 2;
         if (showSkipThis) {
-            skipThisUpdateButton = Button.builder(Component.translatable("dlc_manager.self_update.skip_this_update"), btn -> skipThisUpdate())
+            skipThisUpdateButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.self_update.skip_this_update"), btn -> skipThisUpdate())
                 .bounds(thirdX, y, buttonWidth, buttonHeight)
                 .build();
-            skipButton = Button.builder(Component.translatable("dlc_manager.pack_update.skip"), btn -> Minecraft.getInstance().setScreen(parent))
+            skipButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack_update.skip"), btn -> Minecraft.getInstance().setScreen(parent))
                 .bounds(startX + (buttonWidth + spacing) * 3, y, buttonWidth, buttonHeight)
                 .build();
         } else {
             skipThisUpdateButton = null;
-            skipButton = Button.builder(Component.translatable("dlc_manager.pack_update.skip"), btn -> Minecraft.getInstance().setScreen(parent))
+            skipButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack_update.skip"), btn -> Minecraft.getInstance().setScreen(parent))
                 .bounds(thirdX, y, buttonWidth, buttonHeight)
                 .build();
         }
@@ -146,7 +149,7 @@ public class DlcModpackUpdateScreen extends DlcPageScreen {
         if (url.isBlank()) {
             return;
         }
-        Util.getPlatform().openUri(url);
+        DlcScreenCompat.openUri(url);
     }
 
     private String normalizeVersion(String value) {
@@ -187,7 +190,7 @@ public class DlcModpackUpdateScreen extends DlcPageScreen {
         progress = 0f;
         errorText = "";
         cancelRequested.set(false);
-        statusText = Component.translatable("dlc_manager.pack_update.downloading").getString();
+        statusText = DlcTextCompat.translatable("dlc_manager.pack_update.downloading").getString();
         updateButtons();
         new Thread(() -> {
             DownloadResult result = side == Side.SERVER
@@ -210,7 +213,7 @@ public class DlcModpackUpdateScreen extends DlcPageScreen {
     private void onProgress(int stepIndex, int stepCount, String fileName, long downloaded, long total, float overallProgress) {
         this.progress = overallProgress;
         String safeFile = fileName == null || fileName.isBlank() ? "package.zip" : fileName;
-        this.statusText = Component.translatable("dlc_manager.pack_update.downloading_file", stepIndex + 1, stepCount, safeFile).getString();
+        this.statusText = DlcTextCompat.translatable("dlc_manager.pack_update.downloading_file", stepIndex + 1, stepCount, safeFile).getString();
     }
 
     private void finishDownload(DownloadResult result) {
@@ -222,7 +225,7 @@ public class DlcModpackUpdateScreen extends DlcPageScreen {
         }
         if (result.canceled) {
             statusText = "";
-            errorText = Component.translatable("dlc_manager.pack_update.canceled").getString();
+            errorText = DlcTextCompat.translatable("dlc_manager.pack_update.canceled").getString();
             return;
         }
         if (!result.success) {
@@ -242,9 +245,9 @@ public class DlcModpackUpdateScreen extends DlcPageScreen {
             DlcUpdateClient.showPrompt(parent, check);
             return;
         }
-        DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
-            Component.translatable("dlc_manager.update.manager_title"),
-            Component.translatable("dlc_manager.pack_update.download_success"));
+        DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(Minecraft.getInstance()),
+            DlcTextCompat.translatable("dlc_manager.update.manager_title"),
+            DlcTextCompat.translatable("dlc_manager.pack_update.download_success"));
         Minecraft.getInstance().setScreen(parent);
     }
 
@@ -256,12 +259,12 @@ public class DlcModpackUpdateScreen extends DlcPageScreen {
         if (downloadButton != null) {
             if (downloading) {
                 downloadButton.active = true;
-                downloadButton.setMessage(Component.translatable("dlc_manager.pack_update.cancel_download"));
+                downloadButton.setMessage(DlcTextCompat.translatable("dlc_manager.pack_update.cancel_download"));
             } else {
                 if (checkResult.hasLatestGap()) {
-                    downloadButton.setMessage(Component.translatable("dlc_manager.pack_update.download_reachable"));
+                    downloadButton.setMessage(DlcTextCompat.translatable("dlc_manager.pack_update.download_reachable"));
                 } else {
-                    downloadButton.setMessage(Component.translatable("dlc_manager.pack_update.download"));
+                    downloadButton.setMessage(DlcTextCompat.translatable("dlc_manager.pack_update.download"));
                 }
                 downloadButton.active = checkResult.canDownload();
             }

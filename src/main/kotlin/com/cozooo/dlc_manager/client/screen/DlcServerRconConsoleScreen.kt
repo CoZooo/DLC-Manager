@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.server.DlcRconClient
 import net.minecraft.client.Minecraft
@@ -14,7 +18,7 @@ class DlcServerRconConsoleScreen(
     private val entry: DlcServerEntry?,
     private val port: Int,
     password: String?,
-) : DlcPageScreen(DlcUiPage.SERVER_RCON_CONSOLE, parent, Component.translatable("dlc_manager.server.rcon_console")) {
+) : DlcPageScreen(DlcUiPage.SERVER_RCON_CONSOLE, parent, DlcTextCompat.translatable("dlc_manager.server.rcon_console")) {
     private val password: String = password ?: ""
     private val lines: MutableList<String> = ArrayList()
     private var scroll = 0
@@ -48,12 +52,12 @@ class DlcServerRconConsoleScreen(
             backX = fieldX - backWidth - gap
         }
 
-        val command = EditBox(font, fieldX, buttonY, fieldWidth, 20, Component.translatable("dlc_manager.server.rcon_command"))
+        val command = EditBox(font, fieldX, buttonY, fieldWidth, 20, DlcTextCompat.translatable("dlc_manager.server.rcon_command"))
         command.setMaxLength(256)
-        val send = Button.builder(Component.translatable("dlc_manager.server.rcon_send")) { sendCommand() }
+        val send = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.rcon_send")) { sendCommand() }
             .bounds(sendX, buttonY, sendWidth, 20)
             .build()
-        val back = Button.builder(Component.translatable("gui.back")) { Minecraft.getInstance().setScreen(parent) }
+        val back = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("gui.back")) { Minecraft.getInstance().setScreen(parent) }
             .bounds(backX, buttonY, backWidth, 20)
             .build()
 
@@ -80,9 +84,9 @@ class DlcServerRconConsoleScreen(
                 Minecraft.getInstance().execute {
                     if (response == null) {
                         DlcScreenCompat.addOrUpdatePeriodicNotification(
-                            Minecraft.getInstance().toasts,
-                            Component.translatable("dlc_manager.server.rcon_exec_failed"),
-                            Component.empty(),
+                            DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                            DlcTextCompat.translatable("dlc_manager.server.rcon_exec_failed"),
+                            DlcTextCompat.empty(),
                         )
                     } else {
                         appendResponse(response)
@@ -93,7 +97,7 @@ class DlcServerRconConsoleScreen(
 
     private fun appendResponse(response: String?) {
         if (response.isNullOrBlank()) {
-            appendLine(Component.translatable("dlc_manager.server.rcon_response", "").string)
+            appendLine(DlcTextCompat.translatable("dlc_manager.server.rcon_response", "").string)
             return
         }
         val parts = response.split("\\r?\\n".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()

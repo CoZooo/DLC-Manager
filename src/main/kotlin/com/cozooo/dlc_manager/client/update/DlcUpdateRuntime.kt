@@ -75,9 +75,9 @@ object DlcUpdateRuntime {
     @JvmStatic
     fun loadClientSnapshot(dlcRoot: Path?): ClientUpdateSnapshot {
         val version = DlcUpdateVersion.load(dlcRoot)
-        val currentVersion = version?.getDlc() ?: ""
-        val baseVersion = version?.getBase() ?: ""
-        val rollbackFrom = version?.getRollbackFrom()
+        val currentVersion = version.getDlc() ?: ""
+        val baseVersion = version.getBase() ?: ""
+        val rollbackFrom = version.getRollbackFrom()
         val rolledBackMode = DlcUpdateService.isRollbackMarkerActive(rollbackFrom, baseVersion, currentVersion)
         var baseHistory = DlcUpdateRowPlanner.visibleOnly(DlcUpdateService.listUpdateHistory())
         if (rolledBackMode) {

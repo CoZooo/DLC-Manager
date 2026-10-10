@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.server.DlcServerConnection.UpdateResponse
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
@@ -26,7 +30,7 @@ import kotlin.math.min
 class DlcServerUpdateManagerScreen(
     private val parent: Screen?,
     private val entry: DlcServerEntry?,
-) : DlcUpdatePageScreen(DlcUiPage.SERVER_UPDATES, parent, Component.translatable("dlc_manager.update.manager_title")) {
+) : DlcUpdatePageScreen(DlcUiPage.SERVER_UPDATES, parent, DlcTextCompat.translatable("dlc_manager.update.manager_title")) {
     private var importButton: Button? = null
     private var pushUpdateButton: Button? = null
     private var urlButton: Button? = null
@@ -118,7 +122,7 @@ class DlcServerUpdateManagerScreen(
     }
 
     private fun buildRows(state: DlcServerUpdateState) {
-        val history = state.history?.filterNotNull()
+        val history = state.history.filterNotNull()
         val plan = DlcUpdateRowPlanner.planServerRows(history, state.updates, rolledBackMode, baseVersion, currentVersion)
         val list: MutableList<DlcUpdateMeta?> = ArrayList(plan.rows.size)
         val actions: MutableList<DlcUpdateRowPlanner.Action?> = ArrayList(plan.rows.size)
@@ -157,25 +161,25 @@ class DlcServerUpdateManagerScreen(
         val y = height - 40
         val totalWidth = buttonWidth * buttonCount + spacing * (buttonCount - 1)
         val startX = max(margin, (width - totalWidth) / 2)
-        val import = Button.builder(Component.translatable("dlc_manager.update.import")) { importUpdate() }
+        val import = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.import")) { importUpdate() }
             .bounds(startX, y, buttonWidth, buttonHeight)
             .build()
         val pushX = startX + buttonWidth + spacing
-        val push = Button.builder(Component.translatable("dlc_manager.server.update_push")) { pushUpdates() }
+        val push = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.update_push")) { pushUpdates() }
             .bounds(pushX, y, buttonWidth, buttonHeight)
             .build()
         val urlX = pushX + buttonWidth + spacing
-        val url = Button.builder(Component.translatable("dlc_manager.update.import_url")) {
+        val url = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.import_url")) {
             Minecraft.getInstance().setScreen(DlcServerUpdateUrlScreen(this, entry))
         }.bounds(urlX, y, buttonWidth, buttonHeight)
             .build()
         val packCheckX = urlX + buttonWidth + spacing
-        val packCheck = Button.builder(Component.translatable("dlc_manager.pack_update.check_button")) { checkPackUpdate() }
+        val packCheck = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack_update.check_button")) { checkPackUpdate() }
             .bounds(packCheckX, y, buttonWidth, buttonHeight)
             .build()
         packCheck.active = packUpdateRepoUrl.isNotBlank()
         val backX = packCheckX + buttonWidth + spacing
-        val back = Button.builder(Component.translatable("gui.back")) { Minecraft.getInstance().setScreen(parent) }
+        val back = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("gui.back")) { Minecraft.getInstance().setScreen(parent) }
             .bounds(backX, y, buttonWidth, buttonHeight)
             .build()
         importButton = import
@@ -193,15 +197,15 @@ class DlcServerUpdateManagerScreen(
         for (i in rows.indices) {
             val action = if (i < rowActions.size) rowActions[i] else DlcUpdateRowPlanner.Action.NONE
             val label = when (action) {
-                DlcUpdateRowPlanner.Action.REUPDATE -> Component.translatable("dlc_manager.update.reapply")
-                DlcUpdateRowPlanner.Action.UPDATE -> Component.translatable("dlc_manager.update.apply")
-                else -> Component.translatable("dlc_manager.update.rollback")
+                DlcUpdateRowPlanner.Action.REUPDATE -> DlcTextCompat.translatable("dlc_manager.update.reapply")
+                DlcUpdateRowPlanner.Action.UPDATE -> DlcTextCompat.translatable("dlc_manager.update.apply")
+                else -> DlcTextCompat.translatable("dlc_manager.update.rollback")
             }
             val buttonW = if (action == DlcUpdateRowPlanner.Action.REUPDATE || action == DlcUpdateRowPlanner.Action.UPDATE) 80 else 50
-            val actionButton = Button.builder(label) { btn ->
+            val actionButton = DlcScreenCompat.buttonBuilder(label) { btn ->
                 val idx = actionButtons.indexOf(btn)
                 if (idx < 0 || idx >= rowActions.size) {
-                    return@builder
+                    return@buttonBuilder
                 }
                 val chosen = rowActions[idx]
                 val oldVersion = if (idx < actionOld.size) actionOld[idx] else null
@@ -236,10 +240,10 @@ class DlcServerUpdateManagerScreen(
         val baseChanged = normalizeVersion(sourceBase) != normalizeVersion(targetBase)
         val dlcChanged = normalizeVersion(sourceDlc) != normalizeVersion(targetDlc)
         if (baseChanged && !dlcChanged) {
-            return Component.translatable("dlc_manager.update.base_prefix").string + normalizeVersion(sourceBase) + " -> " + normalizeVersion(targetBase)
+            return DlcTextCompat.translatable("dlc_manager.update.base_prefix").string + normalizeVersion(sourceBase) + " -> " + normalizeVersion(targetBase)
         }
         if (!baseChanged && dlcChanged) {
-            return Component.translatable("dlc_manager.update.dlc_prefix").string + normalizeVersion(sourceDlc) + " -> " + normalizeVersion(targetDlc)
+            return DlcTextCompat.translatable("dlc_manager.update.dlc_prefix").string + normalizeVersion(sourceDlc) + " -> " + normalizeVersion(targetDlc)
         }
         return "$oldText -> $newText"
     }
@@ -316,11 +320,11 @@ class DlcServerUpdateManagerScreen(
     private fun handleUpdateResult(result: UpdateResponse?) {
         setApplying(false)
         if (result == null || !result.ok) {
-            Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.server.update_push_failed")))
+            Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, DlcTextCompat.translatable("dlc_manager.server.update_push_failed")))
             return
         }
-        val title = Component.translatable("dlc_manager.update.manager_title")
-        val message = Component.translatable("dlc_manager.server.update.restart")
+        val title = DlcTextCompat.translatable("dlc_manager.update.manager_title")
+        val message = DlcTextCompat.translatable("dlc_manager.server.update.restart")
         Minecraft.getInstance().setScreen(
             DlcConfirmScreen({ accepted ->
                 if (accepted) {
@@ -329,7 +333,7 @@ class DlcServerUpdateManagerScreen(
                     refreshData()
                     Minecraft.getInstance().setScreen(this)
                 }
-            }, title, message, Component.translatable("dlc_manager.restart_now"), Component.translatable("dlc_manager.restart_later")),
+            }, title, message, DlcTextCompat.translatable("dlc_manager.restart_now"), DlcTextCompat.translatable("dlc_manager.restart_later")),
         )
     }
 
@@ -361,7 +365,7 @@ class DlcServerUpdateManagerScreen(
         if (applying || loading) {
             return
         }
-        val zip = DlcFilePicker.pickAnyFile(Component.translatable("dlc_manager.update.import").string)
+        val zip = DlcFilePicker.pickAnyFile(DlcTextCompat.translatable("dlc_manager.update.import").string)
         if (zip == null) {
             return
         }
@@ -375,7 +379,7 @@ class DlcServerUpdateManagerScreen(
             Minecraft.getInstance().execute {
                 setApplying(false)
                 if (!ok) {
-                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.update.failed")))
+                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, DlcTextCompat.translatable("dlc_manager.update.failed")))
                 } else {
                     refreshData()
                     Minecraft.getInstance().setScreen(this)
@@ -404,17 +408,17 @@ class DlcServerUpdateManagerScreen(
                     return@execute
                 }
                 if (result != null && !result.error.isNullOrBlank()) {
-                    showToast(Component.translatable("dlc_manager.update.manager_title"), DlcMessageAdapter.toCheckFailureComponent(result.error))
+                    showToast(DlcTextCompat.translatable("dlc_manager.update.manager_title"), DlcMessageAdapter.toCheckFailureComponent(result.error))
                     return@execute
                 }
-                showToast(Component.translatable("dlc_manager.update.manager_title"), Component.translatable("dlc_manager.pack_update.no_updates"))
+                showToast(DlcTextCompat.translatable("dlc_manager.update.manager_title"), DlcTextCompat.translatable("dlc_manager.pack_update.no_updates"))
             }
         }, "dlc-server-pack-update-check-manual").start()
     }
 
     private fun showToast(title: Component, desc: Component) {
         val minecraft = Minecraft.getInstance()
-        DlcScreenCompat.addOrUpdatePeriodicNotification(minecraft.toasts, title, desc)
+        DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(minecraft), title, desc)
     }
 
     private fun pushUpdates() {
@@ -423,17 +427,17 @@ class DlcServerUpdateManagerScreen(
         }
         val updateDir = DlcConfig.getDlcRoot().resolve("update")
         if (!Files.isDirectory(updateDir)) {
-            Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.server.update_push_failed")))
+            Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, DlcTextCompat.translatable("dlc_manager.server.update_push_failed")))
             return
         }
         val gameDir = DlcPaths.gameDir()
         if (!updateDir.startsWith(gameDir)) {
-            Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.server.update_push_failed")))
+            Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, DlcTextCompat.translatable("dlc_manager.server.update_push_failed")))
             return
         }
         val relative = gameDir.relativize(updateDir).toString().replace('\\', '/')
         if (relative.isBlank()) {
-            Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.update.failed")))
+            Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, DlcTextCompat.translatable("dlc_manager.update.failed")))
             return
         }
 
@@ -447,7 +451,7 @@ class DlcServerUpdateManagerScreen(
             Minecraft.getInstance().execute {
                 setApplying(false)
                 if (!ok) {
-                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.server.update_push_failed")))
+                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, DlcTextCompat.translatable("dlc_manager.server.update_push_failed")))
                 } else {
                     refreshData()
                     Minecraft.getInstance().setScreen(this)

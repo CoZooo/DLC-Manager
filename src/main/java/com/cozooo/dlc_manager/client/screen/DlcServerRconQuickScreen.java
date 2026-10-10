@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.rcon.DlcRconQuickCommandCatalog;
 import com.cozooo.dlc_manager.server.DlcRconClient;
@@ -33,7 +37,7 @@ public class DlcServerRconQuickScreen extends DlcPageScreen {
     private int buttonGap;
 
     public DlcServerRconQuickScreen(Screen parent, DlcServerEntry serverEntry, int port, String password) {
-        super(DlcUiPage.SERVER_RCON_QUICK, parent, Component.translatable("dlc_manager.server.rcon_common"));
+        super(DlcUiPage.SERVER_RCON_QUICK, parent, DlcTextCompat.translatable("dlc_manager.server.rcon_common"));
         this.parent = parent;
         this.serverEntry = serverEntry;
         this.port = port;
@@ -75,7 +79,7 @@ public class DlcServerRconQuickScreen extends DlcPageScreen {
                 continue;
             }
             int x = (col == 0) ? x1 : x2;
-            quickEntry.button = Button.builder(Component.translatable("dlc_manager.server.rcon_exec"), btn -> runCommand(quickEntry.command))
+            quickEntry.button = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.rcon_exec"), btn -> runCommand(quickEntry.command))
                 .bounds(x, y, buttonWidth, buttonHeight)
                 .build();
             addRenderableWidget(quickEntry.button);
@@ -87,7 +91,7 @@ public class DlcServerRconQuickScreen extends DlcPageScreen {
             }
         }
 
-        backButton = Button.builder(Component.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
+        backButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
             .bounds(this.width / 2 - 40, this.height - 30, 80, 20)
             .build();
         addRenderableWidget(backButton);
@@ -101,10 +105,10 @@ public class DlcServerRconQuickScreen extends DlcPageScreen {
             .supplyAsync(() -> DlcRconClient.execute(host, port, password, command, 15000))
             .whenComplete((response, throwable) -> Minecraft.getInstance().execute(() -> {
                 if (response == null) {
-                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
-                        Component.translatable("dlc_manager.server.rcon_exec_failed"), Component.empty());
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                        DlcTextCompat.translatable("dlc_manager.server.rcon_exec_failed"), DlcTextCompat.empty());
                 } else {
-                    statusText = Component.translatable("dlc_manager.server.rcon_response", response).getString();
+                    statusText = DlcTextCompat.translatable("dlc_manager.server.rcon_response", response).getString();
                 }
             }));
     }

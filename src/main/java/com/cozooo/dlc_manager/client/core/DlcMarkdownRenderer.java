@@ -1,4 +1,6 @@
 package com.cozooo.dlc_manager.client.core;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.ClickEvent;
@@ -47,7 +49,7 @@ public final class DlcMarkdownRenderer {
 
     public static Component renderMarkdownComponent(String text) {
         if (text == null || text.isBlank()) {
-            return Component.empty();
+            return DlcTextCompat.empty();
         }
         return renderMarkdown(text);
     }
@@ -91,11 +93,11 @@ public final class DlcMarkdownRenderer {
 
     private static Component renderMarkdown(String text) {
         Node document = MARKDOWN_PARSER.parse(text);
-        MutableComponent out = Component.literal("");
+        MutableComponent out = DlcTextCompat.literal("");
         boolean first = true;
         for (Node node = document.getFirstChild(); node != null; node = node.getNext()) {
             if (!first) {
-                out.append(Component.literal("\n"));
+                out.append(DlcTextCompat.literal("\n"));
             }
             appendBlock(out, node);
             first = false;
@@ -114,12 +116,12 @@ public final class DlcMarkdownRenderer {
             return;
         }
         if (node instanceof BlockQuote) {
-            out.append(Component.literal("> ").withStyle(ChatFormatting.GRAY));
+            out.append(DlcTextCompat.literal("> ").withStyle(ChatFormatting.GRAY));
             out.append(renderInlineChildren(node, Style.EMPTY));
             return;
         }
         if (node instanceof ThematicBreak) {
-            out.append(Component.literal(" ").withStyle(Style.EMPTY.withInsertion(HR_MARKER).withColor(ChatFormatting.DARK_GRAY)));
+            out.append(DlcTextCompat.literal(" ").withStyle(Style.EMPTY.withInsertion(HR_MARKER).withColor(ChatFormatting.DARK_GRAY)));
             return;
         }
         if (node instanceof BulletList) {
@@ -129,9 +131,9 @@ public final class DlcMarkdownRenderer {
                     continue;
                 }
                 if (!first) {
-                    out.append(Component.literal("\n"));
+                    out.append(DlcTextCompat.literal("\n"));
                 }
-                out.append(Component.literal("• "));
+                out.append(DlcTextCompat.literal("• "));
                 appendListItem(out, item);
                 first = false;
             }
@@ -145,9 +147,9 @@ public final class DlcMarkdownRenderer {
                     continue;
                 }
                 if (!first) {
-                    out.append(Component.literal("\n"));
+                    out.append(DlcTextCompat.literal("\n"));
                 }
-                out.append(Component.literal(index + ". "));
+                out.append(DlcTextCompat.literal(index + ". "));
                 appendListItem(out, item);
                 index++;
                 first = false;
@@ -161,7 +163,7 @@ public final class DlcMarkdownRenderer {
         boolean first = true;
         for (Node child = item.getFirstChild(); child != null; child = child.getNext()) {
             if (!first) {
-                out.append(Component.literal("\n"));
+                out.append(DlcTextCompat.literal("\n"));
             }
             if (child instanceof Paragraph) {
                 out.append(renderInlineChildren(child, Style.EMPTY));
@@ -173,7 +175,7 @@ public final class DlcMarkdownRenderer {
     }
 
     private static MutableComponent renderInlineChildren(Node parent, Style style) {
-        MutableComponent result = Component.literal("");
+        MutableComponent result = DlcTextCompat.literal("");
         for (Node child = parent.getFirstChild(); child != null; child = child.getNext()) {
             result.append(renderInline(child, style));
         }
@@ -195,30 +197,33 @@ public final class DlcMarkdownRenderer {
         }
         if (node instanceof Link link) {
             Style linkStyle = style.withUnderlined(true)
-                .withColor(0x4EA1FF)
-                .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, link.getDestination()));
+                .withColor(0x4EA1FF);
+            //? if >=26.1 {
+            //?} else {
+            linkStyle = linkStyle.withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, link.getDestination()));
+            //?}
             return renderInlineChildren(link, linkStyle);
         }
         if (node instanceof Code code) {
             Style codeStyle = style.withColor(ChatFormatting.GRAY).withItalic(false);
-            return Component.literal(code.getLiteral()).withStyle(codeStyle);
+            return DlcTextCompat.literal(code.getLiteral()).withStyle(codeStyle);
         }
         if (node instanceof SoftLineBreak || node instanceof HardLineBreak) {
-            return Component.literal("\n").withStyle(style);
+            return DlcTextCompat.literal("\n").withStyle(style);
         }
         return renderInlineChildren(node, style);
     }
 
     private static Component renderTextWithFormatting(String text, Style style) {
         if (text == null || text.isEmpty()) {
-            return Component.empty();
+            return DlcTextCompat.empty();
         }
         String marker = "++";
         int index = text.indexOf(marker);
         if (index < 0) {
             return DlcTextFormatter.parse(text, style);
         }
-        MutableComponent result = Component.literal("");
+        MutableComponent result = DlcTextCompat.literal("");
         int pos = 0;
         boolean underline = false;
         while (index >= 0) {

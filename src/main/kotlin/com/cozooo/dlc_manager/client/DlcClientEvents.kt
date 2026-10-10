@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager
 import com.cozooo.dlc_manager.client.screen.DlcManagerScreen
@@ -21,7 +25,6 @@ import net.minecraft.client.gui.screens.PauseScreen
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.gui.screens.TitleScreen
 import net.minecraft.network.chat.Component
-import net.minecraft.network.chat.contents.TranslatableContents
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -41,7 +44,13 @@ object DlcClientEvents {
     }
 
     private fun registerCommands() {
-        ClientCommandRegistrationEvent.EVENT.register { dispatcher, _ ->
+        ClientCommandRegistrationEvent.EVENT.register(
+            //? if >=1.19.2 {
+            { dispatcher, _ ->
+            //?}
+            //? if <1.19.2 {
+            /*{ dispatcher ->
+            *///?}
             dispatcher.register(
                 ClientCommandRegistrationEvent.literal("dlcmanager")
                     .executes {
@@ -73,7 +82,7 @@ object DlcClientEvents {
                         }
                     )
             )
-        }
+        })
     }
 
     private fun registerGuiEvents() {
@@ -96,6 +105,10 @@ object DlcClientEvents {
     }
 
     private fun registerInputEvents() {
+        //? if >=26.1 {
+        /*return
+        *///?}
+        //? if <26.1 {
         ClientScreenInputEvent.MOUSE_CLICKED_PRE.register { _, screen, mouseX, mouseY, button ->
             if (screen is TitleScreen && DlcClientRuntime.handleTitleNoticePanelClick(screen, mouseX, mouseY, button)) {
                 EventResult.interruptFalse()
@@ -134,6 +147,7 @@ object DlcClientEvents {
             }
         }
         //?}
+        //?}
     }
 
     private fun registerTickEvents() {
@@ -156,25 +170,25 @@ object DlcClientEvents {
         val y = screen.height / 4 + 32 + 24 * 2
         val w = 200
         val h = 20
-        val button = Button.builder(Component.translatable("dlc_manager.title")) {
+        val button = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.title")) {
             val managerScreen = DlcManagerScreen(screen)
-            if (DlcRemoteManager.tryShowFromManager(managerScreen)) return@builder
+            if (DlcRemoteManager.tryShowFromManager(managerScreen)) return@buttonBuilder
             Minecraft.getInstance().setScreen(managerScreen)
         }.bounds(x, y, w, h).build()
-        val updateButton = Button.builder(Component.translatable("dlc_manager.update.import_icon")) {
+        val updateButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.import_icon")) {
             DlcUpdateClient.openUpdateManager(screen)
         }.bounds(x + w + 4, y, 20, h).build()
-        val packButton = Button.builder(Component.translatable("dlc_manager.pack.quick_icon")) {
+        val packButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack.quick_icon")) {
             DlcClientRuntime.openPackManagerFromTitle(screen)
         }.bounds(x + w + 28, y, 20, h).build()
-        val noticeWidth = max(48, Minecraft.getInstance().font.width(Component.translatable("dlc_manager.notice")) + 8)
+        val noticeWidth = max(48, Minecraft.getInstance().font.width(DlcTextCompat.translatable("dlc_manager.notice")) + 8)
         val noticeHeight = 20
         val noticeDefaultX = screen.width - noticeWidth - 8
         val noticeDefaultY = screen.height - noticeHeight - 8
         val noticePos = DlcConfig.computeNoticeButtonPosition(
             screen.width, screen.height, noticeWidth, noticeHeight, noticeDefaultX, noticeDefaultY
         )
-        val noticeButton = Button.builder(Component.translatable("dlc_manager.notice")) {
+        val noticeButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.notice")) {
             DlcClientRuntime.openNoticeFromTitle(screen)
         }.bounds(noticePos[0], noticePos[1], noticeWidth, noticeHeight).build()
 
@@ -228,8 +242,8 @@ object DlcClientEvents {
         var h = 20
         if (anchor != null) {
             if (feedbackAnchor) {
-                x = anchor.x
-                y = anchor.y
+                x = DlcScreenCompat.getX(anchor)
+                y = DlcScreenCompat.getY(anchor)
                 w = anchor.width
                 h = anchor.height
             } else if (anchor === findButtonByKey(screen, "menu.mods")) {
@@ -237,18 +251,18 @@ object DlcClientEvents {
                 val originalWidth = anchor.width
                 val halfWidth = max(20, (originalWidth - gap) / 2)
                 anchor.width = halfWidth
-                x = anchor.x + halfWidth + gap
-                y = anchor.y
+                x = DlcScreenCompat.getX(anchor) + halfWidth + gap
+                y = DlcScreenCompat.getY(anchor)
                 w = max(20, originalWidth - halfWidth - gap)
                 h = anchor.height
             } else {
-                x = anchor.x
-                y = anchor.y + anchor.height + 4
+                x = DlcScreenCompat.getX(anchor)
+                y = DlcScreenCompat.getY(anchor) + anchor.height + 4
                 w = anchor.width
                 h = anchor.height
             }
         }
-        val button = Button.builder(Component.translatable("dlc_manager.server.manage")) {
+        val button = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.manage")) {
             DlcClientRuntime.openServerManagerFromIngame(screen)
         }.bounds(x, y, w, h).build()
         access.addRenderableWidget(button)
@@ -266,19 +280,14 @@ object DlcClientEvents {
     }
 
     private fun isRealmsButton(widget: AbstractWidget): Boolean {
-        val contents = widget.message.contents
-        if (contents is TranslatableContents) {
-            val key = contents.key
-            return key == "menu.online" || key == "menu.realms"
-        }
-        return false
+        val key = DlcScreenCompat.translationKey(widget.message)
+        return key == "menu.online" || key == "menu.realms"
     }
 
     private fun findButtonByKey(screen: Screen, key: String): AbstractWidget? {
         for (child in screen.children()) {
             if (child !is AbstractWidget) continue
-            val contents = child.message.contents
-            if (contents is TranslatableContents && key == contents.key) {
+            if (key == DlcScreenCompat.translationKey(child.message)) {
                 return child
             }
         }
@@ -296,16 +305,16 @@ object DlcClientEvents {
     private fun moveBottomRow(screen: Screen, targetY: Int) {
         val optionsWidget = findButtonByKey(screen, "menu.options")
         if (optionsWidget != null) {
-            val currentY = optionsWidget.y
+            val currentY = DlcScreenCompat.getY(optionsWidget)
             for (child in screen.children()) {
-                if (child is AbstractWidget && abs(child.y - currentY) <= 1) {
-                    child.y = targetY
+                if (child is AbstractWidget && abs(DlcScreenCompat.getY(child) - currentY) <= 1) {
+                    DlcScreenCompat.setY(child, targetY)
                 }
             }
             return
         }
         for (key in arrayOf("menu.options", "menu.quit", "options.language", "options.accessibility")) {
-            findButtonByKey(screen, key)?.y = targetY
+            findButtonByKey(screen, key)?.let { DlcScreenCompat.setY(it, targetY) }
         }
     }
 
@@ -331,12 +340,12 @@ object DlcClientEvents {
         if (anchor != null) {
             rowGap = 2
             rowStep = anchor.height + 4
-            rowX = anchor.x
+            rowX = DlcScreenCompat.getX(anchor)
             rowW = anchor.width
             rowH = anchor.height
-            rowY = anchor.y + anchor.height + rowGap
+            rowY = DlcScreenCompat.getY(anchor) + anchor.height + rowGap
             if (anchor === realmsWidget && multiplayerWidget == null) {
-                rowY = anchor.y
+                rowY = DlcScreenCompat.getY(anchor)
             }
         }
         val pos = DlcConfig.computeTitleButtonPosition(screen.width, screen.height, rowW, rowH, rowX, rowY)
@@ -348,8 +357,8 @@ object DlcClientEvents {
             val halfWidth = max(40, (rowW - gap) / 2)
             val iconGap = 4
             val iconWidth = 20
-            modsWidget.x = rowX
-            modsWidget.y = rowY
+            DlcScreenCompat.setX(modsWidget, rowX)
+            DlcScreenCompat.setY(modsWidget, rowY)
             modsWidget.width = halfWidth
             //? if >=1.21.1 {
             /*modsWidget.height = rowH
@@ -366,19 +375,19 @@ object DlcClientEvents {
                 //? if >=1.21.1 {
                 /*updateWidget.height = rowH
                 *///?}
-                updateWidget.x = updatePos[0]
-                updateWidget.y = updatePos[1]
+                DlcScreenCompat.setX(updateWidget, updatePos[0])
+                DlcScreenCompat.setY(updateWidget, updatePos[1])
             }
             if (packWidget != null) {
                 packWidget.width = iconWidth
                 //? if >=1.21.1 {
                 /*packWidget.height = rowH
                 *///?}
-                packWidget.x = updatePos[0] + iconWidth + iconGap
-                packWidget.y = updatePos[1]
+                DlcScreenCompat.setX(packWidget, updatePos[0] + iconWidth + iconGap)
+                DlcScreenCompat.setY(packWidget, updatePos[1])
             }
-            dlcWidget.x = dlcX
-            dlcWidget.y = rowY
+            DlcScreenCompat.setX(dlcWidget, dlcX)
+            DlcScreenCompat.setY(dlcWidget, rowY)
             dlcWidget.width = dlcWidth
             //? if >=1.21.1 {
             /*dlcWidget.height = rowH
@@ -398,19 +407,19 @@ object DlcClientEvents {
                 //? if >=1.21.1 {
                 /*updateWidget.height = rowH
                 *///?}
-                updateWidget.x = updatePos[0]
-                updateWidget.y = updatePos[1]
+                DlcScreenCompat.setX(updateWidget, updatePos[0])
+                DlcScreenCompat.setY(updateWidget, updatePos[1])
             }
             if (packWidget != null) {
                 packWidget.width = iconWidth
                 //? if >=1.21.1 {
                 /*packWidget.height = rowH
                 *///?}
-                packWidget.x = updatePos[0] + iconWidth + iconGap
-                packWidget.y = updatePos[1]
+                DlcScreenCompat.setX(packWidget, updatePos[0] + iconWidth + iconGap)
+                DlcScreenCompat.setY(packWidget, updatePos[1])
             }
-            dlcWidget.x = rowX
-            dlcWidget.y = rowY
+            DlcScreenCompat.setX(dlcWidget, rowX)
+            DlcScreenCompat.setY(dlcWidget, rowY)
             dlcWidget.width = dlcWidth
             //? if >=1.21.1 {
             /*dlcWidget.height = rowH

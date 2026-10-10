@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.server.DlcServerCache;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerInfo;
@@ -30,7 +34,7 @@ public class DlcServerListScreen extends DlcPageScreen {
     private volatile boolean connecting;
 
     public DlcServerListScreen(Screen parent) {
-        super(DlcUiPage.SERVER_LIST, parent, Component.translatable("dlc_manager.server.list_title"));
+        super(DlcUiPage.SERVER_LIST, parent, DlcTextCompat.translatable("dlc_manager.server.list_title"));
         this.parent = parent;
     }
 
@@ -57,19 +61,19 @@ public class DlcServerListScreen extends DlcPageScreen {
         int row2Total = buttonWidth * 2 + gap;
         int row1X = centerX - row1Total / 2;
         int row2X = centerX - row2Total / 2;
-        deleteButton = Button.builder(Component.translatable("selectServer.delete"), btn -> deleteSelected())
+        deleteButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("selectServer.delete"), btn -> deleteSelected())
             .bounds(row1X, row1Y, buttonWidth, buttonHeight)
             .build();
-        editButton = Button.builder(Component.translatable("selectServer.edit"), btn -> editSelected())
+        editButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("selectServer.edit"), btn -> editSelected())
             .bounds(row1X + buttonWidth + gap, row1Y, buttonWidth, buttonHeight)
             .build();
-        addButton = Button.builder(Component.translatable("selectServer.add"), btn -> openAdd())
+        addButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("selectServer.add"), btn -> openAdd())
             .bounds(row1X + (buttonWidth + gap) * 2, row1Y, buttonWidth, buttonHeight)
             .build();
-        connectButton = Button.builder(Component.translatable("dlc_manager.server.connect"), btn -> connectSelected())
+        connectButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.connect"), btn -> connectSelected())
             .bounds(row2X, row2Y, buttonWidth, buttonHeight)
             .build();
-        backButton = Button.builder(Component.translatable("gui.back"), btn -> {
+        backButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("gui.back"), btn -> {
             if (parent != null) {
                 Minecraft.getInstance().setScreen(parent);
                 return;
@@ -116,8 +120,8 @@ public class DlcServerListScreen extends DlcPageScreen {
         if (entry == null) {
             return;
         }
-        Component title = Component.translatable("selectServer.deleteQuestion");
-        Component message = Component.translatable("selectServer.deleteWarning", entry.getDisplayName());
+        Component title = DlcTextCompat.translatable("selectServer.deleteQuestion");
+        Component message = DlcTextCompat.translatable("selectServer.deleteWarning", entry.getDisplayName());
         Minecraft.getInstance().setScreen(new DlcConfirmScreen(result -> {
             if (result && selectedIndex >= 0 && selectedIndex < servers.size()) {
                 servers.remove(selectedIndex);
@@ -138,8 +142,8 @@ public class DlcServerListScreen extends DlcPageScreen {
         }
         DlcServerEntry entry = getSelectedEntry();
         if (entry == null) {
-            DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
-                Component.translatable("dlc_manager.server.select_required"), Component.empty());
+            DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                DlcTextCompat.translatable("dlc_manager.server.select_required"), DlcTextCompat.empty());
             return;
         }
         connecting = true;
@@ -150,8 +154,8 @@ public class DlcServerListScreen extends DlcPageScreen {
                 connecting = false;
                 updateButtonStates();
                 if (info == null) {
-                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
-                        Component.translatable("dlc_manager.server.connect_failed"), Component.empty());
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                        DlcTextCompat.translatable("dlc_manager.server.connect_failed"), DlcTextCompat.empty());
                     return;
                 }
                 DlcServerCache.put(entry.getKey(), info);

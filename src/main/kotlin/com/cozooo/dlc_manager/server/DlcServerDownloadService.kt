@@ -484,7 +484,7 @@ object DlcServerDownloadService {
             item.identifier = entry.getIdentifier()
             item.name = resolveRequiredDisplayName(entry)
             for (dep in entry.getDependencies()) {
-                val identifier = dep?.getIdentifier()
+                val identifier = dep.getIdentifier()
                 if (!identifier.isNullOrBlank()) {
                     item.dependencies.add(identifier)
                 }
@@ -741,7 +741,7 @@ object DlcServerDownloadService {
         if (name.isNullOrBlank()) {
             name = displayNames.values.firstOrNull() ?: fallback
         }
-        return name ?: ""
+        return name
     }
 
     private fun resolveRequiredDisplayName(entry: DlcRequiredEntry?): String = entry?.resolveDisplayName() ?: ""
@@ -956,7 +956,7 @@ object DlcServerDownloadService {
         while (!queue.isEmpty()) {
             val entry = queue.poll() ?: continue
             for (dep in entry.getDependencies()) {
-                val id = dep?.getIdentifier()
+                val id = dep.getIdentifier()
                 if (id.isNullOrBlank()) continue
                 if (index.containsKey(id)) continue
                 val depEntry = dep.getEntry()
@@ -1006,7 +1006,7 @@ object DlcServerDownloadService {
             val entry = index[id] ?: continue
             result.add(entry)
             for (dep in entry.getDependencies()) {
-                val depId = dep?.getIdentifier()
+                val depId = dep.getIdentifier()
                 if (depId.isNullOrBlank()) continue
                 queue.add(depId)
             }
@@ -1399,7 +1399,7 @@ object DlcServerDownloadService {
         ordered.addProperty("identifier", getIdentifier(obj))
         ordered.addProperty("type", getString(obj, "type"))
         val fileName = if (fileNameOverride.isNullOrBlank()) getString(obj, "file_name") else fileNameOverride
-        ordered.addProperty("file_name", fileName ?: "")
+        ordered.addProperty("file_name", fileName)
         ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false))
         ordered.addProperty("AllowEnableByAll", getBoolean(obj, "AllowEnableByAll", true))
         val deps = DlcDcConfigIO.getIgnoreCase(obj, "dependencies")
@@ -1471,7 +1471,7 @@ object DlcServerDownloadService {
         ordered.addProperty("priority", DlcDownloadCandidate.readPriority(obj))
         ordered.addProperty("identifier", getString(obj, "identifier"))
         val fileName = if (fileNameOverride.isNullOrBlank()) getString(obj, "file_name") else fileNameOverride
-        ordered.addProperty("file_name", fileName ?: "")
+        ordered.addProperty("file_name", fileName)
         ordered.addProperty("appliedTarget", getString(obj, "appliedTarget"))
         val dependencies = DlcDcConfigIO.getIgnoreCase(obj, "dependencies")
         ordered.add("dependencies", dependencies ?: JsonPrimitive(""))
@@ -1534,6 +1534,7 @@ object DlcServerDownloadService {
         return element.asBoolean
     }
 
+    @Suppress("DEPRECATION")
     private fun readConfigObject(path: Path?): JsonObject? {
         if (path == null || !Files.exists(path)) {
             return null

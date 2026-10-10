@@ -1,4 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
 import com.cozooo.dlc_manager.client.config.DlcConfigValue;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
@@ -15,7 +17,7 @@ public class DlcServerConfigScreen extends DlcConfigScreen {
     private String error;
     public DlcServerConfigScreen(Screen parent, DlcServerEntry entry) { this(parent, entry, Tab.SERVER); }
     public DlcServerConfigScreen(Screen parent, DlcServerEntry entry, Tab tab) {
-        super(DlcUiPage.SERVER_CONFIG, parent, Component.translatable("dlc_manager.server.config_title"), categories(), key(tab)); this.entry = entry;
+        super(DlcUiPage.SERVER_CONFIG, parent, DlcTextCompat.translatable("dlc_manager.server.config_title"), categories(), key(tab)); this.entry = entry;
         load();
     }
     private static String key(Tab tab) { return "dlc_manager.config.tab." + (tab == Tab.DOWNLOADS ? "download" : tab == null ? "server" : tab.name().toLowerCase(Locale.ROOT)); }

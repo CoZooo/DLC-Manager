@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
@@ -18,7 +22,7 @@ class DlcUpdateMissingScreen(
     private val parent: Screen?,
     private val updateResult: UpdateCheckResult,
     missingPaths: List<String?>?,
-) : DlcPageScreen(DlcUiPage.UPDATE_MISSING, parent, Component.translatable("dlc_manager.update.missing_title")) {
+) : DlcPageScreen(DlcUiPage.UPDATE_MISSING, parent, DlcTextCompat.translatable("dlc_manager.update.missing_title")) {
     private val missingPaths: List<String?> = missingPaths ?: emptyList()
     private var forceButton: Button? = null
     private var cancelButton: Button? = null
@@ -29,10 +33,10 @@ class DlcUpdateMissingScreen(
         val buttonWidth = 120
         val buttonHeight = 20
         val y = height - 40
-        val force = Button.builder(Component.translatable("dlc_manager.update.force")) { confirmApply() }
+        val force = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.force")) { confirmApply() }
             .bounds(width / 2 - buttonWidth - 6, y, buttonWidth, buttonHeight)
             .build()
-        val cancel = Button.builder(Component.translatable("dlc_manager.update.cancel")) { Minecraft.getInstance().setScreen(parent) }
+        val cancel = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.cancel")) { Minecraft.getInstance().setScreen(parent) }
             .bounds(width / 2 + 6, y, buttonWidth, buttonHeight)
             .build()
         forceButton = force
@@ -87,7 +91,7 @@ class DlcUpdateMissingScreen(
                 val message = ex.message ?: "Failed to apply update"
                 Minecraft.getInstance().execute {
                     applying = false
-                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(parent, false, Component.literal(message)))
+                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(parent, false, DlcTextCompat.literal(message)))
                 }
             }
         }, "dlc-update-force").start()
@@ -103,9 +107,9 @@ class DlcUpdateMissingScreen(
             return
         }
         val message = if (result.isHelperScheduled) {
-            Component.translatable("dlc_manager.update.deferred_restart")
+            DlcTextCompat.translatable("dlc_manager.update.deferred_restart")
         } else {
-            Component.translatable("dlc_manager.update.success")
+            DlcTextCompat.translatable("dlc_manager.update.success")
         }
         Minecraft.getInstance().setScreen(DlcUpdateResultScreen(parent, true, message))
     }
@@ -134,9 +138,9 @@ class DlcUpdateMissingScreen(
 
     private fun createSuccessResultScreen(result: UpdateApplyResult): Screen {
         val message = if (result.isHelperScheduled) {
-            Component.translatable("dlc_manager.update.deferred_restart")
+            DlcTextCompat.translatable("dlc_manager.update.deferred_restart")
         } else {
-            Component.translatable("dlc_manager.update.success")
+            DlcTextCompat.translatable("dlc_manager.update.success")
         }
         return DlcUpdateResultScreen(parent, true, message)
     }

@@ -4,7 +4,6 @@ import com.sighs.apricityui.element.Body;
 import com.sighs.apricityui.element.Html;
 import com.sighs.apricityui.init.Document;
 import com.sighs.apricityui.init.Element;
-import net.minecraft.client.gui.GuiGraphics;
 import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
@@ -255,7 +254,7 @@ class DlcUiTransitionTest {
 
         @Override public boolean isValid() { return valid; }
 
-        @Override public void draw(GuiGraphics graphics, float alpha) {
+        @Override public void draw(Object graphics, float alpha) {
             if (drawFailure) throw new IllegalStateException("composite unavailable");
             alphas.add(alpha);
         }

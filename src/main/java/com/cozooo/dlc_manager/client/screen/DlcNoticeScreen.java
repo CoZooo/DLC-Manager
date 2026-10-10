@@ -1,4 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -11,7 +13,7 @@ public class DlcNoticeScreen extends DlcPageScreen {
     private String resolvedContents = "";
     private CompletableFuture<String> future;
     public DlcNoticeScreen(Screen parent, DlcNoticeConfig config) {
-        super(DlcUiPage.NOTICE, parent, Component.translatable("dlc_manager.notice_title")); this.config = config; neverShow = config.isNeverShow();
+        super(DlcUiPage.NOTICE, parent, DlcTextCompat.translatable("dlc_manager.notice_title")); this.config = config; neverShow = config.isNeverShow();
     }
     @Override protected boolean showHeaderBackButton() { return false; }
     @Override protected void buildPage() {

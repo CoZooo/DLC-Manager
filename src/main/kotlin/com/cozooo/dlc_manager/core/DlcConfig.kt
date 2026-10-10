@@ -943,7 +943,7 @@ object DlcConfig {
         if (identifier.isNullOrBlank()) {
             identifier = fileName
             DlcDcConfigIO.removeIgnoreCase(out, "identifier")
-            out.addProperty("identifier", identifier ?: "")
+            out.addProperty("identifier", identifier)
         }
         if (!DlcDcConfigIO.hasIgnoreCase(out, "type")) out.addProperty("type", "others")
         if (!DlcDcConfigIO.hasIgnoreCase(out, "isHidden")) out.addProperty("isHidden", false)

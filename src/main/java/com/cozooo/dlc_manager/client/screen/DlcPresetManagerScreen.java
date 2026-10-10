@@ -1,4 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -14,7 +16,7 @@ public class DlcPresetManagerScreen extends DlcPageScreen {
         this(DlcUiPage.LOCAL_PRESETS, parent);
     }
     public DlcPresetManagerScreen(DlcUiPage page, Screen parent) {
-        super(page, parent, Component.translatable("dlc_manager.preset.title"));
+        super(page, parent, DlcTextCompat.translatable("dlc_manager.preset.title"));
         DlcPresetRuntimeState.reload(); presets = DlcPresetRuntimeState.getPresets();
     }
     @Override protected void buildPage() {

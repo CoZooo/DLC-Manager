@@ -8,7 +8,15 @@ import com.sighs.apricityui.parser.Selector;
 import com.sighs.apricityui.parser.HTML;
 import com.sighs.apricityui.screen.ApricityScreen;
 import net.minecraft.client.Minecraft;
+//? if >=1.20.1 <26.1 {
 import net.minecraft.client.gui.GuiGraphics;
+//?}
+//? if <1.20.1 {
+/*import com.mojang.blaze3d.vertex.PoseStack;
+*///?}
+//? if >=26.1 {
+/*import net.minecraft.client.gui.GuiGraphicsExtractor;
+*///?}
 import net.minecraft.client.gui.screens.Screen;
 import org.lwjgl.glfw.GLFW;
 
@@ -106,8 +114,33 @@ public abstract class DlcApricityScreen extends ApricityScreen {
         resourceGeneration = document.getRefreshGeneration();
     }
 
+    //? if >=1.20.1 <26.1 {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        Document document = prepareRender();
+        super.render(graphics, mouseX, mouseY, partialTick);
+        completeRender(document);
+    }
+    //?}
+
+    //? if <1.20.1 {
+    /*@Override
+    public void render(PoseStack graphics, int mouseX, int mouseY, float partialTick) {
+        Document document = prepareRender();
+        super.render(graphics, mouseX, mouseY, partialTick);
+        completeRender(document);
+    }
+    *///?}
+    //? if >=26.1 {
+    /*@Override
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        Document document = prepareRender();
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        completeRender(document);
+    }
+    *///?}
+
+    private Document prepareRender() {
         renderedCurrentFrame = false;
         Document document = getLinkedDocument();
         if (document != null && document.isActive() && document.documentElement != null) {
@@ -117,14 +150,17 @@ public abstract class DlcApricityScreen extends ApricityScreen {
                 Document.runWithContext(document, () -> document.documentElement.invalidateStyle());
             }
         }
-        super.render(graphics, mouseX, mouseY, partialTick);
+        return document;
+    }
+
+    private void completeRender(Document document) {
         renderedCurrentFrame = document != null && document.isActive()
             && !document.needsInitialFullCommit() && !document.isInitialCommitSlicing()
             && !document.getPaintList().isEmpty();
         syncInputs(document);
     }
 
-    public final void finishUiFrame(GuiGraphics graphics) {
+    public final void finishUiFrame(Object graphics) {
         if (Minecraft.getInstance().screen != this) return;
         Document document = getLinkedDocument();
         if (transition.isRunning()) {
@@ -174,6 +210,7 @@ public abstract class DlcApricityScreen extends ApricityScreen {
         if (document != null && document.isActive()) document.setViewportZoom(1120.0 / Math.max(1, Minecraft.getInstance().getWindow().getScreenWidth()));
     }
 
+    //? if <26.1 {
     @Override
     public void resize(Minecraft minecraft, int width, int height) {
         navigationPending = false;
@@ -181,6 +218,17 @@ public abstract class DlcApricityScreen extends ApricityScreen {
         super.resize(minecraft, width, height);
         updateViewport();
     }
+    //?}
+
+    //? if >=26.1 {
+    /*@Override
+    public void resize(int width, int height) {
+        navigationPending = false;
+        transition.cancel();
+        super.resize(width, height);
+        updateViewport();
+    }
+    *///?}
 
     private void bindCurrentDocument() {
         Document document = getLinkedDocument();

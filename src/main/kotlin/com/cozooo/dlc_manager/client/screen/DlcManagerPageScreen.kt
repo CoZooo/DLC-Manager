@@ -1,11 +1,21 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.sighs.apricityui.event.MouseEvent
 import com.sighs.apricityui.init.Document
 import com.sighs.apricityui.init.Element
 import com.sighs.apricityui.layout.Box
 import net.minecraft.client.Minecraft
+//? if >=1.20.1 <26.1 {
 import net.minecraft.client.gui.GuiGraphics
+//?}
+//? if <1.20.1 {
+/*import com.mojang.blaze3d.vertex.PoseStack
+*///?}
+//? if >=26.1 {
+/*import net.minecraft.client.gui.GuiGraphicsExtractor
+*///?}
 import net.minecraft.network.chat.Component
 
 abstract class DlcManagerPageScreen(page: DlcUiPage = DlcUiPage.MANAGER) : DlcApricityScreen(page) {
@@ -171,6 +181,7 @@ abstract class DlcManagerPageScreen(page: DlcUiPage = DlcUiPage.MANAGER) : DlcAp
     }
 
 
+    //? if >=1.20.1 <26.1 {
     override fun render(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
         linkedDocument?.let {
             updateAnimations(it, System.nanoTime())
@@ -178,8 +189,27 @@ abstract class DlcManagerPageScreen(page: DlcUiPage = DlcUiPage.MANAGER) : DlcAp
         }
         super.render(graphics, mouseX, mouseY, partialTick)
     }
+    //?}
+    //? if <1.20.1 {
+    /*override fun render(graphics: PoseStack, mouseX: Int, mouseY: Int, partialTick: Float) {
+        linkedDocument?.let {
+            updateAnimations(it, System.nanoTime())
+            Document.runWithContext(it) { tooltip?.update() }
+        }
+        super.render(graphics, mouseX, mouseY, partialTick)
+    }
+    *///?}
+    //? if >=26.1 {
+    /*override fun extractRenderState(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, partialTick: Float) {
+        linkedDocument?.let {
+            updateAnimations(it, System.nanoTime())
+            Document.runWithContext(it) { tooltip?.update() }
+        }
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick)
+    }
+    *///?}
 
-    private fun layoutTranslate(key: String): String = Component.translatable(key).string
+    private fun layoutTranslate(key: String): String = DlcTextCompat.translatable(key).string
 
     private fun layoutMetric(element: Element, name: String, fallback: Double): Double {
         val value = element.getAttribute(name)?.toDoubleOrNull() ?: return fallback

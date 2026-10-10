@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
@@ -23,10 +25,10 @@ public final class DlcItemActions {
             && !item.isEnabled());
         boolean anyEnabled = items.stream().anyMatch(DlcItem::isEnabled);
         if (anyEligibleDisabled) {
-            return new GroupToggleState(Component.translatable("dlc_manager.group.enable").getString(), true, true);
+            return new GroupToggleState(DlcTextCompat.translatable("dlc_manager.group.enable").getString(), true, true);
         }
         if (anyEnabled) {
-            return new GroupToggleState(Component.translatable("dlc_manager.group.disable").getString(), true, true);
+            return new GroupToggleState(DlcTextCompat.translatable("dlc_manager.group.disable").getString(), true, true);
         }
         return new GroupToggleState("", false, false);
     }
@@ -73,7 +75,7 @@ public final class DlcItemActions {
         }
         DlcRuntimeState.DependencyBatchResult deps = DlcRuntimeState.collectMissingDependencies(targets);
         if (!deps.getLines().isEmpty()) {
-            Component scopeLabel = Component.translatable("dlc_manager.scope.group");
+            Component scopeLabel = DlcTextCompat.translatable("dlc_manager.scope.group");
             showBatchDependencyPrompt(deps.getLines(), deps.getItemsToEnable(), targets, scopeLabel);
             return;
         }
@@ -296,7 +298,7 @@ public final class DlcItemActions {
         if (returnScreen instanceof DlcManagerScreen screen) {
             screen.rememberListScroll();
         }
-        Component title = Component.translatable("dlc_manager.batch.conflicts_title")
+        Component title = DlcTextCompat.translatable("dlc_manager.batch.conflicts_title")
             .withStyle(net.minecraft.ChatFormatting.RED);
         Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             Minecraft.getInstance().setScreen(returnScreen);
@@ -310,7 +312,7 @@ public final class DlcItemActions {
                 screen.refreshAfterStateChange();
             }
         }, title, message,
-            Component.translatable("dlc_manager.batch.conflicts_skip_enable"),
+            DlcTextCompat.translatable("dlc_manager.batch.conflicts_skip_enable"),
             DlcConfirmUtil.confirmNo()));
     }
 
@@ -321,8 +323,8 @@ public final class DlcItemActions {
         if (returnScreen instanceof DlcManagerScreen screen) {
             screen.rememberListScroll();
         }
-        Component title = Component.translatable("dlc_manager.batch.dependencies_title");
-        Component enableLabel = Component.translatable("dlc_manager.batch.enable_deps", scopeLabel);
+        Component title = DlcTextCompat.translatable("dlc_manager.batch.dependencies_title");
+        Component enableLabel = DlcTextCompat.translatable("dlc_manager.batch.enable_deps", scopeLabel);
         Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             Minecraft.getInstance().setScreen(returnScreen);
             if (!accepted) {
@@ -379,8 +381,8 @@ public final class DlcItemActions {
             if (returnScreen instanceof DlcManagerScreen screen) {
                 screen.refreshAfterStateChange();
             }
-        }, Component.translatable("dlc_manager.title"), message,
-            Component.translatable("dlc_manager.dependency.enable"),
+        }, DlcTextCompat.translatable("dlc_manager.title"), message,
+            DlcTextCompat.translatable("dlc_manager.dependency.enable"),
             DlcConfirmUtil.confirmNo()));
     }
 
@@ -402,8 +404,8 @@ public final class DlcItemActions {
             if (returnScreen instanceof DlcManagerScreen screen) {
                 screen.refreshAfterStateChange();
             }
-        }, Component.translatable("dlc_manager.title"), message,
-            Component.translatable("dlc_manager.conflict.resolve"),
+        }, DlcTextCompat.translatable("dlc_manager.title"), message,
+            DlcTextCompat.translatable("dlc_manager.conflict.resolve"),
             DlcConfirmUtil.confirmNo()));
     }
 

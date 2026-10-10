@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.preset.DlcPresetEntry
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState
 import com.cozooo.dlc_manager.client.preset.DlcPresetStatus
@@ -9,7 +11,15 @@ import com.cozooo.dlc_manager.client.server.DlcServerInfo
 import com.cozooo.dlc_manager.client.server.DlcServerItem
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.sighs.apricityui.init.Document
+//? if >=1.20.1 <26.1 {
 import net.minecraft.client.gui.GuiGraphics
+//?}
+//? if <1.20.1 {
+/*import com.mojang.blaze3d.vertex.PoseStack
+*///?}
+//? if >=26.1 {
+/*import net.minecraft.client.gui.GuiGraphicsExtractor
+*///?}
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcType
 import net.minecraft.client.Minecraft
@@ -253,10 +263,10 @@ class DlcServerScreen(
                             continueEnableAfterConflictResolution(item)
                         }
                     },
-                    Component.translatable("dlc_manager.conflict.word"),
+                    DlcTextCompat.translatable("dlc_manager.conflict.word"),
                     message,
-                    Component.translatable("dlc_manager.conflict.resolve"),
-                    Component.translatable("gui.cancel"),
+                    DlcTextCompat.translatable("dlc_manager.conflict.resolve"),
+                    DlcTextCompat.translatable("gui.cancel"),
                 ),
             )
             return
@@ -277,10 +287,10 @@ class DlcServerScreen(
                             updateApplyState()
                         }
                     },
-                    Component.translatable("dlc_manager.dependency.enable"),
+                    DlcTextCompat.translatable("dlc_manager.dependency.enable"),
                     message,
-                    Component.translatable("dlc_manager.dependency.enable"),
-                    Component.translatable("gui.cancel"),
+                    DlcTextCompat.translatable("dlc_manager.dependency.enable"),
+                    DlcTextCompat.translatable("gui.cancel"),
                 ),
             )
             return
@@ -315,10 +325,10 @@ class DlcServerScreen(
                             updateApplyState()
                         }
                     },
-                    Component.translatable("dlc_manager.dependency.enable"),
+                    DlcTextCompat.translatable("dlc_manager.dependency.enable"),
                     message,
-                    Component.translatable("dlc_manager.dependency.enable"),
-                    Component.translatable("gui.cancel"),
+                    DlcTextCompat.translatable("dlc_manager.dependency.enable"),
+                    DlcTextCompat.translatable("gui.cancel"),
                 ),
             )
             return
@@ -678,8 +688,8 @@ class DlcServerScreen(
                     }
                     Minecraft.getInstance().setScreen(this)
                 },
-                Component.translatable("dlc_manager.server.restart_title"),
-                Component.translatable("dlc_manager.server.restart_prompt"),
+                DlcTextCompat.translatable("dlc_manager.server.restart_title"),
+                DlcTextCompat.translatable("dlc_manager.server.restart_prompt"),
             ),
         )
     }
@@ -886,7 +896,7 @@ class DlcServerScreen(
         }
         val result: MutableSet<String> = LinkedHashSet()
         for (token in preset.getEnable()) {
-            val value = token?.trim() ?: ""
+            val value = token.trim()
             if (value.isBlank()) continue
             val refPresetId = resolvePresetReference(value, byId)
             if (refPresetId != null) {
@@ -919,7 +929,7 @@ class DlcServerScreen(
         }
         val result: MutableSet<String> = LinkedHashSet()
         for (token in preset.getConflicts()) {
-            val value = token?.trim() ?: ""
+            val value = token.trim()
             if (value.isBlank()) continue
             val refPresetId = resolvePresetReference(value, byId)
             if (refPresetId != null) {
@@ -953,7 +963,7 @@ class DlcServerScreen(
     private fun findPresetId(value: String, byId: Map<String, DlcPresetEntry>): String? {
         val exact = byId[value]
         if (!exact?.getId().isNullOrBlank()) {
-            return exact!!.getId()
+            return exact.getId()
         }
         for (entry in byId.values) {
             val id = entry.getId()
@@ -1108,7 +1118,7 @@ class DlcServerScreen(
     private var controlsLocked: Boolean? = null
     private var renderedState: List<Boolean> = emptyList()
 
-    override fun getTitle(): Component = Component.translatable("dlc_manager.server.title")
+    override fun getTitle(): Component = DlcTextCompat.translatable("dlc_manager.server.title")
 
     override fun init() {
         capturePresetSnapshot()
@@ -1311,7 +1321,7 @@ class DlcServerScreen(
     private fun confirmBatchToggle(enable: Boolean) {
         if (applying) return
         rememberListScroll()
-        val scope = if (searchQuery.isNotBlank()) Component.translatable("dlc_manager.scope.search") else activeFilter?.let { Component.translatable(it.getDisplayKey()) }
+        val scope = if (searchQuery.isNotBlank()) DlcTextCompat.translatable("dlc_manager.scope.search") else activeFilter?.let { DlcTextCompat.translatable(it.getDisplayKey()) }
         Minecraft.getInstance().setScreen(DlcConfirmScreen({ accepted ->
             Minecraft.getInstance().setScreen(this)
             if (accepted) setAllEnabled(enable)
@@ -1335,14 +1345,25 @@ class DlcServerScreen(
         savedScrollFilter = activeFilter
     }
 
+    //? if <26.1 {
     override fun resize(minecraft: Minecraft, width: Int, height: Int) {
         rememberListScroll()
         restoreScrollPending = savedScrollFilter == activeFilter
         super.resize(minecraft, width, height)
     }
+    //?}
+
+    //? if >=26.1 {
+    /*override fun resize(width: Int, height: Int) {
+        rememberListScroll()
+        restoreScrollPending = savedScrollFilter == activeFilter
+        super.resize(width, height)
+    }
+    *///?}
 
     override fun isUiContentReady(): Boolean = !restoreScrollPending
 
+    //? if >=1.20.1 <26.1 {
     override fun render(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
         super.render(graphics, mouseX, mouseY, partialTick)
         val document = linkedDocument ?: return
@@ -1353,12 +1374,39 @@ class DlcServerScreen(
         }
         restoreScrollPending = false
     }
+    //?}
 
-    private fun tr(key: String, vararg args: Any): String = Component.translatable(key, *args).string
+    //? if <1.20.1 {
+    /*override fun render(graphics: PoseStack, mouseX: Int, mouseY: Int, partialTick: Float) {
+        super.render(graphics, mouseX, mouseY, partialTick)
+        val document = linkedDocument ?: return
+        if (!restoreScrollPending || document.needsInitialFullCommit() || document.isInitialCommitSlicing) return
+        val list = document.getElementById("manager-list")
+        if (list.clientHeight > 0 && list.computedStyle.overflowY in setOf("auto", "scroll")) {
+            Document.runWithContext(document) { list.setScrollTop(savedScrollOffset) }
+        }
+        restoreScrollPending = false
+    }
+    *///?}
+
+    //? if >=26.1 {
+    /*override fun extractRenderState(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, partialTick: Float) {
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick)
+        val document = linkedDocument ?: return
+        if (!restoreScrollPending || document.needsInitialFullCommit() || document.isInitialCommitSlicing) return
+        val list = document.getElementById("manager-list")
+        if (list.clientHeight > 0 && list.computedStyle.overflowY in setOf("auto", "scroll")) {
+            Document.runWithContext(document) { list.setScrollTop(savedScrollOffset) }
+        }
+        restoreScrollPending = false
+    }
+    *///?}
+
+    private fun tr(key: String, vararg args: Any): String = DlcTextCompat.translatable(key, *args).string
 
     override fun onClose() {
         if (applying || requiredMissingCount > 0) return
-        if (items.any { isDirty(it) }) Minecraft.getInstance().setScreen(DlcConfirmScreen({ accepted -> if (accepted) { for (item in items) item.enabled = baseline[item.id] ?: false; openServerList() } else Minecraft.getInstance().setScreen(this) }, Component.translatable("dlc_manager.config.cancel_title"), Component.translatable("dlc_manager.config.cancel_prompt")))
+        if (items.any { isDirty(it) }) Minecraft.getInstance().setScreen(DlcConfirmScreen({ accepted -> if (accepted) { for (item in items) item.enabled = baseline[item.id] ?: false; openServerList() } else Minecraft.getInstance().setScreen(this) }, DlcTextCompat.translatable("dlc_manager.config.cancel_title"), DlcTextCompat.translatable("dlc_manager.config.cancel_prompt")))
         else openServerList()
     }
     override fun shouldCloseOnEsc() = !applying && requiredMissingCount <= 0

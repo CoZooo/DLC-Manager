@@ -1,4 +1,6 @@
 package com.cozooo.dlc_manager.client.screen
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState
 import com.cozooo.dlc_manager.client.remote.DlcRedirectEntry
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
@@ -25,10 +27,10 @@ object DlcItemActions {
         }
         val anyEnabled = items.any { it.isEnabled() }
         if (anyEligibleDisabled) {
-            return GroupToggleState(Component.translatable("dlc_manager.group.enable").string, true, true)
+            return GroupToggleState(DlcTextCompat.translatable("dlc_manager.group.enable").string, true, true)
         }
         if (anyEnabled) {
-            return GroupToggleState(Component.translatable("dlc_manager.group.disable").string, true, true)
+            return GroupToggleState(DlcTextCompat.translatable("dlc_manager.group.disable").string, true, true)
         }
         return GroupToggleState("", false, false)
     }
@@ -71,7 +73,7 @@ object DlcItemActions {
         }
         val deps = DlcRuntimeState.collectMissingDependencies(targets)
         if (deps.getLines().isNotEmpty()) {
-            val scopeLabel = Component.translatable("dlc_manager.scope.group")
+            val scopeLabel = DlcTextCompat.translatable("dlc_manager.scope.group")
             showBatchDependencyPrompt(deps.getLines(), deps.getItemsToEnable(), targets, scopeLabel)
             return
         }
@@ -290,7 +292,7 @@ object DlcItemActions {
         if (returnScreen is DlcManagerScreen) {
             returnScreen.rememberListScroll()
         }
-        val title = Component.translatable("dlc_manager.batch.conflicts_title").withStyle(ChatFormatting.RED)
+        val title = DlcTextCompat.translatable("dlc_manager.batch.conflicts_title").withStyle(ChatFormatting.RED)
         Minecraft.getInstance().setScreen(
             DlcConfirmScreen(
                 { accepted ->
@@ -305,7 +307,7 @@ object DlcItemActions {
                 },
                 title,
                 message,
-                Component.translatable("dlc_manager.batch.conflicts_skip_enable"),
+                DlcTextCompat.translatable("dlc_manager.batch.conflicts_skip_enable"),
                 DlcConfirmUtil.confirmNo(),
             )
         )
@@ -322,8 +324,8 @@ object DlcItemActions {
         if (returnScreen is DlcManagerScreen) {
             returnScreen.rememberListScroll()
         }
-        val title = Component.translatable("dlc_manager.batch.dependencies_title")
-        val enableLabel = Component.translatable("dlc_manager.batch.enable_deps", scopeLabel)
+        val title = DlcTextCompat.translatable("dlc_manager.batch.dependencies_title")
+        val enableLabel = DlcTextCompat.translatable("dlc_manager.batch.enable_deps", scopeLabel)
         Minecraft.getInstance().setScreen(
             DlcConfirmScreen(
                 { accepted ->
@@ -391,9 +393,9 @@ object DlcItemActions {
                         returnScreen.refreshAfterStateChange()
                     }
                 },
-                Component.translatable("dlc_manager.title"),
+                DlcTextCompat.translatable("dlc_manager.title"),
                 message,
-                Component.translatable("dlc_manager.dependency.enable"),
+                DlcTextCompat.translatable("dlc_manager.dependency.enable"),
                 DlcConfirmUtil.confirmNo(),
             )
         )
@@ -420,9 +422,9 @@ object DlcItemActions {
                         returnScreen.refreshAfterStateChange()
                     }
                 },
-                Component.translatable("dlc_manager.title"),
+                DlcTextCompat.translatable("dlc_manager.title"),
                 message,
-                Component.translatable("dlc_manager.conflict.resolve"),
+                DlcTextCompat.translatable("dlc_manager.conflict.resolve"),
                 DlcConfirmUtil.confirmNo(),
             )
         )

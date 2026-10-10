@@ -481,9 +481,9 @@ object DlcServerApi {
     private fun handleUpdateState(exchange: HttpExchange) {
         val dlcRoot = DlcConfig.getDlcRoot()
         val version = DlcUpdateVersion.load(dlcRoot)
-        val base = blank(version?.getBase())
-        val dlc = blank(version?.getDlc())
-        val rollbackFrom = blank(version?.getRollbackFrom())
+        val base = blank(version.getBase())
+        val dlc = blank(version.getDlc())
+        val rollbackFrom = blank(version.getRollbackFrom())
         val rolledBack = DlcUpdateService.isRollbackMarkerActive(rollbackFrom, base, dlc)
         val history: List<DlcUpdateMeta?>? = if (rolledBack) {
             DlcUpdateService.listUpdateHistoryFrom(rollbackFrom)
@@ -502,7 +502,7 @@ object DlcServerApi {
         val result = DlcUpdateService.checkForUpdates()
         val data = JsonObject()
         val updates = JsonArray()
-        for (pkg in result.updates ?: mutableListOf()) {
+        for (pkg in result.updates) {
             val row = toUpdatePackageJson(pkg)
             if (row != null) {
                 updates.add(row)
@@ -794,7 +794,7 @@ object DlcServerApi {
         if (uri?.path.isNullOrBlank()) {
             return "/"
         }
-        var path = uri!!.path
+        var path = uri.path
         while (path.endsWith("/") && path.length > 1) {
             path = path.substring(0, path.length - 1)
         }
@@ -805,7 +805,7 @@ object DlcServerApi {
         if (uri?.query.isNullOrBlank() || key.isNullOrBlank()) {
             return ""
         }
-        val parts = uri!!.query.split("&")
+        val parts = uri.query.split("&")
         for (part in parts) {
             if (part.isBlank()) {
                 continue

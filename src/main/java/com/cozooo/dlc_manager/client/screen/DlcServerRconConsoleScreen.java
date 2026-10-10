@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.server.DlcRconClient;
 import net.minecraft.client.Minecraft;
@@ -31,7 +35,7 @@ public class DlcServerRconConsoleScreen extends DlcPageScreen {
     private boolean draggingScrollbar;
 
     public DlcServerRconConsoleScreen(Screen parent, DlcServerEntry entry, int port, String password) {
-        super(DlcUiPage.SERVER_RCON_CONSOLE, parent, Component.translatable("dlc_manager.server.rcon_console"));
+        super(DlcUiPage.SERVER_RCON_CONSOLE, parent, DlcTextCompat.translatable("dlc_manager.server.rcon_console"));
         this.parent = parent;
         this.entry = entry;
         this.port = port;
@@ -59,12 +63,12 @@ public class DlcServerRconConsoleScreen extends DlcPageScreen {
             backX = fieldX - backWidth - gap;
         }
 
-        commandField = new EditBox(this.font, fieldX, buttonY, fieldWidth, 20, Component.translatable("dlc_manager.server.rcon_command"));
+        commandField = new EditBox(this.font, fieldX, buttonY, fieldWidth, 20, DlcTextCompat.translatable("dlc_manager.server.rcon_command"));
         commandField.setMaxLength(256);
-        sendButton = Button.builder(Component.translatable("dlc_manager.server.rcon_send"), btn -> sendCommand())
+        sendButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.rcon_send"), btn -> sendCommand())
             .bounds(sendX, buttonY, sendWidth, 20)
             .build();
-        backButton = Button.builder(Component.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
+        backButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
             .bounds(backX, buttonY, backWidth, 20)
             .build();
 
@@ -88,8 +92,8 @@ public class DlcServerRconConsoleScreen extends DlcPageScreen {
             .supplyAsync(() -> DlcRconClient.execute(host, port, password, command, 15000))
             .whenComplete((response, throwable) -> Minecraft.getInstance().execute(() -> {
                 if (response == null) {
-                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
-                        Component.translatable("dlc_manager.server.rcon_exec_failed"), Component.empty());
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                        DlcTextCompat.translatable("dlc_manager.server.rcon_exec_failed"), DlcTextCompat.empty());
                 } else {
                     appendResponse(response);
                 }
@@ -98,7 +102,7 @@ public class DlcServerRconConsoleScreen extends DlcPageScreen {
 
     private void appendResponse(String response) {
         if (response == null || response.isBlank()) {
-            appendLine(Component.translatable("dlc_manager.server.rcon_response", "").getString());
+            appendLine(DlcTextCompat.translatable("dlc_manager.server.rcon_response", "").getString());
             return;
         }
         String[] parts = response.split("\\r?\\n");

@@ -1,9 +1,11 @@
 package com.cozooo.dlc_manager.client.screen
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 
-class DlcUpdateResultScreen(parent: Screen?, private val success: Boolean, private val message: Component) : DlcPageScreen(DlcUiPage.UPDATE_RESULT, parent, Component.translatable("dlc_manager.update.title")) {
+class DlcUpdateResultScreen(parent: Screen?, private val success: Boolean, private val message: Component) : DlcPageScreen(DlcUiPage.UPDATE_RESULT, parent, DlcTextCompat.translatable("dlc_manager.update.title")) {
     override fun buildPage() {
         val body = node(content, "div", "page-dialog")
         rich(node(body, "div", if (success) "page-message success" else "page-message error"), message)

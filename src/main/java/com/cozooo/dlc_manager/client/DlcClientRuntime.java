@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client;
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
@@ -40,9 +44,7 @@ import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.mojang.logging.LogUtils;
-import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.Screen;
@@ -50,7 +52,6 @@ import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
-import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.packs.repository.PackRepository;
 import net.minecraft.util.FormattedCharSequence;
 import org.slf4j.Logger;
@@ -90,10 +91,8 @@ public final class DlcClientRuntime {
     public static AbstractWidget findButtonByKey(Screen screen, String key) {
         for (Object child : screen.children()) {
             if (child instanceof AbstractWidget widget) {
-                if (widget.getMessage().getContents() instanceof TranslatableContents contents) {
-                    if (key.equals(contents.getKey())) {
-                        return widget;
-                    }
+                if (key.equals(DlcScreenCompat.translationKey(widget.getMessage()))) {
+                    return widget;
                 }
             }
         }
@@ -182,11 +181,11 @@ public final class DlcClientRuntime {
         return true;
     }
 
-    public static void renderTitleNoticePanel(Screen screen, GuiGraphics guiGraphics) {
+    public static void renderTitleNoticePanel(Screen screen, Object guiGraphics) {
         renderTitleNoticePanel(screen, guiGraphics, Integer.MIN_VALUE, Integer.MIN_VALUE);
     }
 
-    public static void renderTitleNoticePanel(Screen screen, GuiGraphics guiGraphics, int mouseX, int mouseY) {
+    public static void renderTitleNoticePanel(Screen screen, Object guiGraphics, int mouseX, int mouseY) {
         if (!shouldShowMainMenuNoticePanel() || screen == null || guiGraphics == null) {
             titleNoticeDraggingScrollbar = false;
             return;
@@ -209,14 +208,14 @@ public final class DlcClientRuntime {
             titleNoticeScrollOffset = Math.max(0, Math.min(layout.maxScroll, next));
         }
 
-        guiGraphics.fill(layout.x, layout.y, layout.right, layout.bottom, 0xCC101215);
-        guiGraphics.fill(layout.x, layout.y, layout.right, layout.y + 1, 0xFF2A2F36);
-        guiGraphics.fill(layout.x, layout.bottom - 1, layout.right, layout.bottom, 0xFF2A2F36);
-        guiGraphics.fill(layout.x, layout.y, layout.x + 1, layout.bottom, 0xFF2A2F36);
-        guiGraphics.fill(layout.right - 1, layout.y, layout.right, layout.bottom, 0xFF2A2F36);
+        DlcScreenCompat.fill(guiGraphics, layout.x, layout.y, layout.right, layout.bottom, 0xCC101215);
+        DlcScreenCompat.fill(guiGraphics, layout.x, layout.y, layout.right, layout.y + 1, 0xFF2A2F36);
+        DlcScreenCompat.fill(guiGraphics, layout.x, layout.bottom - 1, layout.right, layout.bottom, 0xFF2A2F36);
+        DlcScreenCompat.fill(guiGraphics, layout.x, layout.y, layout.x + 1, layout.bottom, 0xFF2A2F36);
+        DlcScreenCompat.fill(guiGraphics, layout.right - 1, layout.y, layout.right, layout.bottom, 0xFF2A2F36);
 
         int titleY = layout.y + layout.padding;
-        guiGraphics.drawCenteredString(
+        DlcScreenCompat.drawCenteredString(guiGraphics,
             Minecraft.getInstance().font,
             DlcTextFormatter.parse(layout.title),
             layout.x + (layout.right - layout.x) / 2,
@@ -231,19 +230,19 @@ public final class DlcClientRuntime {
                 if (subheadX < layout.textX) {
                     subheadX = layout.textX;
                 }
-                guiGraphics.drawString(Minecraft.getInstance().font, subheadLine, subheadX, subheadY, 0xBFC7D5, false);
+                DlcScreenCompat.drawString(guiGraphics, Minecraft.getInstance().font, subheadLine, subheadX, subheadY, 0xBFC7D5, false);
                 subheadY += layout.lineStep;
             }
         }
 
         int drawY = layout.textTop - titleNoticeScrollOffset;
-        guiGraphics.enableScissor(layout.x + 1, layout.textTop, layout.right - 1, layout.textBottom);
+        DlcScreenCompat.enableScissor(guiGraphics, layout.x + 1, layout.textTop, layout.right - 1, layout.textBottom);
         try {
             for (FormattedCharSequence line : layout.bodyLines) {
                 if (DlcMarkdownRenderer.isHrLine(line)) {
                     int hrY = drawY + layout.lineStep / 2;
                     if (hrY >= layout.textTop && hrY <= layout.textBottom - 1) {
-                        guiGraphics.fill(layout.textX, hrY, layout.textRight, hrY + 1, 0xFF5A5A5A);
+                        DlcScreenCompat.fill(guiGraphics, layout.textX, hrY, layout.textRight, hrY + 1, 0xFF5A5A5A);
                     }
                     drawY += layout.lineStep;
                     continue;
@@ -258,9 +257,9 @@ public final class DlcClientRuntime {
                     continue;
                 }
                 if (scale > 1.0f) {
-                    guiGraphics.pose().pushPose();
-                    guiGraphics.pose().scale(scale, scale, 1.0f);
-                    guiGraphics.drawString(
+                    DlcScreenCompat.pushPose(guiGraphics);
+                    DlcScreenCompat.scale(guiGraphics, scale, scale, 1.0f);
+                    DlcScreenCompat.drawString(guiGraphics,
                         Minecraft.getInstance().font,
                         line,
                         (int) (layout.textX / scale),
@@ -268,14 +267,14 @@ public final class DlcClientRuntime {
                         0xFFFFFF,
                         false
                     );
-                    guiGraphics.pose().popPose();
+                    DlcScreenCompat.popPose(guiGraphics);
                 } else {
-                    guiGraphics.drawString(Minecraft.getInstance().font, line, layout.textX, drawY, 0xE6E6E6, false);
+                    DlcScreenCompat.drawString(guiGraphics, Minecraft.getInstance().font, line, layout.textX, drawY, 0xE6E6E6, false);
                 }
                 drawY += lineHeight;
             }
         } finally {
-            guiGraphics.disableScissor();
+            DlcScreenCompat.disableScissor(guiGraphics);
         }
         drawTitleNoticeScrollbar(guiGraphics, layout);
     }
@@ -322,10 +321,7 @@ public final class DlcClientRuntime {
                         int styleX = scale > 1.0f ? (int) (relX / scale) : relX;
                         Style style = findStyleAt(line, styleX);
                         if (style != null) {
-                            ClickEvent click = style.getClickEvent();
-                            if (click != null && click.getAction() == ClickEvent.Action.OPEN_URL && click.getValue() != null && !click.getValue().isBlank()) {
-                                Util.getPlatform().openUri(click.getValue());
-                            }
+                            DlcScreenCompat.openClickEvent(style.getClickEvent());
                         }
                     }
                     return true;
@@ -393,12 +389,12 @@ public final class DlcClientRuntime {
         updateTitleNoticeText(config, lang);
         String title = titleNoticeTitle;
         if (title == null || title.isBlank()) {
-            title = Component.translatable("dlc_manager.notice_title").getString();
+            title = DlcTextCompat.translatable("dlc_manager.notice_title").getString();
         }
         String body = titleNoticeText;
         if (body == null || body.isBlank()) {
             body = titleNoticeLoading
-                ? Component.translatable("dlc_manager.notice.loading").getString()
+                ? DlcTextCompat.translatable("dlc_manager.notice.loading").getString()
                 : config.getContents().resolve(lang);
         }
         String subhead = titleNoticeSubhead;
@@ -475,13 +471,13 @@ public final class DlcClientRuntime {
         );
     }
 
-    private static void drawTitleNoticeScrollbar(GuiGraphics guiGraphics, TitleNoticePanelLayout layout) {
+    private static void drawTitleNoticeScrollbar(Object guiGraphics, TitleNoticePanelLayout layout) {
         if (layout.maxScroll <= 0 || layout.visibleHeight <= 0) {
             return;
         }
         int barY = layout.scrollbarYForScroll(titleNoticeScrollOffset);
-        guiGraphics.fill(layout.scrollbarX, layout.scrollbarTop, layout.scrollbarX + layout.scrollbarWidth, layout.scrollbarBottom, 0xFF2B2B2B);
-        guiGraphics.fill(layout.scrollbarX, barY, layout.scrollbarX + layout.scrollbarWidth, barY + layout.scrollbarHeight, 0xFF6B6B6B);
+        DlcScreenCompat.fill(guiGraphics, layout.scrollbarX, layout.scrollbarTop, layout.scrollbarX + layout.scrollbarWidth, layout.scrollbarBottom, 0xFF2B2B2B);
+        DlcScreenCompat.fill(guiGraphics, layout.scrollbarX, barY, layout.scrollbarX + layout.scrollbarWidth, barY + layout.scrollbarHeight, 0xFF6B6B6B);
     }
 
     private static void updateTitleNoticeScrollFromTrack(TitleNoticePanelLayout layout, double mouseY) {
@@ -630,7 +626,7 @@ public final class DlcClientRuntime {
         if (minecraft.hasSingleplayerServer()) {
             return false;
         }
-        return minecraft.player.hasPermissions(2);
+        return DlcScreenCompat.hasCommandPermission(minecraft.player, 2);
     }
 
     public static void openManagerFromCommand() {
@@ -658,9 +654,9 @@ public final class DlcClientRuntime {
         UpdateCheckResult result = DlcUpdateService.checkForUpdates();
         if (result == null || !result.hasUpdates()) {
             com.cozooo.dlc_manager.client.screen.DlcScreenCompat.addOrUpdatePeriodicNotification(
-                minecraft.getToasts(),
-                Component.translatable("dlc_manager.update.no_updates"),
-                Component.empty()
+                DlcScreenCompat.toastManager(minecraft),
+                DlcTextCompat.translatable("dlc_manager.update.no_updates"),
+                DlcTextCompat.empty()
             );
             return;
         }
@@ -929,7 +925,7 @@ public final class DlcClientRuntime {
     }
 
     private static Screen createContinuationScreen(Screen fallback, Runnable next) {
-        return new Screen(Component.empty()) {
+        return new Screen(DlcTextCompat.empty()) {
             private boolean started;
 
             @Override
@@ -1143,7 +1139,7 @@ public final class DlcClientRuntime {
                 String fileName = item.getSourcePath().getFileName().toString();
                 String packId = resolvePackId(repo, fileName);
                 if (packId == null) {
-                    java.nio.file.Path target = minecraft.getResourcePackDirectory().resolve(fileName);
+                    java.nio.file.Path target = java.nio.file.Path.of(minecraft.getResourcePackDirectory().toString(), fileName);
                     copyRecursive(item.getSourcePath(), target);
                     repo.reload();
                     packId = resolvePackId(repo, fileName);
@@ -1241,7 +1237,12 @@ public final class DlcClientRuntime {
     private static String currentPlayerName() {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player != null && minecraft.player.getGameProfile() != null) {
+            //? if >=26.1 {
+            /*String name = minecraft.player.getGameProfile().name();
+            *///?}
+            //? if <26.1 {
             String name = minecraft.player.getGameProfile().getName();
+            //?}
             if (name != null && !name.isBlank()) {
                 return name;
             }
@@ -1251,8 +1252,15 @@ public final class DlcClientRuntime {
 
     private static String currentPlayerUuid() {
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.player != null && minecraft.player.getGameProfile() != null && minecraft.player.getGameProfile().getId() != null) {
-            return minecraft.player.getGameProfile().getId().toString();
+        if (minecraft.player != null && minecraft.player.getGameProfile() != null) {
+            //? if >=26.1 {
+            /*return minecraft.player.getGameProfile().id().toString();
+            *///?}
+            //? if <26.1 {
+            if (minecraft.player.getGameProfile().getId() != null) {
+                return minecraft.player.getGameProfile().getId().toString();
+            }
+            //?}
         }
         return DlcPlatformServices.playerUuid();
     }

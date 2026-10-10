@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService.SelfUpdateResult
 import net.minecraft.client.Minecraft
@@ -11,7 +15,7 @@ class DlcSelfUpdateScreen @JvmOverloads constructor(
     private val parent: Screen?,
     preset: SelfUpdateResult?,
     private val showSkipThisUpdateButton: Boolean = false,
-) : DlcPageScreen(DlcUiPage.SELF_UPDATE, parent, Component.translatable("dlc_manager.self_update.title")) {
+) : DlcPageScreen(DlcUiPage.SELF_UPDATE, parent, DlcTextCompat.translatable("dlc_manager.self_update.title")) {
     private var result: SelfUpdateResult? = preset
     private var downloadButton: Button? = null
     private var skipThisUpdateButton: Button? = null
@@ -30,14 +34,14 @@ class DlcSelfUpdateScreen @JvmOverloads constructor(
         val totalWidth = buttonWidth * buttonCount + gap * (buttonCount - 1)
         val startX = width / 2 - totalWidth / 2
 
-        downloadButton = Button.builder(Component.translatable("dlc_manager.self_update.download")) {
+        downloadButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.self_update.download")) {
             startDownload()
         }
             .bounds(startX, y, buttonWidth, buttonHeight)
             .build()
 
         skipThisUpdateButton = if (showSkipThisUpdateButton) {
-            Button.builder(Component.translatable("dlc_manager.self_update.skip_this_update")) {
+            DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.self_update.skip_this_update")) {
                 skipThisUpdate()
             }
                 .bounds(startX + buttonWidth + gap, y, buttonWidth, buttonHeight)
@@ -46,7 +50,7 @@ class DlcSelfUpdateScreen @JvmOverloads constructor(
             null
         }
 
-        backButton = Button.builder(Component.translatable("dlc_manager.self_update.skip")) {
+        backButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.self_update.skip")) {
             Minecraft.getInstance().setScreen(parent)
         }
             .bounds(startX + (buttonWidth + gap) * (buttonCount - 1), y, buttonWidth, buttonHeight)
@@ -86,7 +90,7 @@ class DlcSelfUpdateScreen @JvmOverloads constructor(
         }
         downloading = true
         errorText = null
-        statusText = Component.translatable("dlc_manager.self_update.downloading").string
+        statusText = DlcTextCompat.translatable("dlc_manager.self_update.downloading").string
         updateButtons()
         Thread({
             val download = DlcSelfUpdateService.downloadUpdate(current)
@@ -95,7 +99,7 @@ class DlcSelfUpdateScreen @JvmOverloads constructor(
                 if (download.success) {
                     showRestartPrompt()
                 } else {
-                    errorText = Component.translatable("dlc_manager.self_update.failed").string
+                    errorText = DlcTextCompat.translatable("dlc_manager.self_update.failed").string
                 }
                 updateButtons()
             }
@@ -112,10 +116,10 @@ class DlcSelfUpdateScreen @JvmOverloads constructor(
                         Minecraft.getInstance().setScreen(parent)
                     }
                 },
-                Component.translatable("dlc_manager.self_update.title"),
-                Component.translatable("dlc_manager.self_update.restart"),
-                Component.translatable("dlc_manager.restart_now"),
-                Component.translatable("dlc_manager.restart_later"),
+                DlcTextCompat.translatable("dlc_manager.self_update.title"),
+                DlcTextCompat.translatable("dlc_manager.self_update.restart"),
+                DlcTextCompat.translatable("dlc_manager.restart_now"),
+                DlcTextCompat.translatable("dlc_manager.restart_later"),
             )
         )
     }

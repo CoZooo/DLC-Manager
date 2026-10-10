@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService;
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService.DownloadResult;
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService.SelfUpdateResult;
@@ -25,7 +29,7 @@ public class DlcSelfUpdateScreen extends DlcPageScreen {
     }
 
     public DlcSelfUpdateScreen(Screen parent, SelfUpdateResult preset, boolean showSkipThisUpdateButton) {
-        super(DlcUiPage.SELF_UPDATE, parent, Component.translatable("dlc_manager.self_update.title"));
+        super(DlcUiPage.SELF_UPDATE, parent, DlcTextCompat.translatable("dlc_manager.self_update.title"));
         this.parent = parent;
         this.result = preset;
         this.showSkipThisUpdateButton = showSkipThisUpdateButton;
@@ -39,17 +43,17 @@ public class DlcSelfUpdateScreen extends DlcPageScreen {
         int buttonCount = showSkipThisUpdateButton ? 3 : 2;
         int totalWidth = buttonWidth * buttonCount + gap * (buttonCount - 1);
         int startX = this.width / 2 - totalWidth / 2;
-        downloadButton = Button.builder(Component.translatable("dlc_manager.self_update.download"), btn -> startDownload())
+        downloadButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.self_update.download"), btn -> startDownload())
             .bounds(startX, y, buttonWidth, buttonHeight)
             .build();
         if (showSkipThisUpdateButton) {
-            skipThisUpdateButton = Button.builder(Component.translatable("dlc_manager.self_update.skip_this_update"), btn -> skipThisUpdate())
+            skipThisUpdateButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.self_update.skip_this_update"), btn -> skipThisUpdate())
                 .bounds(startX + buttonWidth + gap, y, buttonWidth, buttonHeight)
                 .build();
         } else {
             skipThisUpdateButton = null;
         }
-        backButton = Button.builder(Component.translatable("dlc_manager.self_update.skip"), btn -> Minecraft.getInstance().setScreen(parent))
+        backButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.self_update.skip"), btn -> Minecraft.getInstance().setScreen(parent))
             .bounds(startX + (buttonWidth + gap) * (buttonCount - 1), y, buttonWidth, buttonHeight)
             .build();
         addRenderableWidget(downloadButton);
@@ -87,7 +91,7 @@ public class DlcSelfUpdateScreen extends DlcPageScreen {
         }
         downloading = true;
         errorText = null;
-        statusText = Component.translatable("dlc_manager.self_update.downloading").getString();
+        statusText = DlcTextCompat.translatable("dlc_manager.self_update.downloading").getString();
         updateButtons();
         new Thread(() -> {
             DownloadResult download = DlcSelfUpdateService.downloadUpdate(result);
@@ -96,7 +100,7 @@ public class DlcSelfUpdateScreen extends DlcPageScreen {
                 if (download.success) {
                     showRestartPrompt();
                 } else {
-                    errorText = Component.translatable("dlc_manager.self_update.failed").getString();
+                    errorText = DlcTextCompat.translatable("dlc_manager.self_update.failed").getString();
                 }
                 updateButtons();
             });
@@ -110,10 +114,10 @@ public class DlcSelfUpdateScreen extends DlcPageScreen {
             } else {
                 Minecraft.getInstance().setScreen(parent);
             }
-        }, Component.translatable("dlc_manager.self_update.title"),
-            Component.translatable("dlc_manager.self_update.restart"),
-            Component.translatable("dlc_manager.restart_now"),
-            Component.translatable("dlc_manager.restart_later")));
+        }, DlcTextCompat.translatable("dlc_manager.self_update.title"),
+            DlcTextCompat.translatable("dlc_manager.self_update.restart"),
+            DlcTextCompat.translatable("dlc_manager.restart_now"),
+            DlcTextCompat.translatable("dlc_manager.restart_later")));
     }
 
     private void skipThisUpdate() {

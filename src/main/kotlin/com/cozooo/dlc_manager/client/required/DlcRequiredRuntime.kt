@@ -66,7 +66,7 @@ object DlcRequiredRuntime {
         while (!queue.isEmpty()) {
             val entry = queue.poll() ?: continue
             for (dep in entry.getDependencies()) {
-                val id = dep?.getIdentifier()
+                val id = dep.getIdentifier()
                 if (id.isNullOrBlank() || index.containsKey(id)) {
                     continue
                 }
@@ -89,7 +89,7 @@ object DlcRequiredRuntime {
             return map
         }
         for (entry in entries) {
-            val id = entry?.getIdentifier()
+            val id = entry.getIdentifier()
             if (!id.isNullOrBlank()) {
                 map.putIfAbsent(id, entry)
             }
@@ -105,12 +105,12 @@ object DlcRequiredRuntime {
         }
         val index = HashMap(buildIndex(entries))
         for (entry in entries) {
-            val id = entry?.getIdentifier()
+            val id = entry.getIdentifier()
             if (id.isNullOrBlank()) {
                 continue
             }
             for (dep in entry.getDependencies()) {
-                val depId = dep?.getIdentifier()
+                val depId = dep.getIdentifier()
                 if (depId.isNullOrBlank()) {
                     continue
                 }
@@ -143,7 +143,7 @@ object DlcRequiredRuntime {
             val resolved = index[id] ?: entry
             result.add(resolved)
             for (dep in resolved.getDependencies()) {
-                val depId = dep?.getIdentifier()
+                val depId = dep.getIdentifier()
                 if (depId.isNullOrBlank()) {
                     continue
                 }

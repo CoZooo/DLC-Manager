@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.client.config
 
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import net.minecraft.network.chat.Component
 
 abstract class DlcConfigValue(
@@ -8,9 +10,9 @@ abstract class DlcConfigValue(
     private val translationKey: String,
 ) {
     val configGuiDisplayName: String
-        get() = Component.translatable(translationKey).string
+        get() = DlcTextCompat.translatable(translationKey).string
     val comment: String
-        get() = if (commentKey.isNullOrBlank()) "" else Component.translatable(commentKey).string
+        get() = if (commentKey.isNullOrBlank()) "" else DlcTextCompat.translatable(commentKey).string
 
     abstract val stringValue: String
     abstract val defaultStringValue: String

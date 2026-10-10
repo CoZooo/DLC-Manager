@@ -1,10 +1,12 @@
 package com.cozooo.dlc_manager.client.screen
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import com.cozooo.dlc_manager.client.notice.DlcNoticeConfig
 import java.util.concurrent.CompletableFuture
-class DlcNoticeScreen(parent: Screen?, private val config: DlcNoticeConfig) : DlcPageScreen(DlcUiPage.NOTICE, parent, Component.translatable("dlc_manager.notice_title")) {
+class DlcNoticeScreen(parent: Screen?, private val config: DlcNoticeConfig) : DlcPageScreen(DlcUiPage.NOTICE, parent, DlcTextCompat.translatable("dlc_manager.notice_title")) {
     private var neverShow = config.isNeverShow()
     private var language = ""
     private var resolvedContents = ""

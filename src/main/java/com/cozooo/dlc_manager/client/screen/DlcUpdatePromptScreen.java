@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator;
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
@@ -37,7 +41,7 @@ public class DlcUpdatePromptScreen extends DlcPageScreen {
     }
 
     public DlcUpdatePromptScreen(Screen parent, UpdateCheckResult result, boolean allowSkipThisUpdate) {
-        super(DlcUiPage.UPDATE_PROMPT, parent, Component.translatable("dlc_manager.update.title"));
+        super(DlcUiPage.UPDATE_PROMPT, parent, DlcTextCompat.translatable("dlc_manager.update.title"));
         this.parent = parent;
         this.result = result;
         this.forceUpdate = hasHiddenUpdates(result);
@@ -49,7 +53,7 @@ public class DlcUpdatePromptScreen extends DlcPageScreen {
         int buttonHeight = 20;
         int y = this.height - 40;
         if (forceUpdate) {
-            applyButton = Button.builder(Component.translatable("dlc_manager.update.apply"), button -> confirmApply())
+            applyButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.apply"), button -> confirmApply())
                 .bounds(this.width / 2 - buttonWidth / 2, y, buttonWidth, buttonHeight)
                 .build();
             addRenderableWidget(applyButton);
@@ -60,23 +64,23 @@ public class DlcUpdatePromptScreen extends DlcPageScreen {
             int skipButtonWidth = 108;
             int totalWidth = buttonWidth + skipButtonWidth + buttonWidth + spacing * 2;
             int startX = this.width / 2 - totalWidth / 2;
-            applyButton = Button.builder(Component.translatable("dlc_manager.update.apply"), button -> confirmApply())
+            applyButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.apply"), button -> confirmApply())
                 .bounds(startX, y, buttonWidth, buttonHeight)
                 .build();
-            skipThisUpdateButton = Button.builder(Component.translatable("dlc_manager.self_update.skip_this_update"), button -> skipThisUpdate())
+            skipThisUpdateButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.self_update.skip_this_update"), button -> skipThisUpdate())
                 .bounds(startX + buttonWidth + spacing, y, skipButtonWidth, buttonHeight)
                 .build();
-            cancelButton = Button.builder(Component.translatable("dlc_manager.update.cancel"), button -> Minecraft.getInstance().setScreen(parent))
+            cancelButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.cancel"), button -> Minecraft.getInstance().setScreen(parent))
                 .bounds(startX + buttonWidth + spacing + skipButtonWidth + spacing, y, buttonWidth, buttonHeight)
                 .build();
             addRenderableWidget(applyButton);
             addRenderableWidget(skipThisUpdateButton);
             addRenderableWidget(cancelButton);
         } else {
-            applyButton = Button.builder(Component.translatable("dlc_manager.update.apply"), button -> confirmApply())
+            applyButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.apply"), button -> confirmApply())
                 .bounds(this.width / 2 - buttonWidth - 6, y, buttonWidth, buttonHeight)
                 .build();
-            cancelButton = Button.builder(Component.translatable("dlc_manager.update.cancel"), button -> Minecraft.getInstance().setScreen(parent))
+            cancelButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.cancel"), button -> Minecraft.getInstance().setScreen(parent))
                 .bounds(this.width / 2 + 6, y, buttonWidth, buttonHeight)
                 .build();
             skipThisUpdateButton = null;
@@ -93,7 +97,7 @@ public class DlcUpdatePromptScreen extends DlcPageScreen {
     }
 
     private void confirmApply() {
-        Component title = Component.translatable("dlc_manager.update.title");
+        Component title = DlcTextCompat.translatable("dlc_manager.update.title");
         Component message = DlcConfirmUtil.buildUpdateConfirmApplyMessage();
         Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             if (accepted) {
@@ -185,7 +189,7 @@ public class DlcUpdatePromptScreen extends DlcPageScreen {
             return;
         }
         applying = true;
-        statusText = Component.translatable("dlc_manager.update.applying").getString();
+        statusText = DlcTextCompat.translatable("dlc_manager.update.applying").getString();
         progress = -1f;
         if (applyButton != null) {
             applyButton.active = false;
@@ -225,7 +229,7 @@ public class DlcUpdatePromptScreen extends DlcPageScreen {
                 String message = ex.getMessage() == null ? "Failed to apply update" : ex.getMessage();
                 Minecraft.getInstance().execute(() -> {
                     applying = false;
-                    Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, Component.literal(message)));
+                    Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, DlcTextCompat.literal(message)));
                 });
             }
         }, "dlc-update-apply").start();
@@ -245,8 +249,8 @@ public class DlcUpdatePromptScreen extends DlcPageScreen {
             return;
         }
         Component message = result != null && result.isHelperScheduled()
-            ? Component.translatable("dlc_manager.update.deferred_restart")
-            : Component.translatable("dlc_manager.update.success");
+            ? DlcTextCompat.translatable("dlc_manager.update.deferred_restart")
+            : DlcTextCompat.translatable("dlc_manager.update.success");
         Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, true, message));
     }
 
@@ -274,8 +278,8 @@ public class DlcUpdatePromptScreen extends DlcPageScreen {
 
     private Screen createSuccessResultScreen(UpdateApplyResult result) {
         Component message = result != null && result.isHelperScheduled()
-            ? Component.translatable("dlc_manager.update.deferred_restart")
-            : Component.translatable("dlc_manager.update.success");
+            ? DlcTextCompat.translatable("dlc_manager.update.deferred_restart")
+            : DlcTextCompat.translatable("dlc_manager.update.success");
         return new DlcUpdateResultScreen(parent, true, message);
     }
 

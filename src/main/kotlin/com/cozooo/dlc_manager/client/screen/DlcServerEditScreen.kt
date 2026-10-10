@@ -1,10 +1,12 @@
 package com.cozooo.dlc_manager.client.screen
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.core.DlcConfig
 import java.util.function.Consumer
-class DlcServerEditScreen(parent: Screen?, private val editing: DlcServerEntry?, private val onSave: Consumer<DlcServerEntry>?) : DlcPageScreen(DlcUiPage.SERVER_EDIT, parent, Component.translatable("dlc_manager.server.edit_title")) {
+class DlcServerEditScreen(parent: Screen?, private val editing: DlcServerEntry?, private val onSave: Consumer<DlcServerEntry>?) : DlcPageScreen(DlcUiPage.SERVER_EDIT, parent, DlcTextCompat.translatable("dlc_manager.server.edit_title")) {
     private var name = editing?.name.orEmpty()
     private var host = editing?.host.orEmpty()
     private var port = (editing?.port?.takeIf { it > 0 } ?: DlcConfig.getServerPort()).toString()

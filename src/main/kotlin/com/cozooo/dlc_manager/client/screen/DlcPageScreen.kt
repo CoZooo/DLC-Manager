@@ -1,9 +1,20 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.sighs.apricityui.init.Document
 import com.sighs.apricityui.init.Element
 import net.minecraft.client.Minecraft
+//? if >=1.20.1 <26.1 {
 import net.minecraft.client.gui.GuiGraphics
+//?}
+//? if <1.20.1 {
+/*import com.mojang.blaze3d.vertex.PoseStack
+import net.minecraft.client.gui.components.Widget
+*///?}
+//? if >=26.1 {
+/*import net.minecraft.client.gui.GuiGraphicsExtractor
+*///?}
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import java.util.function.Consumer
@@ -79,10 +90,25 @@ abstract class DlcPageScreen(
         if (::pageDocument.isInitialized && pageDocument.isActive) Document.runWithContext(pageDocument) { backAction?.setEnabled(shouldCloseOnEsc()); updatePage(); bindings.toList().forEach { it.run() } }
     }
 
+    //? if >=1.20.1 <26.1 {
     override fun render(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
         if (::tooltip.isInitialized) Document.runWithContext(pageDocument) { tooltip.update() }
         super.render(graphics, mouseX, mouseY, partialTick)
     }
+    //?}
+
+    //? if <1.20.1 {
+    /*override fun render(graphics: PoseStack, mouseX: Int, mouseY: Int, partialTick: Float) {
+        if (::tooltip.isInitialized) Document.runWithContext(pageDocument) { tooltip.update() }
+        super.render(graphics, mouseX, mouseY, partialTick)
+    }
+    *///?}
+    //? if >=26.1 {
+    /*override fun extractRenderState(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, partialTick: Float) {
+        if (::tooltip.isInitialized) Document.runWithContext(pageDocument) { tooltip.update() }
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick)
+    }
+    *///?}
 
     protected fun node(parent: Element, tag: String, classes: String): Element {
         val slot = classes.trim().split(Regex("\\s+"), limit = 2).firstOrNull().orEmpty()
@@ -117,10 +143,15 @@ abstract class DlcPageScreen(
         it.getElement().setAttribute("class", "button choice" + if (selected) " selected" else "")
         it.getElement().setAttribute("aria-pressed", selected.toString())
     }
+    //? if >=1.20.1 {
     override fun <T> addRenderableWidget(widget: T): T where T : net.minecraft.client.gui.components.events.GuiEventListener, T : net.minecraft.client.gui.components.Renderable, T : net.minecraft.client.gui.narration.NarratableEntry = widget
+    //?}
+    //? if <1.20.1 {
+    /*override fun <T> addRenderableWidget(widget: T): T where T : net.minecraft.client.gui.components.events.GuiEventListener, T : Widget, T : net.minecraft.client.gui.narration.NarratableEntry = widget
+    *///?}
 
     protected fun mount(parent: Element, model: net.minecraft.client.gui.components.Button): DlcUiButton {
-        val button = action(parent, model.message.string) { if (model.active && model.visible) model.onPress() }
+        val button = action(parent, model.message.string) { if (model.active && model.visible) DlcScreenCompat.press(model) }
         var shown = true
         val binding = Runnable {
             button.setDisplayString(model.message.string)
@@ -203,7 +234,7 @@ abstract class DlcPageScreen(
                     if (marker?.startsWith("__dlc_heading__:") == true) append("font-size:").append((26 - marker.substringAfterLast(':').toInt() * 2).coerceAtLeast(16)).append("px;")
                     if (style.clickEvent != null) append("cursor:pointer;color:var(--accent);") else append("pointer-events:none;")
                 }
-                if (style.clickEvent != null) span.addEventListener("click") { handleComponentClicked(style) }
+                if (style.clickEvent != null) span.addEventListener("click") { DlcScreenCompat.handleClick(this, style) }
                 span.setAttribute("style", css)
                 span.setTextContent(chunk)
             }
@@ -211,12 +242,13 @@ abstract class DlcPageScreen(
         }, net.minecraft.network.chat.Style.EMPTY)
     }
 
+
     internal fun tip(owner: Element, content: Supplier<DlcUiTooltip.Content>) { tooltip.bind(owner, content) }
     protected fun status(text: String?) {
         val next = text.orEmpty()
         if (next != lastStatus) { lastStatus = next; DlcUiText.set(pageDocument.getElementById("page-status"), next) }
     }
-    protected fun tr(key: String, vararg args: Any): String = Component.translatable(key, *args).string
+    protected fun tr(key: String, vararg args: Any): String = DlcTextCompat.translatable(key, *args).string
     override fun onClose() { if (shouldCloseOnEsc()) Minecraft.getInstance().setScreen(pageParent) }
 
 }

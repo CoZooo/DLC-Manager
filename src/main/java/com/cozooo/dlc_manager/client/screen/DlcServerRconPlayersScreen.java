@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.server.DlcRconClient;
 import net.minecraft.client.Minecraft;
@@ -37,7 +41,7 @@ public class DlcServerRconPlayersScreen extends DlcPageScreen {
     private boolean draggingScrollbar;
 
     public DlcServerRconPlayersScreen(Screen parent, DlcServerEntry entry, int port, String password) {
-        super(DlcUiPage.SERVER_RCON_PLAYERS, parent, Component.translatable("dlc_manager.server.rcon_players"));
+        super(DlcUiPage.SERVER_RCON_PLAYERS, parent, DlcTextCompat.translatable("dlc_manager.server.rcon_players"));
         this.parent = parent;
         this.entry = entry;
         this.port = port;
@@ -52,22 +56,22 @@ public class DlcServerRconPlayersScreen extends DlcPageScreen {
         listBottom = this.height - 60;
 
         int buttonY = 32;
-        refreshButton = Button.builder(Component.translatable("dlc_manager.server.rcon_refresh"), btn -> refreshPlayers())
+        refreshButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.rcon_refresh"), btn -> refreshPlayers())
             .bounds(margin, buttonY, 80, 20)
             .build();
-        opButton = Button.builder(Component.translatable("dlc_manager.server.rcon_op"), btn -> opSelected())
+        opButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.rcon_op"), btn -> opSelected())
             .bounds(margin + 86, buttonY, 60, 20)
             .build();
-        deopButton = Button.builder(Component.translatable("dlc_manager.server.rcon_deop"), btn -> deopSelected())
+        deopButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.rcon_deop"), btn -> deopSelected())
             .bounds(margin + 150, buttonY, 60, 20)
             .build();
-        kickButton = Button.builder(Component.translatable("dlc_manager.server.rcon_kick"), btn -> kickSelected())
+        kickButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.rcon_kick"), btn -> kickSelected())
             .bounds(margin + 214, buttonY, 60, 20)
             .build();
-        banButton = Button.builder(Component.translatable("dlc_manager.server.rcon_ban"), btn -> banSelected())
+        banButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.rcon_ban"), btn -> banSelected())
             .bounds(margin + 278, buttonY, 60, 20)
             .build();
-        backButton = Button.builder(Component.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
+        backButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
             .bounds(this.width - margin - 80, this.height - 30, 80, 20)
             .build();
 
@@ -88,9 +92,9 @@ public class DlcServerRconPlayersScreen extends DlcPageScreen {
             .supplyAsync(() -> DlcRconClient.execute(host, port, password, "list", 8000))
             .whenComplete((response, throwable) -> Minecraft.getInstance().execute(() -> {
                 if (response == null) {
-                    statusText = Component.translatable("dlc_manager.server.rcon_connect_failed").getString();
-                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
-                        Component.translatable("dlc_manager.server.rcon_connect_failed"), Component.empty());
+                    statusText = DlcTextCompat.translatable("dlc_manager.server.rcon_connect_failed").getString();
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                        DlcTextCompat.translatable("dlc_manager.server.rcon_connect_failed"), DlcTextCompat.empty());
                 } else {
                     statusText = "";
                     updatePlayersFromList(response);
@@ -157,8 +161,8 @@ public class DlcServerRconPlayersScreen extends DlcPageScreen {
             .supplyAsync(() -> DlcRconClient.execute(host, port, password, command, 15000))
             .whenComplete((response, throwable) -> Minecraft.getInstance().execute(() -> {
                 if (response == null) {
-                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
-                        Component.translatable("dlc_manager.server.rcon_exec_failed"), Component.empty());
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                        DlcTextCompat.translatable("dlc_manager.server.rcon_exec_failed"), DlcTextCompat.empty());
                 } else if (refreshAfter) {
                     refreshPlayers();
                 }

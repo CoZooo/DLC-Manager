@@ -62,13 +62,10 @@ public final class DlcPlatformServicesProvider implements DlcPlatformServices.Pr
                 return "Fabric";
             }
             //? if >=1.21.1 {
-            /*if (Platform.isNeoForge()) {
+            if (Platform.getOptionalMod("neoforge").isPresent()) {
                 return "NeoForge";
             }
-            if (Platform.isMinecraftForge()) {
-                return "Forge";
-            }
-            *///?} else {
+            //?} else {
             if (Platform.isForge()) {
                 return "Forge";
             }
@@ -127,7 +124,8 @@ public final class DlcPlatformServicesProvider implements DlcPlatformServices.Pr
             if (Minecraft.getInstance().player == null || Minecraft.getInstance().player.getGameProfile() == null) {
                 return "";
             }
-            String value = Minecraft.getInstance().player.getGameProfile().getName();
+            Object profile = Minecraft.getInstance().player.getGameProfile();
+            String value = invokeProfileString(profile, "name", "getName");
             return value == null ? "" : value;
         } catch (Throwable ignored) {
             return "";
@@ -140,14 +138,31 @@ public final class DlcPlatformServicesProvider implements DlcPlatformServices.Pr
             return "";
         }
         try {
-            if (Minecraft.getInstance().player == null || Minecraft.getInstance().player.getGameProfile() == null
-                || Minecraft.getInstance().player.getGameProfile().getId() == null) {
+            if (Minecraft.getInstance().player == null || Minecraft.getInstance().player.getGameProfile() == null) {
                 return "";
             }
-            return Minecraft.getInstance().player.getGameProfile().getId().toString();
+            Object value = invokeProfileObject(Minecraft.getInstance().player.getGameProfile(), "id", "getId");
+            return value == null ? "" : value.toString();
         } catch (Throwable ignored) {
             return "";
         }
+    }
+
+
+    private static String invokeProfileString(Object profile, String modern, String legacy) {
+        Object value = invokeProfileObject(profile, modern, legacy);
+        return value == null ? null : value.toString();
+    }
+
+    private static Object invokeProfileObject(Object profile, String modern, String legacy) {
+        if (profile == null) return null;
+        for (String name : new String[] {modern, legacy}) {
+            try {
+                return profile.getClass().getMethod(name).invoke(profile);
+            } catch (ReflectiveOperationException ignored) {
+            }
+        }
+        return null;
     }
 
     private static boolean isClient() {

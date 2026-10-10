@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator;
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
@@ -27,7 +31,7 @@ public class DlcUpdateMissingScreen extends DlcPageScreen {
     private boolean applying;
 
     public DlcUpdateMissingScreen(Screen parent, UpdateCheckResult updateResult, List<String> missingPaths) {
-        super(DlcUiPage.UPDATE_MISSING, parent, Component.translatable("dlc_manager.update.missing_title"));
+        super(DlcUiPage.UPDATE_MISSING, parent, DlcTextCompat.translatable("dlc_manager.update.missing_title"));
         this.parent = parent;
         this.updateResult = updateResult;
         this.missingPaths = missingPaths == null ? List.of() : missingPaths;
@@ -37,10 +41,10 @@ public class DlcUpdateMissingScreen extends DlcPageScreen {
         int buttonWidth = 120;
         int buttonHeight = 20;
         int y = this.height - 40;
-        forceButton = Button.builder(Component.translatable("dlc_manager.update.force"), button -> confirmApply())
+        forceButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.force"), button -> confirmApply())
             .bounds(this.width / 2 - buttonWidth - 6, y, buttonWidth, buttonHeight)
             .build();
-        cancelButton = Button.builder(Component.translatable("dlc_manager.update.cancel"), button -> Minecraft.getInstance().setScreen(parent))
+        cancelButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.cancel"), button -> Minecraft.getInstance().setScreen(parent))
             .bounds(this.width / 2 + 6, y, buttonWidth, buttonHeight)
             .build();
         addRenderableWidget(forceButton);
@@ -100,7 +104,7 @@ public class DlcUpdateMissingScreen extends DlcPageScreen {
                 String message = ex.getMessage() == null ? "Failed to apply update" : ex.getMessage();
                 Minecraft.getInstance().execute(() -> {
                     applying = false;
-                    Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, Component.literal(message)));
+                    Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, DlcTextCompat.literal(message)));
                 });
             }
         }, "dlc-update-force").start();
@@ -116,8 +120,8 @@ public class DlcUpdateMissingScreen extends DlcPageScreen {
             return;
         }
         Component message = result != null && result.isHelperScheduled()
-            ? Component.translatable("dlc_manager.update.deferred_restart")
-            : Component.translatable("dlc_manager.update.success");
+            ? DlcTextCompat.translatable("dlc_manager.update.deferred_restart")
+            : DlcTextCompat.translatable("dlc_manager.update.success");
         Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, true, message));
     }
 
@@ -145,8 +149,8 @@ public class DlcUpdateMissingScreen extends DlcPageScreen {
 
     private Screen createSuccessResultScreen(UpdateApplyResult result) {
         Component message = result != null && result.isHelperScheduled()
-            ? Component.translatable("dlc_manager.update.deferred_restart")
-            : Component.translatable("dlc_manager.update.success");
+            ? DlcTextCompat.translatable("dlc_manager.update.deferred_restart")
+            : DlcTextCompat.translatable("dlc_manager.update.success");
         return new DlcUpdateResultScreen(parent, true, message);
     }
 

@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage
 import com.cozooo.dlc_manager.core.DlcPaths
@@ -19,7 +21,7 @@ object DlcUpdatePackGuard {
             handler.proceed(check, false)
             return
         }
-        val title = Component.translatable("dlc_manager.pack.manager_title")
+        val title = DlcTextCompat.translatable("dlc_manager.pack.manager_title")
         val message = DlcConfirmUtil.buildPackUpdateIncompatibleConfirmMessage(check)
         Minecraft.getInstance().setScreen(
             DlcConfirmScreen({ accepted ->

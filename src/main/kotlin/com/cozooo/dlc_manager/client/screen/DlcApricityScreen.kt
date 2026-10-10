@@ -8,7 +8,15 @@ import com.sighs.apricityui.parser.Selector
 import com.sighs.apricityui.parser.HTML
 import com.sighs.apricityui.screen.ApricityScreen
 import net.minecraft.client.Minecraft
+//? if >=1.20.1 <26.1 {
 import net.minecraft.client.gui.GuiGraphics
+//?}
+//? if <1.20.1 {
+/*import com.mojang.blaze3d.vertex.PoseStack
+*///?}
+//? if >=26.1 {
+/*import net.minecraft.client.gui.GuiGraphicsExtractor
+*///?}
 import net.minecraft.client.gui.screens.Screen
 import org.lwjgl.glfw.GLFW
 
@@ -90,7 +98,30 @@ abstract class DlcApricityScreen private constructor(
         resourceGeneration = document.refreshGeneration
     }
 
+    //? if >=1.20.1 <26.1 {
     override fun render(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
+        val document = prepareRender()
+        super.render(graphics, mouseX, mouseY, partialTick)
+        completeRender(document)
+    }
+    //?}
+
+    //? if <1.20.1 {
+    /*override fun render(graphics: PoseStack, mouseX: Int, mouseY: Int, partialTick: Float) {
+        val document = prepareRender()
+        super.render(graphics, mouseX, mouseY, partialTick)
+        completeRender(document)
+    }
+    *///?}
+    //? if >=26.1 {
+    /*override fun extractRenderState(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, partialTick: Float) {
+        val document = prepareRender()
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick)
+        completeRender(document)
+    }
+    *///?}
+
+    private fun prepareRender(): Document? {
         renderedCurrentFrame = false
         val document = linkedDocument
         if (document != null && document.isActive && document.documentElement != null) {
@@ -100,14 +131,17 @@ abstract class DlcApricityScreen private constructor(
                 Document.runWithContext(document) { document.documentElement.invalidateStyle() }
             }
         }
-        super.render(graphics, mouseX, mouseY, partialTick)
+        return document
+    }
+
+    private fun completeRender(document: Document?) {
         renderedCurrentFrame = document != null && document.isActive
             && !document.needsInitialFullCommit() && !document.isInitialCommitSlicing
             && document.paintList.isNotEmpty()
         syncInputs(document)
     }
 
-    fun finishUiFrame(graphics: GuiGraphics) {
+    fun finishUiFrame(graphics: Any) {
         if (Minecraft.getInstance().screen !== this) return
         val document = linkedDocument
         if (transition.isRunning()) {
@@ -133,12 +167,23 @@ abstract class DlcApricityScreen private constructor(
         if (document.isActive) document.setViewportZoom(1120.0 / Minecraft.getInstance().window.screenWidth.coerceAtLeast(1))
     }
 
+    //? if <26.1 {
     override fun resize(minecraft: Minecraft, width: Int, height: Int) {
         navigationPending = false
         transition.cancel()
         super.resize(minecraft, width, height)
         updateViewport()
     }
+    //?}
+
+    //? if >=26.1 {
+    /*override fun resize(width: Int, height: Int) {
+        navigationPending = false
+        transition.cancel()
+        super.resize(width, height)
+        updateViewport()
+    }
+    *///?}
 
     private fun bindCurrentDocument() {
         val document = linkedDocument ?: return

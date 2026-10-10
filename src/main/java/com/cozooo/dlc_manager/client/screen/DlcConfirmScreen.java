@@ -1,4 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import it.unimi.dsi.fastutil.booleans.BooleanConsumer;
@@ -9,7 +11,7 @@ public class DlcConfirmScreen extends DlcPageScreen {
     private final Component no;
     private boolean answered;
     public DlcConfirmScreen(BooleanConsumer callback, Component title, Component message) {
-        this(callback, title, message, Component.translatable("gui.yes"), Component.translatable("gui.no"));
+        this(callback, title, message, DlcTextCompat.translatable("gui.yes"), DlcTextCompat.translatable("gui.no"));
     }
     public DlcConfirmScreen(BooleanConsumer callback, Component title, Component message, Component yes, Component no) {
         super(DlcUiPage.CONFIRM, Minecraft.getInstance().screen, title);

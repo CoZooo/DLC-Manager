@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.client.config;
 
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import net.minecraft.network.chat.Component;
 
 public abstract class DlcConfigValue {
@@ -14,9 +16,9 @@ public abstract class DlcConfigValue {
     }
 
     public final String getName() { return name; }
-    public final String getConfigGuiDisplayName() { return Component.translatable(translationKey).getString(); }
+    public final String getConfigGuiDisplayName() { return DlcTextCompat.translatable(translationKey).getString(); }
     public final String getComment() {
-        return commentKey == null || commentKey.isBlank() ? "" : Component.translatable(commentKey).getString();
+        return commentKey == null || commentKey.isBlank() ? "" : DlcTextCompat.translatable(commentKey).getString();
     }
 
     public abstract String getStringValue();

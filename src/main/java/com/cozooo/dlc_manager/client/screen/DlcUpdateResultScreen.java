@@ -1,4 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -7,7 +9,7 @@ public class DlcUpdateResultScreen extends DlcPageScreen {
     private final boolean success;
     private final Component message;
     public DlcUpdateResultScreen(Screen parent, boolean success, Component message) {
-        super(DlcUiPage.UPDATE_RESULT, parent, Component.translatable("dlc_manager.update.title")); this.success = success; this.message = message;
+        super(DlcUiPage.UPDATE_RESULT, parent, DlcTextCompat.translatable("dlc_manager.update.title")); this.success = success; this.message = message;
     }
     @Override protected void buildPage() {
         var body = node(content, "div", "page-dialog");

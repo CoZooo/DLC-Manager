@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerFileEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
@@ -37,7 +41,7 @@ public class DlcServerFileManagerScreen extends DlcFilePageScreen {
     private int scrollDragOffset;
 
     public DlcServerFileManagerScreen(Screen parent, DlcServerEntry entry) {
-        super(DlcUiPage.SERVER_FILES, parent, Component.translatable("dlc_manager.server.files_title"));
+        super(DlcUiPage.SERVER_FILES, parent, DlcTextCompat.translatable("dlc_manager.server.files_title"));
         this.parent = parent;
         this.entry = entry;
     }
@@ -48,7 +52,7 @@ public class DlcServerFileManagerScreen extends DlcFilePageScreen {
         if (fieldWidth < 160) {
             fieldWidth = 160;
         }
-        pathField = new EditBox(this.font, centerX - fieldWidth / 2, 36, fieldWidth, 20, Component.translatable("dlc_manager.server.files_path"));
+        pathField = new EditBox(this.font, centerX - fieldWidth / 2, 36, fieldWidth, 20, DlcTextCompat.translatable("dlc_manager.server.files_path"));
         pathField.setMaxLength(512);
         addRenderableWidget(pathField);
 
@@ -62,24 +66,24 @@ public class DlcServerFileManagerScreen extends DlcFilePageScreen {
             gap = 6;
         }
         int startX = panelLeft + gap;
-        refreshButton = Button.builder(Component.translatable("dlc_manager.server.files_refresh"), btn -> refresh())
+        refreshButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.files_refresh"), btn -> refresh())
             .bounds(startX, topButtonsY, buttonWidth, buttonHeight)
             .build();
-        deleteButton = Button.builder(Component.translatable("dlc_manager.server.files_delete"), btn -> confirmDelete())
+        deleteButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.files_delete"), btn -> confirmDelete())
             .bounds(startX + buttonWidth + gap, topButtonsY, buttonWidth, buttonHeight)
             .build();
-        saveButton = Button.builder(Component.translatable("dlc_manager.server.files_save"), btn -> saveSelected())
+        saveButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.files_save"), btn -> saveSelected())
             .bounds(startX + (buttonWidth + gap) * 2, topButtonsY, buttonWidth, buttonHeight)
             .build();
-        uploadButton = Button.builder(Component.translatable("dlc_manager.server.files_upload"), btn -> uploadFile())
+        uploadButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.files_upload"), btn -> uploadFile())
             .bounds(startX + (buttonWidth + gap) * 3, topButtonsY, buttonWidth, buttonHeight)
             .build();
 
         int bottomY = this.height - 28;
-        upButton = Button.builder(Component.translatable("dlc_manager.server.files_up"), btn -> goUp())
+        upButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.files_up"), btn -> goUp())
             .bounds(centerX - buttonWidth - 6, bottomY, buttonWidth, buttonHeight)
             .build();
-        backButton = Button.builder(Component.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
+        backButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
             .bounds(centerX + 6, bottomY, buttonWidth, buttonHeight)
             .build();
 
@@ -150,7 +154,7 @@ public class DlcServerFileManagerScreen extends DlcFilePageScreen {
     }
 
     private void uploadFile() {
-        Path file = DlcFilePicker.pickAnyFile(Component.translatable("dlc_manager.server.files_upload").getString());
+        Path file = DlcFilePicker.pickAnyFile(DlcTextCompat.translatable("dlc_manager.server.files_upload").getString());
         if (file == null) {
             return;
         }
@@ -164,8 +168,8 @@ public class DlcServerFileManagerScreen extends DlcFilePageScreen {
                 if (ok != null && ok) {
                     refresh();
                 } else {
-                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
-                        Component.translatable("dlc_manager.server.files_upload_failed"), Component.empty());
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                        DlcTextCompat.translatable("dlc_manager.server.files_upload_failed"), DlcTextCompat.empty());
                 }
             }));
     }
@@ -213,7 +217,7 @@ public class DlcServerFileManagerScreen extends DlcFilePageScreen {
         String basePath = pathField.getValue().trim();
         String remotePath = basePath.isEmpty() ? entry.name : basePath + "/" + entry.name;
         String fileName = entry.dir ? (entry.name + ".zip") : entry.name;
-        Path target = DlcFilePicker.pickSaveFile(Component.translatable("dlc_manager.server.files_save").getString(), fileName);
+        Path target = DlcFilePicker.pickSaveFile(DlcTextCompat.translatable("dlc_manager.server.files_save").getString(), fileName);
         if (target == null) {
             return;
         }
@@ -229,11 +233,11 @@ public class DlcServerFileManagerScreen extends DlcFilePageScreen {
             .whenComplete((ok, throwable) -> Minecraft.getInstance().execute(() -> {
                 loading = false;
                 if (ok != null && ok) {
-                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
-                        Component.translatable("dlc_manager.server.files_save_success"), Component.empty());
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                        DlcTextCompat.translatable("dlc_manager.server.files_save_success"), DlcTextCompat.empty());
                 } else {
-                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
-                        Component.translatable("dlc_manager.server.files_save_failed"), Component.empty());
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                        DlcTextCompat.translatable("dlc_manager.server.files_save_failed"), DlcTextCompat.empty());
                 }
             }));
     }
@@ -261,8 +265,8 @@ public class DlcServerFileManagerScreen extends DlcFilePageScreen {
         if (entry == null) {
             return;
         }
-        Component title = Component.translatable("dlc_manager.server.files_delete");
-        Component message = Component.translatable("dlc_manager.server.files_delete_confirm", entry.name);
+        Component title = DlcTextCompat.translatable("dlc_manager.server.files_delete");
+        Component message = DlcTextCompat.translatable("dlc_manager.server.files_delete_confirm", entry.name);
         Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             if (accepted) {
                 confirmDeleteAgain(entry);
@@ -273,8 +277,8 @@ public class DlcServerFileManagerScreen extends DlcFilePageScreen {
     }
 
     private void confirmDeleteAgain(DlcServerFileEntry entry) {
-        Component title = Component.translatable("dlc_manager.server.files_delete");
-        Component message = Component.translatable("dlc_manager.server.files_delete_confirm_again", entry.name);
+        Component title = DlcTextCompat.translatable("dlc_manager.server.files_delete");
+        Component message = DlcTextCompat.translatable("dlc_manager.server.files_delete_confirm_again", entry.name);
         Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             if (accepted) {
                 deleteSelected(entry);
@@ -295,8 +299,8 @@ public class DlcServerFileManagerScreen extends DlcFilePageScreen {
                 if (ok != null && ok) {
                     refresh();
                 } else {
-                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
-                        Component.translatable("dlc_manager.server.files_delete_failed"), Component.empty());
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                        DlcTextCompat.translatable("dlc_manager.server.files_delete_failed"), DlcTextCompat.empty());
                 }
             }));
     }

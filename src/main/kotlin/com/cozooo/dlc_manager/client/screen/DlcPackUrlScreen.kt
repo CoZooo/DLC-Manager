@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.download.DlcDownloadService
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil
 import com.cozooo.dlc_manager.core.DlcPaths
@@ -15,7 +19,7 @@ import kotlin.math.min
 
 class DlcPackUrlScreen(
     private val parent: DlcPackManagerScreen,
-) : DlcUrlPageScreen(DlcUiPage.LOCAL_PACK_URL, parent, Component.translatable("dlc_manager.pack.import_url_title")) {
+) : DlcUrlPageScreen(DlcUiPage.LOCAL_PACK_URL, parent, DlcTextCompat.translatable("dlc_manager.pack.import_url_title")) {
     private var urlField: EditBox? = null
     private var downloadButton: Button? = null
     private var pasteButton: Button? = null
@@ -34,9 +38,9 @@ class DlcPackUrlScreen(
         val fieldHeight = 18
         val fieldX = width / 2 - fieldWidth / 2
         val fieldY = height / 2 - 20
-        val field = EditBox(font, fieldX, fieldY, fieldWidth, fieldHeight, Component.empty()).apply {
+        val field = EditBox(font, fieldX, fieldY, fieldWidth, fieldHeight, DlcTextCompat.empty()).apply {
             setMaxLength(Int.MAX_VALUE)
-            isFocused = true
+            DlcScreenCompat.setFocused(this, true)
             value = urlValue
         }
         urlField = field
@@ -50,15 +54,15 @@ class DlcPackUrlScreen(
         val rightX = width / 2 + buttonWidth / 2 + 10
 
         val downloadX = if (downloading) centerX else leftX
-        val download = Button.builder(Component.translatable("dlc_manager.update.url_download")) {
+        val download = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.url_download")) {
             if (downloading) cancelDownload() else startDownload()
         }
             .bounds(downloadX, buttonY, buttonWidth, buttonHeight)
             .build()
-        val paste = Button.builder(Component.translatable("dlc_manager.update.url_paste")) { pasteClipboard() }
+        val paste = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.url_paste")) { pasteClipboard() }
             .bounds(centerX, buttonY, buttonWidth, buttonHeight)
             .build()
-        val back = Button.builder(Component.translatable("dlc_manager.pack.back")) {
+        val back = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack.back")) {
             Minecraft.getInstance().setScreen(parent)
         }.bounds(rightX, buttonY, buttonWidth, buttonHeight).build()
         downloadButton = download
@@ -74,9 +78,14 @@ class DlcPackUrlScreen(
 
     private fun pasteClipboard() {
         val clipboard = Minecraft.getInstance().keyboardHandler.clipboard
+        //? if >=26.1 {
+        /*urlField?.value = clipboard.trim()
+        *///?}
+        //? if <26.1 {
         if (clipboard != null) {
             urlField?.value = clipboard.trim()
         }
+        //?}
     }
 
     private fun startDownload() {
@@ -85,7 +94,7 @@ class DlcPackUrlScreen(
         }
         val url = urlField?.value?.trim() ?: ""
         if (url.isBlank()) {
-            errorText = Component.translatable("dlc_manager.update.url_empty").string
+            errorText = DlcTextCompat.translatable("dlc_manager.update.url_empty").string
             return
         }
         downloading = true
@@ -94,7 +103,7 @@ class DlcPackUrlScreen(
         downloadedBytes = 0L
         totalBytes = 0L
         errorText = null
-        statusText = Component.translatable("dlc_manager.pack.url_downloading").string
+        statusText = DlcTextCompat.translatable("dlc_manager.pack.url_downloading").string
         setButtonsForDownload()
 
         Thread({
@@ -115,7 +124,7 @@ class DlcPackUrlScreen(
                     }
                 }
                 Minecraft.getInstance().execute {
-                    errorText = Component.translatable("dlc_manager.pack.url_canceled").string
+                    errorText = DlcTextCompat.translatable("dlc_manager.pack.url_canceled").string
                     downloading = false
                     cancelRequested = false
                     setButtonsActive(true)
@@ -129,7 +138,7 @@ class DlcPackUrlScreen(
                 }
                 val msg = ex.message ?: "download failed"
                 Minecraft.getInstance().execute {
-                    errorText = Component.translatable("dlc_manager.update.url_failed", msg).string
+                    errorText = DlcTextCompat.translatable("dlc_manager.update.url_failed", msg).string
                     downloading = false
                     cancelRequested = false
                     setButtonsActive(true)
@@ -143,9 +152,9 @@ class DlcPackUrlScreen(
             return
         }
         cancelRequested = true
-        statusText = Component.translatable("dlc_manager.pack.canceling").string
+        statusText = DlcTextCompat.translatable("dlc_manager.pack.canceling").string
         downloadButton?.active = false
-        downloadButton?.message = Component.translatable("dlc_manager.pack.canceling")
+        downloadButton?.message = DlcTextCompat.translatable("dlc_manager.pack.canceling")
     }
 
     @Throws(IOException::class)
@@ -168,7 +177,7 @@ class DlcPackUrlScreen(
             outputDir,
             fileName,
             DlcDownloadService.ProgressListener { done, total ->
-                statusText = Component.translatable("dlc_manager.pack.url_downloading").string
+                statusText = DlcTextCompat.translatable("dlc_manager.pack.url_downloading").string
                 downloadedBytes = done
                 totalBytes = total
                 progress = if (total > 0) done / total.toFloat() else 0f
@@ -195,7 +204,7 @@ class DlcPackUrlScreen(
 
     private fun setButtonsActive(active: Boolean) {
         downloadButton?.active = active
-        downloadButton?.message = Component.translatable("dlc_manager.update.url_download")
+        downloadButton?.message = DlcTextCompat.translatable("dlc_manager.update.url_download")
         downloadButton?.visible = true
         urlField?.visible = true
         pasteButton?.active = active
@@ -206,7 +215,7 @@ class DlcPackUrlScreen(
 
     private fun setButtonsForDownload() {
         downloadButton?.active = !cancelRequested
-        downloadButton?.message = if (cancelRequested) Component.translatable("dlc_manager.pack.canceling") else Component.translatable("dlc_manager.pack.cancel")
+        downloadButton?.message = if (cancelRequested) DlcTextCompat.translatable("dlc_manager.pack.canceling") else DlcTextCompat.translatable("dlc_manager.pack.cancel")
         downloadButton?.visible = true
         urlField?.visible = false
         pasteButton?.active = false

@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
@@ -15,9 +19,9 @@ class DlcServerPackApplyScreen(
     private val order: List<String>,
     private val uninstallIdentifiers: List<String>,
     private val installArchives: List<String>,
-) : DlcPageScreen(DlcUiPage.SERVER_PACK_APPLY, manager, Component.translatable("dlc_manager.server.pack.manager_title")) {
+) : DlcPageScreen(DlcUiPage.SERVER_PACK_APPLY, manager, DlcTextCompat.translatable("dlc_manager.server.pack.manager_title")) {
     @Volatile private var status: DlcServerPackApplyStatus? = null
-    @Volatile private var statusText: Component = Component.translatable("dlc_manager.pack.applying")
+    @Volatile private var statusText: Component = DlcTextCompat.translatable("dlc_manager.pack.applying")
     @Volatile private var statusDetail: Component? = null
     @Volatile private var running = false
     @Volatile private var finished = false
@@ -32,10 +36,10 @@ class DlcServerPackApplyScreen(
         val gap = 8
         val y = height - 28
         val startX = width / 2 - buttonWidth - gap / 2
-        cancelButton = Button.builder(Component.translatable("dlc_manager.pack.pause_install")) { togglePauseApply() }
+        cancelButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack.pause_install")) { togglePauseApply() }
             .bounds(startX, y, buttonWidth, 20)
             .build()
-        backButton = Button.builder(Component.translatable("dlc_manager.pack.cancel_install")) {
+        backButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack.cancel_install")) {
             cancelApply()
         }.bounds(startX + buttonWidth + gap, y, buttonWidth, 20).build()
         addRenderableWidget(cancelButton!!)
@@ -101,10 +105,10 @@ class DlcServerPackApplyScreen(
 
     private fun formatRemoteStatus(message: String?): Component {
         if (message.isNullOrBlank()) {
-            return Component.translatable("dlc_manager.pack.applying")
+            return DlcTextCompat.translatable("dlc_manager.pack.applying")
         }
         return if (message.startsWith("dlc_manager.")) {
-            Component.translatable(message)
+            DlcTextCompat.translatable(message)
         } else {
             DlcTextFormatter.parse(message)
         }
@@ -115,7 +119,7 @@ class DlcServerPackApplyScreen(
         if (paused) {
             paused = false
             pausing = false
-            statusText = Component.translatable("dlc_manager.pack.applying")
+            statusText = DlcTextCompat.translatable("dlc_manager.pack.applying")
             updateButtonState()
             CompletableFuture.runAsync {
                 try {
@@ -126,7 +130,7 @@ class DlcServerPackApplyScreen(
             return
         }
         pausing = true
-        statusText = Component.translatable("dlc_manager.pack.pausing")
+        statusText = DlcTextCompat.translatable("dlc_manager.pack.pausing")
         updateButtonState()
         CompletableFuture.runAsync {
             try {
@@ -139,7 +143,7 @@ class DlcServerPackApplyScreen(
     private fun cancelApply() {
         if (canceling || finished) return
         canceling = true
-        statusText = Component.translatable("dlc_manager.pack.canceling")
+        statusText = DlcTextCompat.translatable("dlc_manager.pack.canceling")
         updateButtonState()
         CompletableFuture.runAsync {
             try {
@@ -166,12 +170,12 @@ class DlcServerPackApplyScreen(
 
     private fun updateButtonState() {
         cancelButton?.message = when {
-            paused -> Component.translatable("dlc_manager.pack.continue_install")
-            pausing -> Component.translatable("dlc_manager.pack.pausing")
-            else -> Component.translatable("dlc_manager.pack.pause_install")
+            paused -> DlcTextCompat.translatable("dlc_manager.pack.continue_install")
+            pausing -> DlcTextCompat.translatable("dlc_manager.pack.pausing")
+            else -> DlcTextCompat.translatable("dlc_manager.pack.pause_install")
         }
         cancelButton?.active = !canceling && !finished
-        backButton?.message = if (canceling) Component.translatable("dlc_manager.pack.canceling") else Component.translatable("dlc_manager.pack.cancel_install")
+        backButton?.message = if (canceling) DlcTextCompat.translatable("dlc_manager.pack.canceling") else DlcTextCompat.translatable("dlc_manager.pack.cancel_install")
         backButton?.active = !canceling && !finished
     }
 
@@ -179,19 +183,19 @@ class DlcServerPackApplyScreen(
         val value = raw?.trim().orEmpty()
         if (value.isEmpty() || value == "dlc_manager.pack.selecting_source") return null
         return when {
-            value.startsWith("Downloading ") -> Component.translatable("dlc_manager.pack.downloading_file", value.removePrefix("Downloading "))
-            value.startsWith("Resolved ") -> Component.translatable("dlc_manager.pack.resolved_file", value.removePrefix("Resolved "))
-            value.startsWith("Installing ") -> Component.translatable("dlc_manager.pack.installing", value.removePrefix("Installing "))
-            value.startsWith("Uninstalling installed DLC items") -> Component.translatable("dlc_manager.pack.operation_uninstalling")
-            value.startsWith("Uninstalling ") -> Component.translatable("dlc_manager.pack.uninstalling", value.removePrefix("Uninstalling "))
-            value.startsWith("Restoring ") -> Component.translatable("dlc_manager.pack.restoring_file", value.removePrefix("Restoring "))
-            value.startsWith("Preparing ") -> Component.translatable("dlc_manager.pack.preparing_pack", value.removePrefix("Preparing "))
-            value.startsWith("Backing up ") -> Component.translatable("dlc_manager.pack.backing_up_pack", value.removePrefix("Backing up "))
-            value == "Applying runtime changes" -> Component.translatable("dlc_manager.pack.applying_runtime")
-            value == "Writing metadata" -> Component.translatable("dlc_manager.pack.writing_metadata")
-            value.startsWith("Installed ") -> Component.translatable("dlc_manager.pack.installed_pack", value.removePrefix("Installed "))
-            value.startsWith("Uninstalled ") -> Component.translatable("dlc_manager.pack.uninstalled_pack", value.removePrefix("Uninstalled "))
-            value.startsWith("dlc_manager.") -> Component.translatable(value)
+            value.startsWith("Downloading ") -> DlcTextCompat.translatable("dlc_manager.pack.downloading_file", value.removePrefix("Downloading "))
+            value.startsWith("Resolved ") -> DlcTextCompat.translatable("dlc_manager.pack.resolved_file", value.removePrefix("Resolved "))
+            value.startsWith("Installing ") -> DlcTextCompat.translatable("dlc_manager.pack.installing", value.removePrefix("Installing "))
+            value.startsWith("Uninstalling installed DLC items") -> DlcTextCompat.translatable("dlc_manager.pack.operation_uninstalling")
+            value.startsWith("Uninstalling ") -> DlcTextCompat.translatable("dlc_manager.pack.uninstalling", value.removePrefix("Uninstalling "))
+            value.startsWith("Restoring ") -> DlcTextCompat.translatable("dlc_manager.pack.restoring_file", value.removePrefix("Restoring "))
+            value.startsWith("Preparing ") -> DlcTextCompat.translatable("dlc_manager.pack.preparing_pack", value.removePrefix("Preparing "))
+            value.startsWith("Backing up ") -> DlcTextCompat.translatable("dlc_manager.pack.backing_up_pack", value.removePrefix("Backing up "))
+            value == "Applying runtime changes" -> DlcTextCompat.translatable("dlc_manager.pack.applying_runtime")
+            value == "Writing metadata" -> DlcTextCompat.translatable("dlc_manager.pack.writing_metadata")
+            value.startsWith("Installed ") -> DlcTextCompat.translatable("dlc_manager.pack.installed_pack", value.removePrefix("Installed "))
+            value.startsWith("Uninstalled ") -> DlcTextCompat.translatable("dlc_manager.pack.uninstalled_pack", value.removePrefix("Uninstalled "))
+            value.startsWith("dlc_manager.") -> DlcTextCompat.translatable(value)
             else -> DlcTextFormatter.parse(value)
         }
     }

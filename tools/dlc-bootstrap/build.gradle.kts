@@ -95,9 +95,24 @@ dependencies {
     add(neoForgeModLauncher.name, "cpw.mods:modlauncher:11.0.5") { isTransitive = false }
 }
 
-val bootstrapJars = listOf("forge" to "1.20.1", "neoforge" to "1.21.1").map { (loader, minecraft) ->
-    val profileDir = layout.buildDirectory.dir("profiles/$loader")
-    val profile = tasks.register("${loader}Profile") {
+data class BootstrapTarget(val loader: String, val minecraft: String)
+data class BootstrapArtifact(
+    val target: BootstrapTarget,
+    val bootstrapJar: org.gradle.api.tasks.TaskProvider<org.gradle.api.tasks.bundling.Jar>,
+)
+
+val bootstrapArtifacts = listOf(
+    BootstrapTarget("forge", "1.18.2"),
+    BootstrapTarget("forge", "1.19.2"),
+    BootstrapTarget("forge", "1.20.1"),
+    BootstrapTarget("neoforge", "1.21.1"),
+    BootstrapTarget("neoforge", "26.1"),
+).map { target ->
+    val loader = target.loader
+    val minecraft = target.minecraft
+    val taskPrefix = "bootstrap${loader.replaceFirstChar(Char::uppercaseChar)}${minecraft.replace(".", "_")}"
+    val profileDir = layout.buildDirectory.dir("profiles/$taskPrefix")
+    val profile = tasks.register("${taskPrefix}Profile") {
         outputs.dir(profileDir)
         inputs.property("loader", loader)
         inputs.property("minecraft", minecraft)
@@ -127,7 +142,7 @@ val bootstrapJars = listOf("forge" to "1.20.1", "neoforge" to "1.21.1").map { (l
             )
         }
     }
-    val runtimeJar = tasks.register<ShadowJar>("${loader}RuntimeJar") {
+    val runtimeJar = tasks.register<ShadowJar>("${taskPrefix}RuntimeJar") {
         dependsOn(tasks.classes, profile)
         from(sourceSets.main.get().output)
         from(profileDir)
@@ -143,7 +158,7 @@ val bootstrapJars = listOf("forge" to "1.20.1", "neoforge" to "1.21.1").map { (l
         relocate("com.google.gson", "com.cozooo.dlc_bootstrap.internal.gson")
         exclude("META-INF/services/**", "META-INF/jarjar/**", "META-INF/versions/**", "META-INF/*.SF", "META-INF/*.RSA", "META-INF/*.DSA", "module-info.class", "org/jetbrains/annotations/**")
     }
-    tasks.register<Jar>("${loader}BootstrapJar") {
+    val bootstrapJar = tasks.register<Jar>("${taskPrefix}Jar") {
         dependsOn(launcher.classesTaskName, runtimeJar, profile)
         from(launcher.output)
         from(profileDir)
@@ -158,6 +173,16 @@ val bootstrapJars = listOf("forge" to "1.20.1", "neoforge" to "1.21.1").map { (l
         archiveFileName.set("DLC-Manager-bootstrap-$loader-$minecraft-${project.version}.jar")
         destinationDirectory.set(layout.buildDirectory.dir("services/$loader"))
         manifest.attributes("FMLModType" to "LIBRARY", "Automatic-Module-Name" to "dlc.manager.bootstrap.$loader")
+    }
+    BootstrapArtifact(target, bootstrapJar)
+}
+val bootstrapJars = bootstrapArtifacts.groupBy { it.target.loader }.map { (loader, artifacts) ->
+    tasks.register("${loader}BootstrapJar") {
+        group = "build"
+        description = "Build all $loader early-loading bootstrap artifacts."
+        dependsOn(artifacts.map { it.bootstrapJar })
+        inputs.files(artifacts.map { it.bootstrapJar.flatMap { jar -> jar.archiveFile } })
+        outputs.files(artifacts.map { it.bootstrapJar.flatMap { jar -> jar.archiveFile } })
     }
 }
 tasks.withType<org.gradle.jvm.tasks.Jar>().configureEach {
@@ -180,8 +205,13 @@ tasks.test {
         systemProperty("neoforgeLocatorApi", neoForgeLocatorApi.asPath)
     }
     dependsOn(bootstrapJars)
-    bootstrapJars.forEach { jar ->
-        inputs.file(jar.flatMap { it.archiveFile })
-        systemProperty(jar.name, jar.get().archiveFile.get().asFile.absolutePath)
+    bootstrapArtifacts.forEach { artifact ->
+        inputs.file(artifact.bootstrapJar.flatMap { it.archiveFile })
+        val propertyName = when (artifact.target.loader to artifact.target.minecraft) {
+            "forge" to "1.20.1" -> "forgeBootstrapJar"
+            "neoforge" to "1.21.1" -> "neoforgeBootstrapJar"
+            else -> "${artifact.target.loader}BootstrapJar${artifact.target.minecraft.replace(".", "_")}Artifact"
+        }
+        systemProperty(propertyName, artifact.bootstrapJar.get().archiveFile.get().asFile.absolutePath)
     }
 }

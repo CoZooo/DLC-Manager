@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
@@ -21,7 +25,7 @@ public class DlcServerPackApplyScreen extends DlcPageScreen {
     private final List<String> uninstallIdentifiers;
     private final List<String> installArchives;
     private volatile DlcServerPackApplyStatus status;
-    private volatile Component statusText = Component.translatable("dlc_manager.pack.applying");
+    private volatile Component statusText = DlcTextCompat.translatable("dlc_manager.pack.applying");
     private volatile Component statusDetail;
     private volatile boolean running;
     private volatile boolean finished;
@@ -33,7 +37,7 @@ public class DlcServerPackApplyScreen extends DlcPageScreen {
 
     public DlcServerPackApplyScreen(DlcServerPackManagerScreen manager, DlcServerEntry entry, List<String> order,
                                     List<String> uninstallIdentifiers, List<String> installArchives) {
-        super(DlcUiPage.SERVER_PACK_APPLY, manager, Component.translatable("dlc_manager.server.pack.manager_title"));
+        super(DlcUiPage.SERVER_PACK_APPLY, manager, DlcTextCompat.translatable("dlc_manager.server.pack.manager_title"));
         this.manager = manager;
         this.entry = entry;
         this.order = order;
@@ -46,10 +50,10 @@ public class DlcServerPackApplyScreen extends DlcPageScreen {
         int gap = 8;
         int y = this.height - 28;
         int startX = this.width / 2 - buttonWidth - gap / 2;
-        cancelButton = Button.builder(Component.translatable("dlc_manager.pack.pause_install"), button -> togglePauseApply())
+        cancelButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack.pause_install"), button -> togglePauseApply())
             .bounds(startX, y, buttonWidth, 20)
             .build();
-        backButton = Button.builder(Component.translatable("dlc_manager.pack.cancel_install"), button -> cancelApply())
+        backButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack.cancel_install"), button -> cancelApply())
             .bounds(startX + buttonWidth + gap, y, buttonWidth, 20)
             .build();
         addRenderableWidget(cancelButton);
@@ -120,9 +124,9 @@ public class DlcServerPackApplyScreen extends DlcPageScreen {
 
     private Component formatRemoteStatus(String message) {
         if (message == null || message.isBlank()) {
-            return Component.translatable("dlc_manager.pack.applying");
+            return DlcTextCompat.translatable("dlc_manager.pack.applying");
         }
-        return message.startsWith("dlc_manager.") ? Component.translatable(message) : DlcTextFormatter.parse(message);
+        return message.startsWith("dlc_manager.") ? DlcTextCompat.translatable(message) : DlcTextFormatter.parse(message);
     }
 
     private void togglePauseApply() {
@@ -132,7 +136,7 @@ public class DlcServerPackApplyScreen extends DlcPageScreen {
         if (paused) {
             paused = false;
             pausing = false;
-            statusText = Component.translatable("dlc_manager.pack.applying");
+            statusText = DlcTextCompat.translatable("dlc_manager.pack.applying");
             updateButtonState();
             CompletableFuture.runAsync(() -> {
                 try {
@@ -143,7 +147,7 @@ public class DlcServerPackApplyScreen extends DlcPageScreen {
             return;
         }
         pausing = true;
-        statusText = Component.translatable("dlc_manager.pack.pausing");
+        statusText = DlcTextCompat.translatable("dlc_manager.pack.pausing");
         updateButtonState();
         CompletableFuture.runAsync(() -> {
             try {
@@ -158,7 +162,7 @@ public class DlcServerPackApplyScreen extends DlcPageScreen {
             return;
         }
         canceling = true;
-        statusText = Component.translatable("dlc_manager.pack.canceling");
+        statusText = DlcTextCompat.translatable("dlc_manager.pack.canceling");
         updateButtonState();
         CompletableFuture.runAsync(() -> {
             try {
@@ -190,16 +194,16 @@ public class DlcServerPackApplyScreen extends DlcPageScreen {
     private void updateButtonState() {
         if (cancelButton != null) {
             if (paused) {
-                cancelButton.setMessage(Component.translatable("dlc_manager.pack.continue_install"));
+                cancelButton.setMessage(DlcTextCompat.translatable("dlc_manager.pack.continue_install"));
             } else if (pausing) {
-                cancelButton.setMessage(Component.translatable("dlc_manager.pack.pausing"));
+                cancelButton.setMessage(DlcTextCompat.translatable("dlc_manager.pack.pausing"));
             } else {
-                cancelButton.setMessage(Component.translatable("dlc_manager.pack.pause_install"));
+                cancelButton.setMessage(DlcTextCompat.translatable("dlc_manager.pack.pause_install"));
             }
             cancelButton.active = !canceling && !finished;
         }
         if (backButton != null) {
-            backButton.setMessage(canceling ? Component.translatable("dlc_manager.pack.canceling") : Component.translatable("dlc_manager.pack.cancel_install"));
+            backButton.setMessage(canceling ? DlcTextCompat.translatable("dlc_manager.pack.canceling") : DlcTextCompat.translatable("dlc_manager.pack.cancel_install"));
             backButton.active = !canceling && !finished;
         }
     }
@@ -210,43 +214,43 @@ public class DlcServerPackApplyScreen extends DlcPageScreen {
             return null;
         }
         if (value.startsWith("Downloading ")) {
-            return Component.translatable("dlc_manager.pack.downloading_file", value.substring("Downloading ".length()));
+            return DlcTextCompat.translatable("dlc_manager.pack.downloading_file", value.substring("Downloading ".length()));
         }
         if (value.startsWith("Resolved ")) {
-            return Component.translatable("dlc_manager.pack.resolved_file", value.substring("Resolved ".length()));
+            return DlcTextCompat.translatable("dlc_manager.pack.resolved_file", value.substring("Resolved ".length()));
         }
         if (value.startsWith("Installing ")) {
-            return Component.translatable("dlc_manager.pack.installing", value.substring("Installing ".length()));
+            return DlcTextCompat.translatable("dlc_manager.pack.installing", value.substring("Installing ".length()));
         }
         if (value.startsWith("Uninstalling installed DLC items")) {
-            return Component.translatable("dlc_manager.pack.operation_uninstalling");
+            return DlcTextCompat.translatable("dlc_manager.pack.operation_uninstalling");
         }
         if (value.startsWith("Uninstalling ")) {
-            return Component.translatable("dlc_manager.pack.uninstalling", value.substring("Uninstalling ".length()));
+            return DlcTextCompat.translatable("dlc_manager.pack.uninstalling", value.substring("Uninstalling ".length()));
         }
         if (value.startsWith("Restoring ")) {
-            return Component.translatable("dlc_manager.pack.restoring_file", value.substring("Restoring ".length()));
+            return DlcTextCompat.translatable("dlc_manager.pack.restoring_file", value.substring("Restoring ".length()));
         }
         if (value.startsWith("Preparing ")) {
-            return Component.translatable("dlc_manager.pack.preparing_pack", value.substring("Preparing ".length()));
+            return DlcTextCompat.translatable("dlc_manager.pack.preparing_pack", value.substring("Preparing ".length()));
         }
         if (value.startsWith("Backing up ")) {
-            return Component.translatable("dlc_manager.pack.backing_up_pack", value.substring("Backing up ".length()));
+            return DlcTextCompat.translatable("dlc_manager.pack.backing_up_pack", value.substring("Backing up ".length()));
         }
         if ("Applying runtime changes".equals(value)) {
-            return Component.translatable("dlc_manager.pack.applying_runtime");
+            return DlcTextCompat.translatable("dlc_manager.pack.applying_runtime");
         }
         if ("Writing metadata".equals(value)) {
-            return Component.translatable("dlc_manager.pack.writing_metadata");
+            return DlcTextCompat.translatable("dlc_manager.pack.writing_metadata");
         }
         if (value.startsWith("Installed ")) {
-            return Component.translatable("dlc_manager.pack.installed_pack", value.substring("Installed ".length()));
+            return DlcTextCompat.translatable("dlc_manager.pack.installed_pack", value.substring("Installed ".length()));
         }
         if (value.startsWith("Uninstalled ")) {
-            return Component.translatable("dlc_manager.pack.uninstalled_pack", value.substring("Uninstalled ".length()));
+            return DlcTextCompat.translatable("dlc_manager.pack.uninstalled_pack", value.substring("Uninstalled ".length()));
         }
         if (value.startsWith("dlc_manager.")) {
-            return Component.translatable(value);
+            return DlcTextCompat.translatable(value);
         }
         return DlcTextFormatter.parse(value);
     }

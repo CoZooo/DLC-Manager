@@ -612,15 +612,6 @@ if (stoneNodes.contains(project.name)) {
 
     configurations {
         maybeCreate("embedded")
-        if (loaderName == "fabric") {
-            named("modApi") {
-                dependencies.removeIf {
-                    it.group == "net.fabricmc.fabric-api" &&
-                        it.name == "fabric-gametest-api-v1" &&
-                        it.version == prop("fabric_version")
-                }
-            }
-        }
         if ((loaderName == "forge" || loaderName == "neoforge") && kotlinEnabled) {
             maybeCreate("kotlinForForgeModDiscovery")
         }
@@ -630,6 +621,13 @@ if (stoneNodes.contains(project.name)) {
             }
         }
     }
+    if (loaderName == "fabric") {
+        configurations.findByName("modApi")?.dependencies?.removeIf {
+            it.group == "net.fabricmc.fabric-api" &&
+                it.name == "fabric-gametest-api-v1" &&
+                it.version == prop("fabric_version")
+        }
+    }
     configureLocalDevMods(loaderName, minecraftVersion)
 
     fun addEmbedded(notation: String) {
@@ -637,27 +635,29 @@ if (stoneNodes.contains(project.name)) {
         dependencies.add("include", notation)
     }
 
+    listOf("modImplementation", "implementation", "include", "forgeRuntimeLibrary", "testImplementation", "testRuntimeOnly").forEach { configurations.maybeCreate(it) }
     dependencies {
+        val modDependencyConfiguration = if (minecraftVersion == "26.1") "implementation" else "modImplementation"
         val architecturyDependency = when (loaderName) {
             "fabric" -> "dev.architectury:architectury-fabric:${prop("architectury_api_version")}"
             "forge" -> "dev.architectury:architectury-forge:${prop("architectury_api_version")}"
             "neoforge" -> "dev.architectury:architectury-neoforge:${prop("architectury_api_version")}"
             else -> error("Unsupported loader: $loaderName")
         }
-        add("modImplementation", architecturyDependency)
+        add(modDependencyConfiguration, architecturyDependency)
 
         val apricityDependency = "com.sighs:ApricityUI-$loaderName-$minecraftVersion:${prop("apricity_ui_version")}"
-        add("modImplementation", apricityDependency)
+        add(modDependencyConfiguration, apricityDependency)
 
         if (loaderName == "fabric") {
             if (kotlinEnabled) {
-                add("modImplementation", "net.fabricmc:fabric-language-kotlin:${prop("fabric_language_kotlin_version")}")
+                add(modDependencyConfiguration, "net.fabricmc:fabric-language-kotlin:${prop("fabric_language_kotlin_version")}")
             }
         }
 
         if (loaderName == "forge") {
             if (kotlinEnabled) {
-                add("modImplementation", "thedarkcolour:kotlinforforge:${prop("kotlin_for_forge_version")}")
+                add(modDependencyConfiguration, "thedarkcolour:kotlinforforge:${prop("kotlin_for_forge_version")}")
                 add("kotlinForForgeModDiscovery", "thedarkcolour:kotlinforforge:${prop("kotlin_for_forge_version")}:all") {
                     isTransitive = false
                 }
@@ -669,10 +669,10 @@ if (stoneNodes.contains(project.name)) {
                 add("kotlinForForgeModDiscovery", "thedarkcolour:kotlinforforge-neoforge:${prop("kotlin_for_forge_version")}") {
                     isTransitive = false
                 }
-                add("modImplementation", "thedarkcolour:kfflang-neoforge:${prop("kotlin_for_forge_version")}") {
+                add(modDependencyConfiguration, "thedarkcolour:kfflang-neoforge:${prop("kotlin_for_forge_version")}") {
                     isTransitive = false
                 }
-                add("modImplementation", "thedarkcolour:kffmod-neoforge:${prop("kotlin_for_forge_version")}") {
+                add(modDependencyConfiguration, "thedarkcolour:kffmod-neoforge:${prop("kotlin_for_forge_version")}") {
                     isTransitive = false
                 }
             }
@@ -693,6 +693,9 @@ if (stoneNodes.contains(project.name)) {
         add("testImplementation", "org.junit.jupiter:junit-jupiter:${rootProject.prop("junit_jupiter_version")}")
         add("testRuntimeOnly", "org.junit.jupiter:junit-jupiter-engine:${rootProject.prop("junit_jupiter_version")}")
         add("testRuntimeOnly", "org.junit.platform:junit-platform-launcher")
+        if (loaderName == "forge" && (minecraftVersion == "1.18.2" || minecraftVersion == "1.19.2")) {
+            add("testRuntimeOnly", "org.joml:joml:1.10.5")
+        }
     }
 
     if (loaderName == "forge" || loaderName == "neoforge") {
@@ -764,10 +767,17 @@ if (stoneNodes.contains(project.name)) {
         "output/${rootProject.prop("mod_version")}/DLC-Manager-$loaderName-$minecraftVersion-${rootProject.prop("mod_version")}.jar"
     )
     val earlyLoading = loaderName == "forge" || loaderName == "neoforge"
-    val remappedJar = tasks.named<RemapJarTask>("remapJar") {
-        archiveFileName.set(distributionJar.asFile.name)
-        if (earlyLoading) destinationDirectory.set(layout.buildDirectory.dir("distribution/payload"))
-        else destinationDirectory.set(rootProject.layout.projectDirectory.dir("output/${rootProject.prop("mod_version")}"))
+    val remappedJar: org.gradle.api.tasks.TaskProvider<out AbstractArchiveTask> = if (tasks.findByName("remapJar") != null) {
+        tasks.named<RemapJarTask>("remapJar") {
+            archiveFileName.set(distributionJar.asFile.name)
+            if (earlyLoading) destinationDirectory.set(layout.buildDirectory.dir("distribution/payload"))
+            else destinationDirectory.set(rootProject.layout.projectDirectory.dir("output/${rootProject.prop("mod_version")}"))
+        }
+    } else {
+        tasks.named<Jar>("jar") {
+            archiveFileName.set(distributionJar.asFile.name)
+            destinationDirectory.set(rootProject.layout.projectDirectory.dir("output/${rootProject.prop("mod_version")}"))
+        }
     }
     if (earlyLoading) {
         val serviceBuild = if (kotlinEnabled) "build/dlc-bootstrap" else "build/java-only/dlc-bootstrap"
@@ -796,7 +806,7 @@ if (stoneNodes.contains(project.name)) {
         remappedJar.configure { finalizedBy(packageDistribution) }
     }
     tasks.named("publishMods") {
-        dependsOn(if (earlyLoading) "packageDistribution" else "remapJar")
+        dependsOn(if (earlyLoading) "packageDistribution" else remappedJar)
     }
 
     configure<ModPublishExtension> {

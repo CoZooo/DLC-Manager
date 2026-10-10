@@ -313,8 +313,20 @@ public final class DlcEarlyProgress {
             if (!neoForge && !"forge".equals(loader)) return null;
             String prefix = neoForge ? "net.neoforged.fml.loading." : "net.minecraftforge.fml.loading.";
             Class<?> fml = Class.forName(prefix + "FMLLoader", false, classLoader);
-            Object tick = fml.getField("progressWindowTick").get(null);
-            if (!(tick instanceof Runnable runnable)) return null;
+            Runnable runnable;
+            try {
+                Object tick = fml.getField("progressWindowTick").get(null);
+                if (!(tick instanceof Runnable value)) return null;
+                runnable = value;
+            } catch (NoSuchFieldException missingLegacyTick) {
+                if (!neoForge) throw missingLegacyTick;
+                Method renderTick = Class.forName(prefix + "ImmediateWindowHandler", false, classLoader)
+                    .getMethod("renderTick");
+                runnable = () -> {
+                    try { renderTick.invoke(null); }
+                    catch (ReflectiveOperationException exception) { throw new IllegalStateException("Cannot update NeoForge early window", exception); }
+                };
+            }
             Class<?> config = Class.forName(prefix + "FMLConfig", false, classLoader);
             Class<?> values = Class.forName(prefix + "FMLConfig$ConfigValue", false, classLoader);
             Object control = values.getField("EARLY_WINDOW_CONTROL").get(null);

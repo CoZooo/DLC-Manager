@@ -1,9 +1,10 @@
 package com.cozooo.dlc_manager.client.screen;
 
-import com.mojang.blaze3d.platform.GlStateManager;
-import com.mojang.blaze3d.systems.RenderSystem;
 import com.sighs.apricityui.init.Document;
 import com.sighs.apricityui.init.Element;
+//? if <26.1 {
+import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.sighs.apricityui.layout.Position;
 import com.sighs.apricityui.spi.AuiRenderService;
 import com.sighs.apricityui.spi.AuiServices;
@@ -11,11 +12,15 @@ import com.sighs.apricityui.spi.FboHandle;
 import com.sighs.apricityui.spi.MeshFormat;
 import com.sighs.apricityui.spi.MeshMode;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.GameRenderer;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL30;
+//?}
+//? if >=1.20.1 <26.1 {
+import net.minecraft.client.gui.GuiGraphics;
+//?}
+
 
 public final class DlcUiTransition {
     private static final long DURATION = 200_000_000L;
@@ -58,7 +63,7 @@ public final class DlcUiTransition {
         }
     }
 
-    public void render(GuiGraphics graphics, boolean ready, long now) {
+    public void render(Object graphics, boolean ready, long now) {
         Snapshot current = snapshot;
         if (current == null) return;
         try {
@@ -114,6 +119,7 @@ public final class DlcUiTransition {
 
     private static boolean none(String value) { return value != null && value.trim().equalsIgnoreCase("none"); }
 
+    //? if <26.1 {
     private static void destroyTarget(AuiRenderService render, FboHandle target) {
         int previousRead = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
         int previousDraw = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
@@ -124,6 +130,7 @@ public final class DlcUiTransition {
             GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, previousDraw);
         }
     }
+    //?}
 
     interface Backend {
         Snapshot capture(Element region);
@@ -131,7 +138,7 @@ public final class DlcUiTransition {
 
     interface Snapshot {
         boolean isValid();
-        void draw(GuiGraphics graphics, float alpha);
+        void draw(Object graphics, float alpha);
         void close();
     }
 
@@ -180,6 +187,7 @@ public final class DlcUiTransition {
         float guiBottom() { return (float) ((double) (framebufferHeight - bottom) * guiHeight / framebufferHeight); }
     }
 
+    //? if <26.1 {
     private static final class GpuBackend implements Backend {
         @Override
         public Snapshot capture(Element region) {
@@ -238,7 +246,16 @@ public final class DlcUiTransition {
             }
         }
     }
+    //?}
 
+    //? if >=26.1 {
+    /*private static final class GpuBackend implements Backend {
+        @Override
+        public Snapshot capture(Element region) { return null; }
+    }
+    *///?}
+
+    //? if <26.1 {
     private static final class GpuSnapshot implements Snapshot {
         private final AuiRenderService render;
         private final Bounds bounds;
@@ -262,7 +279,14 @@ public final class DlcUiTransition {
         }
 
         @Override
-        public void draw(GuiGraphics graphics, float alpha) {
+        public void draw(Object graphics, float alpha) {
+            //? if >=1.20.1 <26.1 {
+            drawModern((GuiGraphics) graphics, alpha);
+            //?}
+        }
+
+        //? if >=1.20.1 <26.1 {
+        private void drawModern(GuiGraphics graphics, float alpha) {
             if (graphics == null || target == null) return;
             graphics.flush();
             boolean scissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
@@ -296,6 +320,7 @@ public final class DlcUiTransition {
                 else render.disableStencilTest();
             }
         }
+        //?}
 
         @Override
         public void close() {
@@ -311,4 +336,5 @@ public final class DlcUiTransition {
             });
         }
     }
+    //?}
 }

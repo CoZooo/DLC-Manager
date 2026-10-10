@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry
@@ -30,7 +34,7 @@ import kotlin.math.max
 
 class DlcUpdateManagerScreen(
     private val parent: Screen?,
-) : DlcUpdatePageScreen(DlcUiPage.LOCAL_UPDATES, parent, Component.translatable("dlc_manager.update.manager_title")) {
+) : DlcUpdatePageScreen(DlcUiPage.LOCAL_UPDATES, parent, DlcTextCompat.translatable("dlc_manager.update.manager_title")) {
     private var importButton: Button? = null
     private var urlButton: Button? = null
     private var selfUpdateButton: Button? = null
@@ -108,19 +112,19 @@ class DlcUpdateManagerScreen(
         }
         val totalWidth = buttonWidth * 4 + spacing * 3
         val startX = max(20, (width - totalWidth) / 2)
-        val import = Button.builder(Component.translatable("dlc_manager.update.import")) { importUpdate() }
+        val import = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.import")) { importUpdate() }
             .bounds(startX, y, buttonWidth, buttonHeight)
             .build()
         val urlX = startX + buttonWidth + spacing
-        val url = Button.builder(Component.translatable("dlc_manager.update.import_url")) {
+        val url = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.import_url")) {
             Minecraft.getInstance().setScreen(DlcUpdateUrlScreen(this))
         }.bounds(urlX, y, buttonWidth, buttonHeight).build()
         val selfX = urlX + buttonWidth + spacing
-        val self = Button.builder(Component.translatable("dlc_manager.pack_update.check_button")) { checkPackUpdate() }
+        val self = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack_update.check_button")) { checkPackUpdate() }
             .bounds(selfX, y, buttonWidth, buttonHeight).build()
         self.active = hasPackUpdateRepoConfigured()
         val backX = selfX + buttonWidth + spacing
-        val back = Button.builder(Component.translatable("gui.back")) { Minecraft.getInstance().setScreen(parent) }
+        val back = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("gui.back")) { Minecraft.getInstance().setScreen(parent) }
             .bounds(backX, y, buttonWidth, buttonHeight)
             .build()
         importButton = import
@@ -135,13 +139,13 @@ class DlcUpdateManagerScreen(
         for (i in history.indices) {
             val action = if (i < rowActions.size) rowActions[i] else DlcUpdateRowPlanner.Action.NONE
             val label = when (action) {
-                DlcUpdateRowPlanner.Action.MANAGER_ROLLBACK -> Component.translatable("dlc_manager.update.rollback")
-                DlcUpdateRowPlanner.Action.REUPDATE -> Component.translatable("dlc_manager.update.reapply")
-                DlcUpdateRowPlanner.Action.UPDATE -> Component.translatable("dlc_manager.update.apply")
-                else -> Component.translatable("dlc_manager.update.rollback")
+                DlcUpdateRowPlanner.Action.MANAGER_ROLLBACK -> DlcTextCompat.translatable("dlc_manager.update.rollback")
+                DlcUpdateRowPlanner.Action.REUPDATE -> DlcTextCompat.translatable("dlc_manager.update.reapply")
+                DlcUpdateRowPlanner.Action.UPDATE -> DlcTextCompat.translatable("dlc_manager.update.apply")
+                else -> DlcTextCompat.translatable("dlc_manager.update.rollback")
             }
             val buttonW = if (action == DlcUpdateRowPlanner.Action.REUPDATE || action == DlcUpdateRowPlanner.Action.UPDATE) 80 else 50
-            val rollback = Button.builder(label) { btn ->
+            val rollback = DlcScreenCompat.buttonBuilder(label) { btn ->
                 val idx = rollbackButtons.indexOf(btn)
                 if (idx >= 0 && idx < rowActions.size) {
                     when (rowActions[idx]) {
@@ -190,11 +194,11 @@ class DlcUpdateManagerScreen(
         val baseChanged = normalizeVersion(sourceBase) != normalizeVersion(targetBase)
         val dlcChanged = normalizeVersion(sourceDlc) != normalizeVersion(targetDlc)
         if (baseChanged && !dlcChanged) {
-            return Component.translatable("dlc_manager.update.base_prefix").string +
+            return DlcTextCompat.translatable("dlc_manager.update.base_prefix").string +
                 normalizeVersion(sourceBase) + " -> " + normalizeVersion(targetBase)
         }
         if (!baseChanged && dlcChanged) {
-            return Component.translatable("dlc_manager.update.dlc_prefix").string +
+            return DlcTextCompat.translatable("dlc_manager.update.dlc_prefix").string +
                 normalizeVersion(sourceDlc) + " -> " + normalizeVersion(targetDlc)
         }
         return "$oldDisplay -> $newDisplay"
@@ -210,9 +214,9 @@ class DlcUpdateManagerScreen(
             val result: UpdateRollbackResult = DlcUpdateService.rollbackTo(targetVersion)
             Minecraft.getInstance().execute {
                 if (!result.isSuccess) {
-                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.update.rollback_failed")))
+                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, DlcTextCompat.translatable("dlc_manager.update.rollback_failed")))
                 } else {
-                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, true, Component.translatable("dlc_manager.update.rollback_success")))
+                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, true, DlcTextCompat.translatable("dlc_manager.update.rollback_success")))
                 }
             }
         }, "dlc-update-rollback").start()
@@ -228,9 +232,9 @@ class DlcUpdateManagerScreen(
             Minecraft.getInstance().execute {
                 setApplyingUpdates(false)
                 if (!ok) {
-                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.update.rollback_failed")))
+                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, DlcTextCompat.translatable("dlc_manager.update.rollback_failed")))
                 } else {
-                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, true, Component.translatable("dlc_manager.update.rollback_success")))
+                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, true, DlcTextCompat.translatable("dlc_manager.update.rollback_success")))
                 }
             }
         }, "dlc-selfupdate-rollback").start()
@@ -356,9 +360,9 @@ class DlcUpdateManagerScreen(
             return
         }
         val message = if (result.isHelperScheduled) {
-            Component.translatable("dlc_manager.update.deferred_restart")
+            DlcTextCompat.translatable("dlc_manager.update.deferred_restart")
         } else {
-            Component.translatable("dlc_manager.update.success")
+            DlcTextCompat.translatable("dlc_manager.update.success")
         }
         Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, true, message))
     }
@@ -373,7 +377,7 @@ class DlcUpdateManagerScreen(
         uninstallIncompatible: Boolean,
     ) {
         if (chain.isEmpty()) {
-            Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.update.failed")))
+            Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, DlcTextCompat.translatable("dlc_manager.update.failed")))
             return
         }
         setApplyingUpdates(true)
@@ -400,7 +404,7 @@ class DlcUpdateManagerScreen(
                 val message = ex.message ?: "Failed to apply update"
                 Minecraft.getInstance().execute {
                     setApplyingUpdates(false)
-                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, Component.literal(message)))
+                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, DlcTextCompat.literal(message)))
                 }
             }
         }, "dlc-update-reapply").start()
@@ -416,7 +420,7 @@ class DlcUpdateManagerScreen(
         uninstallIncompatible: Boolean,
     ) {
         if (chain.isEmpty()) {
-            Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.update.failed")))
+            Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, DlcTextCompat.translatable("dlc_manager.update.failed")))
             return
         }
         setApplyingUpdates(true)
@@ -443,7 +447,7 @@ class DlcUpdateManagerScreen(
                 val message = ex.message ?: "Failed to apply update"
                 Minecraft.getInstance().execute {
                     setApplyingUpdates(false)
-                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, Component.literal(message)))
+                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, DlcTextCompat.literal(message)))
                 }
             }
         }, "dlc-update-apply").start()
@@ -473,9 +477,9 @@ class DlcUpdateManagerScreen(
 
     private fun createSuccessResultScreen(result: UpdateApplyResult?): Screen {
         val message = if (result != null && result.isHelperScheduled) {
-            Component.translatable("dlc_manager.update.deferred_restart")
+            DlcTextCompat.translatable("dlc_manager.update.deferred_restart")
         } else {
-            Component.translatable("dlc_manager.update.success")
+            DlcTextCompat.translatable("dlc_manager.update.success")
         }
         return DlcUpdateResultScreen(this, true, message)
     }
@@ -505,15 +509,15 @@ class DlcUpdateManagerScreen(
         val validation = DlcUpdateService.validateImportPackage(picked)
         if (!validation.isValid) {
             showToast(
-                Component.translatable("dlc_manager.update.manager_title"),
+                DlcTextCompat.translatable("dlc_manager.update.manager_title"),
                 DlcMessageAdapter.toImportValidationComponent(validation),
             )
             return
         }
         if (!DlcUpdateService.importUpdatePackage(picked)) {
             showToast(
-                Component.translatable("dlc_manager.update.manager_title"),
-                Component.translatable("dlc_manager.update.dlc_root_missing"),
+                DlcTextCompat.translatable("dlc_manager.update.manager_title"),
+                DlcTextCompat.translatable("dlc_manager.update.dlc_root_missing"),
             )
             return
         }
@@ -527,8 +531,8 @@ class DlcUpdateManagerScreen(
             return
         }
         showToast(
-            Component.translatable("dlc_manager.update.manager_title"),
-            Component.translatable("dlc_manager.update.no_updates"),
+            DlcTextCompat.translatable("dlc_manager.update.manager_title"),
+            DlcTextCompat.translatable("dlc_manager.update.no_updates"),
         )
         refreshData()
     }
@@ -561,14 +565,14 @@ class DlcUpdateManagerScreen(
                 }
                 if (result != null && !result.error.isNullOrBlank()) {
                     showToast(
-                        Component.translatable("dlc_manager.update.manager_title"),
+                        DlcTextCompat.translatable("dlc_manager.update.manager_title"),
                         DlcMessageAdapter.toCheckFailureComponent(result.error),
                     )
                     return@execute
                 }
                 showToast(
-                    Component.translatable("dlc_manager.update.manager_title"),
-                    Component.translatable("dlc_manager.pack_update.no_updates"),
+                    DlcTextCompat.translatable("dlc_manager.update.manager_title"),
+                    DlcTextCompat.translatable("dlc_manager.pack_update.no_updates"),
                 )
             }
         }, "dlc-pack-update-check-manual").start()
@@ -581,7 +585,7 @@ class DlcUpdateManagerScreen(
 
     private fun showToast(title: Component, desc: Component) {
         val minecraft = Minecraft.getInstance()
-        DlcScreenCompat.addOrUpdatePeriodicNotification(minecraft.toasts, title, desc)
+        DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(minecraft), title, desc)
     }
 
     companion object {

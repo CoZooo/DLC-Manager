@@ -1,4 +1,6 @@
 package com.cozooo.dlc_manager.client.screen
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
 import com.cozooo.dlc_manager.client.notice.DlcNoticeConfig
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState
@@ -21,7 +23,15 @@ import com.cozooo.dlc_manager.core.DlcType
 import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import net.minecraft.ChatFormatting
 import net.minecraft.client.Minecraft
+//? if >=1.20.1 <26.1 {
 import net.minecraft.client.gui.GuiGraphics
+//?}
+//? if <1.20.1 {
+/*import com.mojang.blaze3d.vertex.PoseStack
+*///?}
+//? if >=26.1 {
+/*import net.minecraft.client.gui.GuiGraphicsExtractor
+*///?}
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.gui.screens.TitleScreen
 import net.minecraft.network.chat.Component
@@ -258,10 +268,10 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
             minecraft.setScreen(
                 DlcConfirmScreen(
                     { accepted -> if (accepted) minecraft.stop() else minecraft.setScreen(parent) },
-                    Component.translatable("dlc_manager.title"),
-                    Component.translatable(message),
-                    Component.translatable("dlc_manager.restart_now"),
-                    Component.translatable("dlc_manager.restart_later"),
+                    DlcTextCompat.translatable("dlc_manager.title"),
+                    DlcTextCompat.translatable(message),
+                    DlcTextCompat.translatable("dlc_manager.restart_now"),
+                    DlcTextCompat.translatable("dlc_manager.restart_later"),
                 )
             )
         } else if (applyMode == DlcApplyMode.TRY_HOT_RELOAD) {
@@ -280,18 +290,18 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
                             minecraft.setScreen(parent)
                         }
                     },
-                    Component.translatable("dlc_manager.title"),
-                    Component.translatable(message),
-                    Component.translatable("dlc_manager.reload_now"),
-                    Component.translatable("dlc_manager.reload_later"),
+                    DlcTextCompat.translatable("dlc_manager.title"),
+                    DlcTextCompat.translatable(message),
+                    DlcTextCompat.translatable("dlc_manager.reload_now"),
+                    DlcTextCompat.translatable("dlc_manager.reload_later"),
                 )
             )
         } else {
             minecraft.setScreen(
                 DlcConfirmScreen(
                     { minecraft.setScreen(parent) },
-                    Component.translatable("dlc_manager.title"),
-                    Component.translatable(message),
+                    DlcTextCompat.translatable("dlc_manager.title"),
+                    DlcTextCompat.translatable(message),
                 )
             )
         }
@@ -308,9 +318,9 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
         Minecraft.getInstance().setScreen(
             DlcSingleButtonScreen(
                 parent,
-                Component.translatable("dlc_manager.server.apply_failed"),
-                Component.literal(joinFailureMessages(result)),
-                Component.translatable("dlc_manager.back"),
+                DlcTextCompat.translatable("dlc_manager.server.apply_failed"),
+                DlcTextCompat.literal(joinFailureMessages(result)),
+                DlcTextCompat.translatable("dlc_manager.back"),
             )
         )
     }
@@ -400,17 +410,17 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
         val minecraft = Minecraft.getInstance()
         return try {
             DlcScreenCompat.addOrUpdatePeriodicNotification(
-                minecraft.toasts,
-                Component.translatable("dlc_manager.toast.reload_title"),
-                Component.translatable("dlc_manager.toast.reload_start"),
+                DlcScreenCompat.toastManager(minecraft),
+                DlcTextCompat.translatable("dlc_manager.toast.reload_title"),
+                DlcTextCompat.translatable("dlc_manager.toast.reload_start"),
             )
             val future = minecraft.reloadResourcePacks()
             future.thenRun {
                 minecraft.execute {
                     DlcScreenCompat.addOrUpdatePeriodicNotification(
-                        minecraft.toasts,
-                        Component.translatable("dlc_manager.toast.reload_title"),
-                        Component.translatable("dlc_manager.toast.reload_done"),
+                        DlcScreenCompat.toastManager(minecraft),
+                        DlcTextCompat.translatable("dlc_manager.toast.reload_title"),
+                        DlcTextCompat.translatable("dlc_manager.toast.reload_done"),
                     )
                 }
             }
@@ -443,7 +453,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
                 val fileName = sourcePath.fileName.toString()
                 var packId = resolvePackId(repo, fileName)
                 if (item.isEnabled() && packId == null) {
-                    val target = minecraft.resourcePackDirectory.resolve(fileName)
+                    val target = java.nio.file.Path.of(minecraft.resourcePackDirectory.toString(), fileName)
                     copyRecursive(sourcePath, target)
                     repo.reload()
                     packId = resolvePackId(repo, fileName)
@@ -641,7 +651,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
 
     private fun showBatchConflictSkipPrompt(lines: List<DlcRuntimeState.ConflictLine>, onSkipConfirm: Runnable?) {
         val message = DlcConfirmUtil.buildConflictMessage(lines)
-        val title = Component.translatable("dlc_manager.batch.conflicts_title").withStyle(ChatFormatting.DARK_RED)
+        val title = DlcTextCompat.translatable("dlc_manager.batch.conflicts_title").withStyle(ChatFormatting.DARK_RED)
         rememberListScroll()
         Minecraft.getInstance().setScreen(
             DlcConfirmScreen(
@@ -654,7 +664,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
                 },
                 title,
                 message,
-                Component.translatable("dlc_manager.batch.conflicts_skip_enable"),
+                DlcTextCompat.translatable("dlc_manager.batch.conflicts_skip_enable"),
                 DlcConfirmUtil.confirmNo(),
             )
         )
@@ -690,8 +700,8 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
         scopeLabel: Component,
     ) {
         val message = DlcConfirmUtil.buildDependencyMessage(lines)
-        val title = Component.translatable("dlc_manager.batch.dependencies_title")
-        val enableLabel = Component.translatable("dlc_manager.batch.enable_deps", scopeLabel)
+        val title = DlcTextCompat.translatable("dlc_manager.batch.dependencies_title")
+        val enableLabel = DlcTextCompat.translatable("dlc_manager.batch.enable_deps", scopeLabel)
         rememberListScroll()
         Minecraft.getInstance().setScreen(
             DlcConfirmScreen(
@@ -787,13 +797,13 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
 
     companion object {
         private const val ROOT_GROUP = "__root__"
-        private fun translate(key: String, vararg args: Any): String = plain(Component.translatable(key, *args).string)
+        private fun translate(key: String, vararg args: Any): String = plain(DlcTextCompat.translatable(key, *args).string)
         private fun plain(value: String?): String = value?.let { DlcTextFormatter.parse(it).string } ?: ""
 
         @JvmStatic
         fun refreshCurrentOpenScreen() {
             val minecraft = Minecraft.getInstance()
-            val screen = minecraft?.screen
+            val screen = minecraft.screen
             if (screen is DlcManagerScreen) {
                 screen.refreshAfterStateChange()
             }
@@ -813,7 +823,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
     }
 
     private fun handleBatchToggle(enable: Boolean) {
-        val activeFilterLabel = if (searchQuery.isNotBlank()) Component.translatable("dlc_manager.scope.search") else activeFilter?.let { Component.translatable(it.getDisplayKey()) }
+        val activeFilterLabel = if (searchQuery.isNotBlank()) DlcTextCompat.translatable("dlc_manager.scope.search") else activeFilter?.let { DlcTextCompat.translatable(it.getDisplayKey()) }
         val message = DlcConfirmUtil.buildHeaderConfirmMessage(enable, activeFilterLabel)
         rememberListScroll()
         Minecraft.getInstance().setScreen(
@@ -830,11 +840,11 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
                         }
                         if (targets.isNotEmpty()) {
                             val scopeLabel = if (searchQuery.isNotBlank()) {
-                                Component.translatable("dlc_manager.scope.search")
+                                DlcTextCompat.translatable("dlc_manager.scope.search")
                             } else if (activeFilter == null) {
-                                Component.translatable("dlc_manager.scope.all")
+                                DlcTextCompat.translatable("dlc_manager.scope.all")
                             } else {
-                                Component.translatable("dlc_manager.scope.group")
+                                DlcTextCompat.translatable("dlc_manager.scope.group")
                             }
                             handleBatchEnable(targets, scopeLabel)
                         }
@@ -843,7 +853,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
                         updateModeAvailability()
                     }
                 },
-                Component.translatable("dlc_manager.title"),
+                DlcTextCompat.translatable("dlc_manager.title"),
                 message,
                 DlcConfirmUtil.confirmYes(),
                 DlcConfirmUtil.confirmNo(),
@@ -1103,7 +1113,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
 
     override fun rememberReturnPosition() { rememberListScroll() }
 
-    override fun getTitle(): Component = Component.translatable("dlc_manager.title")
+    override fun getTitle(): Component = DlcTextCompat.translatable("dlc_manager.title")
 
     override fun tick() {
         super.tick()
@@ -1112,10 +1122,19 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
         updateModeAvailability()
     }
 
+    //? if <26.1 {
     override fun resize(minecraft: Minecraft, width: Int, height: Int) {
         rememberListScroll()
         super.resize(minecraft, width, height)
     }
+    //?}
+
+    //? if >=26.1 {
+    /*override fun resize(width: Int, height: Int) {
+        rememberListScroll()
+        super.resize(width, height)
+    }
+    *///?}
 
     fun rememberListScroll() {
         val document = linkedDocument ?: return
@@ -1130,6 +1149,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
 
     override fun isUiContentReady(): Boolean = !pendingScrollRestore
 
+    //? if >=1.20.1 <26.1 {
     override fun render(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
         super.render(graphics, mouseX, mouseY, partialTick)
         val document = linkedDocument ?: return
@@ -1140,6 +1160,33 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
         }
         pendingScrollRestore = false
     }
+    //?}
+
+    //? if <1.20.1 {
+    /*override fun render(graphics: PoseStack, mouseX: Int, mouseY: Int, partialTick: Float) {
+        super.render(graphics, mouseX, mouseY, partialTick)
+        val document = linkedDocument ?: return
+        if (!pendingScrollRestore || document.needsInitialFullCommit() || document.isInitialCommitSlicing) return
+        val list = document.getElementById("manager-list")
+        if (list.clientHeight > 0 && list.computedStyle.overflowY in setOf("auto", "scroll")) {
+            Document.runWithContext(document) { list.setScrollTop(savedScrollOffset) }
+        }
+        pendingScrollRestore = false
+    }
+    *///?}
+
+    //? if >=26.1 {
+    /*override fun extractRenderState(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, partialTick: Float) {
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick)
+        val document = linkedDocument ?: return
+        if (!pendingScrollRestore || document.needsInitialFullCommit() || document.isInitialCommitSlicing) return
+        val list = document.getElementById("manager-list")
+        if (list.clientHeight > 0 && list.computedStyle.overflowY in setOf("auto", "scroll")) {
+            Document.runWithContext(document) { list.setScrollTop(savedScrollOffset) }
+        }
+        pendingScrollRestore = false
+    }
+    *///?}
 
     override fun onClose() {
         tooltip?.hide()
@@ -1153,10 +1200,10 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
         minecraft.setScreen(
             DlcConfirmScreen(
                 { accepted -> if (accepted) minecraft.stop() else minecraft.setScreen(parent) },
-                Component.translatable("dlc_manager.title"),
-                Component.translatable("dlc_manager.required.restart_prompt"),
-                Component.translatable("dlc_manager.restart_now"),
-                Component.translatable("dlc_manager.restart_later"),
+                DlcTextCompat.translatable("dlc_manager.title"),
+                DlcTextCompat.translatable("dlc_manager.required.restart_prompt"),
+                DlcTextCompat.translatable("dlc_manager.restart_now"),
+                DlcTextCompat.translatable("dlc_manager.restart_later"),
             )
         )
     }

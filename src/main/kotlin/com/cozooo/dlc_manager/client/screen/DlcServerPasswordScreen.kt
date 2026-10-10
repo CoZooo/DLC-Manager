@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.server.DlcServerCache
 import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
@@ -17,7 +21,7 @@ class DlcServerPasswordScreen @JvmOverloads constructor(
     private val entry: DlcServerEntry,
     private val autoConnect: Boolean,
     private val openServerManagerOnSuccess: Boolean = false,
-) : DlcPageScreen(DlcUiPage.SERVER_PASSWORD, parent, Component.translatable("dlc_manager.server.password_title")) {
+) : DlcPageScreen(DlcUiPage.SERVER_PASSWORD, parent, DlcTextCompat.translatable("dlc_manager.server.password_title")) {
     private var portField: EditBox? = null
     private var passwordField: EditBox? = null
     private var connectButton: Button? = null
@@ -31,13 +35,13 @@ class DlcServerPasswordScreen @JvmOverloads constructor(
         val centerX = width / 2
         val startY = height / 2 - 32
 
-        portField = EditBox(font, centerX - fieldWidth / 2, startY, fieldWidth, fieldHeight, Component.empty()).also {
+        portField = EditBox(font, centerX - fieldWidth / 2, startY, fieldWidth, fieldHeight, DlcTextCompat.empty()).also {
             it.value = entry.port.toString()
-            it.setFilter { value -> value.chars().allMatch { codePoint -> Character.isDigit(codePoint) } }
+            DlcScreenCompat.setNumericFilter(it)
             addRenderableWidget(it)
         }
 
-        passwordField = EditBox(font, centerX - fieldWidth / 2, startY + 24, fieldWidth, fieldHeight, Component.empty()).also {
+        passwordField = EditBox(font, centerX - fieldWidth / 2, startY + 24, fieldWidth, fieldHeight, DlcTextCompat.empty()).also {
             entry.password?.let { password -> it.value = password }
             addRenderableWidget(it)
         }
@@ -45,12 +49,12 @@ class DlcServerPasswordScreen @JvmOverloads constructor(
         val buttonWidth = 90
         val buttonHeight = 20
         val buttonY = startY + 56
-        connectButton = Button.builder(Component.translatable("dlc_manager.server.connect")) {
+        connectButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.connect")) {
             startConnect()
         }
             .bounds(centerX - buttonWidth - 6, buttonY, buttonWidth, buttonHeight)
             .build()
-        backButton = Button.builder(Component.translatable("gui.back")) {
+        backButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("gui.back")) {
             Minecraft.getInstance().setScreen(parent)
         }
             .bounds(centerX + 6, buttonY, buttonWidth, buttonHeight)
@@ -89,9 +93,9 @@ class DlcServerPasswordScreen @JvmOverloads constructor(
                     updateButtonState()
                     if (info == null) {
                         DlcScreenCompat.addOrUpdatePeriodicNotification(
-                            Minecraft.getInstance().toasts,
-                            Component.translatable("dlc_manager.server.connect_failed"),
-                            Component.empty(),
+                            DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                            DlcTextCompat.translatable("dlc_manager.server.connect_failed"),
+                            DlcTextCompat.empty(),
                         )
                         return@execute
                     }
@@ -150,9 +154,9 @@ class DlcServerPasswordScreen @JvmOverloads constructor(
             val port = value.toInt()
             if (port < 1 || port > 65535) {
                 DlcScreenCompat.addOrUpdatePeriodicNotification(
-                    Minecraft.getInstance().toasts,
-                    Component.translatable("dlc_manager.server.port_invalid"),
-                    Component.empty(),
+                    DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                    DlcTextCompat.translatable("dlc_manager.server.port_invalid"),
+                    DlcTextCompat.empty(),
                 )
                 -1
             } else {
@@ -160,9 +164,9 @@ class DlcServerPasswordScreen @JvmOverloads constructor(
             }
         } catch (_: NumberFormatException) {
             DlcScreenCompat.addOrUpdatePeriodicNotification(
-                Minecraft.getInstance().toasts,
-                Component.translatable("dlc_manager.server.port_invalid"),
-                Component.empty(),
+                DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                DlcTextCompat.translatable("dlc_manager.server.port_invalid"),
+                DlcTextCompat.empty(),
             )
             -1
         }

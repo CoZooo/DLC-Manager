@@ -324,6 +324,7 @@ class DlcUpdateManifest {
         private val LAST_JSON_PAIR: Pattern = Pattern.compile("\".*?\"\\s*:\\s*\".*?\"")
 
         @JvmStatic
+        @Suppress("DEPRECATION")
         fun load(updateJson: Path?): DlcUpdateManifest? {
             if (updateJson == null || !Files.exists(updateJson)) {
                 return null
@@ -684,7 +685,7 @@ class DlcUpdateManifest {
                 last = matcher.group()
             }
             if (!last.isNullOrBlank()) {
-                return last!!.trim()
+                return last.trim()
             }
             return find.trim()
         }

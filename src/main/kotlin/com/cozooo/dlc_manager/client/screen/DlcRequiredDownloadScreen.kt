@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.DlcClientRuntime
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
@@ -30,7 +34,7 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
     private val parent: Screen?,
     entries: List<DlcRequiredEntry>?,
     private val postUpdateResult: UpdateApplyResult? = null,
-) : DlcPageScreen(DlcUiPage.REQUIRED_DOWNLOAD, parent, Component.translatable("dlc_manager.required.title")) {
+) : DlcPageScreen(DlcUiPage.REQUIRED_DOWNLOAD, parent, DlcTextCompat.translatable("dlc_manager.required.title")) {
     private val entries: List<DlcRequiredEntry> = entries ?: emptyList()
     private val displayList: MutableList<DlcRequiredEntry> = ArrayList()
     private val downloadQueue: MutableList<DlcRequiredEntry> = ArrayList()
@@ -84,7 +88,7 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
         val buttonHeight = 20
         val y = height - 40
         val downloadX = width / 2 - buttonWidth / 2
-        val download = Button.builder(Component.translatable("dlc_manager.required.download")) { handleDownloadButton() }
+        val download = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.required.download")) { handleDownloadButton() }
             .bounds(downloadX, y, buttonWidth, buttonHeight)
             .build()
         download.active = false
@@ -92,7 +96,7 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
         downloadButton = download
         addRenderableWidget(download)
         detecting = true
-        statusText = Component.translatable("dlc_manager.required.preparing").string
+        statusText = DlcTextCompat.translatable("dlc_manager.required.preparing").string
         Thread({ detectEntries() }, "dlc-required-detect").start()
     }
 
@@ -121,7 +125,7 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
         applyQueue.addAll(applyCandidates)
         updatePackageRequired = hasUpdatePackageTargets(applyQueue)
         detecting = false
-        statusText = Component.translatable("dlc_manager.required.ready").string
+        statusText = DlcTextCompat.translatable("dlc_manager.required.ready").string
         scrollIndex = 0
         Minecraft.getInstance().execute {
             if (downloadQueue.isEmpty() && applyQueue.isEmpty()) {
@@ -148,12 +152,12 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
             return
         }
         cancelRequested = true
-        statusText = Component.translatable("dlc_manager.required.canceling").string
+        statusText = DlcTextCompat.translatable("dlc_manager.required.canceling").string
         downloadButton?.active = false
     }
 
     private fun updateDownloadButtonLabel(isDownloading: Boolean) {
-        downloadButton?.message = Component.translatable(
+        downloadButton?.message = DlcTextCompat.translatable(
             if (isDownloading) "dlc_manager.required.cancel" else "dlc_manager.required.download",
         )
     }
@@ -178,7 +182,7 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
                     }
                     applyAll()
                 } catch (e: Exception) {
-                    errorText = Component.translatable("dlc_manager.required.error", e.message).string
+                    errorText = DlcTextCompat.translatable("dlc_manager.required.error", e.message).string
                     Minecraft.getInstance().execute {
                         updateDownloadButtonLabel(false)
                         downloadButton?.active = true
@@ -203,14 +207,14 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
                     override fun onEntryStart(entry: DlcRequiredEntry?, index: Int, total: Int) {
                         if (maxConcurrentDownloads <= 1 && entry != null) {
                             activeDownloadEntry = entry
-                            statusText = Component.translatable(
+                            statusText = DlcTextCompat.translatable(
                                 "dlc_manager.required.downloading",
                                 entry.resolveDisplayName(),
                                 completedCount + 1,
                                 totalCount,
                             ).string
                         } else {
-                            statusText = Component.translatable("dlc_manager.required.downloading_multi").string
+                            statusText = DlcTextCompat.translatable("dlc_manager.required.downloading_multi").string
                         }
                     }
 
@@ -233,11 +237,11 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
 
                     override fun onEntryStatus(entry: DlcRequiredEntry?, statusKey: String?, completed: Int, total: Int) {
                         statusText = if (statusKey == "selecting_source") {
-                            Component.translatable("dlc_manager.required.selecting_source").string
+                            DlcTextCompat.translatable("dlc_manager.required.selecting_source").string
                         } else if (maxConcurrentDownloads <= 1 && entry != null) {
-                            Component.translatable("dlc_manager.required.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).string
+                            DlcTextCompat.translatable("dlc_manager.required.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).string
                         } else {
-                            Component.translatable("dlc_manager.required.downloading_multi").string
+                            DlcTextCompat.translatable("dlc_manager.required.downloading_multi").string
                         }
                     }
 
@@ -251,7 +255,7 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
 
                     override fun onEntryFailure(entry: DlcRequiredEntry?, error: Throwable?, completed: Int, total: Int) {
                         completedCount = completed
-                        errorText = Component.translatable("dlc_manager.required.error", error?.message ?: "").string
+                        errorText = DlcTextCompat.translatable("dlc_manager.required.error", error?.message ?: "").string
                     }
 
                     override fun onEntryComplete(entry: DlcRequiredEntry?) {
@@ -287,7 +291,7 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
         }
         if (cancelRequested) {
             downloading = false
-            statusText = Component.translatable("dlc_manager.required.canceled").string
+            statusText = DlcTextCompat.translatable("dlc_manager.required.canceled").string
             Minecraft.getInstance().execute {
                 updateDownloadButtonLabel(false)
                 downloadButton?.active = true
@@ -317,7 +321,7 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
             }
             applyAll()
         } catch (e: Exception) {
-            errorText = Component.translatable("dlc_manager.required.error", e.message).string
+            errorText = DlcTextCompat.translatable("dlc_manager.required.error", e.message).string
             downloading = false
             Minecraft.getInstance().execute {
                 updateDownloadButtonLabel(false)
@@ -399,10 +403,10 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
                             minecraft.setScreen(parent)
                         }
                     },
-                    Component.translatable("dlc_manager.title"),
-                    Component.translatable("dlc_manager.required.restart_prompt"),
-                    Component.translatable("dlc_manager.restart_now"),
-                    Component.translatable("dlc_manager.restart_later"),
+                    DlcTextCompat.translatable("dlc_manager.title"),
+                    DlcTextCompat.translatable("dlc_manager.required.restart_prompt"),
+                    DlcTextCompat.translatable("dlc_manager.restart_now"),
+                    DlcTextCompat.translatable("dlc_manager.restart_later"),
                 ),
             )
         }
@@ -450,9 +454,9 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
 
     private fun createPostUpdateResultScreen(result: UpdateApplyResult?): Screen {
         val message = if (result != null && result.isHelperScheduled) {
-            Component.translatable("dlc_manager.update.deferred_restart")
+            DlcTextCompat.translatable("dlc_manager.update.deferred_restart")
         } else {
-            Component.translatable("dlc_manager.update.success")
+            DlcTextCompat.translatable("dlc_manager.update.success")
         }
         return DlcUpdateResultScreen(parent, true, message)
     }
@@ -461,7 +465,7 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
         if (entries.isNullOrEmpty()) {
             return false
         }
-        val dlcRoot = DlcPaths.dlcRoot() ?: return false
+        val dlcRoot = DlcPaths.dlcRoot()
         val updateRoot = dlcRoot.resolve("update").normalize()
         for (entry in entries) {
             for (target in entry.resolveAppliedTargets()) {

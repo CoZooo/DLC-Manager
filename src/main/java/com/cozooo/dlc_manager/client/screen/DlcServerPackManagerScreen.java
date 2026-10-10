@@ -1,5 +1,10 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
+
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.core.DlcFilePicker;
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
@@ -8,14 +13,11 @@ import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerPackInfo;
 import com.mojang.blaze3d.platform.NativeImage;
-import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 
 import java.io.ByteArrayInputStream;
 import java.nio.file.Path;
@@ -77,7 +79,7 @@ public class DlcServerPackManagerScreen extends DlcPackPageScreen {
     private int iconTextureSerial;
 
     public DlcServerPackManagerScreen(Screen parent, DlcServerEntry entry) {
-        super(DlcUiPage.SERVER_PACKS, parent, Component.translatable("dlc_manager.server.pack.manager_title"));
+        super(DlcUiPage.SERVER_PACKS, parent, DlcTextCompat.translatable("dlc_manager.server.pack.manager_title"));
         this.parent = parent;
         this.entry = entry;
     }
@@ -95,7 +97,7 @@ public class DlcServerPackManagerScreen extends DlcPackPageScreen {
 
     public void refresh(Component finalStatus) {
         loading = true;
-        status = Component.translatable("dlc_manager.server.files_loading");
+        status = DlcTextCompat.translatable("dlc_manager.server.files_loading");
         new Thread(() -> {
             DlcServerConnection.PackListResponse result;
             try {
@@ -111,14 +113,14 @@ public class DlcServerPackManagerScreen extends DlcPackPageScreen {
                     archiveGroups = List.of();
                     entryOrder = List.of();
                     currentOrder = List.of();
-                    status = Component.translatable("dlc_manager.server.pack.load_failed");
+                    status = DlcTextCompat.translatable("dlc_manager.server.pack.load_failed");
                 } else {
                     rebuildEntries(finalResult.packs, finalResult.order);
                     int count = 0;
                     for (PackGroup group : archiveGroups) {
                         count += group.versions.size();
                     }
-                    status = finalStatus == null ? Component.translatable("dlc_manager.pack.archive_count", count) : finalStatus;
+                    status = finalStatus == null ? DlcTextCompat.translatable("dlc_manager.pack.archive_count", count) : finalStatus;
                 }
                 rebuildButtons();
             });
@@ -133,20 +135,20 @@ public class DlcServerPackManagerScreen extends DlcPackPageScreen {
         int total = buttonWidth * 4 + gap * 3;
         int startX = this.width / 2 - total / 2;
         int y = this.height - 28;
-        importButton = Button.builder(Component.translatable("dlc_manager.pack.import"), btn -> importPack())
+        importButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack.import"), btn -> importPack())
             .bounds(startX, y, buttonWidth, buttonHeight)
             .build();
-        urlButton = Button.builder(Component.translatable("dlc_manager.pack.import_url"), btn -> Minecraft.getInstance().setScreen(new DlcServerPackUrlScreen(this, entry)))
+        urlButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack.import_url"), btn -> Minecraft.getInstance().setScreen(new DlcServerPackUrlScreen(this, entry)))
             .bounds(startX + buttonWidth + gap, y, buttonWidth, buttonHeight)
             .build();
-        applyButton = Button.builder(Component.translatable("dlc_manager.pack.apply"), btn -> applyPendingChanges())
+        applyButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack.apply"), btn -> applyPendingChanges())
             .bounds(startX + (buttonWidth + gap) * 2, y, buttonWidth, buttonHeight)
             .build();
-        Component backLabel = hasPendingChanges() ? Component.translatable("dlc_manager.pack.cancel_changes") : Component.translatable("dlc_manager.pack.back");
-        backButton = Button.builder(backLabel, btn -> onBackOrCancel())
+        Component backLabel = hasPendingChanges() ? DlcTextCompat.translatable("dlc_manager.pack.cancel_changes") : DlcTextCompat.translatable("dlc_manager.pack.back");
+        backButton = DlcScreenCompat.buttonBuilder(backLabel, btn -> onBackOrCancel())
             .bounds(startX + (buttonWidth + gap) * 3, y, buttonWidth, buttonHeight)
             .build();
-        refreshButton = Button.builder(Component.translatable("dlc_manager.server.files_refresh"), btn -> refresh())
+        refreshButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.files_refresh"), btn -> refresh())
             .bounds(this.width - 24 - 70, 8, 70, 20)
             .build();
         addRenderableWidget(importButton);
@@ -166,25 +168,25 @@ public class DlcServerPackManagerScreen extends DlcPackPageScreen {
         if (refreshButton != null) refreshButton.active = active && !hasPendingChanges();
     }
 
-    private void drawSizedButton(GuiGraphics guiGraphics, int x, int y, int width, Component label, int mouseX, int mouseY) {
+    private void drawSizedButton(Object guiGraphics, int x, int y, int width, Component label, int mouseX, int mouseY) {
         drawSizedButton(guiGraphics, x, y, width, label, mouseX, mouseY, 0xFFFFFF);
     }
 
-    private void drawSizedButton(GuiGraphics guiGraphics, int x, int y, int width, Component label, int mouseX, int mouseY, int textColor) {
+    private void drawSizedButton(Object guiGraphics, int x, int y, int width, Component label, int mouseX, int mouseY, int textColor) {
         boolean hover = mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + BUTTON_HEIGHT;
-        guiGraphics.fill(x, y, x + width, y + BUTTON_HEIGHT, hover ? 0xFF5A5A5A : 0xFF404040);
-        guiGraphics.drawCenteredString(this.font, label, x + width / 2, y + 4, textColor);
+        DlcScreenCompat.fill(guiGraphics, x, y, x + width, y + BUTTON_HEIGHT, hover ? 0xFF5A5A5A : 0xFF404040);
+        DlcScreenCompat.drawCenteredString(guiGraphics, this.font, label, x + width / 2, y + 4, textColor);
     }
 
     private void importPack() {
-        Path zip = DlcFilePicker.pickAnyFile(Component.translatable("dlc_manager.pack.import").getString());
+        Path zip = DlcFilePicker.pickAnyFile(DlcTextCompat.translatable("dlc_manager.pack.import").getString());
         if (zip == null) return;
-        startWork(Component.translatable("dlc_manager.pack.importing"), Component.translatable("dlc_manager.pack.import_staged", zip.getFileName().toString()), false, () -> {
+        startWork(DlcTextCompat.translatable("dlc_manager.pack.importing"), DlcTextCompat.translatable("dlc_manager.pack.import_staged", zip.getFileName().toString()), false, () -> {
             try {
                 boolean ok = DlcServerConnection.importPackPackage(entry, TIMEOUT_MS, zip);
-                return ok ? null : Component.translatable("dlc_manager.pack.import_failed", "upload failed");
+                return ok ? null : DlcTextCompat.translatable("dlc_manager.pack.import_failed", "upload failed");
             } catch (Exception ex) {
-                return Component.translatable("dlc_manager.pack.import_failed", ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
+                return DlcTextCompat.translatable("dlc_manager.pack.import_failed", ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
             }
         });
     }
@@ -192,16 +194,16 @@ public class DlcServerPackManagerScreen extends DlcPackPageScreen {
     private void applyPendingChanges() {
         if (!hasPendingChanges()) return;
         if (pendingInstalls.isEmpty() && pendingUninstalls.isEmpty()) {
-            startWork(Component.translatable("dlc_manager.pack.applying"), Component.translatable("dlc_manager.pack.order_applied"), false, () -> {
+            startWork(DlcTextCompat.translatable("dlc_manager.pack.applying"), DlcTextCompat.translatable("dlc_manager.pack.order_applied"), false, () -> {
                 try {
                     DlcServerConnection.UpdateResponse orderResponse = DlcServerConnection.savePackOrder(entry, TIMEOUT_MS, currentOrder);
                     if (orderResponse == null || !orderResponse.ok) {
-                        return Component.translatable("dlc_manager.pack.apply_failed", orderResponse == null ? "save order failed" : orderResponse.message);
+                        return DlcTextCompat.translatable("dlc_manager.pack.apply_failed", orderResponse == null ? "save order failed" : orderResponse.message);
                     }
                     entryOrder = new ArrayList<>(currentOrder);
                     return null;
                 } catch (Exception ex) {
-                    return Component.translatable("dlc_manager.pack.apply_failed", ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
+                    return DlcTextCompat.translatable("dlc_manager.pack.apply_failed", ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
                 }
             });
             return;
@@ -222,9 +224,9 @@ public class DlcServerPackManagerScreen extends DlcPackPageScreen {
         if (success) {
             pendingInstalls.clear();
             pendingUninstalls.clear();
-            refresh(Component.translatable("dlc_manager.pack.apply_success"));
+            refresh(DlcTextCompat.translatable("dlc_manager.pack.apply_success"));
         } else {
-            status = Component.translatable("dlc_manager.pack.apply_failed", message == null ? "failed" : message);
+            status = DlcTextCompat.translatable("dlc_manager.pack.apply_failed", message == null ? "failed" : message);
             rebuildButtons();
         }
     }
@@ -240,12 +242,12 @@ public class DlcServerPackManagerScreen extends DlcPackPageScreen {
                 }, "dlc-server-pack-restart").start();
             }
             Minecraft.getInstance().setScreen(this);
-        }, Component.translatable("dlc_manager.server.restart_title"), Component.translatable("dlc_manager.server.restart_prompt"),
-            Component.translatable("dlc_manager.restart_now"), Component.translatable("dlc_manager.restart_later")));
+        }, DlcTextCompat.translatable("dlc_manager.server.restart_title"), DlcTextCompat.translatable("dlc_manager.server.restart_prompt"),
+            DlcTextCompat.translatable("dlc_manager.restart_now"), DlcTextCompat.translatable("dlc_manager.restart_later")));
     }
 
     private void startWork(Component workingText, WorkAction action) {
-        startWork(workingText, Component.translatable("dlc_manager.pack.apply_success"), false, action);
+        startWork(workingText, DlcTextCompat.translatable("dlc_manager.pack.apply_success"), false, action);
     }
 
     private void startWork(Component workingText, Component successText, boolean clearPendingOnSuccess, WorkAction action) {
@@ -293,26 +295,26 @@ public class DlcServerPackManagerScreen extends DlcPackPageScreen {
 
     private void confirmDelete(PackEntry pack) {
         Component prompt = isIdentifierInstalled(pack.identifier)
-            ? Component.translatable("dlc_manager.pack.delete_confirm_uninstall", pack.displayNameText)
-            : Component.translatable("dlc_manager.pack.delete_confirm", pack.displayNameText);
+            ? DlcTextCompat.translatable("dlc_manager.pack.delete_confirm_uninstall", pack.displayNameText)
+            : DlcTextCompat.translatable("dlc_manager.pack.delete_confirm", pack.displayNameText);
         Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             Minecraft.getInstance().setScreen(this);
             if (accepted) {
                 Component successText = isIdentifierInstalled(pack.identifier)
-                    ? Component.translatable("dlc_manager.pack.delete_uninstalled_success", pack.displayNameText)
-                    : Component.translatable("dlc_manager.pack.delete_success", pack.displayNameText);
-                startWork(Component.translatable("dlc_manager.pack.delete"), successText, false, () -> {
+                    ? DlcTextCompat.translatable("dlc_manager.pack.delete_uninstalled_success", pack.displayNameText)
+                    : DlcTextCompat.translatable("dlc_manager.pack.delete_success", pack.displayNameText);
+                startWork(DlcTextCompat.translatable("dlc_manager.pack.delete"), successText, false, () -> {
                     try {
                         DlcServerConnection.UpdateResponse response = DlcServerConnection.deletePack(entry, TIMEOUT_MS, pack.archivePath);
                         return response == null || !response.ok
-                            ? Component.translatable("dlc_manager.pack.delete_failed", response == null ? pack.displayNameText : response.message)
+                            ? DlcTextCompat.translatable("dlc_manager.pack.delete_failed", response == null ? pack.displayNameText : response.message)
                             : null;
                     } catch (Exception ex) {
-                        return Component.translatable("dlc_manager.pack.delete_failed", ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
+                        return DlcTextCompat.translatable("dlc_manager.pack.delete_failed", ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
                     }
                 });
             }
-        }, Component.translatable("dlc_manager.pack.delete_confirm_title"), prompt, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
+        }, DlcTextCompat.translatable("dlc_manager.pack.delete_confirm_title"), prompt, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
     }
 
     private void confirmOpenLink(PackEntry pack, String key) {
@@ -321,9 +323,9 @@ public class DlcServerPackManagerScreen extends DlcPackPageScreen {
         Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             Minecraft.getInstance().setScreen(this);
             if (accepted) {
-                Util.getPlatform().openUri(url);
+                DlcScreenCompat.openUri(url);
             }
-        }, Component.translatable("dlc_manager.pack.open_link_title"), Component.translatable("dlc_manager.pack.open_link_prompt", url), DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
+        }, DlcTextCompat.translatable("dlc_manager.pack.open_link_title"), DlcTextCompat.translatable("dlc_manager.pack.open_link_prompt", url), DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
     }
 
     private boolean moveGroup(int index, int delta) {
@@ -356,7 +358,7 @@ public class DlcServerPackManagerScreen extends DlcPackPageScreen {
             currentOrder = List.copyOf(entryOrder);
             saveOrderLive(entryOrder);
             sortGroupsByCurrentOrder();
-            status = Component.translatable("dlc_manager.pack.changes_cancelled");
+            status = DlcTextCompat.translatable("dlc_manager.pack.changes_cancelled");
             rebuildButtons();
             return;
         }
@@ -410,7 +412,7 @@ public class DlcServerPackManagerScreen extends DlcPackPageScreen {
         Component description = DlcMarkdownRenderer.renderMarkdownComponent(info.description);
         List<String> authors = info.authors == null ? List.of() : info.authors.stream().filter(value -> value != null && !value.isBlank()).toList();
         if (authors.isEmpty()) {
-            authors = List.of(Component.translatable("dlc_manager.pack.unknown_author").getString());
+            authors = List.of(DlcTextCompat.translatable("dlc_manager.pack.unknown_author").getString());
         }
         return new PackEntry(archivePath, orderKey, identifier, version, displayName, description, authors, info.links == null ? Map.of() : info.links,
             info.installed, info.installedVersion == null ? "" : info.installedVersion, loadIconTexture(info.iconBase64));
@@ -502,9 +504,9 @@ public class DlcServerPackManagerScreen extends DlcPackPageScreen {
             }
             int imageWidth = image.getWidth();
             int imageHeight = image.getHeight();
-            DynamicTexture texture = new DynamicTexture(image);
+            DynamicTexture texture = DlcScreenCompat.createDynamicTexture("dlc_server_pack_icon/" + (++iconTextureSerial), image);
             image = null;
-            ResourceLocation location = Minecraft.getInstance().getTextureManager().register("dlc_server_pack_icon/" + (++iconTextureSerial), texture);
+            Object location = DlcScreenCompat.registerTexture(Minecraft.getInstance().getTextureManager(), "dlc_server_pack_icon/" + iconTextureSerial, texture);
             return new IconTexture(location, imageWidth, imageHeight);
         } catch (Exception ignored) {
             if (image != null) image.close();
@@ -516,7 +518,7 @@ public class DlcServerPackManagerScreen extends DlcPackPageScreen {
         for (PackGroup group : archiveGroups) {
             for (PackEntry pack : group.versions) {
                 if (pack.iconTexture != null) {
-                    Minecraft.getInstance().getTextureManager().release(pack.iconTexture.location);
+                    DlcScreenCompat.releaseTexture(Minecraft.getInstance().getTextureManager(), pack.iconTexture.location);
                 }
             }
         }
@@ -539,15 +541,15 @@ public class DlcServerPackManagerScreen extends DlcPackPageScreen {
         PackEntry installed = group.versions.stream().filter(candidate -> candidate.installed).findFirst().orElse(null);
         int compare = installed == null ? 0 : DlcPackMetadata.compareVersionStrings(pack.version, installed.installedVersion.isBlank() ? installed.version : installed.installedVersion);
         if (pendingInstalls.get(pack.identifier) == pack) {
-            if (installed == null) return Component.translatable("dlc_manager.pack.pending_install");
-            if (compare > 0) return Component.translatable("dlc_manager.pack.pending_upgrade");
-            if (compare < 0) return Component.translatable("dlc_manager.pack.pending_downgrade");
-            return Component.translatable("dlc_manager.pack.pending_install");
+            if (installed == null) return DlcTextCompat.translatable("dlc_manager.pack.pending_install");
+            if (compare > 0) return DlcTextCompat.translatable("dlc_manager.pack.pending_upgrade");
+            if (compare < 0) return DlcTextCompat.translatable("dlc_manager.pack.pending_downgrade");
+            return DlcTextCompat.translatable("dlc_manager.pack.pending_install");
         }
-        if (pendingUninstalls.contains(pack.identifier)) return Component.translatable("dlc_manager.pack.pending_uninstall");
-        if (installed != null && compare == 0) return Component.translatable("dlc_manager.pack.uninstall");
-        if (installed != null) return compare > 0 ? Component.translatable("dlc_manager.pack.upgrade") : Component.translatable("dlc_manager.pack.downgrade");
-        return Component.translatable("dlc_manager.pack.install");
+        if (pendingUninstalls.contains(pack.identifier)) return DlcTextCompat.translatable("dlc_manager.pack.pending_uninstall");
+        if (installed != null && compare == 0) return DlcTextCompat.translatable("dlc_manager.pack.uninstall");
+        if (installed != null) return compare > 0 ? DlcTextCompat.translatable("dlc_manager.pack.upgrade") : DlcTextCompat.translatable("dlc_manager.pack.downgrade");
+        return DlcTextCompat.translatable("dlc_manager.pack.install");
     }
 
     private List<RowAction> actionButtons(PackGroup group) {
@@ -565,16 +567,16 @@ public class DlcServerPackManagerScreen extends DlcPackPageScreen {
     private Component actionLabel(PackGroup group, RowAction action) {
         return switch (action) {
             case INSTALL -> installButtonLabel(group);
-            case DELETE -> Component.translatable("dlc_manager.pack.delete");
-            case FEEDBACK -> Component.translatable("dlc_manager.pack.feedback");
-            case SUPPORT -> Component.translatable("dlc_manager.pack.support_author");
-            case MOVE_UP -> Component.literal("▲");
-            case MOVE_DOWN -> Component.literal("▼");
+            case DELETE -> DlcTextCompat.translatable("dlc_manager.pack.delete");
+            case FEEDBACK -> DlcTextCompat.translatable("dlc_manager.pack.feedback");
+            case SUPPORT -> DlcTextCompat.translatable("dlc_manager.pack.support_author");
+            case MOVE_UP -> DlcTextCompat.literal("▲");
+            case MOVE_DOWN -> DlcTextCompat.literal("▼");
         };
     }
 
     private Component versionOptionLabel(PackEntry entry) {
-        return entry.installed ? Component.translatable("dlc_manager.pack.version_installed", entry.version) : Component.literal(entry.version);
+        return entry.installed ? DlcTextCompat.translatable("dlc_manager.pack.version_installed", entry.version) : DlcTextCompat.literal(entry.version);
     }
 
     @Override
@@ -591,7 +593,7 @@ public class DlcServerPackManagerScreen extends DlcPackPageScreen {
         Component run();
     }
 
-    private record IconTexture(ResourceLocation location, int width, int height) {
+    private record IconTexture(Object location, int width, int height) {
     }
 
     private static final class PackEntry {
@@ -614,8 +616,8 @@ public class DlcServerPackManagerScreen extends DlcPackPageScreen {
             this.key = key == null ? "" : key;
             this.identifier = identifier == null ? "" : identifier;
             this.version = version == null ? "" : version;
-            this.displayName = displayName == null ? Component.literal(this.identifier) : displayName;
-            this.description = description == null ? Component.empty() : description;
+            this.displayName = displayName == null ? DlcTextCompat.literal(this.identifier) : displayName;
+            this.description = description == null ? DlcTextCompat.empty() : description;
             this.authorNames = authorNames == null || authorNames.isEmpty() ? List.of() : List.copyOf(authorNames);
             this.links = links == null ? Map.of() : Map.copyOf(links);
             this.installed = installed;

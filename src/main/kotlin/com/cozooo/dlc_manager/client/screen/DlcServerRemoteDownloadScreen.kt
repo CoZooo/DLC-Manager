@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.client.server.DlcServerRemoteItem
@@ -17,7 +21,7 @@ import kotlin.math.min
 class DlcServerRemoteDownloadScreen(
     private val parent: Screen?,
     private val serverEntry: DlcServerEntry?,
-) : DlcRemotePageScreen(DlcUiPage.SERVER_REMOTE_DOWNLOAD, parent, Component.translatable("dlc_manager.remote.title")) {
+) : DlcRemotePageScreen(DlcUiPage.SERVER_REMOTE_DOWNLOAD, parent, DlcTextCompat.translatable("dlc_manager.remote.title")) {
     private val selectedKeys: MutableSet<String> = HashSet(setOf(ALL_MARKER))
     private val progressByKey: MutableMap<String, Float> = ConcurrentHashMap()
     @Volatile
@@ -40,11 +44,11 @@ class DlcServerRemoteDownloadScreen(
         val buttonWidth = 120
         val buttonHeight = 20
         val y = height - 40
-        val download = Button.builder(Component.translatable("dlc_manager.remote.download")) { handleDownload() }
+        val download = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.remote.download")) { handleDownload() }
             .bounds(width / 2 - buttonWidth - 6, y, buttonWidth, buttonHeight)
             .build()
         download.active = false
-        val back = Button.builder(Component.translatable("dlc_manager.remote.skip")) { Minecraft.getInstance().setScreen(parent) }
+        val back = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.remote.skip")) { Minecraft.getInstance().setScreen(parent) }
             .bounds(width / 2 + 6, y, buttonWidth, buttonHeight)
             .build()
         downloadButton = download
@@ -64,7 +68,7 @@ class DlcServerRemoteDownloadScreen(
                 Minecraft.getInstance().execute {
                     loading = false
                     if (list == null) {
-                        errorText = Component.translatable("dlc_manager.server.remote_missing_failed").string
+                        errorText = DlcTextCompat.translatable("dlc_manager.server.remote_missing_failed").string
                         return@execute
                     }
                     items = list
@@ -126,15 +130,15 @@ class DlcServerRemoteDownloadScreen(
                         Minecraft.getInstance().execute {
                             if (ok) {
                                 DlcScreenCompat.addOrUpdatePeriodicNotification(
-                                    Minecraft.getInstance().toasts,
-                                    Component.translatable("dlc_manager.server.remote_missing_success"),
-                                    Component.empty(),
+                                    DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                                    DlcTextCompat.translatable("dlc_manager.server.remote_missing_success"),
+                                    DlcTextCompat.empty(),
                                 )
                             } else {
                                 DlcScreenCompat.addOrUpdatePeriodicNotification(
-                                    Minecraft.getInstance().toasts,
-                                    Component.translatable("dlc_manager.server.remote_missing_failed"),
-                                    Component.empty(),
+                                    DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                                    DlcTextCompat.translatable("dlc_manager.server.remote_missing_failed"),
+                                    DlcTextCompat.empty(),
                                 )
                             }
                             when (parent) {

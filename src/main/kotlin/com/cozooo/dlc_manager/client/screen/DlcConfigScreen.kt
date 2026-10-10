@@ -1,4 +1,6 @@
 package com.cozooo.dlc_manager.client.screen
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
 import com.cozooo.dlc_manager.client.config.DlcConfigValue
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.Screen
@@ -7,7 +9,7 @@ import com.cozooo.dlc_manager.client.config.DlcConfigClient
 import com.cozooo.dlc_manager.core.DlcConfig
 open class DlcConfigScreen protected constructor(page: DlcUiPage, parent: Screen?, title: Component, values: Map<String, List<DlcConfigValue>>, category: String) : DlcSettingsScreen(page, parent, title, values, category) {
     protected constructor(parent: Screen?, title: Component, values: Map<String, List<DlcConfigValue>>, category: String) : this(DlcUiPage.LOCAL_CONFIG, parent, title, values, category)
-    @JvmOverloads constructor(parent: Screen?, tab: Tab? = Tab.PATHS) : this(DlcUiPage.LOCAL_CONFIG, parent, Component.translatable("dlc_manager.config.menu.title"), categories(), key(tab))
+    @JvmOverloads constructor(parent: Screen?, tab: Tab? = Tab.PATHS) : this(DlcUiPage.LOCAL_CONFIG, parent, DlcTextCompat.translatable("dlc_manager.config.menu.title"), categories(), key(tab))
     enum class Tab { SERVER, PATHS, UI, MODPACK, DOWNLOADS }
     override fun persist() { DlcConfigClient.applyToConfig(); DlcConfig.save(); Minecraft.getInstance().setScreen(pageParent) }
     companion object {

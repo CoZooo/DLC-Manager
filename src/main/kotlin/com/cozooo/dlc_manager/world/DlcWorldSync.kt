@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.world
 
 import com.cozooo.dlc_manager.bootstrap.DlcStartupRequirements
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import com.cozooo.dlc_manager.core.DlcItem
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcScanner
@@ -98,6 +99,9 @@ object DlcWorldSync {
     }
 
     private fun updateLevelDat(worldRoot: Path, dataPacks: List<DlcItem?>) {
+        //? if >=26.1 {
+        return
+        //?} else {
         val levelDat = worldRoot.resolve("level.dat")
         if (!Files.exists(levelDat)) {
             return
@@ -149,6 +153,7 @@ object DlcWorldSync {
             DlcNbtCompat.writeCompressed(root, levelDat)
         } catch (_: IOException) {
         }
+        //?}
     }
 
     @Throws(IOException::class)

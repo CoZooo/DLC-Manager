@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
@@ -48,7 +52,7 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
     private boolean draggingScrollBar;
 
     public DlcServerPushScreen(Screen parent, DlcServerEntry entry) {
-        super(DlcUiPage.SERVER_PUSH, parent, Component.translatable("dlc_manager.server.push_title"));
+        super(DlcUiPage.SERVER_PUSH, parent, DlcTextCompat.translatable("dlc_manager.server.push_title"));
         this.parent = parent;
         this.entry = entry;
         this.rootDir = DlcPaths.gameDir().toAbsolutePath().normalize();
@@ -63,28 +67,28 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
         int backWidth = 96;
         int gap = 6;
 
-        Component modeLabel = Component.translatable("dlc_manager.server.push_mode");
+        Component modeLabel = DlcTextCompat.translatable("dlc_manager.server.push_mode");
         int modeLabelWidth = this.font.width(modeLabel);
         int modeX = 20 + modeLabelWidth + 6;
-        modeButton = Button.builder(Component.empty(), btn -> toggleMode())
+        modeButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.empty(), btn -> toggleMode())
             .bounds(modeX, bottomY, modeWidth, buttonHeight)
             .build();
 
         int rightMargin = 10;
         int backX = this.width - rightMargin - backWidth;
         int pushX = backX - gap - pushWidth;
-        pushButton = Button.builder(Component.translatable("dlc_manager.server.push_start"), btn -> confirmPush())
+        pushButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.push_start"), btn -> confirmPush())
             .bounds(pushX, bottomY, pushWidth, buttonHeight)
             .build();
-        backButton = Button.builder(Component.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
+        backButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
             .bounds(backX, bottomY, backWidth, buttonHeight)
             .build();
 
         int topButtonY = 56;
-        upButton = Button.builder(Component.translatable("dlc_manager.server.push_up"), btn -> goUp())
+        upButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.push_up"), btn -> goUp())
             .bounds(20, topButtonY, 70, buttonHeight)
             .build();
-        clearButton = Button.builder(Component.translatable("dlc_manager.server.push_clear_selection", 0), btn -> clearSelection())
+        clearButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.push_clear_selection", 0), btn -> clearSelection())
             .bounds(this.width - 20 - 140, topButtonY, 140, buttonHeight)
             .build();
 
@@ -108,8 +112,8 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
     private void updateLabels() {
         if (modeButton != null) {
             Component modeLabel = overwriteMode
-                ? Component.translatable("dlc_manager.server.push_mode_overwrite")
-                : Component.translatable("dlc_manager.server.push_mode_diff");
+                ? DlcTextCompat.translatable("dlc_manager.server.push_mode_overwrite")
+                : DlcTextCompat.translatable("dlc_manager.server.push_mode_diff");
             modeButton.setMessage(modeLabel);
             modeButton.active = !pushing;
         }
@@ -120,7 +124,7 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
             backButton.active = !pushing;
         }
         if (clearButton != null) {
-            clearButton.setMessage(Component.translatable("dlc_manager.server.push_clear_selection", selectedFiles.size()));
+            clearButton.setMessage(DlcTextCompat.translatable("dlc_manager.server.push_clear_selection", selectedFiles.size()));
             clearButton.active = !pushing && !selectedFiles.isEmpty();
         }
         if (upButton != null) {
@@ -130,12 +134,12 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
 
     private void confirmPush() {
         if (selectedFiles.isEmpty()) {
-            DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
-                Component.translatable("dlc_manager.server.push_no_selection"), Component.empty());
+            DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                DlcTextCompat.translatable("dlc_manager.server.push_no_selection"), DlcTextCompat.empty());
             return;
         }
-        Component title = Component.translatable("dlc_manager.server.push_title");
-        Component message = Component.translatable("dlc_manager.server.push_confirm", buildTargetLabel(), getModeLabel());
+        Component title = DlcTextCompat.translatable("dlc_manager.server.push_title");
+        Component message = DlcTextCompat.translatable("dlc_manager.server.push_confirm", buildTargetLabel(), getModeLabel());
         Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             if (accepted) {
                 confirmPushAgain();
@@ -146,8 +150,8 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
     }
 
     private void confirmPushAgain() {
-        Component title = Component.translatable("dlc_manager.server.push_title");
-        Component message = Component.translatable("dlc_manager.server.push_confirm_again");
+        Component title = DlcTextCompat.translatable("dlc_manager.server.push_title");
+        Component message = DlcTextCompat.translatable("dlc_manager.server.push_confirm_again");
         Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             if (accepted) {
                 startPush();
@@ -162,18 +166,18 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
             return;
         }
         pushing = true;
-        statusText = Component.translatable("dlc_manager.server.pushing").getString();
+        statusText = DlcTextCompat.translatable("dlc_manager.server.pushing").getString();
         updateLabels();
         CompletableFuture
             .supplyAsync(this::doPush)
             .whenComplete((ok, throwable) -> Minecraft.getInstance().execute(() -> {
                 pushing = false;
                 if (ok != null && ok) {
-                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
-                        Component.translatable("dlc_manager.server.push_success"), Component.empty());
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                        DlcTextCompat.translatable("dlc_manager.server.push_success"), DlcTextCompat.empty());
                 } else {
-                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
-                        Component.translatable("dlc_manager.server.push_failed"), Component.empty());
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                        DlcTextCompat.translatable("dlc_manager.server.push_failed"), DlcTextCompat.empty());
                 }
                 updateLabels();
             }));
@@ -193,13 +197,13 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
     }
 
     private String buildTargetLabel() {
-        return Component.translatable("dlc_manager.server.push_selected_count", selectedFiles.size()).getString();
+        return DlcTextCompat.translatable("dlc_manager.server.push_selected_count", selectedFiles.size()).getString();
     }
 
     private String getModeLabel() {
         return overwriteMode
-            ? Component.translatable("dlc_manager.server.push_mode_overwrite").getString()
-            : Component.translatable("dlc_manager.server.push_mode_diff").getString();
+            ? DlcTextCompat.translatable("dlc_manager.server.push_mode_overwrite").getString()
+            : DlcTextCompat.translatable("dlc_manager.server.push_mode_diff").getString();
     }
 
     private void refreshEntries() {

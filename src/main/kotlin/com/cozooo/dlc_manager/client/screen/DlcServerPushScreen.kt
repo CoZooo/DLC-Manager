@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.core.DlcPaths
@@ -16,7 +20,7 @@ import java.util.concurrent.CompletableFuture
 class DlcServerPushScreen(
     private val parent: Screen?,
     private val entry: DlcServerEntry?,
-) : DlcFilePageScreen(DlcUiPage.SERVER_PUSH, parent, Component.translatable("dlc_manager.server.push_title")) {
+) : DlcFilePageScreen(DlcUiPage.SERVER_PUSH, parent, DlcTextCompat.translatable("dlc_manager.server.push_title")) {
     private val rootDir: Path = DlcPaths.gameDir().toAbsolutePath().normalize()
     private var currentDir: Path = rootDir
 
@@ -45,28 +49,28 @@ class DlcServerPushScreen(
         val backWidth = 96
         val gap = 6
 
-        val modeLabel = Component.translatable("dlc_manager.server.push_mode")
+        val modeLabel = DlcTextCompat.translatable("dlc_manager.server.push_mode")
         val modeLabelWidth = font.width(modeLabel)
         val modeX = 20 + modeLabelWidth + 6
-        val mode = Button.builder(Component.empty()) { toggleMode() }
+        val mode = DlcScreenCompat.buttonBuilder(DlcTextCompat.empty()) { toggleMode() }
             .bounds(modeX, bottomY, modeWidth, buttonHeight)
             .build()
 
         val rightMargin = 10
         val backX = width - rightMargin - backWidth
         val pushX = backX - gap - pushWidth
-        val push = Button.builder(Component.translatable("dlc_manager.server.push_start")) { confirmPush() }
+        val push = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.push_start")) { confirmPush() }
             .bounds(pushX, bottomY, pushWidth, buttonHeight)
             .build()
-        val back = Button.builder(Component.translatable("gui.back")) { Minecraft.getInstance().setScreen(parent) }
+        val back = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("gui.back")) { Minecraft.getInstance().setScreen(parent) }
             .bounds(backX, bottomY, backWidth, buttonHeight)
             .build()
 
         val topButtonY = 56
-        val up = Button.builder(Component.translatable("dlc_manager.server.push_up")) { goUp() }
+        val up = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.push_up")) { goUp() }
             .bounds(20, topButtonY, 70, buttonHeight)
             .build()
-        val clear = Button.builder(Component.translatable("dlc_manager.server.push_clear_selection", 0)) { clearSelection() }
+        val clear = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.push_clear_selection", 0)) { clearSelection() }
             .bounds(width - 20 - 140, topButtonY, 140, buttonHeight)
             .build()
 
@@ -96,9 +100,9 @@ class DlcServerPushScreen(
     private fun updateLabels() {
         modeButton?.let {
             val modeLabel = if (overwriteMode) {
-                Component.translatable("dlc_manager.server.push_mode_overwrite")
+                DlcTextCompat.translatable("dlc_manager.server.push_mode_overwrite")
             } else {
-                Component.translatable("dlc_manager.server.push_mode_diff")
+                DlcTextCompat.translatable("dlc_manager.server.push_mode_diff")
             }
             it.message = modeLabel
             it.active = !pushing
@@ -106,7 +110,7 @@ class DlcServerPushScreen(
         pushButton?.active = !pushing
         backButton?.active = !pushing
         clearButton?.let {
-            it.message = Component.translatable("dlc_manager.server.push_clear_selection", selectedFiles.size)
+            it.message = DlcTextCompat.translatable("dlc_manager.server.push_clear_selection", selectedFiles.size)
             it.active = !pushing && selectedFiles.isNotEmpty()
         }
         upButton?.active = !pushing && currentDir != rootDir
@@ -115,14 +119,14 @@ class DlcServerPushScreen(
     private fun confirmPush() {
         if (selectedFiles.isEmpty()) {
             DlcScreenCompat.addOrUpdatePeriodicNotification(
-                Minecraft.getInstance().toasts,
-                Component.translatable("dlc_manager.server.push_no_selection"),
-                Component.empty(),
+                DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                DlcTextCompat.translatable("dlc_manager.server.push_no_selection"),
+                DlcTextCompat.empty(),
             )
             return
         }
-        val title = Component.translatable("dlc_manager.server.push_title")
-        val message = Component.translatable("dlc_manager.server.push_confirm", buildTargetLabel(), modeLabel)
+        val title = DlcTextCompat.translatable("dlc_manager.server.push_title")
+        val message = DlcTextCompat.translatable("dlc_manager.server.push_confirm", buildTargetLabel(), modeLabel)
         Minecraft.getInstance().setScreen(
             DlcConfirmScreen({ accepted ->
                 if (accepted) {
@@ -135,8 +139,8 @@ class DlcServerPushScreen(
     }
 
     private fun confirmPushAgain() {
-        val title = Component.translatable("dlc_manager.server.push_title")
-        val message = Component.translatable("dlc_manager.server.push_confirm_again")
+        val title = DlcTextCompat.translatable("dlc_manager.server.push_title")
+        val message = DlcTextCompat.translatable("dlc_manager.server.push_confirm_again")
         Minecraft.getInstance().setScreen(
             DlcConfirmScreen({ accepted ->
                 if (accepted) {
@@ -153,7 +157,7 @@ class DlcServerPushScreen(
             return
         }
         pushing = true
-        statusText = Component.translatable("dlc_manager.server.pushing").string
+        statusText = DlcTextCompat.translatable("dlc_manager.server.pushing").string
         updateLabels()
         CompletableFuture
             .supplyAsync { doPush() }
@@ -162,15 +166,15 @@ class DlcServerPushScreen(
                     pushing = false
                     if (ok == true) {
                         DlcScreenCompat.addOrUpdatePeriodicNotification(
-                            Minecraft.getInstance().toasts,
-                            Component.translatable("dlc_manager.server.push_success"),
-                            Component.empty(),
+                            DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                            DlcTextCompat.translatable("dlc_manager.server.push_success"),
+                            DlcTextCompat.empty(),
                         )
                     } else {
                         DlcScreenCompat.addOrUpdatePeriodicNotification(
-                            Minecraft.getInstance().toasts,
-                            Component.translatable("dlc_manager.server.push_failed"),
-                            Component.empty(),
+                            DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                            DlcTextCompat.translatable("dlc_manager.server.push_failed"),
+                            DlcTextCompat.empty(),
                         )
                     }
                     updateLabels()
@@ -199,14 +203,14 @@ class DlcServerPushScreen(
     }
 
     private fun buildTargetLabel(): String {
-        return Component.translatable("dlc_manager.server.push_selected_count", selectedFiles.size).string
+        return DlcTextCompat.translatable("dlc_manager.server.push_selected_count", selectedFiles.size).string
     }
 
     private val modeLabel: String
         get() = if (overwriteMode) {
-            Component.translatable("dlc_manager.server.push_mode_overwrite").string
+            DlcTextCompat.translatable("dlc_manager.server.push_mode_overwrite").string
         } else {
-            Component.translatable("dlc_manager.server.push_mode_diff").string
+            DlcTextCompat.translatable("dlc_manager.server.push_mode_diff").string
         }
 
     private fun refreshEntries() {

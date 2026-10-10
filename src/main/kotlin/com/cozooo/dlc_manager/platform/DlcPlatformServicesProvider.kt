@@ -48,9 +48,8 @@ class DlcPlatformServicesProvider : DlcPlatformServices.Provider {
             when {
                 Platform.isFabric() -> "Fabric"
                 //? if >=1.21.1 {
-                /*Platform.isNeoForge() -> "NeoForge"
-                Platform.isMinecraftForge() -> "Forge"
-                *///?} else {
+                Platform.getOptionalMod("neoforge").isPresent -> "NeoForge"
+                //?} else {
                 Platform.isForge() -> "Forge"
                 //?}
                 else -> ""

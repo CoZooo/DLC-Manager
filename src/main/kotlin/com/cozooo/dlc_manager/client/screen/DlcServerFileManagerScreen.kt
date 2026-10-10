@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.client.server.DlcServerFileEntry
@@ -17,7 +21,7 @@ import kotlin.io.path.name
 class DlcServerFileManagerScreen(
     private val parent: Screen?,
     private val entry: DlcServerEntry?,
-) : DlcFilePageScreen(DlcUiPage.SERVER_FILES, parent, Component.translatable("dlc_manager.server.files_title")) {
+) : DlcFilePageScreen(DlcUiPage.SERVER_FILES, parent, DlcTextCompat.translatable("dlc_manager.server.files_title")) {
     private var pathField: EditBox? = null
     private var entries: List<DlcServerFileEntry> = ArrayList()
     private var scrollIndex = 0
@@ -40,7 +44,7 @@ class DlcServerFileManagerScreen(
         if (fieldWidth < 160) {
             fieldWidth = 160
         }
-        val field = EditBox(font, centerX - fieldWidth / 2, 36, fieldWidth, 20, Component.translatable("dlc_manager.server.files_path"))
+        val field = EditBox(font, centerX - fieldWidth / 2, 36, fieldWidth, 20, DlcTextCompat.translatable("dlc_manager.server.files_path"))
         field.setMaxLength(512)
         pathField = field
         addRenderableWidget(field)
@@ -55,24 +59,24 @@ class DlcServerFileManagerScreen(
             gap = 6
         }
         val startX = panelLeft + gap
-        val refresh = Button.builder(Component.translatable("dlc_manager.server.files_refresh")) { refresh() }
+        val refresh = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.files_refresh")) { refresh() }
             .bounds(startX, topButtonsY, buttonWidth, buttonHeight)
             .build()
-        val delete = Button.builder(Component.translatable("dlc_manager.server.files_delete")) { confirmDelete() }
+        val delete = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.files_delete")) { confirmDelete() }
             .bounds(startX + buttonWidth + gap, topButtonsY, buttonWidth, buttonHeight)
             .build()
-        val save = Button.builder(Component.translatable("dlc_manager.server.files_save")) { saveSelected() }
+        val save = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.files_save")) { saveSelected() }
             .bounds(startX + (buttonWidth + gap) * 2, topButtonsY, buttonWidth, buttonHeight)
             .build()
-        val upload = Button.builder(Component.translatable("dlc_manager.server.files_upload")) { uploadFile() }
+        val upload = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.files_upload")) { uploadFile() }
             .bounds(startX + (buttonWidth + gap) * 3, topButtonsY, buttonWidth, buttonHeight)
             .build()
 
         val bottomY = height - 28
-        val up = Button.builder(Component.translatable("dlc_manager.server.files_up")) { goUp() }
+        val up = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.files_up")) { goUp() }
             .bounds(centerX - buttonWidth - 6, bottomY, buttonWidth, buttonHeight)
             .build()
-        val back = Button.builder(Component.translatable("gui.back")) { Minecraft.getInstance().setScreen(parent) }
+        val back = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("gui.back")) { Minecraft.getInstance().setScreen(parent) }
             .bounds(centerX + 6, bottomY, buttonWidth, buttonHeight)
             .build()
 
@@ -155,7 +159,7 @@ class DlcServerFileManagerScreen(
     }
 
     private fun uploadFile() {
-        val file = DlcFilePicker.pickAnyFile(Component.translatable("dlc_manager.server.files_upload").string)
+        val file = DlcFilePicker.pickAnyFile(DlcTextCompat.translatable("dlc_manager.server.files_upload").string)
         if (file == null) {
             return
         }
@@ -171,9 +175,9 @@ class DlcServerFileManagerScreen(
                         refresh()
                     } else {
                         DlcScreenCompat.addOrUpdatePeriodicNotification(
-                            Minecraft.getInstance().toasts,
-                            Component.translatable("dlc_manager.server.files_upload_failed"),
-                            Component.empty(),
+                            DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                            DlcTextCompat.translatable("dlc_manager.server.files_upload_failed"),
+                            DlcTextCompat.empty(),
                         )
                     }
                 }
@@ -223,7 +227,7 @@ class DlcServerFileManagerScreen(
         val basePath = pathField?.value?.trim() ?: ""
         val remotePath = if (basePath.isEmpty()) entryName else "$basePath/$entryName"
         val fileName = if (fileEntry.dir) "$entryName.zip" else entryName
-        var target = DlcFilePicker.pickSaveFile(Component.translatable("dlc_manager.server.files_save").string, fileName)
+        var target = DlcFilePicker.pickSaveFile(DlcTextCompat.translatable("dlc_manager.server.files_save").string, fileName)
         if (target == null) {
             return
         }
@@ -243,15 +247,15 @@ class DlcServerFileManagerScreen(
                     loading = false
                     if (ok == true) {
                         DlcScreenCompat.addOrUpdatePeriodicNotification(
-                            Minecraft.getInstance().toasts,
-                            Component.translatable("dlc_manager.server.files_save_success"),
-                            Component.empty(),
+                            DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                            DlcTextCompat.translatable("dlc_manager.server.files_save_success"),
+                            DlcTextCompat.empty(),
                         )
                     } else {
                         DlcScreenCompat.addOrUpdatePeriodicNotification(
-                            Minecraft.getInstance().toasts,
-                            Component.translatable("dlc_manager.server.files_save_failed"),
-                            Component.empty(),
+                            DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                            DlcTextCompat.translatable("dlc_manager.server.files_save_failed"),
+                            DlcTextCompat.empty(),
                         )
                     }
                 }
@@ -276,8 +280,8 @@ class DlcServerFileManagerScreen(
 
     private fun confirmDelete() {
         val fileEntry = selectedEntry ?: return
-        val title = Component.translatable("dlc_manager.server.files_delete")
-        val message = Component.translatable("dlc_manager.server.files_delete_confirm", fileEntry.name)
+        val title = DlcTextCompat.translatable("dlc_manager.server.files_delete")
+        val message = DlcTextCompat.translatable("dlc_manager.server.files_delete_confirm", fileEntry.name)
         Minecraft.getInstance().setScreen(
             DlcConfirmScreen({ accepted ->
                 if (accepted) {
@@ -290,8 +294,8 @@ class DlcServerFileManagerScreen(
     }
 
     private fun confirmDeleteAgain(fileEntry: DlcServerFileEntry) {
-        val title = Component.translatable("dlc_manager.server.files_delete")
-        val message = Component.translatable("dlc_manager.server.files_delete_confirm_again", fileEntry.name)
+        val title = DlcTextCompat.translatable("dlc_manager.server.files_delete")
+        val message = DlcTextCompat.translatable("dlc_manager.server.files_delete_confirm_again", fileEntry.name)
         Minecraft.getInstance().setScreen(
             DlcConfirmScreen({ accepted ->
                 if (accepted) {
@@ -317,9 +321,9 @@ class DlcServerFileManagerScreen(
                         refresh()
                     } else {
                         DlcScreenCompat.addOrUpdatePeriodicNotification(
-                            Minecraft.getInstance().toasts,
-                            Component.translatable("dlc_manager.server.files_delete_failed"),
-                            Component.empty(),
+                            DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                            DlcTextCompat.translatable("dlc_manager.server.files_delete_failed"),
+                            DlcTextCompat.empty(),
                         )
                     }
                 }

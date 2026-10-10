@@ -1,9 +1,12 @@
 package com.cozooo.dlc_manager.client.screen
+
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
-import net.minecraft.Util
-class DlcRedirectConfirmScreen(parent: Screen?, url: String?, notice: String?) : DlcPageScreen(DlcUiPage.REDIRECT_CONFIRM, parent, Component.translatable("dlc_manager.redirect.title")) {
+class DlcRedirectConfirmScreen(parent: Screen?, url: String?, notice: String?) : DlcPageScreen(DlcUiPage.REDIRECT_CONFIRM, parent, DlcTextCompat.translatable("dlc_manager.redirect.title")) {
     private val url = url.orEmpty()
     private val notice = notice.orEmpty()
     override fun buildPage() {
@@ -14,6 +17,6 @@ class DlcRedirectConfirmScreen(parent: Screen?, url: String?, notice: String?) :
         if (notice.isNotBlank()) text(body, notice, "page-message")
         action(footer, DlcConfirmUtil.confirmNo().string) { onClose() }
         action(footer, tr("dlc_manager.redirect.copy")) { Minecraft.getInstance().keyboardHandler.setClipboard(url); onClose() }
-        primary(tr("dlc_manager.redirect.open")) { Util.getPlatform().openUri(url); onClose() }
+        primary(tr("dlc_manager.redirect.open")) { DlcScreenCompat.openUri(url); onClose() }
     }
 }

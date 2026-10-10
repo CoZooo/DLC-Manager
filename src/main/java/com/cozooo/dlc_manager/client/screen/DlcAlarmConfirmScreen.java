@@ -1,4 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -11,7 +13,7 @@ public class DlcAlarmConfirmScreen extends DlcPageScreen {
     private DlcUiButton confirmButton;
     private DlcUiButton acknowledgeButton;
     public DlcAlarmConfirmScreen(Screen parent, String tip, Runnable onConfirm) {
-        super(DlcUiPage.ALARM_CONFIRM, parent, Component.translatable("dlc_manager.alarm.title"));
+        super(DlcUiPage.ALARM_CONFIRM, parent, DlcTextCompat.translatable("dlc_manager.alarm.title"));
         this.tip = tip == null ? "" : tip; this.onConfirm = onConfirm;
         waitEndMillis = System.currentTimeMillis() + Math.max(0, Math.min(10, DlcConfig.getAlarmWaitingTime())) * 1000L;
     }

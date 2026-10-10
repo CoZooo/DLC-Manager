@@ -79,7 +79,7 @@ object DlcSelfUpdateService {
                 !isSameVersion(currentVersion, if (latestVersion.isNullOrBlank()) requestedVersion else latestVersion)
             }
             val result = SelfUpdateResult()
-            result.currentVersion = currentVersion ?: ""
+            result.currentVersion = currentVersion
             result.latestVersion = if (latestVersion.isNullOrBlank()) requestedVersion ?: "" else latestVersion
             result.downloadUrl = file.url
             result.fileName = file.fileName
@@ -106,7 +106,7 @@ object DlcSelfUpdateService {
         if (fileName.isNullOrBlank()) {
             fileName = "dlc_manager-update.jar"
         }
-        val dlcRoot = DlcPaths.dlcRoot() ?: return DownloadResult.failed("dlc_root_missing")
+        val dlcRoot = DlcPaths.dlcRoot()
         try {
             if (!Files.exists(dlcRoot)) {
                 Files.createDirectories(dlcRoot)
@@ -226,7 +226,7 @@ object DlcSelfUpdateService {
         }
         return try {
             val targetDir = target.parent ?: return false
-            val dlcRoot = DlcPaths.dlcRoot() ?: return false
+            val dlcRoot = DlcPaths.dlcRoot()
             try {
                 if (!Files.exists(dlcRoot)) {
                     Files.createDirectories(dlcRoot)
@@ -265,7 +265,7 @@ object DlcSelfUpdateService {
         if (current == null || !Files.exists(current)) {
             return false
         }
-        val dlcRoot = DlcPaths.dlcRoot() ?: return false
+        val dlcRoot = DlcPaths.dlcRoot()
         return try {
             if (!Files.exists(dlcRoot)) {
                 Files.createDirectories(dlcRoot)
@@ -340,7 +340,7 @@ object DlcSelfUpdateService {
 
     @Throws(IOException::class)
     private fun replaceModFileNow(downloadedFile: Path, finalFile: Path, currentModFile: Path): Path? {
-        val dlcRoot = DlcPaths.dlcRoot() ?: throw IOException("dlc_root_missing")
+        val dlcRoot = DlcPaths.dlcRoot()
         if (!Files.exists(dlcRoot)) {
             Files.createDirectories(dlcRoot)
         }
@@ -382,7 +382,7 @@ object DlcSelfUpdateService {
     }
 
     private fun getHistoryPath(): Path? {
-        val dlcRoot = DlcPaths.dlcRoot() ?: return null
+        val dlcRoot = DlcPaths.dlcRoot()
         val dir = DlcTmpPaths.resolve(dlcRoot, "selfupdate") ?: return null
         return DlcDcFormatUtil.resolveConfigPath(dir, "self_update_history")
     }
@@ -436,7 +436,7 @@ object DlcSelfUpdateService {
     }
 
     private fun getMarkerPath(): Path? {
-        val configDir = DlcPlatformServices.configDir() ?: return null
+        val configDir = DlcPlatformServices.configDir()
         val dir = configDir.resolve("dlc_manager")
         return DlcDcFormatUtil.resolveConfigPath(dir, "self_update")
     }

@@ -1,9 +1,20 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.sighs.apricityui.init.Document;
 import com.sighs.apricityui.init.Element;
 import net.minecraft.client.Minecraft;
+//? if >=1.20.1 <26.1 {
 import net.minecraft.client.gui.GuiGraphics;
+//?}
+//? if <1.20.1 {
+/*import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.gui.components.Widget;
+*///?}
+//? if >=26.1 {
+/*import net.minecraft.client.gui.GuiGraphicsExtractor;
+*///?}
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import java.util.function.Consumer;
@@ -86,10 +97,25 @@ public abstract class DlcPageScreen extends DlcApricityScreen {
         if (pageDocument != null && pageDocument.isActive()) Document.runWithContext(pageDocument, () -> { if (backAction != null) backAction.setEnabled(shouldCloseOnEsc()); updatePage(); for (Runnable binding : java.util.List.copyOf(bindings)) binding.run(); });
     }
 
+    //? if >=1.20.1 <26.1 {
     @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         if (tooltip != null && pageDocument != null) Document.runWithContext(pageDocument, tooltip::update);
         super.render(graphics, mouseX, mouseY, partialTick);
     }
+    //?}
+
+    //? if <1.20.1 {
+    /*@Override public void render(PoseStack graphics, int mouseX, int mouseY, float partialTick) {
+        if (tooltip != null && pageDocument != null) Document.runWithContext(pageDocument, tooltip::update);
+        super.render(graphics, mouseX, mouseY, partialTick);
+    }
+    *///?}
+    //? if >=26.1 {
+    /*@Override public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        if (tooltip != null && pageDocument != null) Document.runWithContext(pageDocument, tooltip::update);
+        super.extractRenderState(graphics, mouseX, mouseY, partialTick);
+    }
+    *///?}
 
     protected Element node(Element parent, String tag, String classes) {
         String slot = classes == null || classes.isBlank() ? "" : classes.strip().split("\\s+", 2)[0];
@@ -151,12 +177,20 @@ public abstract class DlcPageScreen extends DlcApricityScreen {
         return button;
     }
 
+    //? if >=1.20.1 {
     @Override protected <T extends net.minecraft.client.gui.components.events.GuiEventListener & net.minecraft.client.gui.components.Renderable & net.minecraft.client.gui.narration.NarratableEntry> T addRenderableWidget(T widget) {
         return widget;
     }
+    //?}
+
+    //? if <1.20.1 {
+    /*@Override protected <T extends net.minecraft.client.gui.components.events.GuiEventListener & Widget & net.minecraft.client.gui.narration.NarratableEntry> T addRenderableWidget(T widget) {
+        return widget;
+    }
+    *///?}
 
     protected DlcUiButton mount(Element parent, net.minecraft.client.gui.components.Button model) {
-        DlcUiButton button = action(parent, model.getMessage().getString(), () -> { if (model.active && model.visible) model.onPress(); });
+        DlcUiButton button = action(parent, model.getMessage().getString(), () -> { if (model.active && model.visible) DlcScreenCompat.press(model); });
         boolean[] shown = {true};
         Runnable binding = () -> {
             button.setDisplayString(model.getMessage().getString());
@@ -247,7 +281,7 @@ public abstract class DlcPageScreen extends DlcApricityScreen {
             }
             if (style.getClickEvent() != null) {
                 css.append("cursor:pointer;color:var(--accent);");
-                span.addEventListener("click", event -> handleComponentClicked(style));
+                span.addEventListener("click", event -> DlcScreenCompat.handleClick(this, style));
             } else css.append("pointer-events:none;");
             span.setAttribute("style", css.toString());
             span.setTextContent(chunk);
@@ -255,12 +289,13 @@ public abstract class DlcPageScreen extends DlcApricityScreen {
         }, net.minecraft.network.chat.Style.EMPTY);
     }
 
+
     protected void tip(Element owner, Supplier<DlcUiTooltip.Content> content) { tooltip.bind(owner, content); }
     protected void status(String text) {
         String next = text == null ? "" : text;
         if (!java.util.Objects.equals(next, lastStatus)) { lastStatus = next; DlcUiText.set(pageDocument.getElementById("page-status"), next); }
     }
-    protected static String tr(String key, Object... args) { return Component.translatable(key, args).getString(); }
+    protected static String tr(String key, Object... args) { return DlcTextCompat.translatable(key, args).getString(); }
     @Override public void onClose() { if (shouldCloseOnEsc()) Minecraft.getInstance().setScreen(pageParent); }
 
 }

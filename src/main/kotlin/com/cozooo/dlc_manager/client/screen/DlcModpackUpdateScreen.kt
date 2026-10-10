@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.CheckResult
@@ -10,7 +14,6 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateClient
 import com.cozooo.dlc_manager.client.core.DlcMessageAdapter
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.platform.DlcPlatformServices
-import net.minecraft.Util
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.screens.Screen
@@ -23,7 +26,7 @@ class DlcModpackUpdateScreen @JvmOverloads constructor(
     checkResult: CheckResult?,
     private val serverEntry: DlcServerEntry? = null,
     private val allowSkipThisUpdate: Boolean = false,
-) : DlcPageScreen(if (serverEntry == null) DlcUiPage.LOCAL_MODPACK_UPDATE else DlcUiPage.SERVER_MODPACK_UPDATE, parent, Component.translatable("dlc_manager.pack_update.title")) {
+) : DlcPageScreen(if (serverEntry == null) DlcUiPage.LOCAL_MODPACK_UPDATE else DlcUiPage.SERVER_MODPACK_UPDATE, parent, DlcTextCompat.translatable("dlc_manager.pack_update.title")) {
     private val checkResult: CheckResult = checkResult ?: CheckResult()
     private val side: Side = if (serverEntry == null) Side.CLIENT else Side.SERVER
     private var openButton: Button? = null
@@ -71,25 +74,25 @@ class DlcModpackUpdateScreen @JvmOverloads constructor(
         val totalWidth = buttonWidth * buttonCount + spacing * (buttonCount - 1)
         val startX = width / 2 - totalWidth / 2
         val y = height - 40
-        val open = Button.builder(Component.translatable("dlc_manager.pack_update.open_modpack")) { openModpackUrl() }
+        val open = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack_update.open_modpack")) { openModpackUrl() }
             .bounds(startX + buttonWidth + spacing, y, buttonWidth, buttonHeight)
             .build()
-        val download = Button.builder(Component.translatable("dlc_manager.pack_update.download")) { onDownloadButton() }
+        val download = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack_update.download")) { onDownloadButton() }
             .bounds(startX, y, buttonWidth, buttonHeight)
             .build()
         val thirdX = startX + (buttonWidth + spacing) * 2
         if (showSkipThis) {
-            val skipThis = Button.builder(Component.translatable("dlc_manager.self_update.skip_this_update")) { skipThisUpdate() }
+            val skipThis = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.self_update.skip_this_update")) { skipThisUpdate() }
                 .bounds(thirdX, y, buttonWidth, buttonHeight)
                 .build()
-            val skip = Button.builder(Component.translatable("dlc_manager.pack_update.skip")) { Minecraft.getInstance().setScreen(parent) }
+            val skip = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack_update.skip")) { Minecraft.getInstance().setScreen(parent) }
                 .bounds(startX + (buttonWidth + spacing) * 3, y, buttonWidth, buttonHeight)
                 .build()
             skipThisUpdateButton = skipThis
             skipButton = skip
         } else {
             skipThisUpdateButton = null
-            skipButton = Button.builder(Component.translatable("dlc_manager.pack_update.skip")) { Minecraft.getInstance().setScreen(parent) }
+            skipButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack_update.skip")) { Minecraft.getInstance().setScreen(parent) }
                 .bounds(thirdX, y, buttonWidth, buttonHeight)
                 .build()
         }
@@ -122,7 +125,7 @@ class DlcModpackUpdateScreen @JvmOverloads constructor(
         if (url.isBlank()) {
             return
         }
-        Util.getPlatform().openUri(url)
+        DlcScreenCompat.openUri(url)
     }
 
     private fun normalizeVersion(value: String?): String {
@@ -163,7 +166,7 @@ class DlcModpackUpdateScreen @JvmOverloads constructor(
         progress = 0f
         errorText = ""
         cancelRequested.set(false)
-        statusText = Component.translatable("dlc_manager.pack_update.downloading").string
+        statusText = DlcTextCompat.translatable("dlc_manager.pack_update.downloading").string
         updateButtons()
         Thread({
             val result = if (side == Side.SERVER) {
@@ -178,7 +181,7 @@ class DlcModpackUpdateScreen @JvmOverloads constructor(
     private fun onProgress(stepIndex: Int, stepCount: Int, fileName: String?, downloaded: Long, total: Long, overallProgress: Float) {
         progress = overallProgress
         val safeFile = if (fileName.isNullOrBlank()) "package.zip" else fileName
-        statusText = Component.translatable("dlc_manager.pack_update.downloading_file", stepIndex + 1, stepCount, safeFile).string
+        statusText = DlcTextCompat.translatable("dlc_manager.pack_update.downloading_file", stepIndex + 1, stepCount, safeFile).string
     }
 
     private fun finishDownload(result: DownloadResult?) {
@@ -190,7 +193,7 @@ class DlcModpackUpdateScreen @JvmOverloads constructor(
         }
         if (result.canceled) {
             statusText = ""
-            errorText = Component.translatable("dlc_manager.pack_update.canceled").string
+            errorText = DlcTextCompat.translatable("dlc_manager.pack_update.canceled").string
             return
         }
         if (!result.success) {
@@ -211,9 +214,9 @@ class DlcModpackUpdateScreen @JvmOverloads constructor(
             return
         }
         DlcScreenCompat.addOrUpdatePeriodicNotification(
-            Minecraft.getInstance().toasts,
-            Component.translatable("dlc_manager.update.manager_title"),
-            Component.translatable("dlc_manager.pack_update.download_success"),
+            DlcScreenCompat.toastManager(Minecraft.getInstance()),
+            DlcTextCompat.translatable("dlc_manager.update.manager_title"),
+            DlcTextCompat.translatable("dlc_manager.pack_update.download_success"),
         )
         Minecraft.getInstance().setScreen(parent)
     }
@@ -223,12 +226,12 @@ class DlcModpackUpdateScreen @JvmOverloads constructor(
         downloadButton?.let {
             if (downloading) {
                 it.active = true
-                it.message = Component.translatable("dlc_manager.pack_update.cancel_download")
+                it.message = DlcTextCompat.translatable("dlc_manager.pack_update.cancel_download")
             } else {
                 it.message = if (checkResult.hasLatestGap()) {
-                    Component.translatable("dlc_manager.pack_update.download_reachable")
+                    DlcTextCompat.translatable("dlc_manager.pack_update.download_reachable")
                 } else {
-                    Component.translatable("dlc_manager.pack_update.download")
+                    DlcTextCompat.translatable("dlc_manager.pack_update.download")
                 }
                 it.active = checkResult.canDownload()
             }

@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteService;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker;
@@ -53,7 +57,7 @@ public class DlcRemoteDownloadScreen extends DlcRemotePageScreen {
     private volatile float currentProgress;
 
     public DlcRemoteDownloadScreen(Screen parent, List<DlcRemoteEntry> missing) {
-        this(parent, missing, DlcRemoteMarker.PART_DLC, Component.translatable("dlc_manager.remote.title"));
+        this(parent, missing, DlcRemoteMarker.PART_DLC, DlcTextCompat.translatable("dlc_manager.remote.title"));
     }
 
     public DlcRemoteDownloadScreen(Screen parent, List<DlcRemoteEntry> missing, String partMarkerKey, Component title) {
@@ -72,25 +76,25 @@ public class DlcRemoteDownloadScreen extends DlcRemotePageScreen {
         int buttonWidth = 120;
         int buttonHeight = 20;
         int y = this.height - 40;
-        downloadButton = Button.builder(Component.translatable("dlc_manager.remote.download"), button -> handleDownloadButton())
+        downloadButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.remote.download"), button -> handleDownloadButton())
             .bounds(this.width / 2 - buttonWidth - 6, y, buttonWidth, buttonHeight)
             .build();
         downloadButton.active = false;
         downloadButton.visible = false;
-        skipButton = Button.builder(Component.translatable("dlc_manager.remote.skip"), button -> handleSkip())
+        skipButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.remote.skip"), button -> handleSkip())
             .bounds(this.width / 2 + 6, y, buttonWidth, buttonHeight)
             .build();
         addRenderableWidget(downloadButton);
         addRenderableWidget(skipButton);
         detecting = true;
-        statusText = Component.translatable("dlc_manager.remote.preparing").getString();
+        statusText = DlcTextCompat.translatable("dlc_manager.remote.preparing").getString();
         new Thread(this::buildPreviewQueue, "dlc-remote-preview").start();
     }
 
     private void buildPreviewQueue() {
         previewQueue = DlcRemoteService.expandWithDependencies(missing);
         detecting = false;
-        statusText = Component.translatable("dlc_manager.remote.ready").getString();
+        statusText = DlcTextCompat.translatable("dlc_manager.remote.ready").getString();
         Minecraft.getInstance().execute(() -> {
             if (downloadButton != null) {
                 downloadButton.visible = true;
@@ -117,7 +121,7 @@ public class DlcRemoteDownloadScreen extends DlcRemotePageScreen {
             return;
         }
         cancelRequested = true;
-        statusText = Component.translatable("dlc_manager.remote.canceling").getString();
+        statusText = DlcTextCompat.translatable("dlc_manager.remote.canceling").getString();
         downloadButton.active = false;
         skipButton.active = false;
     }
@@ -126,7 +130,7 @@ public class DlcRemoteDownloadScreen extends DlcRemotePageScreen {
         if (downloadButton == null) {
             return;
         }
-        downloadButton.setMessage(Component.translatable(isDownloading
+        downloadButton.setMessage(DlcTextCompat.translatable(isDownloading
             ? "dlc_manager.remote.cancel"
             : "dlc_manager.remote.download"));
     }
@@ -162,9 +166,9 @@ public class DlcRemoteDownloadScreen extends DlcRemotePageScreen {
                 public void onEntryStart(DlcRemoteEntry entry, int index, int total) {
                     if (maxConcurrentDownloads <= 1) {
                         activeDownloadEntry = entry;
-                        statusText = Component.translatable("dlc_manager.remote.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).getString();
+                        statusText = DlcTextCompat.translatable("dlc_manager.remote.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).getString();
                     } else {
-                        statusText = Component.translatable("dlc_manager.remote.downloading_multi").getString();
+                        statusText = DlcTextCompat.translatable("dlc_manager.remote.downloading_multi").getString();
                     }
                 }
 
@@ -198,17 +202,17 @@ public class DlcRemoteDownloadScreen extends DlcRemotePageScreen {
                 @Override
                 public void onEntryFailure(DlcRemoteEntry entry, Throwable error, int completed, int total) {
                     completedCount = completed;
-                    errorText = Component.translatable("dlc_manager.remote.error", error == null ? "" : error.getMessage()).getString();
+                    errorText = DlcTextCompat.translatable("dlc_manager.remote.error", error == null ? "" : error.getMessage()).getString();
                 }
 
                 @Override
                 public void onEntryStatus(DlcRemoteEntry entry, String statusKey, int completed, int total) {
                     if ("selecting_source".equals(statusKey)) {
-                        statusText = Component.translatable("dlc_manager.remote.selecting_source").getString();
+                        statusText = DlcTextCompat.translatable("dlc_manager.remote.selecting_source").getString();
                     } else if (maxConcurrentDownloads <= 1 && entry != null) {
-                        statusText = Component.translatable("dlc_manager.remote.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).getString();
+                        statusText = DlcTextCompat.translatable("dlc_manager.remote.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).getString();
                     } else {
-                        statusText = Component.translatable("dlc_manager.remote.downloading_multi").getString();
+                        statusText = DlcTextCompat.translatable("dlc_manager.remote.downloading_multi").getString();
                     }
                 }
 
@@ -242,7 +246,7 @@ public class DlcRemoteDownloadScreen extends DlcRemotePageScreen {
         }
         if (cancelRequested) {
             downloading = false;
-            statusText = Component.translatable("dlc_manager.remote.canceled").getString();
+            statusText = DlcTextCompat.translatable("dlc_manager.remote.canceled").getString();
             Minecraft.getInstance().execute(() -> {
                 updateDownloadButtonLabel(false);
                 downloadButton.active = true;
