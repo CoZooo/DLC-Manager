@@ -106,9 +106,17 @@ object DlcClientEvents {
 
     private fun registerInputEvents() {
         //? if >=26.1 {
-        //return
-        //?}
-        //? if <26.1 {
+        /*
+        ClientScreenInputEvent.MOUSE_CLICKED_PRE.register { _, screen, event, _ ->
+            if (screen is TitleScreen && DlcClientRuntime.handleTitleNoticePanelClick(screen, event.x(), event.y(), event.button())) EventResult.interruptFalse() else EventResult.pass()
+        }
+        ClientScreenInputEvent.MOUSE_RELEASED_PRE.register { _, screen, event ->
+            if (screen is TitleScreen && DlcClientRuntime.handleTitleNoticePanelRelease(screen, event.x(), event.y(), event.button())) EventResult.interruptFalse() else EventResult.pass()
+        }
+        ClientScreenInputEvent.MOUSE_DRAGGED_PRE.register { _, screen, event, dragX, dragY ->
+            if (screen is TitleScreen && DlcClientRuntime.handleTitleNoticePanelDrag(screen, event.x(), event.y(), event.button(), dragX, dragY)) EventResult.interruptFalse() else EventResult.pass()
+        }
+        *///?} else {
         ClientScreenInputEvent.MOUSE_CLICKED_PRE.register { _, screen, mouseX, mouseY, button ->
             if (screen is TitleScreen && DlcClientRuntime.handleTitleNoticePanelClick(screen, mouseX, mouseY, button)) {
                 EventResult.interruptFalse()
@@ -130,6 +138,7 @@ object DlcClientEvents {
                 EventResult.pass()
             }
         }
+        //?}
         //? if >=1.21.1 {
         /*ClientScreenInputEvent.MOUSE_SCROLLED_PRE.register { _, screen, mouseX, mouseY, amountX, amountY ->
             if (screen is TitleScreen && DlcClientRuntime.handleTitleNoticePanelScroll(screen, mouseX, mouseY, amountX, amountY)) {
@@ -146,7 +155,6 @@ object DlcClientEvents {
                 EventResult.pass()
             }
         }
-        //?}
         //?}
     }
 

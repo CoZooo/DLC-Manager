@@ -139,9 +139,12 @@ public final class DlcEarlyRuntime {
         }
         checkCancelled(cancelled);
         String configuredDistribution = System.getProperty("dlc_manager.distribution.path");
-        Path distribution = configuredDistribution == null || configuredDistribution.isBlank()
-            ? distributionFile(DlcEarlyRuntime.class.getProtectionDomain().getCodeSource().getLocation().toURI())
-            : Path.of(configuredDistribution).toAbsolutePath().normalize();
+        String developmentPayload = System.getProperty("dlc_manager.dev.mod.path");
+        Path distribution = configuredDistribution != null && !configuredDistribution.isBlank()
+            ? Path.of(configuredDistribution).toAbsolutePath().normalize()
+            : developmentPayload != null && !developmentPayload.isBlank()
+                ? Path.of(developmentPayload).toAbsolutePath().normalize()
+                : distributionFile(DlcEarlyRuntime.class.getProtectionDomain().getCodeSource().getLocation().toURI());
         System.setProperty("dlc_manager.distribution.path", distribution.toAbsolutePath().normalize().toString());
         runtime = new RuntimeClassLoader(jars.toArray(URL[]::new), DlcEarlyRuntime.class.getClassLoader());
         bootstrap = ServiceLoader.load(DlcBootstrapEntrypoint.class, runtime).findFirst()

@@ -5,7 +5,11 @@ pluginManagement {
         maven("https://maven.kikugie.dev/releases")
         maven("https://maven.kikugie.dev/snapshots")
     }
+    val managerProperties = java.util.Properties().apply {
+        file("../../gradle.properties").inputStream().use(::load)
+    }
     plugins {
+        id("org.jetbrains.kotlin.jvm") version requireNotNull(managerProperties.getProperty("kotlin_version"))
         id("dev.kikugie.stonecutter") version "0.10-alpha.12"
     }
 }
@@ -53,7 +57,7 @@ stonecutter {
 gradle.rootProject {
     val aggregateTargets = bootstrapNodes.groupBy { it.first.substringAfterLast('-') }
     tasks.register("test") {
-        dependsOn(":1.20.1-forge:test")
+        dependsOn(bootstrapNodes.map { ":${it.first}:test" })
     }
     aggregateTargets.forEach { (loader, targets) ->
         tasks.register("${loader}BootstrapJar") {

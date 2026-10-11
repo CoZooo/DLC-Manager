@@ -58,8 +58,8 @@ object DlcScreenCompat {
     fun openClickEvent(click: ClickEvent?) {
         if (click == null) return
         //? if >=26.1 {
-        //if (click is ClickEvent.OpenUrl) net.minecraft.util.Util.getPlatform().openUri(click.uri())
-        //?}
+        /*if (click is ClickEvent.OpenUrl) net.minecraft.util.Util.getPlatform().openUri(click.uri())
+        *///?}
         //? if <26.1 {
         if (click.action == ClickEvent.Action.OPEN_URL && !click.value.isNullOrBlank()) {
             net.minecraft.Util.getPlatform().openUri(click.value)
@@ -71,17 +71,7 @@ object DlcScreenCompat {
     fun handleClick(screen: Screen, style: net.minecraft.network.chat.Style) {
         val click = style.clickEvent ?: return
         //? if >=26.1 {
-        /*try {
-            val modern = Screen::class.java.getDeclaredMethod(
-                "defaultHandleClickEvent",
-                ClickEvent::class.java,
-                Minecraft::class.java,
-                Screen::class.java,
-            )
-            modern.isAccessible = true
-            modern.invoke(null, click, Minecraft.getInstance(), screen)
-        } catch (_: ReflectiveOperationException) {
-        }
+        /*openClickEvent(click)
         *///?}
         //? if <26.1 {
         screen.handleComponentClicked(style)

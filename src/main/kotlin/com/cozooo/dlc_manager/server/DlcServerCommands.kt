@@ -2,6 +2,9 @@ package com.cozooo.dlc_manager.server
 
 import dev.architectury.event.events.common.CommandRegistrationEvent
 import net.minecraft.commands.Commands
+//? if >=26.1 {
+/*import net.minecraft.server.permissions.Permissions
+*///?}
 
 object DlcServerCommands {
     @JvmStatic
@@ -14,8 +17,8 @@ object DlcServerCommands {
                         Commands.literal("server")
                             .requires { source ->
                                 //? if >=26.1 {
-                                //true
-                                //?}
+                                /*source.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER)
+                                *///?}
                                 //? if <26.1 {
                                 source.hasPermission(2)
                                 //?}
@@ -44,8 +47,8 @@ object DlcServerCommands {
                         Commands.literal("server")
                             .requires { source ->
                                 //? if >=26.1 {
-                                //true
-                                //?}
+                                /*source.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER)
+                                *///?}
                                 //? if <26.1 {
                                 source.hasPermission(2)
                                 //?}

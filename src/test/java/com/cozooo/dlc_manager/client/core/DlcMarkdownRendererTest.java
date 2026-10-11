@@ -6,6 +6,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import org.junit.jupiter.api.Test;
 
+import java.net.URI;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -19,8 +21,9 @@ class DlcMarkdownRendererTest {
         assertTrue(hasBoldStyle(component));
         ClickEvent clickEvent = findFirstClickEvent(component);
         //? if >=26.1 {
-        //assertTrue(clickEvent == null || clickEvent.toString().contains("https://example.com"));
-        //?} else {
+        /*assertTrue(clickEvent instanceof ClickEvent.OpenUrl);
+        assertEquals(URI.create("https://example.com"), ((ClickEvent.OpenUrl) clickEvent).uri());
+        *///?} else {
         assertNotNull(clickEvent);
         assertEquals(ClickEvent.Action.OPEN_URL, clickEvent.getAction());
         assertEquals("https://example.com", clickEvent.getValue());

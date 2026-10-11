@@ -2,6 +2,9 @@ package com.cozooo.dlc_manager.server;
 
 import dev.architectury.event.events.common.CommandRegistrationEvent;
 import net.minecraft.commands.Commands;
+//? if >=26.1 {
+/*import net.minecraft.server.permissions.Permissions;
+*///?}
 
 public final class DlcServerCommands {
     private DlcServerCommands() {
@@ -38,13 +41,12 @@ public final class DlcServerCommands {
         ));
         *///?}
     }
-    private static boolean hasPermission(Object source) {
-        try {
-            Object value = source.getClass().getMethod("hasPermission", int.class).invoke(source, 2);
-            return value instanceof Boolean && (Boolean) value;
-        } catch (ReflectiveOperationException ignored) {
-            return true;
-        }
+    private static boolean hasPermission(net.minecraft.commands.CommandSourceStack source) {
+        //? if >=26.1 {
+        /*return source.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER);
+        *///?} else {
+        return source.hasPermission(2);
+        //?}
     }
 
 }

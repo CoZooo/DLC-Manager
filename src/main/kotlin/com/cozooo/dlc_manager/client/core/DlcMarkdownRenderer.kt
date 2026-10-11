@@ -8,6 +8,7 @@ import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.MutableComponent
 import net.minecraft.network.chat.Style
 import net.minecraft.util.FormattedCharSequence
+import java.net.URI
 import org.commonmark.ext.gfm.strikethrough.Strikethrough
 import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension
 import org.commonmark.node.BlockQuote
@@ -215,7 +216,11 @@ object DlcMarkdownRenderer {
                 var linkStyle = style.withUnderlined(true)
                     .withColor(0x4EA1FF)
                 //? if >=26.1 {
-                /**///?} else {
+                /*
+                runCatching { URI.create(node.destination) }
+                    .getOrNull()
+                    ?.let { linkStyle = linkStyle.withClickEvent(ClickEvent.OpenUrl(it)) }
+                *///?} else {
                 linkStyle = linkStyle.withClickEvent(ClickEvent(ClickEvent.Action.OPEN_URL, node.destination))
                 //?}
                 renderInlineChildren(node, linkStyle)

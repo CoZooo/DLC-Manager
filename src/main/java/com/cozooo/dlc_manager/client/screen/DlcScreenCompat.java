@@ -72,12 +72,7 @@ public final class DlcScreenCompat {
         var click = style.getClickEvent();
         if (click == null) return;
         //? if >=26.1 {
-        /*try {
-            var modern = Screen.class.getDeclaredMethod("defaultHandleClickEvent", ClickEvent.class, Minecraft.class, Screen.class);
-            modern.setAccessible(true);
-            modern.invoke(null, click, Minecraft.getInstance(), screen);
-        } catch (ReflectiveOperationException ignored) {
-        }
+        /*openClickEvent(click);
         *///?}
         //? if <26.1 {
         screen.handleComponentClicked(style);

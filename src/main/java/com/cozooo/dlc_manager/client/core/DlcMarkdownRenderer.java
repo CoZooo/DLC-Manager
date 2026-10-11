@@ -28,6 +28,7 @@ import org.commonmark.node.ThematicBreak;
 import org.commonmark.parser.Parser;
 
 import java.util.List;
+import java.net.URI;
 
 public final class DlcMarkdownRenderer {
     private static final String HEADING_MARKER = "__dlc_heading__:";
@@ -199,7 +200,12 @@ public final class DlcMarkdownRenderer {
             Style linkStyle = style.withUnderlined(true)
                 .withColor(0x4EA1FF);
             //? if >=26.1 {
-            /**///?} else {
+            /*
+            try {
+                linkStyle = linkStyle.withClickEvent(new ClickEvent.OpenUrl(URI.create(link.getDestination())));
+            } catch (IllegalArgumentException ignored) {
+            }
+            *///?} else {
             linkStyle = linkStyle.withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, link.getDestination()));
             //?}
             return renderInlineChildren(link, linkStyle);

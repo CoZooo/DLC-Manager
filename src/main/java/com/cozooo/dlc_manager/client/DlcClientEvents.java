@@ -104,9 +104,26 @@ public final class DlcClientEvents {
 
     private static void registerInputEvents() {
         //? if >=26.1 {
-        //return;
-        //?}
-        //? if <26.1 {
+        /*
+        ClientScreenInputEvent.MOUSE_CLICKED_PRE.register((client, screen, event, doubleClick) -> {
+            if (screen instanceof TitleScreen && DlcClientRuntime.handleTitleNoticePanelClick(screen, event.x(), event.y(), event.button())) {
+                return EventResult.interruptFalse();
+            }
+            return EventResult.pass();
+        });
+        ClientScreenInputEvent.MOUSE_RELEASED_PRE.register((client, screen, event) -> {
+            if (screen instanceof TitleScreen && DlcClientRuntime.handleTitleNoticePanelRelease(screen, event.x(), event.y(), event.button())) {
+                return EventResult.interruptFalse();
+            }
+            return EventResult.pass();
+        });
+        ClientScreenInputEvent.MOUSE_DRAGGED_PRE.register((client, screen, event, dragX, dragY) -> {
+            if (screen instanceof TitleScreen && DlcClientRuntime.handleTitleNoticePanelDrag(screen, event.x(), event.y(), event.button(), dragX, dragY)) {
+                return EventResult.interruptFalse();
+            }
+            return EventResult.pass();
+        });
+        *///?} else {
         ClientScreenInputEvent.MOUSE_CLICKED_PRE.register((client, screen, mouseX, mouseY, button) -> {
             if (screen instanceof TitleScreen && DlcClientRuntime.handleTitleNoticePanelClick(screen, mouseX, mouseY, button)) {
                 return EventResult.interruptFalse();
@@ -125,6 +142,7 @@ public final class DlcClientEvents {
             }
             return EventResult.pass();
         });
+        //?}
         //? if >=1.21.1 {
         /*ClientScreenInputEvent.MOUSE_SCROLLED_PRE.register((client, screen, mouseX, mouseY, amountX, amountY) -> {
             if (screen instanceof TitleScreen && DlcClientRuntime.handleTitleNoticePanelScroll(screen, mouseX, mouseY, amountX, amountY)) {
@@ -139,7 +157,6 @@ public final class DlcClientEvents {
             }
             return EventResult.pass();
         });
-        //?}
         //?}
     }
 

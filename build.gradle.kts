@@ -733,7 +733,10 @@ if (stoneNodes.contains(project.name)) {
             }
         }
         tasks.matching { it.name == "runClient" || it.name == "runServer" }.configureEach {
-            if (this is JavaExec) jvmArgs("-Ddlc_manager.dev.mod.path=${devPayload.asFile.absolutePath}")
+            if (this is JavaExec) {
+                jvmArgs("-Ddlc_manager.dev.mod.path=${devPayload.asFile.absolutePath}")
+                jvmArgs("-Ddlc_manager.distribution.path=${devPayload.asFile.absolutePath}")
+            }
         }
         val mainSourceSet = extensions.getByType<SourceSetContainer>().named("main").get()
         extensions.configure<LoomGradleExtensionAPI> {

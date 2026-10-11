@@ -4,7 +4,7 @@ import java.util.Properties
 
 plugins {
     java
-    id("org.jetbrains.kotlin.jvm") version "2.2.20" apply false
+    id("org.jetbrains.kotlin.jvm") apply false
     id("com.gradleup.shadow") version "8.3.11"
 }
 
@@ -42,8 +42,8 @@ val kotlinStdlibVersion = currentTarget?.let { target ->
     if (targetProperties.isFile) Properties().apply { targetProperties.inputStream().use(::load) }
         .getProperty("kotlin_runtime_version")
         ?.takeIf { it.isNotBlank() } else null
-} ?: managerProperties.getProperty("kotlin_version")
-    ?: error("The main project must define a Kotlin runtime version")
+} ?: if (currentTarget == null) managerProperties.getProperty("kotlin_version")
+    else error("Missing Kotlin runtime version for ${currentTarget.node}")
 val kotlinVersionParts = kotlinStdlibVersion.split('.')
 require(kotlinVersionParts.size >= 2) { "Invalid main project Kotlin runtime version: $kotlinStdlibVersion" }
 val kotlinStdlibUpperBound = "${kotlinVersionParts[0]}.${kotlinVersionParts[1].toInt() + 1}"
@@ -94,7 +94,7 @@ if (currentTarget == null) {
     }
     tasks.assemble { dependsOn(bootstrapTargets.map { ":${it.node}:bootstrapJar" }) }
     tasks.test {
-        dependsOn(":1.20.1-forge:test")
+        dependsOn(bootstrapTargets.map { ":${it.node}:test" })
     }
 } else {
     val target = currentTarget
@@ -278,7 +278,10 @@ if (currentTarget == null) {
             )
             if (kotlinEnabled) {
                 directory.resolve("META-INF/jarjar/metadata.json").apply { parentFile.mkdirs() }.writeText(
-                    """{"jars":[{"identifier":{"group":"org.jetbrains.kotlin","artifact":"kotlin-stdlib"},"version":{"range":"[$kotlinStdlibVersion,$kotlinStdlibUpperBound)","artifactVersion":"$kotlinStdlibVersion"},"path":"META-INF/jarjar/kotlin-stdlib-$kotlinStdlibVersion.jar"},{"identifier":{"group":"org.jetbrains.kotlin","artifact":"kotlin-reflect"},"version":{"range":"[$kotlinStdlibVersion,$kotlinStdlibUpperBound)","artifactVersion":"$kotlinStdlibVersion"},"path":"META-INF/jarjar/kotlin-reflect-$kotlinStdlibVersion.jar"}]}"""
+                    libraries.joinToString(prefix = "{\"jars\":[", postfix = "]}") { library ->
+                        val artifact = library.name.removeSuffix("-$kotlinStdlibVersion.jar")
+                        """{"identifier":{"group":"org.jetbrains.kotlin","artifact":"$artifact"},"version":{"range":"[$kotlinStdlibVersion,$kotlinStdlibUpperBound)","artifactVersion":"$kotlinStdlibVersion"},"path":"META-INF/jarjar/${library.name}"}"""
+                    }
                 )
             }
             directory.resolve("META-INF/NOTICE.txt").writeText(

@@ -9,12 +9,15 @@ pluginManagement {
         maven("https://maven.architectury.dev/")
         maven("https://maven.fabricmc.net")
     }
+    val managerProperties = java.util.Properties().apply {
+        file("gradle.properties").inputStream().use(::load)
+    }
     plugins {
         id("gg.meza.stonecraft") version "1.14.3"
         id("dev.kikugie.stonecutter") version "0.10-alpha.12"
         id("dev.architectury.loom") version "1.17-20260912.095804-1"
         id("com.gradleup.shadow") version "8.3.11"
-        id("org.jetbrains.kotlin.jvm") version "2.4.10"
+        id("org.jetbrains.kotlin.jvm") version requireNotNull(managerProperties.getProperty("kotlin_version"))
     }
 }
 
