@@ -27,7 +27,14 @@ object DlcModPayload {
         val temp = Files.createTempFile(cache, "payload-", ".tmp")
         try {
             val digest = MessageDigest.getInstance("SHA-256")
-            DlcModPayload::class.java.getResourceAsStream("/$RESOURCE").use { input ->
+            val developmentPayload = System.getProperty("dlc_manager.dev.mod.path")
+            if (!developmentPayload.isNullOrBlank()) {
+                Files.newInputStream(Path.of(developmentPayload)).use { input ->
+                    DigestInputStream(input, digest).use { digestInput ->
+                        Files.newOutputStream(temp).use { output -> digestInput.transferTo(output) }
+                    }
+                }
+            } else DlcModPayload::class.java.getResourceAsStream("/$RESOURCE").use { input ->
                 if (input == null) throw IOException("Embedded DLC Manager mod is missing")
                 Files.copy(DigestInputStream(input, digest), temp, StandardCopyOption.REPLACE_EXISTING)
             }

@@ -37,6 +37,16 @@ val currentTarget = stonecutterBuild?.current?.project?.let { node ->
     bootstrapTargets.singleOrNull { it.node == node }
 }
     ?: stonecutterBuild?.let { error("Unknown DLC bootstrap StoneCutter node: ${it.current.project}") }
+val kotlinStdlibVersion = currentTarget?.let { target ->
+    val targetProperties = managerRoot.resolve("versions/${target.node}/gradle.properties")
+    if (targetProperties.isFile) Properties().apply { targetProperties.inputStream().use(::load) }
+        .getProperty("kotlin_runtime_version")
+        ?.takeIf { it.isNotBlank() } else null
+} ?: managerProperties.getProperty("kotlin_version")
+    ?: error("The main project must define a Kotlin runtime version")
+val kotlinVersionParts = kotlinStdlibVersion.split('.')
+require(kotlinVersionParts.size >= 2) { "Invalid main project Kotlin runtime version: $kotlinStdlibVersion" }
+val kotlinStdlibUpperBound = "${kotlinVersionParts[0]}.${kotlinVersionParts[1].toInt() + 1}"
 val buildRoot = managerRoot.resolve(if (kotlinEnabled) "build/dlc-bootstrap" else "build/java-only/dlc-bootstrap")
 val distributionRoot = buildRoot.resolve("services")
 
@@ -175,7 +185,10 @@ if (currentTarget == null) {
     }
 
     dependencies {
-        if (kotlinEnabled) add(bootstrapLibraries.name, "org.jetbrains.kotlin:kotlin-stdlib:2.2.20") { isTransitive = false }
+        if (kotlinEnabled) add(bootstrapLibraries.name, "org.jetbrains.kotlin:kotlin-stdlib:$kotlinStdlibVersion") { isTransitive = false }
+        if (kotlinEnabled && target.minecraft == "26.1") {
+            add(bootstrapLibraries.name, "org.jetbrains.kotlin:kotlin-reflect:$kotlinStdlibVersion") { isTransitive = false }
+        }
         implementation("com.cozooo:dclanguage:0.1.0")
         implementation("com.google.code.gson:gson:2.10.1")
         val modLauncherVersion = when (target.node) {
@@ -265,13 +278,13 @@ if (currentTarget == null) {
             )
             if (kotlinEnabled) {
                 directory.resolve("META-INF/jarjar/metadata.json").apply { parentFile.mkdirs() }.writeText(
-                    """{"jars":[{"identifier":{"group":"org.jetbrains.kotlin","artifact":"kotlin-stdlib"},"version":{"range":"[2.2.20,2.3)","artifactVersion":"2.2.20"},"path":"META-INF/jarjar/kotlin-stdlib-2.2.20.jar"}]}"""
+                    """{"jars":[{"identifier":{"group":"org.jetbrains.kotlin","artifact":"kotlin-stdlib"},"version":{"range":"[$kotlinStdlibVersion,$kotlinStdlibUpperBound)","artifactVersion":"$kotlinStdlibVersion"},"path":"META-INF/jarjar/kotlin-stdlib-$kotlinStdlibVersion.jar"},{"identifier":{"group":"org.jetbrains.kotlin","artifact":"kotlin-reflect"},"version":{"range":"[$kotlinStdlibVersion,$kotlinStdlibUpperBound)","artifactVersion":"$kotlinStdlibVersion"},"path":"META-INF/jarjar/kotlin-reflect-$kotlinStdlibVersion.jar"}]}"""
                 )
             }
             directory.resolve("META-INF/NOTICE.txt").writeText(
                 "DLC Manager early installation service: bundled third-party components.\n" +
                     "Gson 2.10.1 (Apache-2.0): META-INF/dlc-manager/licenses/GSON-COPYRIGHT.txt\n" +
-                    (if (kotlinEnabled) "Kotlin JVM Standard Library 2.2.20: META-INF/dlc-manager/licenses/kotlin/ATTRIBUTION.txt\n" else "") +
+                    (if (kotlinEnabled) "Kotlin JVM Standard Library $kotlinStdlibVersion: META-INF/dlc-manager/licenses/kotlin/ATTRIBUTION.txt\n" else "") +
                     "License files apply to the identified third-party components; DLC Manager retains its own license.\n"
             )
         }
@@ -322,7 +335,12 @@ if (currentTarget == null) {
         inputs.files(neoForgeModLauncher, forgeLocatorApi, neoForgeLocatorApi, bootstrapLibraries)
         doFirst {
             systemProperty("bootstrapTestTarget", target.node)
-            systemProperty("kotlinStdlibJar", bootstrapLibraries.files.singleOrNull()?.absolutePath ?: "")
+            val kotlinStdlib = if (target.minecraft == "26.1") {
+                bootstrapLibraries.files.find { it.name.startsWith("kotlin-stdlib-") }
+            } else {
+                bootstrapLibraries.files.singleOrNull()
+            }
+            systemProperty("kotlinStdlibJar", kotlinStdlib?.absolutePath ?: "")
             systemProperty("neoForgeModLauncher", neoForgeModLauncher.singleFile.absolutePath)
             systemProperty("forgeLocatorApi", forgeLocatorApi.asPath)
             systemProperty("neoforgeLocatorApi", neoForgeLocatorApi.asPath)

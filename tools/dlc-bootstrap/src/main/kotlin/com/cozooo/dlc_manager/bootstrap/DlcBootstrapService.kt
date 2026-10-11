@@ -1,8 +1,6 @@
 package com.cozooo.dlc_manager.bootstrap
 
 import cpw.mods.modlauncher.api.IEnvironment
-import cpw.mods.modlauncher.api.ITransformationService
-import cpw.mods.modlauncher.api.ITransformer
 import com.cozooo.dlc_bootstrap.launch.DlcBootstrapEntrypoint
 import java.io.IOException
 import java.nio.file.Path
@@ -14,11 +12,7 @@ import java.util.function.Consumer
 class DlcBootstrapService(
     private var progress: Consumer<Map<String, Any>> = Consumer {},
     private var cancelled: BooleanSupplier = BooleanSupplier { false }
-) : ITransformationService, DlcBootstrapEntrypoint {
-
-    override fun name() = "dlcbootstrap"
-    override fun onLoad(environment: IEnvironment, otherServices: Set<String>) {}
-    override fun transformers(): List<ITransformer<*>> = emptyList()
+) : DlcBootstrapEntrypoint {
 
     override fun configure(progress: DlcBootstrapEntrypoint.ProgressSink, cancelled: BooleanSupplier) {
         this.progress = Consumer { progress.accept(it) }

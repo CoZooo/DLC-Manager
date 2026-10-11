@@ -1,20 +1,16 @@
 package com.cozooo.dlc_manager.bootstrap;
 
 import cpw.mods.modlauncher.api.IEnvironment;
-import cpw.mods.modlauncher.api.ITransformationService;
-import cpw.mods.modlauncher.api.ITransformer;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
-import java.util.Set;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
-public final class DlcBootstrapService implements ITransformationService, com.cozooo.dlc_bootstrap.launch.DlcBootstrapEntrypoint {
+public final class DlcBootstrapService implements com.cozooo.dlc_bootstrap.launch.DlcBootstrapEntrypoint {
     private Consumer<Map<String, Object>> progress = ignored -> {};
     private BooleanSupplier cancelled = () -> false;
 
@@ -28,16 +24,6 @@ public final class DlcBootstrapService implements ITransformationService, com.co
         this.progress = Objects.requireNonNull(progress)::accept;
         this.cancelled = Objects.requireNonNull(cancelled);
     }
-
-    @Override public String name() { return "dlcbootstrap"; }
-    @Override public void onLoad(IEnvironment environment, Set<String> otherServices) {}
-    //? if >=1.21.1 {
-    /*@Override public List<? extends ITransformer<?>> transformers() { return List.of(); }
-    *///?}
-    //? if <1.21.1 {
-    @SuppressWarnings("rawtypes")
-    @Override public List<ITransformer> transformers() { return List.of(); }
-    //?}
 
     @Override public void initialize(IEnvironment environment) {
         System.clearProperty(DlcStartupRequirements.READY_PROPERTY);

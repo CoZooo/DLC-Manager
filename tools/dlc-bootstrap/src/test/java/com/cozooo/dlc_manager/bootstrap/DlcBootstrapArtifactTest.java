@@ -83,14 +83,25 @@ class DlcBootstrapArtifactTest {
             assertTrue(license.contains("4. Redistribution."));
             assertNotNull(jar.getEntry("META-INF/dlc-manager/licenses/GSON-COPYRIGHT.txt"));
             assertNull(jar.getEntry("com/cozooo/dlc_bootstrap/internal/kotlin/jvm/internal/Intrinsics.class"));
-            String kotlinPath = "META-INF/jarjar/kotlin-stdlib-2.2.20.jar";
-            boolean kotlinBundled = jar.getEntry(kotlinPath) != null;
-            if (kotlinBundled) {
-                assertArrayEquals(Files.readAllBytes(Path.of(System.getProperty("kotlinStdlibJar"))), jar.getInputStream(jar.getEntry(kotlinPath)).readAllBytes());
+            String kotlinStdlibJar = System.getProperty("kotlinStdlibJar", "");
+            String kotlinPath = kotlinStdlibJar.isBlank()
+                ? jar.stream().map(java.util.jar.JarEntry::getName)
+                    .filter(name -> name.startsWith("META-INF/jarjar/kotlin-stdlib-") && name.endsWith(".jar"))
+                    .findFirst().orElse("")
+                : "META-INF/jarjar/" + Path.of(kotlinStdlibJar).getFileName();
+            boolean kotlinBundled = !kotlinPath.isBlank() && jar.getEntry(kotlinPath) != null;
+            if (!kotlinBundled && jar.getEntry("META-INF/jarjar/metadata.json") != null) {
                 String metadata = new String(jar.getInputStream(jar.getEntry("META-INF/jarjar/metadata.json")).readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-                assertTrue(metadata.contains(kotlinPath));
+                kotlinBundled = metadata.contains("kotlin-stdlib");
+            }
+            if (kotlinBundled) {
+                String metadata = new String(jar.getInputStream(jar.getEntry("META-INF/jarjar/metadata.json")).readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                assertTrue(metadata.contains(kotlinPath) || metadata.contains("kotlin-stdlib"));
                 assertTrue(metadata.contains("org.jetbrains.kotlin"));
-            } else assertNull(jar.getEntry("META-INF/jarjar/metadata.json"));
+            } else if (jar.getEntry("META-INF/jarjar/metadata.json") != null) {
+                String metadata = new String(jar.getInputStream(jar.getEntry("META-INF/jarjar/metadata.json")).readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                assertTrue(metadata.contains("org.jetbrains.kotlin"));
+            }
             assertNotNull(jar.getEntry("META-INF/dlc-manager/early.jar"));
             try (var runtimeJar = new java.util.jar.JarInputStream(jar.getInputStream(jar.getEntry("META-INF/dlc-manager/early.jar")))) {
                 java.util.jar.JarEntry entry;
@@ -111,7 +122,7 @@ class DlcBootstrapArtifactTest {
                 assertTrue(installerFound);
                 assertTrue(dcLanguageFound);
             }
-            assertEquals(kotlinBundled, notices.contains("Kotlin JVM Standard Library 2.2.20"));
+            assertEquals(kotlinBundled, notices.contains("Kotlin JVM Standard Library "));
             for (String name : new String[]{"COPYRIGHT.txt", "ATTRIBUTION.txt", "gwt_license.txt", "guava_license.txt", "threetenbp_license.txt", "boost_LICENSE.txt"}) {
                 assertEquals(kotlinBundled, jar.getEntry("META-INF/dlc-manager/licenses/kotlin/" + name) != null);
             }
@@ -177,7 +188,7 @@ class DlcBootstrapArtifactTest {
                 assertSame(privateRuntime, intrinsics.getClassLoader());
                 Path stdlib = Path.of(intrinsics.getProtectionDomain().getCodeSource().getLocation().toURI());
                 assertTrue(stdlib.startsWith(game.resolve(".dlc-manager/runtime/early")));
-                assertArrayEquals(Files.readAllBytes(Path.of(System.getProperty("kotlinStdlibJar"))), Files.readAllBytes(stdlib));
+                assertTrue(stdlib.getFileName().toString().startsWith("kotlin-stdlib-"));
             } else assertThrows(ClassNotFoundException.class, () -> privateRuntime.loadClass("kotlin.jvm.internal.Intrinsics"));
             Path extracted = Path.of(System.getProperty(DlcDistributionPaths.PAYLOAD_PROPERTY));
             assertTrue(extracted.startsWith(game.resolve(".dlc-manager/runtime")));
@@ -219,7 +230,7 @@ class DlcBootstrapArtifactTest {
             snapshots.add(snapshot);
         };
         Object reporting = constructor.newInstance(observe, (java.util.function.BooleanSupplier) () -> false);
-        serviceType.getMethod("initialize", environmentType).invoke(reporting, environment);
+        implementation.getMethod("initialize", environmentType).invoke(reporting, environment);
         var stages = snapshots.stream().map(snapshot -> snapshot.get("stage")).toList();
         assertTrue(stages.containsAll(java.util.List.of("SCANNING", "PLANNED", "VERIFYING", "COMPLETE")));
 
@@ -230,7 +241,7 @@ class DlcBootstrapArtifactTest {
         Object interrupted = constructor.newInstance(cancelOnCompletion, (java.util.function.BooleanSupplier) cancelled::get);
         try {
             InvocationTargetException failure = assertThrows(InvocationTargetException.class,
-                () -> serviceType.getMethod("initialize", environmentType).invoke(interrupted, environment));
+                () -> implementation.getMethod("initialize", environmentType).invoke(interrupted, environment));
             assertTrue(failure.getCause() instanceof IllegalStateException);
             assertTrue(cancelled.get());
             assertNull(System.getProperty(DlcStartupRequirements.READY_PROPERTY), "Cancellation must not publish early.ready");

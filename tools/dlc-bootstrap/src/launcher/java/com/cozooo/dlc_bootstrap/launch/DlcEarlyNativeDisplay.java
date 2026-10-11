@@ -88,23 +88,19 @@ final class DlcEarlyNativeDisplay implements DlcEarlyProgress.Display {
 *///?}
 //? if >=26.1 {
 /*import net.neoforged.fml.loading.FMLConfig;
-import net.neoforged.fml.loading.ImmediateWindowHandler;
 import net.neoforged.fml.loading.progress.ProgressMeter;
 import net.neoforged.fml.loading.progress.StartupNotificationManager;
 
 final class DlcEarlyNativeDisplay implements DlcEarlyProgress.Display {
-    private final Runnable tick;
     private ProgressMeter meter;
     private int steps = -1;
 
-    private DlcEarlyNativeDisplay(Runnable tick) {
-        this.tick = tick;
-    }
+    private DlcEarlyNativeDisplay() {}
 
     static DlcEarlyProgress.Display open() {
         if (!FMLConfig.getBoolConfigValue(FMLConfig.ConfigValue.EARLY_WINDOW_CONTROL)) return null;
         if (!"fmlearlywindow".equals(FMLConfig.getConfigValue(FMLConfig.ConfigValue.EARLY_WINDOW_PROVIDER))) return null;
-        return new DlcEarlyNativeDisplay(ImmediateWindowHandler::renderTick);
+        return new DlcEarlyNativeDisplay();
     }
 
     @Override public void update(DlcEarlyProgress.Frame frame) {
@@ -117,9 +113,7 @@ final class DlcEarlyNativeDisplay implements DlcEarlyProgress.Display {
         meter.setAbsolute(frame.current());
     }
 
-    @Override public void tick() {
-        tick.run();
-    }
+    @Override public void tick() {}
 
     @Override public void close() {
         ProgressMeter old = meter;

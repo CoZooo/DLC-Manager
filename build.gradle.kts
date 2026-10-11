@@ -23,6 +23,7 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.gradle.language.jvm.tasks.ProcessResources
 import java.io.File
+import java.util.Properties
 
 val DLC_MOD_ID = "dlc_manager"
 val DLC_MOD_NAME = "DLC Manager"
@@ -665,6 +666,11 @@ if (stoneNodes.contains(project.name)) {
                 add("kotlinForForgeModDiscovery", "thedarkcolour:kotlinforforge-neoforge:${prop("kotlin_for_forge_version")}") {
                     isTransitive = false
                 }
+                if (minecraftVersion == "26.1") {
+                    val kotlinRuntimeVersion = optionalProp("kotlin_runtime_version")
+                        ?: error("Missing Kotlin runtime version for ${nodeName}")
+                    add(modDependencyConfiguration, "org.jetbrains.kotlin:kotlin-reflect:$kotlinRuntimeVersion")
+                }
                 add(modDependencyConfiguration, "thedarkcolour:kfflang-neoforge:${prop("kotlin_for_forge_version")}") {
                     isTransitive = false
                 }
@@ -698,23 +704,36 @@ if (stoneNodes.contains(project.name)) {
         val distributionJar = rootProject.layout.projectDirectory.file(
             "output/${rootProject.prop("mod_version")}/DLC-Manager-$loaderName-$minecraftVersion-${rootProject.prop("mod_version")}.jar"
         )
+        val serviceBuild = if (kotlinEnabled) "build/dlc-bootstrap" else "build/java-only/dlc-bootstrap"
+        val bootstrapJar = rootProject.layout.projectDirectory.file(
+            "$serviceBuild/services/$loaderName/DLC-Manager-bootstrap-$loaderName-$minecraftVersion-${rootProject.prop("mod_version")}.jar"
+        )
+        val payloadTaskName = if (tasks.findByName("remapJar") != null) "remapJar" else "jar"
+        val devPayload = if (payloadTaskName == "remapJar") {
+            rootProject.layout.projectDirectory.file(
+                "build/$nodeName/distribution/payload/DLC-Manager-$loaderName-$minecraftVersion-${rootProject.prop("mod_version")}.jar"
+            )
+        } else distributionJar
         listOf("client", "server").forEach { side ->
             val sideName = side.replaceFirstChar { it.uppercase() }
             val prepareDistribution = tasks.register<Copy>("prepare${sideName}DlcDistribution") {
-                dependsOn("packageDistribution")
-                from(distributionJar)
+                dependsOn(payloadTaskName, gradle.includedBuild("dlcBootstrap").task(":${loaderName}BootstrapJar"))
+                from(bootstrapJar)
                 into(rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/$side/mods"))
                 doFirst {
                     destinationDir.listFiles()?.filter {
                         (it.name.startsWith("DLC-Manager-bootstrap-$loaderName-$minecraftVersion-") ||
                             it.name.startsWith("DLC-Manager-$loaderName-$minecraftVersion-")) &&
-                            it.name.endsWith(".jar") && it.name != distributionJar.asFile.name
+                            it.name.endsWith(".jar")
                     }?.forEach(File::delete)
                 }
             }
             tasks.matching { it.name == "run$sideName" || it.name == "configureMinecraft$sideName" }.configureEach {
                 dependsOn(prepareDistribution)
             }
+        }
+        tasks.matching { it.name == "runClient" || it.name == "runServer" }.configureEach {
+            if (this is JavaExec) jvmArgs("-Ddlc_manager.dev.mod.path=${devPayload.asFile.absolutePath}")
         }
         val mainSourceSet = extensions.getByType<SourceSetContainer>().named("main").get()
         extensions.configure<LoomGradleExtensionAPI> {

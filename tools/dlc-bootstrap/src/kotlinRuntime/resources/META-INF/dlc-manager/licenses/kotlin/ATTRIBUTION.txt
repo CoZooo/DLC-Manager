@@ -1,6 +1,6 @@
-Kotlin JVM Standard Library 2.2.20
-Source: https://github.com/JetBrains/kotlin/tree/v2.2.20/libraries/stdlib
-Upstream attribution index: https://github.com/JetBrains/kotlin/blob/v2.2.20/license/README.md
+Kotlin JVM Standard Library version selected by the main project build
+Source: https://github.com/JetBrains/kotlin/tree/master/libraries/stdlib
+Upstream attribution index: https://github.com/JetBrains/kotlin/blob/master/license/README.md
 
 The JetBrains code is licensed under Apache-2.0 (../Apache-2.0.txt).
 Upstream copyright notice: COPYRIGHT.txt.

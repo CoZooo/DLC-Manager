@@ -25,7 +25,7 @@ public final class DlcEarlyRuntime {
 
     private DlcEarlyRuntime() {}
 
-    public static synchronized void initialize(IEnvironment environment) {
+    public static void initialize(IEnvironment environment) {
         System.clearProperty("dlc_manager.early.ready");
         try {
             Properties profile = loadProfile();
@@ -47,13 +47,13 @@ public final class DlcEarlyRuntime {
     }
 
     //? if >=1.21.1 <26.1 {
-    /*public static synchronized void initialize(ILaunchContext context) {
+    /*public static void initialize(ILaunchContext context) {
         initialize(context.environment());
     }
     *///?}
 
     //? if >=26.1 {
-    /*public static synchronized void initialize(ILaunchContext context) {
+    /*public static void initialize(ILaunchContext context) {
         System.clearProperty("dlc_manager.early.ready");
         try {
             Properties profile = loadProfile();
@@ -138,7 +138,10 @@ public final class DlcEarlyRuntime {
             if (!resource.isBlank()) jars.add(extract(cache, resource).toUri().toURL());
         }
         checkCancelled(cancelled);
-        Path distribution = distributionFile(DlcEarlyRuntime.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+        String configuredDistribution = System.getProperty("dlc_manager.distribution.path");
+        Path distribution = configuredDistribution == null || configuredDistribution.isBlank()
+            ? distributionFile(DlcEarlyRuntime.class.getProtectionDomain().getCodeSource().getLocation().toURI())
+            : Path.of(configuredDistribution).toAbsolutePath().normalize();
         System.setProperty("dlc_manager.distribution.path", distribution.toAbsolutePath().normalize().toString());
         runtime = new RuntimeClassLoader(jars.toArray(URL[]::new), DlcEarlyRuntime.class.getClassLoader());
         bootstrap = ServiceLoader.load(DlcBootstrapEntrypoint.class, runtime).findFirst()

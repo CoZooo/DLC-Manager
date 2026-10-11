@@ -26,7 +26,14 @@ public final class DlcModPayload {
         Path temp = Files.createTempFile(cache, "payload-", ".tmp");
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            try (var input = DlcModPayload.class.getResourceAsStream("/" + RESOURCE)) {
+            String developmentPayload = System.getProperty("dlc_manager.dev.mod.path");
+            if (developmentPayload != null && !developmentPayload.isBlank()) {
+                try (var input = Files.newInputStream(Path.of(developmentPayload))) {
+                    try (var output = new java.security.DigestOutputStream(Files.newOutputStream(temp), digest)) {
+                        input.transferTo(output);
+                    }
+                }
+            } else try (var input = DlcModPayload.class.getResourceAsStream("/" + RESOURCE)) {
                 if (input == null) throw new IOException("Embedded DLC Manager mod is missing");
                 Files.copy(new DigestInputStream(input, digest), temp, StandardCopyOption.REPLACE_EXISTING);
             }
