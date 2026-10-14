@@ -10,6 +10,7 @@ import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.pack.DlcPackArchive;
+import com.cozooo.dlc_manager.client.pack.DlcPackPreviewLoader;
 import com.cozooo.dlc_manager.client.pack.DlcPackCFResolver;
 import com.cozooo.dlc_manager.client.pack.DlcPackInstaller;
 import com.cozooo.dlc_manager.client.pack.DlcPackInstallPlan;
@@ -17,7 +18,6 @@ import com.cozooo.dlc_manager.client.pack.DlcPackMeta;
 import com.cozooo.dlc_manager.client.pack.DlcPackMetadata;
 import com.cozooo.dlc_manager.client.pack.DlcPackOrder;
 import com.cozooo.dlc_manager.client.pack.DlcPackPackage;
-import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
@@ -102,6 +102,8 @@ public class DlcPackManagerScreen extends DlcPackPageScreen {
     private final Set<String> pausedReinstallIdentifiers = new LinkedHashSet<>();
     private volatile Set<String> activeReinstallIdentifiers = Set.of();
     private int iconTextureSerial;
+    private final DlcPackPreviewLoader previewLoader = new DlcPackPreviewLoader();
+    private boolean scanning;
 
     public DlcPackManagerScreen(Screen parent) {
         super(DlcUiPage.LOCAL_PACKS, parent, DlcTextCompat.translatable("dlc_manager.pack.manager_title"));
@@ -1069,10 +1071,31 @@ public class DlcPackManagerScreen extends DlcPackPageScreen {
             pendingInstallKeys.put(entry.getKey(), entry.getValue().key);
         }
         releaseIconTextures();
-        uninstallIncompatibleInstalledPacks();
-        installedByIdentifier = loadInstalledPacks();
-        List<PackArchiveGroup> scanned = scanPackArchives();
-        List<String> saved = DlcPackOrder.load(packOrderPath());
+        scanning = true;
+        previewLoader.load(DlcPaths.gameDir(), DlcPaths.dlcRoot(), packOrderPath(), Minecraft.getInstance(), snapshot -> {
+            scanning = false;
+            if (Minecraft.getInstance().screen != this) { controlsReady = false; return; }
+            applyPreviewSnapshot(snapshot, pendingInstallKeys);
+            rebuildPackWidgets();
+        }, error -> {
+            scanning = false;
+            if (Minecraft.getInstance().screen != this) { controlsReady = false; return; }
+            status = DlcTextCompat.translatable("dlc_manager.pack.read_failed", describeFailure(error));
+            rebuildPackWidgets();
+        });
+    }
+
+    private void applyPreviewSnapshot(DlcPackPreviewLoader.Snapshot snapshot, Map<String, String> pendingInstallKeys) {
+        if (snapshot.compatibilityError != null) {
+            status = DlcTextCompat.translatable("dlc_manager.pack.auto_uninstall_failed", describeFailure(snapshot.compatibilityError));
+        } else if (snapshot.uninstalled > 0) {
+            status = DlcTextCompat.translatable("dlc_manager.pack.auto_uninstalled_incompatible", snapshot.uninstalled);
+        }
+        installedByIdentifier = snapshot.installed;
+        List<PackArchiveEntry> entries = new ArrayList<>();
+        for (var preview : snapshot.previews) entries.add(createPreviewEntry(preview));
+        List<PackArchiveGroup> scanned = groupArchiveEntries(entries);
+        List<String> saved = snapshot.savedOrder;
         boolean preserveCurrentOrder = !currentArchiveOrder.isEmpty() && hasOrderChanges();
         List<String> normalizedSaved = normalizeGroupOrder(saved, scanned);
         if (!orderSnapshotInitialized) {
@@ -1145,28 +1168,6 @@ public class DlcPackManagerScreen extends DlcPackPageScreen {
         List<PackArchiveGroup> sorted = new ArrayList<>(archiveGroups);
         sorted.sort(Comparator.comparingInt(entry -> orderIndex(entry.orderKey)));
         archiveGroups = sorted;
-    }
-
-    private List<PackArchiveGroup> scanPackArchives() {
-        Path packRoot = DlcPaths.dlcRoot().resolve("pack");
-        try {
-            Files.createDirectories(packRoot);
-        } catch (IOException ignored) {
-        }
-        List<PackArchiveEntry> out = new ArrayList<>();
-        try (var stream = DlcPackArchive.findArchives(DlcPaths.dlcRoot()).stream()) {
-            stream.filter(Files::isRegularFile)
-                .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".zip"))
-                .sorted(Comparator.comparing(path -> path.getFileName().toString().toLowerCase(Locale.ROOT)))
-                .forEach(path -> {
-                    PackArchiveEntry entry = inspectArchive(path);
-                    if (entry != null) {
-                        out.add(entry);
-                    }
-                });
-        } catch (Exception ignored) {
-        }
-        return groupArchiveEntries(out);
     }
 
     private List<PackArchiveGroup> groupArchiveEntries(List<PackArchiveEntry> entries) {
@@ -1281,37 +1282,24 @@ public class DlcPackManagerScreen extends DlcPackPageScreen {
         return null;
     }
 
-    private PackArchiveEntry inspectArchive(Path archive) {
-        Path staging = null;
-        try {
-            staging = DlcPackArchive.extractToStaging(archive, DlcPaths.dlcRoot()).stagingDir;
-            DlcPackPackage.Result result = DlcPackPackage.inspect(staging);
-            if (!result.valid || result.pack == null) {
-                return null;
-            }
-            DlcPackPackage pack = result.pack;
-            String lang = Minecraft.getInstance().options.languageCode;
-            Component displayName = DlcTextFormatter.parse(pack.metadata.resolveDisplayName(lang));
-            Component description = DlcMarkdownRenderer.renderMarkdownComponent(pack.metadata.resolveDescription(lang));
-            List<String> authors = pack.metadata.authors.isEmpty()
-                ? List.of(DlcTextCompat.translatable("dlc_manager.pack.unknown_author").getString())
-                : pack.metadata.authors;
-            Component author = DlcTextFormatter.parse(String.join(", ", authors));
-            IconTexture icon = loadIconTexture(pack.iconFile);
-            return new PackArchiveEntry(archive.toAbsolutePath().normalize(), archiveOrderPath(archive), pack.metadata, displayName, description, author, authors, icon == null ? null : icon.location, icon == null ? 0 : icon.width, icon == null ? 0 : icon.height);
-        } catch (Exception ignored) {
-            return null;
-        } finally {
-            DlcPackArchive.deleteRecursive(staging);
-        }
+    private PackArchiveEntry createPreviewEntry(DlcPackPreviewLoader.Preview preview) {
+        String lang = Minecraft.getInstance().options.languageCode;
+        Component displayName = DlcTextFormatter.parse(preview.metadata.resolveDisplayName(lang));
+        Component description = DlcMarkdownRenderer.renderMarkdownComponent(preview.metadata.resolveDescription(lang));
+        List<String> authors = preview.metadata.authors.isEmpty()
+            ? List.of(DlcTextCompat.translatable("dlc_manager.pack.unknown_author").getString()) : preview.metadata.authors;
+        Component author = DlcTextFormatter.parse(String.join(", ", authors));
+        IconTexture icon = loadIconTexture(preview.icon);
+        return new PackArchiveEntry(preview.archive, archiveOrderPath(preview.archive), preview.metadata, displayName, description, author, authors,
+            icon == null ? null : icon.location, icon == null ? 0 : icon.width, icon == null ? 0 : icon.height);
     }
 
-    private IconTexture loadIconTexture(Path iconFile) {
-        if (iconFile == null || !Files.isRegularFile(iconFile)) {
+    private IconTexture loadIconTexture(byte[] icon) {
+        if (icon == null) {
             return null;
         }
         NativeImage image = null;
-        try (InputStream input = Files.newInputStream(iconFile)) {
+        try (InputStream input = new java.io.ByteArrayInputStream(icon)) {
             image = NativeImage.read(input);
             int imageWidth = image.getWidth();
             int imageHeight = image.getHeight();
@@ -1336,36 +1324,6 @@ public class DlcPackManagerScreen extends DlcPackPageScreen {
             }
         }
         archiveGroups = List.of();
-    }
-
-    private Map<String, DlcPackMeta> loadInstalledPacks() {
-        Path packRoot = DlcPaths.dlcRoot().resolve("tmp").resolve("pack");
-        Map<String, DlcPackMeta> out = new HashMap<>();
-        if (!Files.isDirectory(packRoot)) {
-            return out;
-        }
-        try (var stream = Files.list(packRoot)) {
-            stream.filter(Files::isDirectory).forEach(dir -> {
-                DlcPackMeta meta = DlcPackMeta.load(dir.resolve("meta.dc"));
-                if (meta != null) {
-                    out.put(meta.identifier, meta);
-                }
-            });
-        } catch (Exception ignored) {
-        }
-        return out;
-    }
-
-    private void uninstallIncompatibleInstalledPacks() {
-        try {
-            List<DlcPackInstaller.UninstallReport> reports =
-                new DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot()).uninstallIncompatibleForCurrentVersion();
-            if (!reports.isEmpty()) {
-                status = DlcTextCompat.translatable("dlc_manager.pack.auto_uninstalled_incompatible", reports.size());
-            }
-        } catch (Exception ex) {
-            status = DlcTextCompat.translatable("dlc_manager.pack.auto_uninstall_failed", ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
-        }
     }
 
     private boolean hasPendingChanges() {
@@ -1546,6 +1504,13 @@ public class DlcPackManagerScreen extends DlcPackPageScreen {
 
     private void rebuildPackWidgets() { initControls(); refreshPage(); }
 
+    @Override public void removed() {
+        previewLoader.cancel();
+        if (scanning) controlsReady = false;
+        scanning = false;
+        super.removed();
+    }
+
     @Override
     public boolean shouldCloseOnEsc() {
         return !busy || paused;
@@ -1691,23 +1656,27 @@ public class DlcPackManagerScreen extends DlcPackPageScreen {
         @Override public void selectVersion(PackArchiveGroup group, String key) { selectPackVersion(group.identifier, key); }
         @Override public void move(int index, int direction) { moveEntry(index, direction); }
     };
-    @Override protected boolean canEditPacks() { return !busy && DlcConfig.isPackFuncOn(); }
+    @Override protected boolean canEditPacks() { return !busy && !scanning && DlcConfig.isPackFuncOn(); }
 
     private boolean controlsReady;
     private int pageRevision;
     @Override protected void buildPage() {
-        pageRevision = java.util.Objects.hash(archiveGroups, pendingInstalls, pendingUninstalls, busy, paused, cancelRequested);
+        pageRevision = java.util.Objects.hash(archiveGroups, pendingInstalls, pendingUninstalls, busy, paused, cancelRequested, scanning);
 
         if (!controlsReady) { controlsReady = true; refreshEntries(); initControls(); }
         var list = section(null, null);
-        live(content, () -> status == null ? "" : status.getString(), "page-description");
+        live(content, () -> scanning ? tr("dlc_manager.pack.reading") : status == null ? "" : status.getString(), "page-description");
 
         if (busy) {
             live(list, () -> operationStatus == null ? "" : operationStatus.getString(), "section-title"); live(list, () -> operationDetail == null ? "" : operationDetail.getString(), "page-description"); progress(list, () -> operationProgress);
             if (busyOperation == BusyOperation.APPLY) {
-                action(footer, tr(paused ? "dlc_manager.pack.continue_install" : "dlc_manager.pack.pause_install"), () -> { if (paused) resumePausedApply(); else requestPauseApplyOperation(); }).setEnabled(paused || !cancelRequested);
+                action(footer, tr(paused ? "dlc_manager.pack.continue_install" : "dlc_manager.pack.pause_install"), () -> { if (paused) resumePausedApply(); else requestPauseApplyOperation(); }).setEnabled(!scanning && (paused || !cancelRequested));
                 action(footer, tr("dlc_manager.pack.cancel_install"), this::requestCancelApplyOperation);
             } else action(footer, tr("dlc_manager.pack.cancel"), this::onBackOrCancel).setEnabled(!cancelRequested && busyOperation != BusyOperation.DELETE);
+            return;
+        }
+        if (scanning) {
+            action(footer, tr("dlc_manager.pack.back"), this::onBackOrCancel);
             return;
         }
         if (!DlcConfig.isPackFuncOn()) text(list, tr("dlc_manager.pack.disabled"), "page-warning");
@@ -1717,6 +1686,6 @@ public class DlcPackManagerScreen extends DlcPackPageScreen {
         renderPackFooter(importButton, urlButton, backButton, applyButton, hasPendingChanges());
         if (completeButton != null) mount(toolbar, completeButton);
     }
-    @Override protected void updatePage() { if (pageRevision != java.util.Objects.hash(archiveGroups, pendingInstalls, pendingUninstalls, busy, paused, cancelRequested)) refreshPage(); }
+    @Override protected void updatePage() { if (pageRevision != java.util.Objects.hash(archiveGroups, pendingInstalls, pendingUninstalls, busy, paused, cancelRequested, scanning)) refreshPage(); }
 
 }

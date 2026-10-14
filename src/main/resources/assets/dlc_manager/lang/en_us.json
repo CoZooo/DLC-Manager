@@ -531,6 +531,8 @@
   "dlc_manager.server.pack.manager_title": "Server DLC Pack Manager",
   "dlc_manager.server.pack.load_failed": "Failed to load DLC Pack list.",
   "dlc_manager.pack.quick_icon": "P",
+  "dlc_manager.pack.reading": "Reading DLC Pack information...",
+  "dlc_manager.pack.read_failed": "Failed to read DLC Pack information: %s",
   "dlc_manager.pack.manager_title": "DLC Pack Manager",
   "dlc_manager.pack.import": "Import DLC Pack",
   "dlc_manager.pack.import_url": "Download from URL",

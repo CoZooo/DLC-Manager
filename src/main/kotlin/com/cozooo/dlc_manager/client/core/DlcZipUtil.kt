@@ -6,6 +6,7 @@ import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Comparator
+import java.util.function.Predicate
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 
@@ -34,6 +35,12 @@ object DlcZipUtil {
     @JvmStatic
     @Throws(IOException::class)
     fun extractZip(zipPath: Path?, targetRoot: Path?) {
+        extractZip(zipPath, targetRoot, Predicate { true })
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun extractZip(zipPath: Path?, targetRoot: Path?, include: Predicate<String>) {
         if (zipPath == null || !Files.isRegularFile(zipPath)) {
             throw IOException("Archive is not a file")
         }
@@ -43,7 +50,7 @@ object DlcZipUtil {
         val normalizedRoot = targetRoot.toAbsolutePath().normalize()
         Files.createDirectories(normalizedRoot)
         ZipFile(zipPath.toFile(), StandardCharsets.UTF_8).use { zip ->
-            val entries = zip.entries().asSequence().sortedBy { it.name }.toList()
+            val entries = zip.entries().asSequence().filter { include.test(it.name.replace('\\', '/')) }.sortedBy { it.name }.toList()
             for (entry in entries) {
                 extractEntry(zip, entry, normalizedRoot)
             }

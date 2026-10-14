@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 public class DlcPackPackage {
     private static final String[] METADATA_DIRS = {"metadata", "dlcpack_metadata"};
@@ -38,21 +39,31 @@ public class DlcPackPackage {
     }
 
     public static Result inspect(Path path) {
+        return inspect(path, null);
+    }
+
+    public static Result inspectPreview(DlcPackArchive.ExtractResult preview) {
+        return inspect(preview.stagingDir, preview.manifestPaths);
+    }
+
+    private static Result inspect(Path path, Set<String> manifestPaths) {
         if (path == null || !Files.isDirectory(path)) {
             return Result.invalid("package root is not a directory");
         }
         Path root = path.toAbsolutePath().normalize();
-        Result cf = detectCurseForge(root);
+        Result cf = detectCurseForge(root, manifestPaths);
         if (cf.valid) {
             return cf;
         }
         return detectStandard(root);
     }
 
-    private static Result detectCurseForge(Path root) {
+    private static Result detectCurseForge(Path root, Set<String> manifestPaths) {
         for (Path candidate : contentRootCandidates(root)) {
             Path manifestFile = candidate.resolve("manifest.json");
-            if (!Files.exists(manifestFile) || !Files.isDirectory(candidate.resolve("overrides"))) {
+            boolean hasManifest = manifestPaths == null ? Files.exists(manifestFile)
+                : manifestPaths.contains(root.relativize(manifestFile).toString().replace('\\', '/'));
+            if (!hasManifest || !Files.isDirectory(candidate.resolve("overrides"))) {
                 continue;
             }
             MetadataLocation metadata = findCurseForgeMetadata(candidate);
@@ -63,7 +74,7 @@ public class DlcPackPackage {
             if (!parsed.valid || parsed.metadata == null) {
                 return Result.invalid(parsed.error == null ? "invalid pack.dc" : parsed.error);
             }
-            DlcPackManifest manifest = DlcPackManifest.read(manifestFile);
+            List<DlcPackManifest.FileRef> manifestFiles = manifestPaths == null ? DlcPackManifest.read(manifestFile).files : List.of();
             return Result.valid(new DlcPackPackage(
                 root,
                 Format.CURSEFORGE,
@@ -73,7 +84,7 @@ public class DlcPackPackage {
                 metadata.packFile,
                 metadata.iconFile,
                 manifestFile,
-                manifest.files,
+                manifestFiles,
                 parsed.metadata
             ));
         }

@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -19,6 +20,7 @@ public final class DlcPackArchive {
         "metadata/pack.dc",
         "dlcpack_metadata/pack.dc"
     };
+    private static final Set<String> PREVIEW_PATHS = previewPaths();
 
     private DlcPackArchive() {
     }
@@ -67,6 +69,57 @@ public final class DlcPackArchive {
             }
             throw new IOException("Failed to extract DLC Pack archive: " + normalizedZip, error);
         }
+    }
+
+    public static ExtractResult extractPreviewToStaging(Path zipPath, Path dlcRoot) throws IOException {
+        if (zipPath == null || !Files.isRegularFile(zipPath) || dlcRoot == null) {
+            throw new IOException("DLC Pack archive or root is not available");
+        }
+        Path staging = DlcZipUtil.createUniqueDir(dlcRoot.resolve("tmp").resolve("_staging"), "preview");
+        Set<String> overrides = new LinkedHashSet<>();
+        Set<String> manifests = new LinkedHashSet<>();
+        try {
+            DlcZipUtil.extractZip(zipPath, staging, name -> {
+                String[] parts = name.split("/");
+                if (name.equals("overrides/") || (parts.length > 1 && "overrides".equals(parts[0]))) overrides.add("overrides");
+                if (name.endsWith("/overrides/") && parts.length == 2) overrides.add(parts[0] + "/overrides");
+                if (parts.length > 2 && "overrides".equals(parts[1])) overrides.add(parts[0] + "/overrides");
+                if (isManifestEntry(name)) manifests.add(name);
+                return isPreviewEntry(name);
+            });
+            for (String dir : overrides) {
+                Path target = staging.resolve(dir).normalize();
+                if (target.startsWith(staging)) Files.createDirectories(target);
+            }
+            return new ExtractResult(staging, manifests);
+        } catch (Throwable error) {
+            DlcZipUtil.deleteRecursive(staging);
+            if (error instanceof IOException io) throw io;
+            throw new IOException("Failed to inspect DLC Pack archive: " + zipPath, error);
+        }
+    }
+
+    private static boolean isPreviewEntry(String name) {
+        if (PREVIEW_PATHS.contains(name)) return true;
+        int slash = name.indexOf('/');
+        return slash > 0 && PREVIEW_PATHS.contains(name.substring(slash + 1));
+    }
+
+    private static boolean isManifestEntry(String name) {
+        int slash = name.indexOf('/');
+        return name.equals("manifest.json") || (slash > 0 && name.substring(slash + 1).equals("manifest.json"));
+    }
+
+    private static Set<String> previewPaths() {
+        Set<String> paths = new HashSet<>();
+        for (String metadata : METADATA_PATHS) {
+            String dir = metadata.substring(0, metadata.lastIndexOf('/') + 1);
+            paths.add(metadata);
+            for (String extension : new String[] {"png", "jpg", "jpeg", "icn", "ico", "webp"}) {
+                paths.add(dir + "icon." + extension);
+            }
+        }
+        return Set.copyOf(paths);
     }
 
     private static String readIdentifier(Path zipPath) {
@@ -141,9 +194,15 @@ public final class DlcPackArchive {
 
     public static final class ExtractResult {
         public final Path stagingDir;
+        public final Set<String> manifestPaths;
 
         public ExtractResult(Path stagingDir) {
+            this(stagingDir, Set.of());
+        }
+
+        public ExtractResult(Path stagingDir, Set<String> manifestPaths) {
             this.stagingDir = stagingDir;
+            this.manifestPaths = Set.copyOf(manifestPaths);
         }
     }
 }

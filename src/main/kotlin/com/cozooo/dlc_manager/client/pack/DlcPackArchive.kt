@@ -14,6 +14,13 @@ object DlcPackArchive {
         "metadata/pack.dc",
         "dlcpack_metadata/pack.dc",
     )
+    private val PREVIEW_PATHS = buildSet {
+        for (metadata in METADATA_PATHS) {
+            add(metadata)
+            val dir = metadata.substringBeforeLast('/') + "/"
+            for (extension in arrayOf("png", "jpg", "jpeg", "icn", "ico", "webp")) add("${dir}icon.$extension")
+        }
+    }
 
     @JvmStatic @Throws(IOException::class)
     fun findArchives(dlcRoot: Path): List<Path> {
@@ -59,6 +66,46 @@ object DlcPackArchive {
             }
             throw IOException("Failed to extract DLC Pack archive: $normalizedZip", error)
         }
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun extractPreviewToStaging(zipPath: Path?, dlcRoot: Path?): ExtractResult {
+        if (zipPath == null || !Files.isRegularFile(zipPath) || dlcRoot == null) {
+            throw IOException("DLC Pack archive or root is not available")
+        }
+        val staging = DlcZipUtil.createUniqueDir(dlcRoot.resolve("tmp").resolve("_staging"), "preview")
+        val overrides = LinkedHashSet<String>()
+        val manifests = LinkedHashSet<String>()
+        try {
+            DlcZipUtil.extractZip(zipPath, staging) { name ->
+                val parts = name.split('/')
+                if (parts.size > 1 && parts[0] == "overrides") overrides.add("overrides")
+                if (parts.size > 2 && parts[1] == "overrides") overrides.add("${parts[0]}/overrides")
+                if (isManifestEntry(name)) manifests.add(name)
+                isPreviewEntry(name)
+            }
+            for (dir in overrides) {
+                val target = staging.resolve(dir).normalize()
+                if (target.startsWith(staging)) Files.createDirectories(target)
+            }
+            return ExtractResult(staging, manifests.toSet())
+        } catch (error: Throwable) {
+            DlcZipUtil.deleteRecursive(staging)
+            if (error is IOException) throw error
+            throw IOException("Failed to inspect DLC Pack archive: $zipPath", error)
+        }
+    }
+
+    private fun isManifestEntry(name: String): Boolean {
+        val slash = name.indexOf('/')
+        return name == "manifest.json" || (slash > 0 && name.substring(slash + 1) == "manifest.json")
+    }
+
+    private fun isPreviewEntry(name: String): Boolean {
+        if (name in PREVIEW_PATHS) return true
+        val slash = name.indexOf('/')
+        return slash > 0 && name.substring(slash + 1) in PREVIEW_PATHS
     }
 
     private fun readIdentifier(zipPath: Path): String? {
@@ -127,7 +174,8 @@ object DlcPackArchive {
         DlcZipUtil.deleteRecursive(path)
     }
 
-    class ExtractResult(
+    class ExtractResult @JvmOverloads constructor(
         @JvmField val stagingDir: Path,
+        @JvmField val manifestPaths: Set<String> = emptySet(),
     )
 }

@@ -531,6 +531,8 @@
   "dlc_manager.server.pack.manager_title": "服务端拓展包管理器",
   "dlc_manager.server.pack.load_failed": "拓展包列表加载失败。",
   "dlc_manager.pack.quick_icon": "P",
+  "dlc_manager.pack.reading": "正在读取拓展包信息...",
+  "dlc_manager.pack.read_failed": "读取拓展包信息失败：%s",
   "dlc_manager.pack.manager_title": "拓展包管理器",
   "dlc_manager.pack.import": "导入拓展包",
   "dlc_manager.pack.import_url": "从URL下载",

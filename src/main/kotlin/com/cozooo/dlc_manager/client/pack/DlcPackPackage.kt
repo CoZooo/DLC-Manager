@@ -28,23 +28,29 @@ class DlcPackPackage(
         private val ICON_EXTENSIONS = arrayOf("png", "jpg", "jpeg", "icn", "ico", "webp")
 
         @JvmStatic
-        fun inspect(path: Path?): Result {
+        fun inspect(path: Path?): Result = inspect(path, null)
+
+        @JvmStatic
+        fun inspectPreview(preview: DlcPackArchive.ExtractResult): Result = inspect(preview.stagingDir, preview.manifestPaths)
+
+        private fun inspect(path: Path?, manifestPaths: Set<String>?): Result {
             if (path == null || !Files.isDirectory(path)) {
                 return Result.invalid("package root is not a directory")
             }
             val root = path.toAbsolutePath().normalize()
-            val cf = detectCurseForge(root)
+            val cf = detectCurseForge(root, manifestPaths)
             if (cf.valid) {
                 return cf
             }
             return detectStandard(root)
         }
 
-        private fun detectCurseForge(root: Path): Result {
+        private fun detectCurseForge(root: Path, manifestPaths: Set<String>?): Result {
             val candidates = contentRootCandidates(root)
             for (candidate in candidates) {
                 val manifestFile = candidate.resolve("manifest.json")
-                if (!Files.exists(manifestFile) || !Files.isDirectory(candidate.resolve("overrides"))) {
+                val hasManifest = manifestPaths?.contains(root.relativize(manifestFile).toString().replace('\\', '/')) ?: Files.exists(manifestFile)
+                if (!hasManifest || !Files.isDirectory(candidate.resolve("overrides"))) {
                     continue
                 }
                 val metadata = findCurseForgeMetadata(candidate) ?: continue
@@ -62,7 +68,7 @@ class DlcPackPackage(
                         metadata.packFile,
                         metadata.iconFile,
                         manifestFile,
-                        DlcPackManifest.read(manifestFile).files,
+                        if (manifestPaths == null) DlcPackManifest.read(manifestFile).files else emptyList(),
                         parsed.metadata,
                     )
                 )

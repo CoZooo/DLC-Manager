@@ -10,6 +10,7 @@ import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.client.download.DlcDownloadService
 import com.cozooo.dlc_manager.client.pack.DlcPackArchive
+import com.cozooo.dlc_manager.client.pack.DlcPackPreviewLoader
 import com.cozooo.dlc_manager.client.pack.DlcPackCFResolver
 import com.cozooo.dlc_manager.client.pack.DlcPackInstaller
 import com.cozooo.dlc_manager.client.pack.DlcPackInstallPlan
@@ -17,7 +18,6 @@ import com.cozooo.dlc_manager.client.pack.DlcPackMeta
 import com.cozooo.dlc_manager.client.pack.DlcPackMetadata
 import com.cozooo.dlc_manager.client.pack.DlcPackOrder
 import com.cozooo.dlc_manager.client.pack.DlcPackPackage
-import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator
 import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
 import com.cozooo.dlc_manager.core.DlcConfig
@@ -75,6 +75,8 @@ class DlcPackManagerScreen(
     private val pausedReinstallIdentifiers = LinkedHashSet<String>()
     @Volatile private var activeReinstallIdentifiers: Set<String> = emptySet()
     private var iconTextureSerial = 0
+    private val previewLoader = DlcPackPreviewLoader()
+    private var scanning = false
 
     private fun initControls() {
 
@@ -961,10 +963,35 @@ class DlcPackManagerScreen(
     private fun refreshEntries() {
         val pendingInstallKeys = pendingInstalls.mapValues { it.value.key }
         releaseIconTextures()
-        uninstallIncompatibleInstalledPacks()
-        installedByIdentifier = loadInstalledPacks()
-        val scanned = scanPackArchives()
-        val saved = DlcPackOrder.load(packOrderPath())
+        scanning = true
+        previewLoader.load(DlcPaths.gameDir(), DlcPaths.dlcRoot(), packOrderPath(), Minecraft.getInstance(), { snapshot ->
+            scanning = false
+            if (Minecraft.getInstance().screen !== this) {
+                controlsReady = false
+            } else {
+                applyPreviewSnapshot(snapshot, pendingInstallKeys)
+                rebuildPackWidgets()
+            }
+        }, { error ->
+            scanning = false
+            if (Minecraft.getInstance().screen !== this) {
+                controlsReady = false
+            } else {
+                status = DlcTextCompat.translatable("dlc_manager.pack.read_failed", describeFailure(error))
+                rebuildPackWidgets()
+            }
+        })
+    }
+
+    private fun applyPreviewSnapshot(snapshot: DlcPackPreviewLoader.Snapshot, pendingInstallKeys: Map<String, String>) {
+        if (snapshot.compatibilityError != null) {
+            status = DlcTextCompat.translatable("dlc_manager.pack.auto_uninstall_failed", describeFailure(snapshot.compatibilityError))
+        } else if (snapshot.uninstalled > 0) {
+            status = DlcTextCompat.translatable("dlc_manager.pack.auto_uninstalled_incompatible", snapshot.uninstalled)
+        }
+        installedByIdentifier = snapshot.installed
+        val scanned = groupArchiveEntries(snapshot.previews.map(::createPreviewEntry))
+        val saved = snapshot.savedOrder
         val preserveCurrentOrder = currentArchiveOrder.isNotEmpty() && hasOrderChanges()
         val normalizedSaved = normalizeGroupOrder(saved, scanned)
         if (!orderSnapshotInitialized) {
@@ -1033,25 +1060,6 @@ class DlcPackManagerScreen(
 
     private fun sortArchiveGroupsByCurrentOrder() {
         archiveGroups = archiveGroups.sortedBy { orderIndex(it.orderKey) }
-    }
-
-    private fun scanPackArchives(): List<PackArchiveGroup> {
-        val packRoot = DlcPaths.dlcRoot().resolve("pack")
-        try {
-            Files.createDirectories(packRoot)
-        } catch (_: IOException) {
-        }
-        val out = ArrayList<PackArchiveEntry>()
-        try {
-            DlcPackArchive.findArchives(DlcPaths.dlcRoot()).stream().use { stream ->
-                stream.filter { Files.isRegularFile(it) }
-                    .filter { it.fileName.toString().lowercase(Locale.ROOT).endsWith(".zip") }
-                    .sorted { a, b -> a.fileName.toString().lowercase(Locale.ROOT).compareTo(b.fileName.toString().lowercase(Locale.ROOT)) }
-                    .forEach { inspectArchive(it)?.let(out::add) }
-            }
-        } catch (_: Exception) {
-        }
-        return groupArchiveEntries(out)
     }
 
     private fun groupArchiveEntries(entries: List<PackArchiveEntry>): List<PackArchiveGroup> {
@@ -1128,32 +1136,22 @@ class DlcPackManagerScreen(
         return archiveGroups.firstOrNull { it.identifier == identifier }
     }
 
-    private fun inspectArchive(archive: Path): PackArchiveEntry? {
-        var staging: Path? = null
-        return try {
-            staging = DlcPackArchive.extractToStaging(archive, DlcPaths.dlcRoot()).stagingDir
-            val result = DlcPackPackage.inspect(staging)
-            val pack = result.pack
-            if (!result.valid || pack == null) return null
-            val lang = Minecraft.getInstance().options.languageCode
-            val displayName = DlcTextFormatter.parse(pack.metadata.resolveDisplayName(lang))
-            val description = DlcMarkdownRenderer.renderMarkdownComponent(pack.metadata.resolveDescription(lang))
-            val authors = pack.metadata.authors.ifEmpty { listOf(DlcTextCompat.translatable("dlc_manager.pack.unknown_author").string) }
-            val author = DlcTextFormatter.parse(authors.joinToString(", "))
-            val icon = loadIconTexture(pack.iconFile)
-            PackArchiveEntry(archive.toAbsolutePath().normalize(), archiveOrderPath(archive), pack.metadata, displayName, description, author, authors, icon?.location, icon?.width ?: 0, icon?.height ?: 0)
-        } catch (_: Exception) {
-            null
-        } finally {
-            DlcPackArchive.deleteRecursive(staging)
-        }
+    private fun createPreviewEntry(preview: DlcPackPreviewLoader.Preview): PackArchiveEntry {
+        val lang = Minecraft.getInstance().options.languageCode
+        val displayName = DlcTextFormatter.parse(preview.metadata.resolveDisplayName(lang))
+        val description = DlcMarkdownRenderer.renderMarkdownComponent(preview.metadata.resolveDescription(lang))
+        val authors = preview.metadata.authors.ifEmpty { listOf(DlcTextCompat.translatable("dlc_manager.pack.unknown_author").string) }
+        val author = DlcTextFormatter.parse(authors.joinToString(", "))
+        val icon = loadIconTexture(preview.icon)
+        return PackArchiveEntry(preview.archive, archiveOrderPath(preview.archive), preview.metadata, displayName, description, author, authors,
+            icon?.location, icon?.width ?: 0, icon?.height ?: 0)
     }
 
-    private fun loadIconTexture(iconFile: Path?): IconTexture? {
-        if (iconFile == null || !Files.isRegularFile(iconFile)) return null
+    private fun loadIconTexture(icon: ByteArray?): IconTexture? {
+        if (icon == null) return null
         var image: NativeImage? = null
         return try {
-            Files.newInputStream(iconFile).use { input ->
+            java.io.ByteArrayInputStream(icon).use { input ->
                 image = NativeImage.read(input)
             }
             val loaded = image ?: return null
@@ -1177,33 +1175,6 @@ class DlcPackManagerScreen(
             }
         }
         archiveGroups = emptyList()
-    }
-
-    private fun loadInstalledPacks(): Map<String, DlcPackMeta> {
-        val packRoot = DlcPaths.dlcRoot().resolve("tmp").resolve("pack")
-        val out = HashMap<String, DlcPackMeta>()
-        if (!Files.isDirectory(packRoot)) return out
-        try {
-            Files.list(packRoot).use { stream ->
-                stream.filter { Files.isDirectory(it) }.forEach {
-                    val meta = DlcPackMeta.load(it.resolve("meta.dc"))
-                    if (meta != null) out[meta.identifier] = meta
-                }
-            }
-        } catch (_: Exception) {
-        }
-        return out
-    }
-
-    private fun uninstallIncompatibleInstalledPacks() {
-        try {
-            val reports = DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot()).uninstallIncompatibleForCurrentVersion()
-            if (reports.isNotEmpty()) {
-                status = DlcTextCompat.translatable("dlc_manager.pack.auto_uninstalled_incompatible", reports.size)
-            }
-        } catch (ex: Exception) {
-            status = DlcTextCompat.translatable("dlc_manager.pack.auto_uninstall_failed", ex.message ?: ex.javaClass.simpleName)
-        }
     }
 
     private fun hasPendingChanges(): Boolean = hasPackOperationChanges() || hasOrderChanges()
@@ -1349,6 +1320,13 @@ class DlcPackManagerScreen(
 
     private fun rebuildPackWidgets() { initControls(); refreshPage() }
 
+    override fun removed() {
+        previewLoader.cancel()
+        if (scanning) controlsReady = false
+        scanning = false
+        super.removed()
+    }
+
     override fun shouldCloseOnEsc(): Boolean = !busy || paused
 
     override fun onClose() {
@@ -1460,23 +1438,27 @@ class DlcPackManagerScreen(
         override fun selectVersion(group: PackArchiveGroup, key: String) { selectPackVersion(group.identifier, key) }
         override fun move(index: Int, direction: Int) { moveEntry(index, direction) }
     }
-    override fun canEditPacks(): Boolean = !busy && DlcConfig.isPackFuncOn()
+    override fun canEditPacks(): Boolean = !busy && !scanning && DlcConfig.isPackFuncOn()
 
     private var controlsReady = false
     private var pageRevision = 0
     override fun buildPage() {
-        pageRevision = archiveGroups.hashCode() + pendingInstalls.hashCode() + pendingUninstalls.hashCode() + busy.hashCode() + paused.hashCode() + cancelRequested.hashCode()
+        pageRevision = archiveGroups.hashCode() + pendingInstalls.hashCode() + pendingUninstalls.hashCode() + busy.hashCode() + paused.hashCode() + cancelRequested.hashCode() + scanning.hashCode()
 
         if (!controlsReady) { controlsReady = true; refreshEntries(); initControls() }
         val list = section(null, null)
-        live(content, { status?.string }, "page-description")
+        live(content, { if (scanning) tr("dlc_manager.pack.reading") else status?.string }, "page-description")
 
         if (busy) {
             live(list, { operationStatus?.string }, "section-title"); live(list, { operationDetail?.string }, "page-description"); progress(list) { operationProgress.toDouble() }
             if (busyOperation == BusyOperation.APPLY) {
-                action(footer, tr(if (paused) "dlc_manager.pack.continue_install" else "dlc_manager.pack.pause_install")) { if (paused) resumePausedApply() else requestPauseApplyOperation() }.setEnabled(paused || !cancelRequested)
+                action(footer, tr(if (paused) "dlc_manager.pack.continue_install" else "dlc_manager.pack.pause_install")) { if (paused) resumePausedApply() else requestPauseApplyOperation() }.setEnabled(!scanning && (paused || !cancelRequested))
                 action(footer, tr("dlc_manager.pack.cancel_install")) { requestCancelApplyOperation() }
             } else action(footer, tr("dlc_manager.pack.cancel")) { onBackOrCancel() }.setEnabled(!cancelRequested && busyOperation != BusyOperation.DELETE)
+            return
+        }
+        if (scanning) {
+            action(footer, tr("dlc_manager.pack.back")) { onBackOrCancel() }
             return
         }
         if (!DlcConfig.isPackFuncOn()) text(list, tr("dlc_manager.pack.disabled"), "page-warning")
@@ -1486,6 +1468,6 @@ class DlcPackManagerScreen(
         renderPackFooter(importButton, urlButton, backButton, applyButton, hasPendingChanges())
         completeButton?.let { mount(toolbar, it) }
     }
-    override fun updatePage() { if (pageRevision != archiveGroups.hashCode() + pendingInstalls.hashCode() + pendingUninstalls.hashCode() + busy.hashCode() + paused.hashCode() + cancelRequested.hashCode()) refreshPage() }
+    override fun updatePage() { if (pageRevision != archiveGroups.hashCode() + pendingInstalls.hashCode() + pendingUninstalls.hashCode() + busy.hashCode() + paused.hashCode() + cancelRequested.hashCode() + scanning.hashCode()) refreshPage() }
 
 }
