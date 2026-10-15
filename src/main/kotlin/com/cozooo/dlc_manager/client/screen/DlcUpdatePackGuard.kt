@@ -3,6 +3,7 @@ package com.cozooo.dlc_manager.client.screen
 import com.cozooo.dlc_manager.platform.DlcTextCompat
 
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard
+import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage
 import com.cozooo.dlc_manager.core.DlcPaths
 import net.minecraft.client.Minecraft
@@ -15,10 +16,18 @@ object DlcUpdatePackGuard {
         packages: List<DlcUpdatePackage?>?,
         handler: DecisionHandler,
     ) {
+        val unknown = DlcUpdateService.unknownParameters(packages)
+        if (unknown.isNotEmpty()) {
+            Minecraft.getInstance().setScreen(DlcUpdateCompatibilityScreen(returnScreen, unknown) { action ->
+                packages.orEmpty().filterNotNull().forEach { it.setCompatibilityAction(action) }
+                confirmBeforeUpdate(returnScreen, packages, handler)
+            })
+            return
+        }
         val target = resolveTargetVersion(packages)
         val check = DlcPackUpdateGuard.check(DlcPaths.dlcRoot(), target.base, target.dlc)
         if (!check.hasInstalledPacks() || !check.hasIncompatiblePacks()) {
-            handler.proceed(check, false)
+            proceed(packages, handler, check, false)
             return
         }
         val title = DlcTextCompat.translatable("dlc_manager.pack.manager_title")
@@ -27,12 +36,17 @@ object DlcUpdatePackGuard {
             DlcConfirmScreen({ accepted ->
                 if (accepted) {
                     Minecraft.getInstance().setScreen(returnScreen)
-                    handler.proceed(check, true)
+                    proceed(packages, handler, check, true)
                 } else {
                     Minecraft.getInstance().setScreen(returnScreen)
                 }
             }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()),
         )
+    }
+
+    private fun proceed(packages: List<DlcUpdatePackage?>?, handler: DecisionHandler, check: DlcPackUpdateGuard.CheckResult?, uninstall: Boolean) {
+        packages.orEmpty().filterNotNull().forEach { it.setAllowUninstallPacks(uninstall) }
+        handler.proceed(check, uninstall)
     }
 
     fun resolveTargetVersion(packages: List<DlcUpdatePackage?>?): TargetVersion {

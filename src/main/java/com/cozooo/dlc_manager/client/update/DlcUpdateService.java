@@ -65,6 +65,7 @@ public final class DlcUpdateService {
     private static final String PLATFORM_CLIENT = "client";
     private static final String PLATFORM_SERVER = "server";
     private static final String PLATFORM_UNIVERSAL = "universal";
+    private static final ThreadLocal<Boolean> RESUMING = new ThreadLocal<>();
     private static final ThreadLocal<UpdateContext> CURRENT_UPDATE_CONTEXT = new ThreadLocal<>();
     private static final ThreadLocal<ApplyProgressListener> CURRENT_PROGRESS_LISTENER = new ThreadLocal<>();
 
@@ -253,6 +254,27 @@ public final class DlcUpdateService {
         }
     }
 
+    public static UpdateApplyResult resumeUpdates(List<DlcUpdatePackage> packages, boolean forceMissing, ApplyProgressListener listener) {
+        RESUMING.set(true);
+        try { return applyUpdates(packages, forceMissing, listener); }
+        finally { RESUMING.remove(); }
+    }
+
+    public static boolean willDefer(List<DlcUpdatePackage> packages) {
+        return !Boolean.TRUE.equals(RESUMING.get()) && packages != null && packages.stream().anyMatch(pkg -> pkg != null
+            && (pkg.getManifest().isUpdateDLCM() || pkg.getCompatibilityAction() == DlcUpdatePackage.CompatibilityAction.UPDATE_MANAGER));
+    }
+
+    public static List<String> unknownParameters(List<DlcUpdatePackage> packages) {
+        if (packages == null) return List.of();
+        List<String> unknown = new ArrayList<>();
+        for (DlcUpdatePackage pkg : packages) {
+            if (pkg == null || pkg.getManifest() == null || pkg.getCompatibilityAction() != DlcUpdatePackage.CompatibilityAction.ASK) continue;
+            for (String parameter : pkg.getManifest().getUnknownParameters()) unknown.add(pkg.getName() + ": " + parameter);
+        }
+        return List.copyOf(unknown);
+    }
+
     public static String toFailureMessage(UpdateApplyResult result) {
         return toFailureUpdateMessage(result).asPlainString();
     }
@@ -289,6 +311,9 @@ public final class DlcUpdateService {
         if (packages == null || packages.isEmpty()) {
             return UpdateApplyResult.empty();
         }
+        if (packages.stream().anyMatch(pkg -> pkg == null || pkg.getManifest() == null)) return UpdateApplyResult.failed("Missing update manifest");
+        List<String> unknown = unknownParameters(packages);
+        if (!unknown.isEmpty()) return UpdateApplyResult.compatibility(unknown);
         notifyApplyProgress("Applying update...", -1f);
         Path dlcRoot = getDlcRoot();
         DlcUpdateVersion current = DlcUpdateVersion.load(dlcRoot);
@@ -296,13 +321,13 @@ public final class DlcUpdateService {
         boolean addedRemote = false;
         boolean helperScheduled = false;
         boolean dlcManagerUpdated = false;
-        boolean requiresDlcManagerUpdate = packages.stream().anyMatch(pkg ->
-            pkg != null && pkg.getManifest() != null && pkg.getManifest().isUpdateDLCM());
+        boolean latestManager = packages.stream().anyMatch(pkg -> pkg != null && pkg.getCompatibilityAction() == DlcUpdatePackage.CompatibilityAction.UPDATE_MANAGER);
+        boolean requiresDlcManagerUpdate = willDefer(packages);
         LinkedHashSet<String> requestedDlcManagerVersions = collectRequestedDlcManagerVersions(packages);
-        if (requestedDlcManagerVersions.size() > 1) {
+        if (requiresDlcManagerUpdate && !latestManager && requestedDlcManagerVersions.size() > 1) {
             return UpdateApplyResult.failed("Conflicting UpdateDLCM versions in update chain");
         }
-        String requiredDlcManagerVersion = requestedDlcManagerVersions.stream().findFirst().orElse(null);
+        String requiredDlcManagerVersion = latestManager ? null : requestedDlcManagerVersions.stream().findFirst().orElse(null);
         if (requiresDlcManagerUpdate) {
             String progressMessage = requiredDlcManagerVersion == null
                 ? "Downloading DLC Manager update..."
@@ -314,6 +339,12 @@ public final class DlcUpdateService {
             }
             helperScheduled = helperScheduled || managerResult.helperScheduled;
             dlcManagerUpdated = managerResult.dlcManagerUpdated;
+            try {
+                DlcPendingUpdate.schedule(packages, forceMissing);
+                return UpdateApplyResult.pending(managerResult.dlcManagerUpdated);
+            } catch (IOException exception) {
+                return UpdateApplyResult.failed(exception.getMessage());
+            }
         }
         for (DlcUpdatePackage pkg : packages) {
             UpdateApplyResult result = applyUpdate(pkg, current, forceMissing);
@@ -334,6 +365,7 @@ public final class DlcUpdateService {
         if (check == null) {
             return UpdateApplyResult.failed("Failed to check DLC Manager update");
         }
+        if (check.checkFailed) return UpdateApplyResult.failed("Failed to check DLC Manager update");
         if (check.missingRequestedVersion) {
             return UpdateApplyResult.failed("Failed to find DLC Manager version: " + targetVersion);
         }
@@ -374,6 +406,11 @@ public final class DlcUpdateService {
         if (pkg == null || pkg.getManifest() == null) {
             return UpdateApplyResult.failed("Missing update manifest");
         }
+        if (pkg.getCompatibilityAction() == DlcUpdatePackage.CompatibilityAction.ASK && !pkg.getManifest().getUnknownParameters().isEmpty()) {
+            return UpdateApplyResult.compatibility(pkg.getManifest().getUnknownParameters());
+        }
+        if (willDefer(List.of(pkg))) return applyUpdates(List.of(pkg), forceMissing);
+        forceMissing = forceMissing || pkg.getCompatibilityAction() == DlcUpdatePackage.CompatibilityAction.IGNORE;
         DlcUpdateManifest manifest = pkg.getManifest();
         DlcUpdateManifest.VersionInfo info = manifest.getVersion();
         if (info == null) {
@@ -1121,6 +1158,7 @@ public final class DlcUpdateService {
                 continue;
             }
             for (Path target : hashIndex.findDeleteMatches(gameDir, raw, ops.getDeleteHashes().get(raw))) {
+                DlcUpdateJournal.beforeOperation(target);
                 String actualRelative = DlcPathUtil.toGameRelativePath(target);
                 backupPath(actualRelative, target, context);
                 handleSpecialDelete(target, raw, context);
@@ -1162,6 +1200,7 @@ public final class DlcUpdateService {
             if (target == null) {
                 continue;
             }
+            DlcUpdateJournal.beforeOperation(target);
             boolean sourceIsDir = add.isSourceDir() || Files.isDirectory(source);
             boolean targetIsDir = add.getAppliedTarget() != null && add.getAppliedTarget().endsWith("/");
             if (sourceIsDir) {
@@ -1208,6 +1247,8 @@ public final class DlcUpdateService {
             if (toIsDirHint || Files.isDirectory(to)) {
                 to = to.resolve(from.getFileName().toString());
             }
+            DlcUpdateJournal.beforeOperation(from);
+            DlcUpdateJournal.beforeOperation(to);
             boolean destExisted = Files.exists(to);
             backupPath(DlcPathUtil.toGameRelativePath(from), from, context);
             if (destExisted) {
@@ -1313,6 +1354,7 @@ public final class DlcUpdateService {
                 }
                 throw new IllegalStateException("Missing modify target");
             }
+            DlcUpdateJournal.beforeOperation(target);
             backupPath(entry.getTargetPath(), target, context);
             String content = readString(target);
             if (content == null) {
@@ -2133,11 +2175,13 @@ public final class DlcUpdateService {
         if (path == null || obj == null) {
             return;
         }
+        DlcUpdateJournal.beforeWrite(path);
         if (DlcDcConfigIO.write(path, obj, layoutForPath(path))) {
             return;
         }
         Path target = DlcDcConfigIO.toDcPath(path);
         String serialized = serializeJsonForPath(target, obj);
+        if (DlcUpdateJournal.isActive()) throw new IllegalStateException("Pending update file operation failed: " + target);
         DlcFileOpsHelperClient.FileOpResult result = DlcFileOpsHelperClient.scheduleWriteText(target, serialized);
         if (result.ok()) {
             markHelperScheduled();
@@ -3006,6 +3050,7 @@ public final class DlcUpdateService {
     }
 
     public static void deleteRecursive(Path path) {
+        DlcUpdateJournal.beforeWrite(path);
         if (path == null || !Files.exists(path)) {
             return;
         }
@@ -3061,12 +3106,17 @@ public final class DlcUpdateService {
     }
 
     private static boolean deleteWithHelperFallback(Path path) {
+        DlcUpdateJournal.beforeWrite(path);
         if (path == null) {
             return false;
         }
         try {
             return Files.deleteIfExists(path) || !Files.exists(path);
         } catch (IOException ignored) {
+            if (DlcUpdateJournal.isActive()) {
+                recordFileOpFailure(CURRENT_UPDATE_CONTEXT.get(), "Pending update file operation failed", path, "delete");
+                return false;
+            }
             DlcFileOpsHelperClient.FileOpResult result = DlcFileOpsHelperClient.scheduleDelete(path);
             if (result.ok()) {
                 markHelperScheduled();
@@ -3078,6 +3128,7 @@ public final class DlcUpdateService {
     }
 
     private static boolean copyWithHelperFallback(Path source, Path target, boolean replaceExisting) {
+        DlcUpdateJournal.beforeWrite(target);
         if (source == null || target == null) {
             return false;
         }
@@ -3092,6 +3143,10 @@ public final class DlcUpdateService {
             }
             return true;
         } catch (IOException ignored) {
+            if (DlcUpdateJournal.isActive()) {
+                recordFileOpFailure(CURRENT_UPDATE_CONTEXT.get(), "Pending update file operation failed", target, "copy");
+                return false;
+            }
             DlcFileOpsHelperClient.FileOpResult result = DlcFileOpsHelperClient.scheduleCopy(source, target, replaceExisting);
             if (result.ok()) {
                 markHelperScheduled();
@@ -3103,6 +3158,8 @@ public final class DlcUpdateService {
     }
 
     private static boolean moveWithHelperFallback(Path source, Path target, boolean replaceExisting) {
+        DlcUpdateJournal.beforeWrite(source);
+        DlcUpdateJournal.beforeWrite(target);
         if (source == null || target == null) {
             return false;
         }
@@ -3117,6 +3174,10 @@ public final class DlcUpdateService {
             }
             return true;
         } catch (IOException ignored) {
+            if (DlcUpdateJournal.isActive()) {
+                recordFileOpFailure(CURRENT_UPDATE_CONTEXT.get(), "Pending update file operation failed", target, "move");
+                return false;
+            }
             DlcFileOpsHelperClient.FileOpResult result = DlcFileOpsHelperClient.scheduleMove(source, target, replaceExisting);
             if (result.ok()) {
                 markHelperScheduled();
@@ -3128,6 +3189,7 @@ public final class DlcUpdateService {
     }
 
     private static void copyRecursive(Path source, Path target) {
+        DlcUpdateJournal.beforeWrite(target);
         if (source == null || target == null) {
             return;
         }
@@ -3214,6 +3276,7 @@ public final class DlcUpdateService {
     }
 
     private static void copyDirectory(Path source, Path target, boolean override) {
+        DlcUpdateJournal.beforeWrite(target);
         if (source == null || target == null) {
             return;
         }
@@ -3274,6 +3337,7 @@ public final class DlcUpdateService {
     }
 
     private static void writeString(Path path, String content) {
+        DlcUpdateJournal.beforeWrite(path);
         try {
             if (path.getParent() != null) {
                 Files.createDirectories(path.getParent());
@@ -3965,6 +4029,7 @@ public final class DlcUpdateService {
             if (path == null || obj == null) {
                 return;
             }
+            DlcUpdateJournal.beforeWrite(path);
             DlcDcConfigIO.write(path, obj, layoutForPath(path));
         }
     }
@@ -3992,6 +4057,12 @@ public final class DlcUpdateService {
     }
 
     public static class UpdateApplyResult {
+        private boolean pendingUpdate;
+        private List<String> compatibilityParameters = List.of();
+        public boolean isPendingUpdate() { return pendingUpdate; }
+        public boolean isCompatibilityRequired() { return !compatibilityParameters.isEmpty(); }
+        public List<String> getCompatibilityParameters() { return compatibilityParameters; }
+
         private final boolean success;
         private final boolean missing;
         private final String message;
@@ -4023,6 +4094,18 @@ public final class DlcUpdateService {
 
         static UpdateApplyResult missing(List<String> missingPaths) {
             return new UpdateApplyResult(false, true, "missing", missingPaths, false, false, false, false);
+        }
+
+        static UpdateApplyResult pending(boolean managerUpdated) {
+            UpdateApplyResult result = success("pending", false, false, false, managerUpdated);
+            result.pendingUpdate = true;
+            return result;
+        }
+
+        static UpdateApplyResult compatibility(List<String> unknown) {
+            UpdateApplyResult result = failed("Unknown update parameters: " + String.join(", ", unknown));
+            result.compatibilityParameters = List.copyOf(unknown);
+            return result;
         }
 
         static UpdateApplyResult empty() {

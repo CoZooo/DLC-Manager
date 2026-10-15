@@ -66,16 +66,78 @@ java { toolchain.languageVersion.set(JavaLanguageVersion.of(21)) }
 tasks.withType<JavaCompile>().configureEach { options.release.set(17) }
 
 val sharedClasses = listOf(
-    "bootstrap/DlcEarlyInstaller", "bootstrap/DlcDistributionPaths", "bootstrap/DlcStartupRequirements",
-    "client/download/DlcCurseForgeClient", "client/download/DlcModrinthClient",
-    "client/download/DlcDownloadCandidate", "client/download/DlcDownloadHeaderUtil",
-    "client/download/DlcDownloadService", "client/download/DlcDownloadUtil", "client/download/DlcSharedService",
+    "bootstrap/DlcDistributionPaths",
+    "bootstrap/DlcEarlyInstaller",
+    "bootstrap/DlcStartupRequirements",
+    "client/core/DlcZipUtil",
+    "client/download/DlcCurseForgeClient",
+    "client/download/DlcDownloadCandidate",
+    "client/download/DlcDownloadHeaderUtil",
+    "client/download/DlcDownloadService",
+    "client/download/DlcDownloadUtil",
+    "client/download/DlcModrinthClient",
+    "client/download/DlcSharedService",
+    "client/helper/DlcFileOpsHelperClient",
+    "client/pack/DlcPackArchive",
+    "client/pack/DlcPackCFResolver",
+    "client/pack/DlcPackDcFiles",
+    "client/pack/DlcPackInstallPlan",
+    "client/pack/DlcPackInstaller",
+    "client/pack/DlcPackManifest",
+    "client/pack/DlcPackMeta",
+    "client/pack/DlcPackMetadata",
+    "client/pack/DlcPackPackage",
+    "client/pack/DlcPackRecovery",
+    "client/pack/DlcPackTransaction",
+    "client/pack/DlcPackUpdateCoordinator",
+    "client/pack/DlcPackUpdateGuard",
+    "client/preset/DlcPresetEntry",
+    "client/preset/DlcPresetLoader",
+    "client/preset/DlcPresetRuntimeState",
+    "client/preset/DlcPresetStateStore",
+    "client/preset/DlcPresetStatus",
     "client/remote/DlcRemoteEntry",
-    "client/required/DlcRequiredDependency", "client/required/DlcRequiredEntry", "client/required/DlcRequiredLoader",
-    "client/required/DlcRequiredRuntime", "client/required/DlcRequiredRuntimeState", "client/required/DlcRequiredService",
-    "core/DlcFileMatch", "core/DlcResourceHistory",
-    "core/DlcConfig", "core/DlcDcConfigIO", "core/DlcDcFormatUtil", "core/DlcPaths", "core/DlcType",
-    "platform/DlcPlatformServices", "platform/PlatformServices",
+    "client/remote/DlcRemoteLoader",
+    "client/remote/DlcRemoteMarker",
+    "client/required/DlcRequiredDependency",
+    "client/required/DlcRequiredEntry",
+    "client/required/DlcRequiredLoader",
+    "client/required/DlcRequiredRuntime",
+    "client/required/DlcRequiredRuntimeState",
+    "client/required/DlcRequiredService",
+    "client/selfupdate/DlcSelfUpdateService",
+    "client/update/DlcPendingUpdate",
+    "client/update/DlcUpdateCompatibility",
+    "client/update/DlcUpdateDcParser",
+    "client/update/DlcUpdateHashIndex",
+    "client/update/DlcUpdateJournal",
+    "client/update/DlcUpdateManifest",
+    "client/update/DlcUpdateMeta",
+    "client/update/DlcUpdatePackage",
+    "client/update/DlcUpdateService",
+    "client/update/DlcUpdateSkipStore",
+    "client/update/DlcUpdateVersion",
+    "core/DlcApplier",
+    "core/DlcApplyMode",
+    "core/DlcConfig",
+    "core/DlcConfigTypeSupport",
+    "core/DlcDcConfigIO",
+    "core/DlcDcFormatUtil",
+    "core/DlcFileMatch",
+    "core/DlcItem",
+    "core/DlcItemFiles",
+    "core/DlcPathUtil",
+    "core/DlcPaths",
+    "core/DlcResourceHistory",
+    "core/DlcRuntimeState",
+    "core/DlcScanner",
+    "core/DlcStateConfig",
+    "core/DlcTmpPaths",
+    "core/DlcTooltipLoader",
+    "core/DlcType",
+    "platform/DlcPlatformServices",
+    "platform/PlatformServices",
+
 )
 
 if (currentTarget == null) {
@@ -170,6 +232,13 @@ if (currentTarget == null) {
         }
     }
 
+    tasks.named<ProcessResources>("processResources") {
+        from(managerRoot.resolve("tools/dclanguage/src/generated/resources/com/cozooo/dclanguage/language-definition.json")) {
+            into("META-INF/dlc-manager")
+            rename { "update-language-definition.json" }
+        }
+    }
+
     sourceSets.test {
         compileClasspath += launcher.output
         runtimeClasspath += launcher.output
@@ -189,6 +258,7 @@ if (currentTarget == null) {
         if (kotlinEnabled && target.minecraft == "26.1") {
             add(bootstrapLibraries.name, "org.jetbrains.kotlin:kotlin-reflect:$kotlinStdlibVersion") { isTransitive = false }
         }
+        implementation("com.cozooo.dlc_manager:dlc_fileops_helper:${managerProperties.getProperty("file_ops_helper_version")}")
         implementation("com.cozooo:dclanguage:0.1.0")
         implementation("com.google.code.gson:gson:2.10.1")
         val modLauncherVersion = when (target.node) {
@@ -305,6 +375,7 @@ if (currentTarget == null) {
         archiveFileName.set("DLC-Manager-runtime-${target.loader}-${target.minecraft}-${project.version}.jar")
         destinationDirectory.set(distributionRoot.resolve(target.loader))
         relocate("com.cozooo.dlc_manager", "com.cozooo.dlc_bootstrap.internal")
+        relocate("com.cozooo.dlc_fileops_helper", "com.cozooo.dlc_bootstrap.internal.fileops_helper")
         relocate("com.cozooo.dclanguage", "com.cozooo.dlc_bootstrap.internal.dclanguage")
         relocate("com.google.gson", "com.cozooo.dlc_bootstrap.internal.gson")
         exclude("META-INF/jarjar/**", "META-INF/versions/**", "META-INF/*.SF", "META-INF/*.RSA", "META-INF/*.DSA", "module-info.class", "org/jetbrains/annotations/**")

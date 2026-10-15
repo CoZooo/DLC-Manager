@@ -185,7 +185,7 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
             var packSession: DlcPackUpdateCoordinator.UpdateSession? = null
             try {
                 val coordinator = DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot())
-                packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible)
+                if (!DlcUpdateService.willDefer(result?.updates)) packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible)
                 val applyResult = DlcUpdateService.applyUpdates(result?.updates, forceMissing) { status, value ->
                     Minecraft.getInstance().execute {
                         statusText = DlcMessageAdapter.toProgressText(status)
@@ -193,9 +193,9 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
                     }
                 }
                 if (applyResult != null && applyResult.isSuccess) {
-                    packSession.finishAfterSuccessfulUpdate()
+                    packSession?.finishAfterSuccessfulUpdate()
                 } else {
-                    packSession.restoreAfterFailedUpdate()
+                    packSession?.restoreAfterFailedUpdate()
                 }
                 Minecraft.getInstance().execute { handleApplyResult(applyResult) }
             } catch (ex: Exception) {
@@ -230,7 +230,9 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
         if (tryShowPostUpdateDownloads(result)) {
             return
         }
-        val message = if (result.isHelperScheduled) {
+        val message = if (result.isPendingUpdate) {
+            DlcTextCompat.translatable("dlc_manager.update.pending_restart")
+        } else if (result.isHelperScheduled) {
             DlcTextCompat.translatable("dlc_manager.update.deferred_restart")
         } else {
             DlcTextCompat.translatable("dlc_manager.update.success")

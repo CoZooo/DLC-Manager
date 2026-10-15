@@ -17,6 +17,14 @@ class DlcUpdatePackage private constructor(
     private val manifest: DlcUpdateManifest,
     private val contentRoot: String?,
 ) {
+    enum class CompatibilityAction { ASK, IGNORE, UPDATE_MANAGER, RESUME }
+    private var compatibilityAction = CompatibilityAction.ASK
+    private var allowUninstallPacks = false
+    fun getCompatibilityAction(): CompatibilityAction = compatibilityAction
+    fun setCompatibilityAction(value: CompatibilityAction) { compatibilityAction = value }
+    fun isAllowUninstallPacks(): Boolean = allowUninstallPacks
+    fun setAllowUninstallPacks(value: Boolean) { allowUninstallPacks = value }
+
     private var extractionRoot: Path? = null
     private var stagingRoot: Path? = null
 

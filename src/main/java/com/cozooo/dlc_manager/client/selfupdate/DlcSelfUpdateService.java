@@ -70,7 +70,9 @@ public final class DlcSelfUpdateService {
                 return result;
             }
             if (file == null || file.url == null || file.url.isBlank()) {
-                return SelfUpdateResult.none(currentVersion);
+                SelfUpdateResult failed = SelfUpdateResult.none(currentVersion);
+                failed.checkFailed = true;
+                return failed;
             }
             String latestVersion = extractVersion(file.displayName, file.fileName);
             boolean hasUpdate = requestedVersion == null
@@ -88,7 +90,9 @@ public final class DlcSelfUpdateService {
             result.requestedVersion = requestedVersion;
             return result;
         } catch (Exception ignored) {
-            return SelfUpdateResult.none(currentVersion);
+            SelfUpdateResult failed = SelfUpdateResult.none(currentVersion);
+            failed.checkFailed = true;
+            return failed;
         }
     }
 
@@ -591,6 +595,7 @@ public final class DlcSelfUpdateService {
         public String currentVersion;
         public String latestVersion;
         public String requestedVersion;
+        public boolean checkFailed;
         public boolean missingRequestedVersion;
         public String fileId;
         public String fileName;

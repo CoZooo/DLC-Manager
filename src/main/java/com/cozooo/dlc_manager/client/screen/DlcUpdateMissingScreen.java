@@ -84,13 +84,13 @@ public class DlcUpdateMissingScreen extends DlcPageScreen {
             DlcPackUpdateCoordinator.UpdateSession packSession = null;
             try {
                 DlcPackUpdateCoordinator coordinator = new DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot());
-                packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible);
+                if (!DlcUpdateService.willDefer(updateResult.getUpdates())) packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible);
                 UpdateApplyResult result = DlcUpdateService.applyUpdates(updateResult.getUpdates(), true, (status, value) ->
                     Minecraft.getInstance().execute(() -> updateStatus = DlcMessageAdapter.toProgressText(status)));
                 if (result != null && result.isSuccess()) {
-                    packSession.finishAfterSuccessfulUpdate();
+                    if (packSession != null) packSession.finishAfterSuccessfulUpdate();
                 } else {
-                    packSession.restoreAfterFailedUpdate();
+                    if (packSession != null) packSession.restoreAfterFailedUpdate();
                 }
                 UpdateApplyResult finalResult = result;
                 Minecraft.getInstance().execute(() -> handleResult(finalResult));
@@ -121,7 +121,9 @@ public class DlcUpdateMissingScreen extends DlcPageScreen {
         if (tryShowPostUpdateDownloads(result)) {
             return;
         }
-        Component message = result != null && result.isHelperScheduled()
+        Component message = result != null && result.isPendingUpdate()
+            ? DlcTextCompat.translatable("dlc_manager.update.pending_restart")
+            : result != null && result.isHelperScheduled()
             ? DlcTextCompat.translatable("dlc_manager.update.deferred_restart")
             : DlcTextCompat.translatable("dlc_manager.update.success");
         Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, true, message));
@@ -150,7 +152,9 @@ public class DlcUpdateMissingScreen extends DlcPageScreen {
     }
 
     private Screen createSuccessResultScreen(UpdateApplyResult result) {
-        Component message = result != null && result.isHelperScheduled()
+        Component message = result != null && result.isPendingUpdate()
+            ? DlcTextCompat.translatable("dlc_manager.update.pending_restart")
+            : result != null && result.isHelperScheduled()
             ? DlcTextCompat.translatable("dlc_manager.update.deferred_restart")
             : DlcTextCompat.translatable("dlc_manager.update.success");
         return new DlcUpdateResultScreen(parent, true, message);

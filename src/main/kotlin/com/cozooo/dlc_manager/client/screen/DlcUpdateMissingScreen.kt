@@ -73,14 +73,14 @@ class DlcUpdateMissingScreen(
             var packSession: DlcPackUpdateCoordinator.UpdateSession? = null
             try {
                 val coordinator = DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot())
-                packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible)
+                if (!DlcUpdateService.willDefer(updateResult.updates)) packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible)
                 val result = DlcUpdateService.applyUpdates(updateResult.updates, true) { status, _ ->
                     Minecraft.getInstance().execute { updateStatus = DlcMessageAdapter.toProgressText(status) }
                 }
                 if (result?.isSuccess == true) {
-                    packSession.finishAfterSuccessfulUpdate()
+                    packSession?.finishAfterSuccessfulUpdate()
                 } else {
-                    packSession.restoreAfterFailedUpdate()
+                    packSession?.restoreAfterFailedUpdate()
                 }
                 Minecraft.getInstance().execute { handleResult(result) }
             } catch (ex: Exception) {
@@ -109,7 +109,9 @@ class DlcUpdateMissingScreen(
         if (tryShowPostUpdateDownloads(result)) {
             return
         }
-        val message = if (result.isHelperScheduled) {
+        val message = if (result.isPendingUpdate) {
+            DlcTextCompat.translatable("dlc_manager.update.pending_restart")
+        } else if (result.isHelperScheduled) {
             DlcTextCompat.translatable("dlc_manager.update.deferred_restart")
         } else {
             DlcTextCompat.translatable("dlc_manager.update.success")
@@ -140,7 +142,9 @@ class DlcUpdateMissingScreen(
     }
 
     private fun createSuccessResultScreen(result: UpdateApplyResult): Screen {
-        val message = if (result.isHelperScheduled) {
+        val message = if (result.isPendingUpdate) {
+            DlcTextCompat.translatable("dlc_manager.update.pending_restart")
+        } else if (result.isHelperScheduled) {
             DlcTextCompat.translatable("dlc_manager.update.deferred_restart")
         } else {
             DlcTextCompat.translatable("dlc_manager.update.success")

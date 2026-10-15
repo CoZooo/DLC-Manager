@@ -736,5 +736,11 @@
   "dlc_manager.redirect.title": "跳转",
   "dlc_manager.tooltip.double_click_redirect": "可双击打开链接",
   "dlc_manager.required.retry": "重试",
-  "dlc_manager.required.install_failed": "必要资源安装失败，完成安装前无法继续。\n%s"
+  "dlc_manager.required.install_failed": "必要资源安装失败，完成安装前无法继续。\n%s",
+  "dlc_manager.update.unknown_title": "未知的热更新参数",
+  "dlc_manager.update.unknown_description": "此更新包包含当前版本无法识别的参数。请选择如何继续；忽略参数可能会跳过部分操作。",
+  "dlc_manager.update.ignore_unknown": "忽略并强制更新",
+  "dlc_manager.update.update_manager_retry": "更新 DLC 管理器并尝试更新",
+  "dlc_manager.update.pending_restart": "DLC 管理器已准备就绪。请重启游戏以继续完成整合包更新。",
+  "dlc_manager.update.organizing_resources": "正在整理热更新资源..."
 }

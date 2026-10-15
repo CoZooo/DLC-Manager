@@ -709,6 +709,7 @@ public final class DlcClientRuntime {
         if (startupCheckRunning || startupChecksCompleted) {
             return;
         }
+        if (DlcUpdateClient.startPendingFromTitle(screen) || DlcUpdateClient.showPendingResult(screen)) return;
         DlcServerApi.start(null);
         DlcServerApi.setClientStateChangedListener(() -> Minecraft.getInstance().execute(DlcManagerScreen::refreshCurrentOpenScreen));
         ensurePackArchiveRoot(DlcPaths.dlcRoot());
@@ -835,6 +836,7 @@ public final class DlcClientRuntime {
                 if (!(Minecraft.getInstance().screen instanceof net.minecraft.client.gui.screens.TitleScreen)) {
                     return;
                 }
+                if (com.cozooo.dlc_manager.client.update.DlcUpdateClient.showPendingResult(screen)) return;
                 Runnable flow = () -> {
                     DlcNoticeManager.showFromTitle(screen);
                 };

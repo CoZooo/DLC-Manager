@@ -24,6 +24,7 @@ public class DlcUpdateManifest {
     private static final Gson GSON = new GsonBuilder().create();
     private static final Pattern LAST_JSON_PAIR = Pattern.compile("\".*?\"\\s*:\\s*\".*?\"");
 
+    private final List<String> unknownParameters = new ArrayList<>();
     private VersionInfo version;
     private FileOps fileOps;
     private boolean hidden;
@@ -69,6 +70,7 @@ public class DlcUpdateManifest {
             return null;
         }
         DlcUpdateManifest manifest = new DlcUpdateManifest();
+        obj = DlcUpdateCompatibility.knownFields(obj, manifest.unknownParameters);
         manifest.version = parseVersion(DlcDcConfigIO.getObjectIgnoreCase(obj, "version"));
         manifest.hidden = getBoolean(obj, "isHidden", false);
         UpdateDLCMConfig updateDLCMConfig = parseUpdateDLCM(DlcDcConfigIO.getIgnoreCase(obj, "UpdateDLCM"));
@@ -83,6 +85,8 @@ public class DlcUpdateManifest {
         }
         return manifest;
     }
+
+    public List<String> getUnknownParameters() { return List.copyOf(unknownParameters); }
 
     public VersionInfo getVersion() {
         return version;

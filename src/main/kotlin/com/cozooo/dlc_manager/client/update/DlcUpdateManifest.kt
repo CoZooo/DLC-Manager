@@ -14,6 +14,7 @@ import java.util.Locale
 import java.util.regex.Pattern
 
 class DlcUpdateManifest {
+    private val unknownParameters = mutableListOf<String>()
     private var version: VersionInfo? = null
     private var fileOps: FileOps? = null
     private var hidden = false
@@ -21,6 +22,8 @@ class DlcUpdateManifest {
     private var updateDLCMVersion: String? = null
     private var changelog: Map<String, String>? = LinkedHashMap()
     private var updateOps: UpdateOps = UpdateOps()
+
+    fun getUnknownParameters(): List<String> = unknownParameters.toList()
 
     fun getVersion(): VersionInfo? {
         return version
@@ -365,11 +368,12 @@ class DlcUpdateManifest {
         }
 
         @JvmStatic
-        fun fromJsonObject(obj: JsonObject?): DlcUpdateManifest? {
-            if (obj == null) {
+        fun fromJsonObject(source: JsonObject?): DlcUpdateManifest? {
+            if (source == null) {
                 return null
             }
             val manifest = DlcUpdateManifest()
+            val obj = DlcUpdateCompatibility.knownFields(source, manifest.unknownParameters)
             manifest.version = parseVersion(DlcDcConfigIO.getObjectIgnoreCase(obj, "version"))
             manifest.hidden = getBoolean(obj, "isHidden", false)
             val updateDLCMConfig = parseUpdateDLCM(DlcDcConfigIO.getIgnoreCase(obj, "UpdateDLCM"))

@@ -638,6 +638,7 @@ object DlcClientRuntime {
     @JvmStatic
     fun runStartupChecksAsync(screen: Screen?) {
         if (startupCheckRunning || startupChecksCompleted) return
+        if (DlcUpdateClient.startPendingFromTitle(screen) || DlcUpdateClient.showPendingResult(screen)) return
         DlcServerApi.start(null)
         DlcServerApi.setClientStateChangedListener { Minecraft.getInstance().execute(DlcManagerScreen::refreshCurrentOpenScreen) }
         ensurePackArchiveRoot(DlcPaths.dlcRoot())
@@ -769,6 +770,7 @@ object DlcClientRuntime {
                 startupCheckRunning = false
                 LOGGER.info("[dlc-manager] startup check finished in {}ms", System.currentTimeMillis() - startAt)
                 if (Minecraft.getInstance().screen !is TitleScreen) return@execute
+                if (com.cozooo.dlc_manager.client.update.DlcUpdateClient.showPendingResult(screen)) return@execute
                 var flow = Runnable {
                     DlcNoticeManager.showFromTitle(screen)
                 }

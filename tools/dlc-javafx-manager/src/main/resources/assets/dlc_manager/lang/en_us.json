@@ -736,5 +736,11 @@
   "dlc_manager.redirect.title": "Redirect",
   "dlc_manager.tooltip.double_click_redirect": "Double-click to open link",
   "dlc_manager.required.retry": "Retry",
-  "dlc_manager.required.install_failed": "Required resource installation failed. Installation must complete before continuing.\n%s"
+  "dlc_manager.required.install_failed": "Required resource installation failed. Installation must complete before continuing.\n%s",
+  "dlc_manager.update.unknown_title": "Unknown update parameters",
+  "dlc_manager.update.unknown_description": "This package contains parameters this version does not recognize. Choose how to continue; ignoring parameters may skip some operations.",
+  "dlc_manager.update.ignore_unknown": "Ignore and force update",
+  "dlc_manager.update.update_manager_retry": "Update DLC Manager and retry",
+  "dlc_manager.update.pending_restart": "DLC Manager is ready. Restart the game to continue the modpack update.",
+  "dlc_manager.update.organizing_resources": "Organizing hot update resources..."
 }

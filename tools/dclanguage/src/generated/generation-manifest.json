@@ -1,10 +1,10 @@
 {
   "formatVersion": 1,
   "source": "mps/solutions/definition/models/dc.mps",
-  "definitionHash": "5ecf7bb3219c7013fdcae64a7fa941a64ebff77ef05211df6748fa0b836e6a7c",
+  "definitionHash": "20edf996c3027c0323ce4aa19d8cb719ce9778b08dad9272fa39b9e948bc38e3",
   "outputs": {
-    "java/com/cozooo/dclanguage/generated/DcGeneratedSyntax.java": "4231dbbfeec2ba44943ba1077847e0581b58bba1fd88396a6459111e64619c1a",
-    "resources/com/cozooo/dclanguage/language-definition.json": "1de71c3b555e51dc7c7602dbd9fa43587fd8d8aeb11fac1739b6985565742e5c",
+    "java/com/cozooo/dclanguage/generated/DcGeneratedSyntax.java": "e0a1efc60f5e1f2907fc8c7023d0569799be4b92f554815006f2c2aaddb7e109",
+    "resources/com/cozooo/dclanguage/language-definition.json": "fd44141bfa9fee566181acc7eaa2bf46b245d2e95fa74f261d49980031817625",
     "java/com/cozooo/dclanguage/DcParser.java": "53a856b0580ec5854365e679931995df5c6ff59d0132af89657350617d83cfa8",
     "java/com/cozooo/dclanguage/DcWriter.java": "ede5d627feeb39954efbac95a8624363efc93ad9cec954ebb7350d78b40fe8e3"
   }

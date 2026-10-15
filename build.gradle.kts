@@ -483,6 +483,13 @@ if (stoneNodes.contains(project.name)) {
         notCompatibleWithConfigurationCache("StoneCraft processResources actions capture Project.")
         if (name == "processResources") {
             from(rootProject.layout.projectDirectory.file("LICENSE")) { into("META-INF/dlc-manager") }
+            val updateDefinition = rootProject.layout.projectDirectory.file("tools/dclanguage/src/generated/resources/com/cozooo/dclanguage/language-definition.json")
+            inputs.file(updateDefinition)
+            doLast {
+                val target = destinationDir.resolve("META-INF/dlc-manager/update-language-definition.json")
+                target.parentFile.mkdirs()
+                updateDefinition.asFile.copyTo(target, overwrite = true)
+            }
         }
     }
 

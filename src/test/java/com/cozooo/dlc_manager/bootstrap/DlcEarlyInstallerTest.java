@@ -43,6 +43,40 @@ class DlcEarlyInstallerTest {
         return DlcEarlyInstaller.install(game, game.resolve("config"), "forge", "1.20.1", server, message -> {});
     }
 
+    @Test void pendingHotUpdateCompletesBeforeRequiredResourcesAreValidated() throws Exception {
+        Path root = game.resolve("DLC");
+        Path task = root.resolve("tmp/update/jobs/12345678-1234-1234-1234-123456789abc");
+        Files.createDirectories(task);
+        Files.createDirectories(root.resolve("info"));
+        Files.writeString(root.resolve("info/version.dc"), "base='1'\ndlc='1'\n");
+        Files.createDirectories(game.resolve("mods"));
+        Files.writeString(game.resolve("mods/old.jar"), "old");
+        Path archive = task.resolve("archive-0.zip");
+        try (var zip = new java.util.zip.ZipOutputStream(Files.newOutputStream(archive))) {
+            zip.putNextEntry(new java.util.zip.ZipEntry("update.dc"));
+            zip.write("""
+                [version]
+                base='1'
+                dlc='1'
+                dlc_new='2'
+                [file]
+                  [del]
+                    'mods/old.jar'
+                """.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        Files.writeString(root.resolve("tmp/update/pending_update.dc"), """
+            format=1
+            job='12345678-1234-1234-1234-123456789abc'
+            archives=[{file:'archive-0.zip', hash:'%s', ignore_unknown:false}]
+            """.formatted(com.cozooo.dlc_manager.core.DlcFileMatch.hash(archive)));
+        install(false);
+        assertFalse(Files.exists(game.resolve("mods/old.jar")));
+        assertFalse(Files.exists(root.resolve("tmp/update/pending_update.dc")));
+        assertTrue(Files.readString(root.resolve("info/version.dc")).contains("2"));
+        assertTrue(Files.exists(game.resolve(".dlc-manager/pending_update_result.dc")));
+    }
+
     @Test void cachedResourcesAreInstalledBeforeReturningAndRepeatedLaunchDoesNoWork() throws Exception {
         resource(game.resolve("DLC"), "main", "mods/main.jar");
         var previous = DlcPlatformServices.get();

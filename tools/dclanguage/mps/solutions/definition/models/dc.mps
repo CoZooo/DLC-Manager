@@ -971,7 +971,7 @@
         </node>
         <node concept="C2009" id="cgf" role="R200851">
           <property role="Name" value="UpdateDLCM" />
-          <property role="P200901" value="string" />
+          <property role="P200901" value="string|boolean" />
           <property role="P200902" value="false" />
           <property role="P200903" value="Update DLC Manager." />
         </node>
@@ -980,6 +980,12 @@
         <property role="Name" value="version" />
         <property role="P200801" value="false" />
         <property role="P200802" value="" />
+        <node concept="C2009" id="pU1" role="R200851">
+          <property role="Name" value="dlc_old" />
+          <property role="P200901" value="string" />
+          <property role="P200902" value="false" />
+          <property role="P200903" value="Legacy alias for dlc." />
+        </node>
         <node concept="C2009" id="cgh" role="R200851">
           <property role="Name" value="platform" />
           <property role="P200901" value="string" />
@@ -1035,6 +1041,12 @@
         <property role="Name" value="file" />
         <property role="P200801" value="false" />
         <property role="P200802" value="" />
+        <node concept="C2009" id="pU24" role="R200851">
+          <property role="Name" value="changelog" />
+          <property role="P200901" value="any" />
+          <property role="P200902" value="false" />
+          <property role="P200903" value="" />
+        </node>
         <node concept="C2008" id="cgs" role="R200852">
           <property role="Name" value="del" />
           <property role="P200801" value="false" />
@@ -1061,6 +1073,23 @@
           <property role="Name" value="add" />
           <property role="P200801" value="false" />
           <property role="P200802" value="" />
+          <node concept="C2008" id="pU4" role="R200852">
+            <property role="Name" value="*" />
+            <property role="P200801" value="false" />
+            <property role="P200802" value="" />
+            <node concept="C2009" id="pU2" role="R200851">
+              <property role="Name" value="appliedTarget" />
+              <property role="P200901" value="string" />
+              <property role="P200902" value="false" />
+              <property role="P200903" value="Destination path." />
+            </node>
+            <node concept="C2009" id="pU3" role="R200851">
+              <property role="Name" value="override" />
+              <property role="P200901" value="string|boolean" />
+              <property role="P200902" value="false" />
+              <property role="P200903" value="Overwrite mode: true, false, all, none." />
+            </node>
+          </node>
           <node concept="C2009" id="cgw" role="R200851">
             <property role="Name" value="entries" />
             <property role="P200901" value="object" />
@@ -1072,6 +1101,12 @@
           <property role="Name" value="move" />
           <property role="P200801" value="false" />
           <property role="P200802" value="" />
+          <node concept="C2009" id="pU5" role="R200851">
+            <property role="Name" value="*" />
+            <property role="P200901" value="string" />
+            <property role="P200902" value="false" />
+            <property role="P200903" value="Destination path." />
+          </node>
           <node concept="C2009" id="cgz" role="R200851">
             <property role="Name" value="entries" />
             <property role="P200901" value="object" />
@@ -1083,6 +1118,104 @@
           <property role="Name" value="modify" />
           <property role="P200801" value="false" />
           <property role="P200802" value="Edit [file].modify in raw mode." />
+          <node concept="C2008" id="pU10" role="R200852">
+            <property role="Name" value="*" />
+            <property role="P200801" value="false" />
+            <property role="P200802" value="" />
+            <node concept="C2009" id="pU6" role="R200851">
+              <property role="Name" value="path" />
+              <property role="P200901" value="string" />
+              <property role="P200902" value="false" />
+              <property role="P200903" value="" />
+            </node>
+            <node concept="C2009" id="pU7" role="R200851">
+              <property role="Name" value="find" />
+              <property role="P200901" value="string" />
+              <property role="P200902" value="false" />
+              <property role="P200903" value="" />
+            </node>
+            <node concept="C2009" id="pU8" role="R200851">
+              <property role="Name" value="replace" />
+              <property role="P200901" value="string" />
+              <property role="P200902" value="false" />
+              <property role="P200903" value="" />
+            </node>
+            <node concept="C2009" id="pU9" role="R200851">
+              <property role="Name" value="which" />
+              <property role="P200901" value="string|number" />
+              <property role="P200902" value="false" />
+              <property role="P200903" value="" />
+            </node>
+          </node>
+        </node>
+      </node>
+      <node concept="C2008" id="pU23" role="R200752">
+        <property role="Name" value="update" />
+        <property role="P200801" value="false" />
+        <property role="P200802" value="" />
+        <node concept="C2008" id="pU13" role="R200852">
+          <property role="Name" value="info" />
+          <property role="P200801" value="false" />
+          <property role="P200802" value="" />
+          <node concept="C2008" id="pU12" role="R200852">
+            <property role="Name" value="*" />
+            <property role="P200801" value="false" />
+            <property role="P200802" value="" />
+            <node concept="C2009" id="pU11" role="R200851">
+              <property role="Name" value="*" />
+              <property role="P200901" value="any" />
+              <property role="P200902" value="false" />
+              <property role="P200903" value="Configuration field to update; unknown fields are preserved." />
+            </node>
+          </node>
+        </node>
+        <node concept="C2008" id="pU16" role="R200852">
+          <property role="Name" value="remote" />
+          <property role="P200801" value="false" />
+          <property role="P200802" value="" />
+          <node concept="C2008" id="pU15" role="R200852">
+            <property role="Name" value="*" />
+            <property role="P200801" value="false" />
+            <property role="P200802" value="" />
+            <node concept="C2009" id="pU14" role="R200851">
+              <property role="Name" value="*" />
+              <property role="P200901" value="any" />
+              <property role="P200902" value="false" />
+              <property role="P200903" value="Configuration field to update; unknown fields are preserved." />
+            </node>
+          </node>
+        </node>
+        <node concept="C2008" id="pU19" role="R200852">
+          <property role="Name" value="required" />
+          <property role="P200801" value="false" />
+          <property role="P200802" value="" />
+          <node concept="C2008" id="pU18" role="R200852">
+            <property role="Name" value="*" />
+            <property role="P200801" value="false" />
+            <property role="P200802" value="" />
+            <node concept="C2009" id="pU17" role="R200851">
+              <property role="Name" value="*" />
+              <property role="P200901" value="any" />
+              <property role="P200902" value="false" />
+              <property role="P200903" value="Configuration field to update; unknown fields are preserved." />
+            </node>
+          </node>
+        </node>
+        <node concept="C2008" id="pU22" role="R200852">
+          <property role="Name" value="preset" />
+          <property role="P200801" value="false" />
+          <property role="P200802" value="" />
+          <node concept="C2008" id="pU21" role="R200852">
+            <property role="Name" value="*" />
+            <property role="P200801" value="false" />
+            <property role="P200802" value="" />
+            <node concept="C2009" id="pU20" role="R200851">
+              <property role="Name" value="*" />
+              <property role="P200901" value="any" />
+              <property role="P200902" value="false" />
+              <property role="P200903" value="Configuration field to update; unknown fields are preserved." />
+            </node>
+          </node>
         </node>
       </node>
     </node>

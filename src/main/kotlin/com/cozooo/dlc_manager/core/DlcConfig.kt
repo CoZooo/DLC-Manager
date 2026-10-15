@@ -139,6 +139,9 @@ object DlcConfig {
         ensureServerConfigFile()
         migrateKnownConfigsToDc()
     }
+    @JvmStatic fun reloadFromDisk(server: Boolean) {
+        if (server) loadServerFromDisk() else loadClientFromDisk()
+    }
     @JvmStatic fun save() = saveClient()
     @JvmStatic fun saveClient() = saveClientToDisk()
     @JvmStatic fun saveServer() = saveServerToDisk()

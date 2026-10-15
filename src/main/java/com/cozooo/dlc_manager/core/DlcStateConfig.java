@@ -18,16 +18,7 @@ public class DlcStateConfig {
     private static Map<String, DlcState> stateById = new HashMap<>();
 
     public static void load() {
-        stateById = new HashMap<>();
-        Path legacy = DlcPlatformServices.configDir().resolve("dlc_manager/state.dc");
-        Map<String, DlcState> oldStates = readStates(legacy);
-        for (Path root : DlcConfig.getDlcRoots()) {
-            Path path = root.resolve("tmp/state.dc");
-            Map<String, DlcState> loaded = Files.exists(path) ? readStates(path) : oldStates;
-            for (var entry : loaded.entrySet()) {
-                if (belongsToRoot(entry.getKey(), entry.getValue(), root)) stateById.put(entry.getKey(), entry.getValue());
-            }
-        }
+        reloadFromDisk();
         migrateStoredPaths();
         migrateStateIds();
         normalizeEnabledStates();
@@ -42,6 +33,19 @@ public class DlcStateConfig {
             }
         }
         save();
+    }
+
+    public static void reloadFromDisk() {
+        stateById = new HashMap<>();
+        Path legacy = DlcPlatformServices.configDir().resolve("dlc_manager/state.dc");
+        Map<String, DlcState> oldStates = readStates(legacy);
+        for (Path root : DlcConfig.getDlcRoots()) {
+            Path path = root.resolve("tmp/state.dc");
+            Map<String, DlcState> loaded = Files.exists(path) ? readStates(path) : oldStates;
+            for (var entry : loaded.entrySet()) {
+                if (belongsToRoot(entry.getKey(), entry.getValue(), root)) stateById.put(entry.getKey(), entry.getValue());
+            }
+        }
     }
 
     public static void save() {

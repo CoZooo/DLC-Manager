@@ -45,6 +45,13 @@ object DlcFileOpsHelperClient {
         }
     }
 
+    private val REQUIRE_IMMEDIATE = ThreadLocal<Boolean>()
+
+    @JvmStatic
+    fun requireImmediateOperations(required: Boolean) {
+        if (required) REQUIRE_IMMEDIATE.set(true) else REQUIRE_IMMEDIATE.remove()
+    }
+
     @JvmStatic
     fun shouldUseHelper(): Boolean {
         return isWindows()
@@ -152,6 +159,7 @@ object DlcFileOpsHelperClient {
     }
 
     private fun invokeSchedule(methodName: String, parameterTypes: Array<Class<*>>, args: Array<Any?>, operation: String): FileOpResult {
+        if (REQUIRE_IMMEDIATE.get() == true) return FileOpResult.failure("Immediate file operation failed: $operation")
         val state = detectState()
         if (state == HelperState.NOT_REQUIRED) {
             return FileOpResult.failure("Failed to $operation: helper is not enabled on this platform")

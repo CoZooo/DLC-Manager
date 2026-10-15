@@ -16,6 +16,15 @@ import java.util.zip.ZipFile;
 public class DlcUpdatePackage {
     private static final Gson GSON = new GsonBuilder().create();
 
+    public enum CompatibilityAction { ASK, IGNORE, UPDATE_MANAGER, RESUME }
+    private CompatibilityAction compatibilityAction = CompatibilityAction.ASK;
+    private boolean allowUninstallPacks;
+
+    public CompatibilityAction getCompatibilityAction() { return compatibilityAction; }
+    public void setCompatibilityAction(CompatibilityAction value) { compatibilityAction = value; }
+    public boolean isAllowUninstallPacks() { return allowUninstallPacks; }
+    public void setAllowUninstallPacks(boolean value) { allowUninstallPacks = value; }
+
     private final Path archivePath;
     private final String name;
     private final DlcUpdateManifest manifest;

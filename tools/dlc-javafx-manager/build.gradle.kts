@@ -116,6 +116,9 @@ val reusedCommonJavaFiles = listOf(
     "com/cozooo/dlc_manager/client/server/DlcServerUpdateInfo.java",
     "com/cozooo/dlc_manager/client/server/DlcServerUpdateState.java",
     "com/cozooo/dlc_manager/client/server/DlcServerVersionUtil.java",
+    "com/cozooo/dlc_manager/client/update/DlcPendingUpdate.java",
+    "com/cozooo/dlc_manager/client/update/DlcUpdateJournal.java",
+    "com/cozooo/dlc_manager/client/update/DlcUpdateCompatibility.java",
     "com/cozooo/dlc_manager/client/update/DlcUpdateDcParser.java",
     "com/cozooo/dlc_manager/client/update/DlcUpdateHashIndex.java",
     "com/cozooo/dlc_manager/client/update/DlcUpdateManifest.java",
@@ -238,6 +241,13 @@ distributions {
 
 tasks.withType<org.gradle.jvm.tasks.Jar>().configureEach {
     from("../../LICENSE") { into("META-INF/dlc-manager") }
+}
+
+tasks.named<ProcessResources>("processResources") {
+    from("../dclanguage/src/generated/resources/com/cozooo/dclanguage/language-definition.json") {
+        into("META-INF/dlc-manager")
+        rename { "update-language-definition.json" }
+    }
 }
 
 tasks.named<Test>("test") {

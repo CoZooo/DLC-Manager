@@ -229,14 +229,14 @@ class DlcUpdateUrlScreen(
             var packSession: DlcPackUpdateCoordinator.UpdateSession? = null
             try {
                 val coordinator = DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot())
-                packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible)
+                if (!DlcUpdateService.willDefer(chain)) packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible)
                 val result = DlcUpdateService.applyUpdates(chain, false) { status, _ ->
                     Minecraft.getInstance().execute { statusText = DlcMessageAdapter.toProgressText(status) }
                 }
                 if (result?.isSuccess == true) {
-                    packSession.finishAfterSuccessfulUpdate()
+                    packSession?.finishAfterSuccessfulUpdate()
                 } else {
-                    packSession.restoreAfterFailedUpdate()
+                    packSession?.restoreAfterFailedUpdate()
                 }
                 Minecraft.getInstance().execute { handleReupdateResult(result, null) }
             } catch (ex: Exception) {
@@ -271,7 +271,9 @@ class DlcUpdateUrlScreen(
         if (tryShowPostUpdateDownloads(result)) {
             return
         }
-        val message = if (result.isHelperScheduled) {
+        val message = if (result.isPendingUpdate) {
+            DlcTextCompat.translatable("dlc_manager.update.pending_restart")
+        } else if (result.isHelperScheduled) {
             DlcTextCompat.translatable("dlc_manager.update.deferred_restart")
         } else {
             DlcTextCompat.translatable("dlc_manager.update.success")

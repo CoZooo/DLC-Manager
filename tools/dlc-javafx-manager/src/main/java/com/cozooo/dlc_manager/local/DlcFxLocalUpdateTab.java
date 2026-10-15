@@ -627,12 +627,24 @@ public final class DlcFxLocalUpdateTab {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.chain_missing"));
             return;
         }
+        List<String> unknown = DlcUpdateService.unknownParameters(chain);
+        if (!unknown.isEmpty()) {
+            Label message = new Label(DlcFxI18n.tr("dlc_manager.update.unknown_description") + "\n\n" + String.join("\n", unknown));
+            message.setWrapText(true);
+            DlcFxModalOverlay.show(scene(), DlcFxI18n.tr("dlc_manager.update.unknown_title"), message,
+                () -> { chain.forEach(pkg -> pkg.setCompatibilityAction(DlcUpdatePackage.CompatibilityAction.UPDATE_MANAGER)); startApplyThread(chain, reapply, packCheck, uninstallIncompatible); },
+                DlcFxI18n.tr("dlc_manager.update.update_manager_retry"), () -> {}, DlcFxI18n.tr("dlc_manager.update.cancel"),
+                () -> { chain.forEach(pkg -> pkg.setCompatibilityAction(DlcUpdatePackage.CompatibilityAction.IGNORE)); startApplyThread(chain, reapply, packCheck, uninstallIncompatible); },
+                DlcFxI18n.tr("dlc_manager.update.ignore_unknown"));
+            return;
+        }
+        chain.forEach(pkg -> pkg.setAllowUninstallPacks(uninstallIncompatible));
         lastApplyChain = new ArrayList<>(chain);
         setBusy(true, reapply ? DlcFxI18n.tr("dlc_manager.update.reapplying") : DlcFxI18n.tr("dlc_manager.update.applying"));
         progressBar.setProgress(-1);
         ApplyProgressListener listener = (status, progress) -> Platform.runLater(() -> {
             if (status != null && !status.isBlank()) {
-                statusLabel.setText(status);
+                statusLabel.setText(status.startsWith("dlc_manager.") ? DlcFxI18n.tr(status) : status);
             }
             progressBar.setProgress(progress < 0 ? -1 : progress);
         });
@@ -640,12 +652,12 @@ public final class DlcFxLocalUpdateTab {
             DlcPackUpdateCoordinator.UpdateSession packSession = null;
             try {
                 DlcPackUpdateCoordinator coordinator = new DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot());
-                packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible);
+                if (!DlcUpdateService.willDefer(chain)) packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible);
                 UpdateApplyResult result = DlcUpdateService.applyUpdates(chain, false, listener);
                 if (result != null && result.isSuccess()) {
-                    packSession.finishAfterSuccessfulUpdate();
+                    if (packSession != null) packSession.finishAfterSuccessfulUpdate();
                 } else {
-                    packSession.restoreAfterFailedUpdate();
+                    if (packSession != null) packSession.restoreAfterFailedUpdate();
                 }
                 Platform.runLater(() -> {
                     progressBar.setVisible(false);
@@ -687,7 +699,7 @@ public final class DlcFxLocalUpdateTab {
             return;
         }
         statusLabel.setText(describeApply(result));
-        if (result.isSuccess()) {
+        if (result.isSuccess() && !result.isPendingUpdate()) {
             checkLocalAsync();
             ensureRequiredResources();
         }
@@ -729,7 +741,7 @@ public final class DlcFxLocalUpdateTab {
         progressBar.setProgress(-1);
         ApplyProgressListener listener = (status, progress) -> Platform.runLater(() -> {
             if (status != null && !status.isBlank()) {
-                statusLabel.setText(status);
+                statusLabel.setText(status.startsWith("dlc_manager.") ? DlcFxI18n.tr(status) : status);
             }
             progressBar.setProgress(progress < 0 ? -1 : progress);
         });
@@ -740,7 +752,7 @@ public final class DlcFxLocalUpdateTab {
                     statusLabel.setText(describeApply(forced));
                     progressBar.setVisible(false);
                     setBusy(false, null);
-                    if (forced.isSuccess()) {
+                    if (forced.isSuccess() && !forced.isPendingUpdate()) {
                         checkLocalAsync();
                         ensureRequiredResources();
                     }
@@ -826,6 +838,7 @@ public final class DlcFxLocalUpdateTab {
     }
 
     private String describeApply(UpdateApplyResult result) {
+        if (result != null && result.isPendingUpdate()) return DlcFxI18n.tr("dlc_manager.update.pending_restart");
         if (result == null) {
             return DlcFxI18n.tr("dlc_manager.update.result_unknown");
         }

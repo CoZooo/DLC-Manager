@@ -35,6 +35,12 @@ public final class DlcFileOpsHelperClient {
         }
     }
 
+    private static final ThreadLocal<Boolean> REQUIRE_IMMEDIATE = new ThreadLocal<>();
+
+    public static void requireImmediateOperations(boolean required) {
+        if (required) REQUIRE_IMMEDIATE.set(true); else REQUIRE_IMMEDIATE.remove();
+    }
+
     public static boolean shouldUseHelper() {
         return isWindows();
     }
@@ -119,6 +125,7 @@ public final class DlcFileOpsHelperClient {
     }
 
     private static FileOpResult invokeSchedule(String methodName, Class<?>[] parameterTypes, Object[] args, String operation) {
+        if (Boolean.TRUE.equals(REQUIRE_IMMEDIATE.get())) return FileOpResult.failure("Immediate file operation failed: " + operation);
         HelperState state = detectState();
         if (state == HelperState.NOT_REQUIRED) {
             return FileOpResult.failure("Failed to " + operation + ": helper is not enabled on this platform");

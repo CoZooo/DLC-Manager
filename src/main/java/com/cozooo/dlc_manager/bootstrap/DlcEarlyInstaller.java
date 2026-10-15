@@ -55,6 +55,7 @@ public final class DlcEarlyInstaller {
             reporter.log("Scanning required resources");
             if (server) DlcConfig.loadServer(); else DlcConfig.loadClient();
             checkCancelled(owner, cancelled);
+            com.cozooo.dlc_manager.client.update.DlcPendingUpdate.process(reporter::log, false);
             validateConfigs(DlcConfig.getDlcRoots());
             checkCancelled(owner, cancelled);
             List<DlcRequiredEntry> entries = DlcRequiredRuntime.loadAllEntries();

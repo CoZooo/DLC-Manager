@@ -17,14 +17,7 @@ object DlcStateConfig {
 
     @JvmStatic
     fun load() {
-        stateById = HashMap()
-        val legacy = DlcPlatformServices.configDir().resolve("dlc_manager/state.dc")
-        val oldStates = readStates(legacy)
-        for (root in DlcConfig.getDlcRoots()) {
-            val path = root.resolve("tmp/state.dc")
-            val loaded = if (Files.exists(path)) readStates(path) else oldStates
-            for ((id, state) in loaded) if (belongsToRoot(id, state, root)) stateById[id] = state
-        }
+        reloadFromDisk()
         migrateStoredPaths()
         migrateStateIds()
         normalizeEnabledStates()
@@ -40,6 +33,18 @@ object DlcStateConfig {
             }
         }
         save()
+    }
+
+    @JvmStatic
+    fun reloadFromDisk() {
+        stateById = HashMap()
+        val legacy = DlcPlatformServices.configDir().resolve("dlc_manager/state.dc")
+        val oldStates = readStates(legacy)
+        for (root in DlcConfig.getDlcRoots()) {
+            val path = root.resolve("tmp/state.dc")
+            val loaded = if (Files.exists(path)) readStates(path) else oldStates
+            for ((id, state) in loaded) if (belongsToRoot(id, state, root)) stateById[id] = state
+        }
     }
 
     @JvmStatic

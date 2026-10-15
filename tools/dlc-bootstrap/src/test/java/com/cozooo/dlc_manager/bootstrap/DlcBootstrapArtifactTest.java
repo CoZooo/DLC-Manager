@@ -161,7 +161,28 @@ class DlcBootstrapArtifactTest {
             Files.createDirectories(required);
             Files.writeString(required.resolve("main.dc"), "identifier = \"main\"\nfile_name = \"main.jar\"\nappliedTarget = \"mods/main.jar\"\n");
             Files.writeString(required.resolve("main.jar"), "resource");
+            Path update = game.resolve("DLC/tmp/update");
+            Path job = update.resolve("jobs/12345678-1234-1234-1234-123456789abc");
+            Files.createDirectories(job);
+            Files.createDirectories(game.resolve("DLC/info"));
+            Files.writeString(game.resolve("DLC/info/version.dc"), "base='1'\ndlc='1'\n");
+            Files.createDirectories(game.resolve("mods"));
+            Files.writeString(game.resolve("mods/old.jar"), "old");
+            Path archive = job.resolve("archive-0.zip");
+            try (var zip = new java.util.zip.ZipOutputStream(Files.newOutputStream(archive))) {
+                zip.putNextEntry(new java.util.zip.ZipEntry("update.dc"));
+                zip.write("[version]\nbase='1'\ndlc='1'\ndlc_new='2'\n[file]\n  [del]\n    'mods/old.jar'\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                zip.closeEntry();
+            }
+            Files.writeString(update.resolve("pending_update.dc"), """
+                format=1
+                job='12345678-1234-1234-1234-123456789abc'
+                archives=[{file:'archive-0.zip',hash:'%s',ignore_unknown:false}]
+                """.formatted(com.cozooo.dlc_manager.core.DlcFileMatch.hash(archive)));
             serviceType.getMethod("initialize", environmentType).invoke(service, environment);
+            assertFalse(Files.exists(game.resolve("mods/old.jar")));
+            assertFalse(Files.exists(update.resolve("pending_update.dc")));
+            assertTrue(Files.readString(game.resolve(".dlc-manager/pending_update_result.dc")).contains("true"));
             assertEquals("resource", Files.readString(game.resolve("mods/main.jar")));
             assertEquals(game.toAbsolutePath().normalize().toString(), System.getProperty(DlcStartupRequirements.READY_PROPERTY));
             Class<?> runtimeBridge = isolated.loadClass("com.cozooo.dlc_bootstrap.launch.DlcEarlyRuntime");

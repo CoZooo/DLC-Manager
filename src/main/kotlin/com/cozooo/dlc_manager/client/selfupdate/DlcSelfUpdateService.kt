@@ -70,7 +70,7 @@ object DlcSelfUpdateService {
                 return result
             }
             if (file == null || file.url.isNullOrBlank()) {
-                return SelfUpdateResult.none(currentVersion)
+                return SelfUpdateResult.none(currentVersion).also { it.checkFailed = true }
             }
             val latestVersion = extractVersion(file.displayName, file.fileName)
             val hasUpdate = if (requestedVersion == null) {
@@ -90,7 +90,7 @@ object DlcSelfUpdateService {
             result.requestedVersion = requestedVersion
             result
         } catch (_: Exception) {
-            SelfUpdateResult.none(currentVersion)
+            SelfUpdateResult.none(currentVersion).also { it.checkFailed = true }
         }
     }
 
@@ -570,6 +570,7 @@ object DlcSelfUpdateService {
         @JvmField var currentVersion: String? = null
         @JvmField var latestVersion: String? = null
         @JvmField var requestedVersion: String? = null
+        @JvmField var checkFailed = false
         @JvmField var missingRequestedVersion: Boolean = false
         @JvmField var fileId: String? = null
         @JvmField var fileName: String? = null

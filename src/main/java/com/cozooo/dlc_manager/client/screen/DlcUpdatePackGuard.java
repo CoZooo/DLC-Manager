@@ -4,6 +4,7 @@ import com.cozooo.dlc_manager.platform.DlcTextCompat;
 
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard;
 import com.cozooo.dlc_manager.client.update.DlcUpdateManifest;
+import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import net.minecraft.client.Minecraft;
@@ -17,10 +18,18 @@ public final class DlcUpdatePackGuard {
     }
 
     public static void confirmBeforeUpdate(Screen returnScreen, List<DlcUpdatePackage> packages, DecisionHandler handler) {
+        List<String> unknown = DlcUpdateService.unknownParameters(packages);
+        if (!unknown.isEmpty()) {
+            Minecraft.getInstance().setScreen(new DlcUpdateCompatibilityScreen(returnScreen, unknown, action -> {
+                for (DlcUpdatePackage pkg : packages) if (pkg != null) pkg.setCompatibilityAction(action);
+                confirmBeforeUpdate(returnScreen, packages, handler);
+            }));
+            return;
+        }
         TargetVersion target = resolveTargetVersion(packages);
         DlcPackUpdateGuard.CheckResult check = DlcPackUpdateGuard.check(DlcPaths.dlcRoot(), target.base, target.dlc);
         if (check == null || !check.hasInstalledPacks() || !check.hasIncompatiblePacks()) {
-            handler.proceed(check, false);
+            proceed(packages, handler, check, false);
             return;
         }
         Component title = DlcTextCompat.translatable("dlc_manager.pack.manager_title");
@@ -28,11 +37,16 @@ public final class DlcUpdatePackGuard {
         Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             if (accepted) {
                 Minecraft.getInstance().setScreen(returnScreen);
-                handler.proceed(check, true);
+                proceed(packages, handler, check, true);
             } else {
                 Minecraft.getInstance().setScreen(returnScreen);
             }
         }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
+    }
+
+    private static void proceed(List<DlcUpdatePackage> packages, DecisionHandler handler, DlcPackUpdateGuard.CheckResult check, boolean uninstall) {
+        if (packages != null) for (DlcUpdatePackage pkg : packages) if (pkg != null) pkg.setAllowUninstallPacks(uninstall);
+        handler.proceed(check, uninstall);
     }
 
     public static TargetVersion resolveTargetVersion(List<DlcUpdatePackage> packages) {
