@@ -1850,46 +1850,23 @@ object DlcUpdateService {
     }
 
     private fun isRequiredApplied(entry: DlcRequiredEntry?, dlcRoot: Path?): Boolean {
-        if (entry == null || dlcRoot == null) {
-            return false
-        }
-        val fileName: kotlin.String? = resolveRequiredFileName(entry, dlcRoot)
-        if (fileName == null || fileName.isBlank()) {
-            return false
-        }
-        for (target in entry.resolveAppliedTargets()) {
-            val resolved: Path? = resolveTarget(target, fileName)
-            if (resolved != null && Files.exists(resolved)) {
-                return true
-            }
-        }
-        return false
+        if (entry == null || dlcRoot == null) return false
+        return try { com.cozooo.dlc_manager.client.required.DlcRequiredInstaller.isInstalled(entry) } catch (exception: IOException) { false }
     }
 
     private fun collectExistingRequiredTargets(
         entry: DlcRequiredEntry?,
         fileName: kotlin.String?
     ): MutableList<AppliedTarget> {
-        if (entry == null) {
-            return mutableListOf()
-        }
-        val targets: MutableList<AppliedTarget> = ArrayList<AppliedTarget>()
-        for (target in entry.resolveAppliedTargets()) {
-            val dirTarget = Files.isDirectory(target)
-                    || target.toString().endsWith("/")
-                    || target.toString().endsWith("\\")
-            if (dirTarget) {
-                if (fileName != null && !fileName.isBlank()) {
-                    val resolved = target.resolve(fileName).normalize()
-                    if (Files.exists(resolved)) {
-                        targets.add(AppliedTarget(target, true))
-                    }
-                }
-            } else if (Files.exists(target)) {
-                targets.add(AppliedTarget(target, false))
+        if (entry == null) return mutableListOf()
+        try {
+            val result = mutableListOf<AppliedTarget>()
+            for (path in com.cozooo.dlc_manager.client.required.DlcRequiredInstaller.paths(entry)) if (Files.exists(path)) {
+                val directory = !entry.shouldUnzip(fileName) && !entry.resolveAppliedTargets().contains(path)
+                result.add(AppliedTarget(if (directory) path.parent else path, directory))
             }
-        }
-        return targets
+            return result
+        } catch (exception: IOException) { throw java.io.UncheckedIOException("Required resource target resolution failed", exception) }
     }
 
     private fun updateRemoteConfigFields(configPath: Path?, update: DlcUpdateManifest.UpdateEntry?) {
@@ -2529,6 +2506,12 @@ object DlcUpdateService {
     ) {
         if (source == null || fileName.isNullOrBlank() || targets.isNullOrEmpty()) return
         entry.setResolvedFileName(fileName)
+        if (entry.shouldUnzip(fileName)) {
+            val currentPaths = com.cozooo.dlc_manager.client.required.DlcRequiredInstaller.paths(entry).toSet()
+            for (previous in targets) if (previous.path != null && !currentPaths.contains(previous.path) && Files.isRegularFile(previous.path)) backupAndDelete(previous.path, context)
+            com.cozooo.dlc_manager.client.required.DlcRequiredInstaller.install(entry) { target -> backupOrCreate(target, context) }
+            return
+        }
         for (applied in targets) {
             val appliedPath = applied.path ?: continue
             val target = if (applied.directory) appliedPath.resolve(fileName) else appliedPath
@@ -2593,16 +2576,6 @@ object DlcUpdateService {
         val rootId: kotlin.String = DlcPathUtil.toGameRelativePath(dlcRoot).replace('\\', '/')
         val relative = dlcRoot.relativize(source).toString().replace('\\', '/').removePrefix("downloaded/DLCs/")
         return type.name.lowercase() + ":" + rootId + "|" + relative
-    }
-
-    private fun resolveTarget(targetDir: Path?, fileName: kotlin.String?): Path? {
-        if (targetDir == null || fileName == null || fileName.isBlank()) {
-            return null
-        }
-        if (Files.isDirectory(targetDir) || targetDir.toString().endsWith("/") || targetDir.toString().endsWith("\\")) {
-            return targetDir.resolve(fileName).normalize()
-        }
-        return targetDir.normalize()
     }
 
     private fun sanitizeFileName(name: kotlin.String?): kotlin.String? {
@@ -2688,38 +2661,17 @@ object DlcUpdateService {
     }
 
     private fun uninstallRequiredConfig(configPath: Path?, dlcRoot: Path?, context: UpdateContext?) {
-        if (configPath == null || dlcRoot == null || !Files.exists(configPath)) {
-            return
-        }
-        val entry = DlcRequiredLoader.loadSingle(configPath, dlcRoot)
-        if (entry == null) {
-            return
-        }
+        if (configPath == null || dlcRoot == null || !Files.exists(configPath)) return
+        val entry = DlcRequiredLoader.loadSingle(configPath, dlcRoot) ?: return
         try {
-            for (target in entry.resolveAppliedTargets()) {
-                val resolved = resolveTarget(target, resolveRequiredFileName(entry, dlcRoot))
-                if (resolved != null && Files.exists(resolved)) backupPath(DlcPathUtil.toGameRelativePath(resolved), resolved, context)
+            val targets = DlcResourceHistory.installedPaths(dlcRoot, "required", entry.getHistoryKey()).toMutableList()
+            for (target in com.cozooo.dlc_manager.client.required.DlcRequiredInstaller.paths(entry)) if (!targets.contains(target)) targets.add(target)
+            for (target in targets) if (Files.exists(target)) backupPath(DlcPathUtil.toGameRelativePath(target), target, context)
+            if (!DlcResourceHistory.restore(dlcRoot, "required", entry.getHistoryKey(), true)) {
+                for (target in targets) if (Files.isRegularFile(target)) backupAndDelete(target, context)
             }
-            if (DlcResourceHistory.restore(dlcRoot, "required", entry.getHistoryKey(), true)) {
-                deleteRequiredDownload(entry, dlcRoot, resolveRequiredFileName(entry, dlcRoot), context)
-                return
-            }
+            deleteRequiredDownload(entry, dlcRoot, resolveRequiredFileName(entry, dlcRoot), context)
         } catch (exception: IOException) { throw java.io.UncheckedIOException("Required resource recovery failed", exception) }
-        val requiredFileName: kotlin.String? = resolveRequiredFileName(entry, dlcRoot)
-        deleteRequiredDownload(entry, dlcRoot, requiredFileName, context)
-        for (target in entry.resolveAppliedTargets()) {
-            if (Files.isDirectory(target)) {
-                if (requiredFileName == null || requiredFileName.isBlank()) {
-                    continue
-                }
-                val file = target.resolve(requiredFileName)
-                if (Files.exists(file)) {
-                    backupAndDelete(file, context)
-                }
-                continue
-            }
-            backupAndDelete(target, context)
-        }
     }
 
     private fun uninstallRemoteConfig(configPath: Path?, dlcRoot: Path?, context: UpdateContext?) {

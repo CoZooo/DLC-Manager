@@ -1,4 +1,5 @@
 import { DocumentSchema, DocumentType, ROOT_SECTION_KEY, SectionSchema } from "../models/editor";
+import languageDefinition from "../../../dclanguage/src/generated/resources/com/cozooo/dclanguage/language-definition.json";
 
 const typeOptions = [
   { value: "mod", label: "mod" },
@@ -124,36 +125,38 @@ const basicFields = (options?: { includeType?: boolean; includeDlcPackType?: boo
   ]
 });
 
+const requiredBasicDefinition = languageDefinition.profiles
+  .find((profile) => profile.id === "required")!.categories
+  .find((category) => category.name === "basic")!;
+
+export const requiredBasicDefaults = Object.fromEntries(requiredBasicDefinition.fields
+  .filter((field) => "defaultValue" in field)
+  .map((field) => [field.name, "defaultValue" in field ? field.defaultValue : undefined]));
+
+const requiredBasicHelp: Record<string, string> = {
+  identifier: "static.help.dependencyIdentifier",
+  mode: "static.help.matchMode",
+  file_name: "static.help.downloadFileName",
+  appliedTarget: "static.help.requiredAppliedTarget",
+  unzip: "static.help.requiredUnzip"
+};
+
 const requiredBasicSection: SectionSchema = {
   key: "basic",
   label: "[basic]",
-  fields: [
-    {
-      key: "identifier",
-      label: "identifier",
-      kind: "text",
-      help: "static.help.dependencyIdentifier"
-    },
-    {
-      key: "mode",
-      label: "mode",
-      kind: "select",
-      options: [{ value: "hash", label: "hash" }, { value: "name", label: "name" }],
-      help: "static.help.matchMode"
-    },
-    {
-      key: "file_name",
-      label: "file_name",
-      kind: "text",
-      help: "static.help.downloadFileName"
-    },
-    {
-      key: "appliedTarget",
-      label: "appliedTarget",
-      kind: "text",
-      help: "static.help.appliedTarget"
-    },
-  ]
+  fields: requiredBasicDefinition.fields.map((field) => ({
+    key: field.name,
+    label: field.name,
+    kind: field.type === "boolean" ? "boolean" : field.enumValues.length > 0 ? "select" : "text",
+    ...(field.enumValues.length > 0
+      ? { options: field.enumValues.map((value) => ({ value, label: value })) }
+      : {}),
+    help: requiredBasicHelp[field.name] ?? field.description,
+    ...(field.name === "unzip"
+      ? { toggleLabels: { checked: "static.label.extractZip", unchecked: "static.label.extractZip" } }
+      : {}),
+    ...(field.name === "appliedTarget" ? { placeholder: "mods/" } : {})
+  }))
 };
 
 const dependenciesSection: SectionSchema = {

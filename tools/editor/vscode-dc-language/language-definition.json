@@ -624,9 +624,18 @@
               "name": "appliedTarget",
               "type": "string",
               "required": false,
-              "description": "Applied target path, enter a relative path.",
+              "description": "Relative destination directory or file name for copies. End directories with / to disambiguate. When unzip is true for a .zip resource, every target is an extraction directory.",
               "enumValues": [],
               "constraints": {}
+            },
+            {
+              "name": "unzip",
+              "type": "boolean",
+              "required": false,
+              "description": "Extract .zip resources into appliedTarget directories when true. Defaults to false; other file types are always copied.",
+              "enumValues": [],
+              "constraints": {},
+              "defaultValue": false
             }
           ]
         },
@@ -986,7 +995,7 @@
             },
             {
               "name": "UpdateDLCM",
-              "type": "string",
+              "type": "string|boolean",
               "required": false,
               "description": "Update DLC Manager.",
               "enumValues": [],
@@ -1002,6 +1011,14 @@
           "required": false,
           "description": "",
           "fields": [
+            {
+              "name": "dlc_old",
+              "type": "string",
+              "required": false,
+              "description": "Legacy alias for dlc.",
+              "enumValues": [],
+              "constraints": {}
+            },
             {
               "name": "platform",
               "type": "string",
@@ -1073,7 +1090,16 @@
           "name": "file",
           "required": false,
           "description": "",
-          "fields": []
+          "fields": [
+            {
+              "name": "changelog",
+              "type": "any",
+              "required": false,
+              "description": "",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
         },
         {
           "path": [
@@ -1088,7 +1114,27 @@
               "name": "entries",
               "type": "string",
               "required": false,
-              "description": "Relative path of the file to delete. Supports single-segment * wildcards.",
+              "description": "Relative path of the file to delete. Supports single-segment * wildcards. A mods/ entry may contain an optional SHA-256 hash used only when its file name does not match.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "file",
+            "del",
+            "*"
+          ],
+          "name": "*",
+          "required": false,
+          "description": "Delete path with optional hash fallback for files under mods/. File names are matched first.",
+          "fields": [
+            {
+              "name": "hash",
+              "type": "string",
+              "required": false,
+              "description": "SHA-256 fallback when the mods/ file name is not found. The parent directory still matches by path.",
               "enumValues": [],
               "constraints": {}
             }
@@ -1116,12 +1162,48 @@
         {
           "path": [
             "file",
+            "add",
+            "*"
+          ],
+          "name": "*",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "appliedTarget",
+              "type": "string",
+              "required": false,
+              "description": "Destination path.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "override",
+              "type": "string|boolean",
+              "required": false,
+              "description": "Overwrite mode: true, false, all, none.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "file",
             "move"
           ],
           "name": "move",
           "required": false,
           "description": "",
           "fields": [
+            {
+              "name": "*",
+              "type": "string",
+              "required": false,
+              "description": "Destination path.",
+              "enumValues": [],
+              "constraints": {}
+            },
             {
               "name": "entries",
               "type": "object",
@@ -1141,6 +1223,179 @@
           "required": false,
           "description": "Edit [file].modify in raw mode.",
           "fields": []
+        },
+        {
+          "path": [
+            "file",
+            "modify",
+            "*"
+          ],
+          "name": "*",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "path",
+              "type": "string",
+              "required": false,
+              "description": "",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "find",
+              "type": "string",
+              "required": false,
+              "description": "",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "replace",
+              "type": "string",
+              "required": false,
+              "description": "",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "which",
+              "type": "string|number",
+              "required": false,
+              "description": "",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "update"
+          ],
+          "name": "update",
+          "required": false,
+          "description": "",
+          "fields": []
+        },
+        {
+          "path": [
+            "update",
+            "info"
+          ],
+          "name": "info",
+          "required": false,
+          "description": "",
+          "fields": []
+        },
+        {
+          "path": [
+            "update",
+            "info",
+            "*"
+          ],
+          "name": "*",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "any",
+              "required": false,
+              "description": "Configuration field to update; unknown fields are preserved.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "update",
+            "remote"
+          ],
+          "name": "remote",
+          "required": false,
+          "description": "",
+          "fields": []
+        },
+        {
+          "path": [
+            "update",
+            "remote",
+            "*"
+          ],
+          "name": "*",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "any",
+              "required": false,
+              "description": "Configuration field to update; unknown fields are preserved.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "update",
+            "required"
+          ],
+          "name": "required",
+          "required": false,
+          "description": "",
+          "fields": []
+        },
+        {
+          "path": [
+            "update",
+            "required",
+            "*"
+          ],
+          "name": "*",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "any",
+              "required": false,
+              "description": "Configuration field to update; unknown fields are preserved.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "update",
+            "preset"
+          ],
+          "name": "preset",
+          "required": false,
+          "description": "",
+          "fields": []
+        },
+        {
+          "path": [
+            "update",
+            "preset",
+            "*"
+          ],
+          "name": "*",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "any",
+              "required": false,
+              "description": "Configuration field to update; unknown fields are preserved.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
         }
       ]
     },
@@ -1874,6 +2129,6 @@
       ]
     }
   ],
-  "contentHash": "d6f12b1b54baf4c1711b0d6f1c76037a9227ed067ea37911b62da9f3a3d25461",
-  "definitionHash": "554537972652025e647f1733a6f20c4ac38e6fe8b94dca3c45f2ef77a1bf9d2d"
+  "contentHash": "158f0893af6cb418138f89f6df971ec2d920449aec4f0313b25550fbc2f8c302",
+  "definitionHash": "1460e76236ffa978efaf642dbf528af5e9a2a4f7287eedda8494fcf8332f0a31"
 }

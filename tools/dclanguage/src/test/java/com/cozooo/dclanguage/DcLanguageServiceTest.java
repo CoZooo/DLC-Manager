@@ -174,4 +174,18 @@ class DcLanguageServiceTest {
         assertEquals(DcDocuments.readText(text).toJson(), DcDocuments.readText(DcDocuments.writeText(DcDocuments.readText(text))).toJson());
     }
 
+    @Test void requiredZipOptionUsesGeneratedBooleanDefaultAndEditorRules() {
+        var catalog = DcSchemaCatalog.loadDefault();
+        var field = catalog.profile("required").categories().stream()
+            .filter(category -> category.path().equals(List.of("basic"))).flatMap(category -> category.fields().stream())
+            .filter(value -> value.name().equals("unzip")).findFirst().orElseThrow();
+        assertEquals("boolean", field.type());
+        assertFalse(field.defaultValue().getAsBoolean());
+        var service = new DcLanguageService(catalog);
+        String uri = "file:///instance/DLC/required/main.dc";
+        assertTrue(service.diagnostics(uri, "[basic]\nunzip=false\n").isEmpty());
+        assertTrue(service.diagnostics(uri, "[basic]\nunzip='true'\n").stream().anyMatch(issue -> issue.message().contains("boolean")));
+        assertTrue(service.completions(uri, "[basic]\nun", new DcLanguageService.Position(1, 2)).stream().anyMatch(value -> value.label().equals("unzip")));
+    }
+
 }

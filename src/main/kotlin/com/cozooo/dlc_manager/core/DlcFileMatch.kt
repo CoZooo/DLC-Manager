@@ -40,6 +40,18 @@ object DlcFileMatch {
         return result
     }
 
+    @JvmStatic @Throws(IOException::class)
+    fun hash(input: java.io.InputStream): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        val buffer = ByteArray(65536)
+        while (true) {
+            val count = input.read(buffer)
+            if (count == -1) break
+            digest.update(buffer, 0, count)
+        }
+        return HexFormat.of().formatHex(digest.digest())
+    }
+
     private fun update(digest: MessageDigest, file: Path) {
         Files.newInputStream(file).use { input ->
             val buffer = ByteArray(65536)

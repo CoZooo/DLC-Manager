@@ -230,11 +230,6 @@ public final class DlcEarlyInstaller {
             if (source == null || !Files.isRegularFile(source)) {
                 throw new IOException("Required resource is not a regular file: " + source);
             }
-            for (Path target : entry.resolveAppliedTargets()) {
-                String name = target.getFileName() == null ? "" : target.getFileName().toString();
-                Path file = name.endsWith(".jar") || name.endsWith(".zip") ? target : target.resolve(fileName);
-                if (!Files.isRegularFile(file)) throw new IOException("Required resource target is not installed: " + file);
-            }
         }
     }
 

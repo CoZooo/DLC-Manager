@@ -48,6 +48,7 @@ public final class DlcResourceHistory {
 
     private static void save(Path root, String kind, JsonObject data) throws IOException {
         Path file = root.resolve("tmp").resolve(kind).resolve("history.dc");
+        com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeWrite(file);
         Files.createDirectories(file.getParent());
         Path staging = file.resolveSibling("history.pending.dc");
         if (!DlcDcConfigIO.write(staging, data, DlcDcConfigIO.Layout.GENERIC)) throw new IOException("Cannot save resource history: " + file);
@@ -86,7 +87,12 @@ public final class DlcResourceHistory {
         prepare(root, kind, key, identifier, config, source, target, replace, "hash");
     }
 
-    public static synchronized void prepare(Path root, String kind, String key, String identifier, Path config, Path source, Path target, boolean replace, String mode) throws IOException {
+    public static void prepare(Path root, String kind, String key, String identifier, Path config, Path source, Path target, boolean replace, String mode) throws IOException {
+        prepare(root, kind, key, identifier, config, source, source, target, replace, mode);
+    }
+
+    public static synchronized void prepare(Path root, String kind, String key, String identifier, Path config, Path source, Path content, Path target, boolean replace, String mode) throws IOException {
+        if (replace) com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeWrite(target);
         JsonObject data = read(root, kind);
         JsonObject item = resource(data, root, key, identifier, config, source);
         JsonObject targets = item.getAsJsonObject("targets");
@@ -111,11 +117,19 @@ public final class DlcResourceHistory {
         JsonObject installed = new JsonObject();
         installed.addProperty("path", relativePath(target));
         installed.addProperty("mode", DlcFileMatch.mode(mode));
-        installed.addProperty("hash", DlcFileMatch.hash(!replace && Files.exists(target) ? target : source));
+        installed.addProperty("hash", DlcFileMatch.hash(!replace && Files.exists(target) ? target : content));
         installed.addProperty("owned", replace || "dlc".equals(kind) || previous != null && previous.get("owned").getAsBoolean());
         targets.add(targetKey, installed);
         item.addProperty("status", replace ? "installing" : "installed");
         save(root, kind, data);
+    }
+
+    public static synchronized List<Path> installedPaths(Path root, String kind, String key) throws IOException {
+        JsonObject item = read(root, kind).getAsJsonObject("resources").getAsJsonObject(key);
+        if (item == null || !item.get("active").getAsBoolean()) return List.of();
+        List<Path> paths = new ArrayList<>();
+        for (var value : item.getAsJsonObject("targets").entrySet()) paths.add(resolvePath(value.getValue().getAsJsonObject().get("path").getAsString()));
+        return paths;
     }
 
     public static synchronized void complete(Path root, String kind, String key) throws IOException {
@@ -183,8 +197,14 @@ public final class DlcResourceHistory {
                 removals.add(target);
             }
         }
-        for (Path target : removals) delete(target);
-        for (var replacement : replacements.entrySet()) replace(replacement.getValue(), replacement.getKey());
+        for (Path target : removals) {
+            com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeWrite(target);
+            delete(target);
+        }
+        for (var replacement : replacements.entrySet()) {
+            com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeWrite(replacement.getKey());
+            replace(replacement.getValue(), replacement.getKey());
+        }
         for (JsonElement backupValue : backups.asMap().values()) {
             JsonObject backup = backupValue.getAsJsonObject();
             if (backup.get("resource").getAsString().equals(key)) backup.addProperty("old", true);
@@ -204,7 +224,11 @@ public final class DlcResourceHistory {
             if (!backup.get("old").getAsBoolean() || stored.endsWith(".old")) continue;
             Path path = checkedBackup(root, kind, stored);
             Path old = path.resolveSibling(path.getFileName() + ".old");
-            if (Files.exists(path)) move(path, old);
+            if (Files.exists(path)) {
+                com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeWrite(path);
+                com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeWrite(old);
+                move(path, old);
+            }
             backup.addProperty("path", root.toAbsolutePath().normalize().relativize(old).toString().replace('\\', '/'));
             changed = true;
         }

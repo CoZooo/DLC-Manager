@@ -236,39 +236,10 @@ object DlcRequiredService {
     @JvmStatic
     @Throws(IOException::class)
     fun installOne(entry: DlcRequiredEntry?): Boolean {
-        if (entry == null) {
-            return false
-        }
-        val fileName = resolveExistingFileName(entry)
-        if (fileName.isNullOrBlank()) {
-            throw IOException("missing file name")
-        }
-        entry.setResolvedFileName(fileName)
-        val source = entry.resolveRequiredPath(fileName)
-        if (source == null || !Files.exists(source)) {
-            throw IOException("missing required source")
-        }
-        var applied = false
-        val appliedTargets = entry.resolveAppliedTargets()
-        if (appliedTargets.isEmpty()) {
-            applied = true
-        }
-        for (targetDir in appliedTargets) {
-            val target = resolveTarget(targetDir, fileName) ?: continue
-            Files.createDirectories(target.parent)
-            val replace = !DlcFileMatch.matches(source, target, entry.getMatchMode())
-            DlcResourceHistory.prepare(entry.getDlcRoot()!!, "required", entry.getHistoryKey(), entry.getIdentifier(), entry.getConfigPath(), source, target, replace, entry.getMatchMode())
-            if (replace) {
-                DlcResourceHistory.replace(source, target)
-                applied = true
-            }
-        }
-        if (appliedTargets.isEmpty()) DlcResourceHistory.downloaded(entry.getDlcRoot()!!, entry.getHistoryKey(), entry.getIdentifier(), entry.getConfigPath(), source)
-        DlcResourceHistory.complete(entry.getDlcRoot()!!, "required", entry.getHistoryKey())
+        if (entry == null) return false
+        val applied = DlcRequiredInstaller.install(entry) { }
         val id = entry.getIdentifier()
-        if (!id.isNullOrBlank()) {
-            DlcRequiredRuntimeState.setOverride(id, true)
-        }
+        if (id.isNotBlank()) DlcRequiredRuntimeState.setOverride(id, true)
         return applied
     }
 
@@ -410,14 +381,6 @@ object DlcRequiredService {
         }
         val name = path.fileName?.toString() ?: ""
         return isConfigFileName(name)
-    }
-
-    private fun resolveTarget(targetDir: Path?, fileName: String?): Path? {
-        if (targetDir == null || fileName.isNullOrBlank()) {
-            return null
-        }
-        val lower = targetDir.fileName?.toString()?.lowercase(Locale.ROOT) ?: ""
-        return if (lower.endsWith(".jar") || lower.endsWith(".zip")) targetDir else targetDir.resolve(fileName)
     }
 
     private fun normalizeFileName(fileName: String?): String? {

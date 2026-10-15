@@ -1016,59 +1016,10 @@ object DlcServerDownloadService {
 
     private fun removeEntryFiles(entry: DlcRequiredEntry?) {
         if (entry == null) return
-        val targets = entry.resolveAppliedTargets()
-        if (targets.isEmpty()) return
-        val fileName = resolveAppliedFileName(entry, targets)
-        for (target in targets) {
-            val name = target.fileName?.toString() ?: ""
-            val targetFile = if (name.endsWith(".jar") || name.endsWith(".zip")) {
-                target
-            } else {
-                resolveTargetPath(target, fileName)
-            }
-            if (targetFile != null) {
-                try {
-                    Files.deleteIfExists(targetFile)
-                } catch (_: IOException) {
-                }
-            }
-        }
-    }
-
-    private fun resolveAppliedFileName(entry: DlcRequiredEntry?, targets: List<Path>?): String? {
-        if (entry == null) return null
-        val fileName = entry.getResolvedFileName()
-        if (!fileName.isNullOrBlank()) {
-            return fileName
-        }
-        if (targets != null) {
-            for (target in targets) {
-                val name = target.fileName?.toString() ?: ""
-                if (name.endsWith(".jar") || name.endsWith(".zip")) {
-                    return name
-                }
-            }
-        }
-        val base = entry.getBaseName()
-        if (base.isBlank() || targets == null) {
-            return null
-        }
-        for (target in targets) {
-            if (Files.isDirectory(target)) {
-                try {
-                    Files.newDirectoryStream(target, "$base.*").use { stream ->
-                        for (path in stream) {
-                            val name = path.fileName?.toString() ?: ""
-                            if (!DlcDcFormatUtil.isDcName(name)) {
-                                return name
-                            }
-                        }
-                    }
-                } catch (_: IOException) {
-                }
-            }
-        }
-        return null
+        try {
+            if (com.cozooo.dlc_manager.core.DlcResourceHistory.restore(entry.getDlcRoot()!!, "required", entry.getHistoryKey(), true)) return
+            for (target in com.cozooo.dlc_manager.client.required.DlcRequiredInstaller.paths(entry)) if (Files.isRegularFile(target)) Files.delete(target)
+        } catch (exception: IOException) { throw java.io.UncheckedIOException("Required resource recovery failed", exception) }
     }
 
     private fun loadRequiredEntries(dlcRoot: Path?): List<DlcRequiredEntry> {
@@ -1116,17 +1067,6 @@ object DlcServerDownloadService {
             }
         }
         return null
-    }
-
-    private fun resolveTargetPath(targetDir: Path?, fileName: String?): Path? {
-        if (targetDir == null || fileName.isNullOrBlank()) {
-            return null
-        }
-        val name = targetDir.fileName?.toString() ?: ""
-        if (name.endsWith(".jar") || name.endsWith(".zip")) {
-            return targetDir.normalize()
-        }
-        return targetDir.resolve(fileName).normalize()
     }
 
     private fun resolveExistingFileName(entry: DlcRequiredEntry?): String? {

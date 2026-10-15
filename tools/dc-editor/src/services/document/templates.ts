@@ -1,4 +1,5 @@
 import { DocumentType, StructuredModel } from "../../models/editor";
+import { requiredBasicDefaults } from "../../schemas/documentSchemas";
 
 export function createEmptyTemplate(type: DocumentType): string {
   switch (type) {
@@ -67,6 +68,7 @@ export function createEmptyTemplate(type: DocumentType): string {
         'file_name = ""',
         'mode = "hash"',
         'appliedTarget = ""',
+        `unzip = ${requiredBasicDefaults.unzip}`,
         "",
         "[dependencies]",
         ""

@@ -105,6 +105,7 @@ val sharedClasses = listOf(
     "client/required/DlcRequiredRuntime",
     "client/required/DlcRequiredRuntimeState",
     "client/required/DlcRequiredService",
+    "client/required/DlcRequiredInstaller",
     "client/selfupdate/DlcSelfUpdateService",
     "client/update/DlcPendingUpdate",
     "client/update/DlcUpdateCompatibility",

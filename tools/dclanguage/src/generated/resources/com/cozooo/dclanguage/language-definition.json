@@ -624,9 +624,18 @@
               "name": "appliedTarget",
               "type": "string",
               "required": false,
-              "description": "Applied target path, enter a relative path.",
+              "description": "Relative destination directory or file name for copies. End directories with / to disambiguate. When unzip is true for a .zip resource, every target is an extraction directory.",
               "enumValues": [],
               "constraints": {}
+            },
+            {
+              "name": "unzip",
+              "type": "boolean",
+              "required": false,
+              "description": "Extract .zip resources into appliedTarget directories when true. Defaults to false; other file types are always copied.",
+              "enumValues": [],
+              "constraints": {},
+              "defaultValue": false
             }
           ]
         },
@@ -2120,6 +2129,6 @@
       ]
     }
   ],
-  "contentHash": "77a89deedb890c880d4317cf1624c3bd0b8211a15f10fd84376d1149be06706e",
-  "definitionHash": "20edf996c3027c0323ce4aa19d8cb719ce9778b08dad9272fa39b9e948bc38e3"
+  "contentHash": "158f0893af6cb418138f89f6df971ec2d920449aec4f0313b25550fbc2f8c302",
+  "definitionHash": "1460e76236ffa978efaf642dbf528af5e9a2a4f7287eedda8494fcf8332f0a31"
 }

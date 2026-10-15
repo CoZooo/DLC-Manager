@@ -20,6 +20,7 @@ public class DlcRequiredEntry {
     private String curseforgeProjectId;
     private String curseforgeFileId;
     private String appliedTargetRaw;
+    private boolean unzip;
     private String resolvedFileName;
     private final List<DlcRequiredDependency> dependencies = new ArrayList<>();
 
@@ -30,6 +31,27 @@ public class DlcRequiredEntry {
         name = DlcDcFormatUtil.stripConfigExtension(name);
         this.baseName = name;
         this.identifier = name;
+    }
+
+    public boolean isUnzip() { return unzip; }
+    public void setUnzip(boolean value) { unzip = value; }
+    public boolean shouldUnzip(String fileName) { return unzip && fileName != null && fileName.toLowerCase(java.util.Locale.ROOT).endsWith(".zip"); }
+
+    public List<Path> resolveInstallationTargets(String fileName) {
+        List<Path> result = new ArrayList<>();
+        if (fileName == null || fileName.isBlank() || appliedTargetRaw == null) return result;
+        for (String part : appliedTargetRaw.split(",")) {
+            String value = part.trim().replace('\\', '/');
+            if (value.isEmpty()) continue;
+            Path path = Path.of(value);
+            if (!path.isAbsolute()) path = DlcPaths.gameDir().resolve(path);
+            path = path.normalize();
+            String name = path.getFileName() == null ? "" : path.getFileName().toString();
+            boolean directory = value.endsWith("/") || value.equals(".") || value.equals("..")
+                || value.endsWith("/.") || value.endsWith("/..") || !java.nio.file.Files.isRegularFile(path) && !name.contains(".");
+            result.add(shouldUnzip(fileName) || !directory ? path : path.resolve(fileName));
+        }
+        return result;
     }
 
     public String getMatchMode() { return matchMode; }

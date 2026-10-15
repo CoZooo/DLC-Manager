@@ -20,6 +20,7 @@ class DlcRequiredEntry(
     private var curseforgeProjectId: String? = null
     private var curseforgeFileId: String? = null
     private var appliedTargetRaw: String? = null
+    private var unzip = false
     private var resolvedFileName: String? = null
     private val dependencies: MutableList<DlcRequiredDependency> = ArrayList()
 
@@ -28,6 +29,27 @@ class DlcRequiredEntry(
         name = stripConfigExtension(name)
         baseName = name
         identifier = name
+    }
+
+    fun isUnzip(): Boolean = unzip
+    fun setUnzip(value: Boolean) { unzip = value }
+    fun shouldUnzip(fileName: String?): Boolean = unzip && fileName?.endsWith(".zip", true) == true
+
+    fun resolveInstallationTargets(fileName: String?): List<Path> {
+        if (fileName.isNullOrBlank()) return emptyList()
+        val result = mutableListOf<Path>()
+        for (part in appliedTargetRaw.orEmpty().split(',')) {
+            val value = part.trim().replace('\\', '/')
+            if (value.isEmpty()) continue
+            var path = Path.of(value)
+            if (!path.isAbsolute) path = DlcPaths.gameDir().resolve(path)
+            path = path.normalize()
+            val name = path.fileName?.toString().orEmpty()
+            val directory = value.endsWith('/') || value == "." || value == ".." || value.endsWith("/.") || value.endsWith("/..") ||
+                !java.nio.file.Files.isRegularFile(path) && !name.contains('.')
+            result.add(if (shouldUnzip(fileName) || !directory) path else path.resolve(fileName))
+        }
+        return result
     }
 
     fun getMatchMode(): String = matchMode

@@ -429,4 +429,21 @@ class DlcEarlyInstallerTest {
         String url() { return "http://127.0.0.1:" + server.getAddress().getPort() + "/download.jar"; }
         @Override public void close() { server.stop(0); executor.shutdownNow(); }
     }
+    @Test void zipResourcesOnlyExtractWhenRequestedAndPassFinalVerification() throws Exception {
+        Path required = game.resolve("DLC/required");
+        Files.createDirectories(required);
+        try (var zip = new java.util.zip.ZipOutputStream(Files.newOutputStream(required.resolve("bundle.zip")))) {
+            zip.putNextEntry(new java.util.zip.ZipEntry("nested/inside.jar"));
+            zip.write("inside".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        Files.writeString(required.resolve("extract.dc"), "identifier='extract'\nfile_name='bundle.zip'\nappliedTarget='mods/'\nunzip=true\n");
+        Files.writeString(required.resolve("copy.dc"), "identifier='copy'\nfile_name='bundle.zip'\nappliedTarget='packs/renamed.zip'\n");
+        install(false);
+        assertEquals("inside", Files.readString(game.resolve("mods/nested/inside.jar")));
+        assertArrayEquals(Files.readAllBytes(required.resolve("bundle.zip")), Files.readAllBytes(game.resolve("packs/renamed.zip")));
+        assertFalse(Files.exists(game.resolve("mods/bundle.zip")));
+        install(false);
+    }
+
 }

@@ -462,38 +462,9 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
         return false
     }
 
-    private fun resolveTargetPath(targetDir: Path?, fileName: String?): Path? {
-        if (targetDir == null) {
-            return null
-        }
-        val name = targetDir.fileName?.toString() ?: ""
-        if (name.endsWith(".jar") || name.endsWith(".zip")) {
-            return targetDir
-        }
-        return targetDir.resolve(fileName)
-    }
-
     private fun isApplied(entry: DlcRequiredEntry?): Boolean {
-        if (entry == null) {
-            return false
-        }
-        val targets = entry.resolveAppliedTargets()
-        if (targets.isEmpty()) {
-            return true
-        }
-        val fileName = resolveAppliedFileName(entry, targets)
-        for (target in targets) {
-            val name = target.fileName?.toString() ?: ""
-            val targetFile = if (name.endsWith(".jar") || name.endsWith(".zip")) {
-                target
-            } else {
-                resolveTargetPath(target, fileName)
-            }
-            if (targetFile == null || !Files.exists(targetFile)) {
-                return false
-            }
-        }
-        return true
+        if (entry == null) return false
+        return try { com.cozooo.dlc_manager.client.required.DlcRequiredInstaller.isInstalled(entry) } catch (exception: IOException) { false }
     }
 
     private fun isConfigFileName(fileName: String?): Boolean {
@@ -520,44 +491,6 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
         }
         val name = path.fileName?.toString() ?: ""
         return isConfigFileName(name)
-    }
-
-    private fun resolveAppliedFileName(entry: DlcRequiredEntry?, targets: List<Path>?): String? {
-        if (entry == null) {
-            return null
-        }
-        val fileName = entry.getResolvedFileName()
-        if (!fileName.isNullOrBlank()) {
-            return fileName
-        }
-        if (targets != null) {
-            for (target in targets) {
-                val name = target.fileName?.toString() ?: ""
-                if (name.endsWith(".jar") || name.endsWith(".zip")) {
-                    return name
-                }
-            }
-        }
-        val base = entry.getBaseName()
-        if (base.isBlank() || targets == null) {
-            return null
-        }
-        for (target in targets) {
-            if (Files.isDirectory(target)) {
-                try {
-                    Files.newDirectoryStream(target, "$base.*").use { stream ->
-                        for (path in stream) {
-                            val name = path.fileName?.toString() ?: ""
-                            if (!DlcDcFormatUtil.isDcName(name)) {
-                                return name
-                            }
-                        }
-                    }
-                } catch (_: IOException) {
-                }
-            }
-        }
-        return null
     }
 
     private fun resolveExistingFileName(entry: DlcRequiredEntry): String? {
@@ -651,9 +584,6 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
     }
 
     companion object {
-
-
-
 
     }
 

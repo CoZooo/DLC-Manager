@@ -260,42 +260,10 @@ public final class DlcRequiredService {
     }
 
     public static boolean installOne(DlcRequiredEntry entry) throws IOException {
-        if (entry == null) {
-            return false;
-        }
-        String fileName = resolveExistingFileName(entry);
-        if (fileName == null || fileName.isBlank()) {
-            throw new IOException("missing file name");
-        }
-        entry.setResolvedFileName(fileName);
-        Path source = entry.resolveRequiredPath(fileName);
-        if (source == null || !Files.exists(source)) {
-            throw new IOException("missing required source");
-        }
-        boolean applied = false;
-        List<Path> appliedTargets = entry.resolveAppliedTargets();
-        if (appliedTargets.isEmpty()) {
-            applied = true;
-        }
-        for (Path targetDir : appliedTargets) {
-            Path target = resolveTarget(targetDir, fileName);
-            if (target == null) {
-                continue;
-            }
-            Files.createDirectories(target.getParent());
-            boolean replace = !DlcFileMatch.matches(source, target, entry.getMatchMode());
-            DlcResourceHistory.prepare(entry.getDlcRoot(), "required", entry.getHistoryKey(), entry.getIdentifier(), entry.getConfigPath(), source, target, replace, entry.getMatchMode());
-            if (replace) {
-                DlcResourceHistory.replace(source, target);
-                applied = true;
-            }
-        }
-        if (appliedTargets.isEmpty()) DlcResourceHistory.downloaded(entry.getDlcRoot(), entry.getHistoryKey(), entry.getIdentifier(), entry.getConfigPath(), source);
-        DlcResourceHistory.complete(entry.getDlcRoot(), "required", entry.getHistoryKey());
+        if (entry == null) return false;
+        boolean applied = DlcRequiredInstaller.install(entry, path -> { });
         String id = entry.getIdentifier();
-        if (id != null && !id.isBlank()) {
-            DlcRequiredRuntimeState.setOverride(id, true);
-        }
+        if (id != null && !id.isBlank()) DlcRequiredRuntimeState.setOverride(id, true);
         return applied;
     }
 
@@ -429,18 +397,6 @@ public final class DlcRequiredService {
         }
         String name = path.getFileName() == null ? "" : path.getFileName().toString();
         return isConfigFileName(name);
-    }
-
-    private static Path resolveTarget(Path targetDir, String fileName) {
-        if (targetDir == null || fileName == null || fileName.isBlank()) {
-            return null;
-        }
-        String name = targetDir.getFileName() == null ? "" : targetDir.getFileName().toString();
-        String lower = name.toLowerCase(java.util.Locale.ROOT);
-        if (lower.endsWith(".jar") || lower.endsWith(".zip")) {
-            return targetDir;
-        }
-        return targetDir.resolve(fileName);
     }
 
     private static String normalizeFileName(String fileName) {

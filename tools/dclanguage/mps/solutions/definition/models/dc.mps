@@ -724,7 +724,14 @@
           <property role="Name" value="appliedTarget" />
           <property role="P200901" value="string" />
           <property role="P200902" value="false" />
-          <property role="P200903" value="Applied target path, enter a relative path." />
+          <property role="P200903" value="Relative destination directory or file name for copies. End directories with / to disambiguate. When unzip is true for a .zip resource, every target is an extraction directory." />
+        </node>
+        <node concept="C2009" id="rqUnzip1" role="R200851">
+          <property role="Name" value="unzip" />
+          <property role="P200901" value="boolean" />
+          <property role="P200902" value="false" />
+          <property role="P200903" value="Extract .zip resources into appliedTarget directories when true. Defaults to false; other file types are always copied." />
+          <property role="P200904" value="false" />
         </node>
       </node>
       <node concept="C2008" id="cfu" role="R200752">

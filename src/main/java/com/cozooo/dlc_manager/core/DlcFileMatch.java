@@ -46,6 +46,16 @@ public final class DlcFileMatch {
         return result;
     }
 
+    public static String hash(java.io.InputStream input) throws IOException {
+        MessageDigest digest;
+        try { digest = MessageDigest.getInstance("SHA-256"); }
+        catch (NoSuchAlgorithmException exception) { throw new IllegalStateException(exception); }
+        byte[] buffer = new byte[65536];
+        int count;
+        while ((count = input.read(buffer)) != -1) digest.update(buffer, 0, count);
+        return HexFormat.of().formatHex(digest.digest());
+    }
+
     private static void update(MessageDigest digest, Path file) throws IOException {
         try (var input = Files.newInputStream(file)) {
             byte[] buffer = new byte[65536];

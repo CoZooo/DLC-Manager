@@ -151,6 +151,8 @@ object DlcRequiredLoader {
         }
         val applied = getString(obj, "appliedTarget")
         entry.setAppliedTargetRaw(applied ?: "")
+        val unzip = DlcDcConfigIO.getIgnoreCase(obj, "unzip")
+        entry.setUnzip(unzip != null && unzip.isJsonPrimitive && unzip.asJsonPrimitive.isBoolean && unzip.asBoolean)
         val depsElement = DlcDcConfigIO.getIgnoreCase(obj, "dependencies")
         if (depsElement != null) {
             parseDependencies(depsElement, entry, requiredDir)

@@ -828,7 +828,6 @@ public final class DlcServerDownloadService {
         return DlcDcConfigIO.normalizeLangKey(lang);
     }
 
-
     public static List<DlcRequiredEntry> collectMissingRequired(Path dlcRoot) {
         List<DlcRequiredEntry> missing = new ArrayList<>();
         if (dlcRoot == null) {
@@ -1129,74 +1128,11 @@ public final class DlcServerDownloadService {
     }
 
     private static void removeEntryFiles(DlcRequiredEntry entry) {
-        if (entry == null) {
-            return;
-        }
-        List<Path> targets = entry.resolveAppliedTargets();
-        if (targets.isEmpty()) {
-            return;
-        }
-        String fileName = resolveAppliedFileName(entry, targets);
-        for (Path target : targets) {
-            if (target == null) {
-                continue;
-            }
-            Path targetFile;
-            String name = target.getFileName() == null ? "" : target.getFileName().toString();
-            if (name.endsWith(".jar") || name.endsWith(".zip")) {
-                targetFile = target;
-            } else {
-                targetFile = resolveTargetPath(target, fileName);
-            }
-            if (targetFile != null) {
-                try {
-                    Files.deleteIfExists(targetFile);
-                } catch (IOException ignored) {
-                }
-            }
-        }
-    }
-
-    private static String resolveAppliedFileName(DlcRequiredEntry entry, List<Path> targets) {
-        if (entry == null) {
-            return null;
-        }
-        String fileName = entry.getResolvedFileName();
-        if (fileName != null && !fileName.isBlank()) {
-            return fileName;
-        }
-        if (targets != null) {
-            for (Path target : targets) {
-                if (target == null) {
-                    continue;
-                }
-                String name = target.getFileName() == null ? "" : target.getFileName().toString();
-                if (name.endsWith(".jar") || name.endsWith(".zip")) {
-                    return name;
-                }
-            }
-        }
-        String base = entry.getBaseName();
-        if (base == null || base.isBlank() || targets == null) {
-            return null;
-        }
-        for (Path target : targets) {
-            if (target == null) {
-                continue;
-            }
-            if (Files.isDirectory(target)) {
-                try (java.nio.file.DirectoryStream<Path> stream = Files.newDirectoryStream(target, base + ".*")) {
-                    for (Path path : stream) {
-                        String name = path.getFileName() == null ? "" : path.getFileName().toString();
-                        if (!DlcDcFormatUtil.isDcName(name)) {
-                            return name;
-                        }
-                    }
-                } catch (IOException ignored) {
-                }
-            }
-        }
-        return null;
+        if (entry == null) return;
+        try {
+            if (com.cozooo.dlc_manager.core.DlcResourceHistory.restore(entry.getDlcRoot(), "required", entry.getHistoryKey(), true)) return;
+            for (Path target : com.cozooo.dlc_manager.client.required.DlcRequiredInstaller.paths(entry)) if (Files.isRegularFile(target)) Files.delete(target);
+        } catch (IOException exception) { throw new java.io.UncheckedIOException("Required resource recovery failed", exception); }
     }
 
     private static List<DlcRequiredEntry> loadRequiredEntries(Path dlcRoot) {
@@ -1257,17 +1193,6 @@ public final class DlcServerDownloadService {
             }
         }
         return null;
-    }
-
-    private static Path resolveTargetPath(Path targetDir, String fileName) {
-        if (targetDir == null || fileName == null || fileName.isBlank()) {
-            return null;
-        }
-        String name = targetDir.getFileName() == null ? "" : targetDir.getFileName().toString();
-        if (name.endsWith(".jar") || name.endsWith(".zip")) {
-            return targetDir.normalize();
-        }
-        return targetDir.resolve(fileName).normalize();
     }
 
     private static String resolveExistingFileName(DlcRequiredEntry entry) {

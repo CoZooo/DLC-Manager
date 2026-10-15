@@ -34,8 +34,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class DlcRequiredDownloadScreen extends DlcPageScreen {
     private static final long SWITCH_DELAY_MS = 20_000L;
 
-
-
     private final Screen parent;
     private final UpdateApplyResult postUpdateResult;
     private final List<DlcRequiredEntry> entries;
@@ -479,39 +477,10 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
         return false;
     }
 
-    private Path resolveTargetPath(Path targetDir, String fileName) {
-        if (targetDir == null) {
-            return null;
-        }
-        String name = targetDir.getFileName() == null ? "" : targetDir.getFileName().toString();
-        if (name.endsWith(".jar") || name.endsWith(".zip")) {
-            return targetDir;
-        }
-        return targetDir.resolve(fileName);
-    }
-
     private boolean isApplied(DlcRequiredEntry entry) {
-        if (entry == null) {
-            return false;
-        }
-        java.util.List<Path> targets = entry.resolveAppliedTargets();
-        if (targets.isEmpty()) {
-            return true;
-        }
-        String fileName = resolveAppliedFileName(entry, targets);
-        for (Path target : targets) {
-            Path targetFile;
-            String name = target.getFileName() == null ? "" : target.getFileName().toString();
-            if (name.endsWith(".jar") || name.endsWith(".zip")) {
-                targetFile = target;
-            } else {
-                targetFile = resolveTargetPath(target, fileName);
-            }
-            if (targetFile == null || !Files.exists(targetFile)) {
-                return false;
-            }
-        }
-        return true;
+        if (entry == null) return false;
+        try { return com.cozooo.dlc_manager.client.required.DlcRequiredInstaller.isInstalled(entry); }
+        catch (IOException exception) { return false; }
     }
 
     private boolean isConfigFileName(String fileName) {
@@ -538,48 +507,6 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
         }
         String name = path.getFileName() == null ? "" : path.getFileName().toString();
         return isConfigFileName(name);
-    }
-
-    private String resolveAppliedFileName(DlcRequiredEntry entry, java.util.List<Path> targets) {
-        if (entry == null) {
-            return null;
-        }
-        String fileName = entry.getResolvedFileName();
-        if (fileName != null && !fileName.isBlank()) {
-            return fileName;
-        }
-        if (targets != null) {
-            for (Path target : targets) {
-                if (target == null) {
-                    continue;
-                }
-                String name = target.getFileName() == null ? "" : target.getFileName().toString();
-                if (name.endsWith(".jar") || name.endsWith(".zip")) {
-                    return name;
-                }
-            }
-        }
-        String base = entry.getBaseName();
-        if (base == null || base.isBlank() || targets == null) {
-            return null;
-        }
-        for (Path target : targets) {
-            if (target == null) {
-                continue;
-            }
-            if (Files.isDirectory(target)) {
-                try (java.nio.file.DirectoryStream<Path> stream = Files.newDirectoryStream(target, base + ".*")) {
-                    for (Path path : stream) {
-                        String name = path.getFileName() == null ? "" : path.getFileName().toString();
-                        if (!DlcDcFormatUtil.isDcName(name)) {
-                            return name;
-                        }
-                    }
-                } catch (IOException ignored) {
-                }
-            }
-        }
-        return null;
     }
 
     private String resolveExistingFileName(DlcRequiredEntry entry) {
@@ -675,7 +602,6 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
         }
         return suffix;
     }
-
 
     private boolean controlsReady;
     private int pageRevision;

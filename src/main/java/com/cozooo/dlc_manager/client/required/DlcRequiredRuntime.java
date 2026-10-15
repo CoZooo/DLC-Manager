@@ -357,28 +357,9 @@ public final class DlcRequiredRuntime {
     }
 
     public static boolean entryNeedsApply(DlcRequiredEntry entry) {
-        if (entry == null) {
-            return false;
-        }
-        String fileName = normalizeFileName(entry.getResolvedFileName());
-        if (fileName == null || fileName.isBlank()) {
-            fileName = normalizeFileName(resolveFileName(entry));
-            entry.setResolvedFileName(fileName);
-        }
-        if (isTempFileName(fileName)) {
-            entry.setResolvedFileName(null);
-            return true;
-        }
-        if (fileName == null) {
-            return true;
-        }
-        for (Path target : entry.resolveAppliedTargets()) {
-            Path targetFile = resolveTarget(target, fileName);
-            try {
-                if (!com.cozooo.dlc_manager.core.DlcFileMatch.matches(entry.resolveRequiredPath(fileName), targetFile, entry.getMatchMode())) return true;
-            } catch (IOException exception) { return true; }
-        }
-        return false;
+        if (entry == null) return false;
+        try { return !DlcRequiredInstaller.isInstalled(entry); }
+        catch (IOException exception) { return true; }
     }
 
     public static String guessFileName(DlcRequiredEntry entry) {
@@ -591,17 +572,6 @@ public final class DlcRequiredRuntime {
             return "";
         }
         return obj.get(key).getAsString();
-    }
-
-    private static Path resolveTarget(Path targetDir, String fileName) {
-        if (targetDir == null || fileName == null || fileName.isBlank()) {
-            return null;
-        }
-        String name = targetDir.getFileName() == null ? "" : targetDir.getFileName().toString();
-        if (name.endsWith(".jar") || name.endsWith(".zip")) {
-            return targetDir;
-        }
-        return targetDir.resolve(fileName);
     }
 
     private static String normalizeFileName(String fileName) {

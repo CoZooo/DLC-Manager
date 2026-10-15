@@ -165,6 +165,8 @@ public final class DlcRequiredLoader {
         String applied = null;
         applied = getString(obj, "appliedTarget");
         entry.setAppliedTargetRaw(applied == null ? "" : applied);
+        JsonElement unzip = DlcDcConfigIO.getIgnoreCase(obj, "unzip");
+        entry.setUnzip(unzip != null && unzip.isJsonPrimitive() && unzip.getAsJsonPrimitive().isBoolean() && unzip.getAsBoolean());
         JsonElement depsElement = DlcDcConfigIO.getIgnoreCase(obj, "dependencies");
         if (depsElement != null) {
             parseDependencies(depsElement, entry, requiredDir);

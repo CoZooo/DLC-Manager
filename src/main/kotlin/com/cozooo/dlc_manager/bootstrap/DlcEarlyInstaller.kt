@@ -205,11 +205,7 @@ object DlcEarlyInstaller {
             val fileName = DlcRequiredService.resolveExistingFileName(entry)
             val source = entry.resolveRequiredPath(fileName)
             if (source == null || !Files.isRegularFile(source)) throw IOException("Required resource is not a regular file: $source")
-            for (target in entry.resolveAppliedTargets()) {
-                val name = target.fileName?.toString() ?: ""
-                val file = if (name.endsWith(".jar") || name.endsWith(".zip")) target else target.resolve(fileName)
-                if (!Files.isRegularFile(file)) throw IOException("Required resource target is not installed: $file")
-            }
+
         }
     }
 

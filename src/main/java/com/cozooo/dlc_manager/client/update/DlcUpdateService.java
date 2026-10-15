@@ -1746,46 +1746,21 @@ public final class DlcUpdateService {
     }
 
     private static boolean isRequiredApplied(DlcRequiredEntry entry, Path dlcRoot) {
-        if (entry == null || dlcRoot == null) {
-            return false;
-        }
-        String fileName = resolveRequiredFileName(entry, dlcRoot);
-        if (fileName == null || fileName.isBlank()) {
-            return false;
-        }
-        for (Path target : entry.resolveAppliedTargets()) {
-            Path resolved = resolveTarget(target, fileName);
-            if (resolved != null && Files.exists(resolved)) {
-                return true;
-            }
-        }
-        return false;
+        if (entry == null || dlcRoot == null) return false;
+        try { return com.cozooo.dlc_manager.client.required.DlcRequiredInstaller.isInstalled(entry); }
+        catch (IOException exception) { return false; }
     }
 
     private static List<AppliedTarget> collectExistingRequiredTargets(DlcRequiredEntry entry, String fileName) {
-        if (entry == null) {
-            return List.of();
-        }
-        List<AppliedTarget> targets = new ArrayList<>();
-        for (Path target : entry.resolveAppliedTargets()) {
-            if (target == null) {
-                continue;
+        if (entry == null) return List.of();
+        try {
+            List<AppliedTarget> result = new ArrayList<>();
+            for (Path path : com.cozooo.dlc_manager.client.required.DlcRequiredInstaller.paths(entry)) if (Files.exists(path)) {
+                boolean directory = !entry.shouldUnzip(fileName) && !entry.resolveAppliedTargets().contains(path);
+                result.add(new AppliedTarget(directory ? path.getParent() : path, directory));
             }
-            boolean dirTarget = Files.isDirectory(target)
-                || target.toString().endsWith("/")
-                || target.toString().endsWith("\\");
-            if (dirTarget) {
-                if (fileName != null && !fileName.isBlank()) {
-                    Path resolved = target.resolve(fileName).normalize();
-                    if (Files.exists(resolved)) {
-                        targets.add(new AppliedTarget(target, true));
-                    }
-                }
-            } else if (Files.exists(target)) {
-                targets.add(new AppliedTarget(target, false));
-            }
-        }
-        return targets;
+            return result;
+        } catch (IOException exception) { throw new java.io.UncheckedIOException("Required resource target resolution failed", exception); }
     }
 
     private static void updateRemoteConfigFields(Path configPath, DlcUpdateManifest.UpdateEntry update) {
@@ -2398,6 +2373,12 @@ public final class DlcUpdateService {
     private static void applyRequiredTargets(DlcRequiredEntry entry, String oldFileName, Path source, String fileName, List<AppliedTarget> targets, UpdateContext context) throws IOException {
         if (source == null || fileName == null || fileName.isBlank() || targets == null || targets.isEmpty()) return;
         entry.setResolvedFileName(fileName);
+        if (entry.shouldUnzip(fileName)) {
+            java.util.Set<Path> currentPaths = new java.util.HashSet<>(com.cozooo.dlc_manager.client.required.DlcRequiredInstaller.paths(entry));
+            for (AppliedTarget previous : targets) if (!currentPaths.contains(previous.path) && Files.isRegularFile(previous.path)) backupAndDelete(previous.path, context);
+            com.cozooo.dlc_manager.client.required.DlcRequiredInstaller.install(entry, target -> backupOrCreate(target, context));
+            return;
+        }
         for (AppliedTarget applied : targets) {
             if (applied == null || applied.path == null) continue;
             Path target = applied.directory ? applied.path.resolve(fileName) : applied.path;
@@ -2456,16 +2437,6 @@ public final class DlcUpdateService {
         String relative = dlcRoot.relativize(source).toString().replace('\\', '/');
         if (relative.startsWith("downloaded/DLCs/")) relative = relative.substring("downloaded/DLCs/".length());
         return type.name().toLowerCase(java.util.Locale.ROOT) + ":" + rootId + "|" + relative;
-    }
-
-    private static Path resolveTarget(Path targetDir, String fileName) {
-        if (targetDir == null || fileName == null || fileName.isBlank()) {
-            return null;
-        }
-        if (Files.isDirectory(targetDir) || targetDir.toString().endsWith("/") || targetDir.toString().endsWith("\\")) {
-            return targetDir.resolve(fileName).normalize();
-        }
-        return targetDir.normalize();
     }
 
     private static String sanitizeFileName(String name) {
@@ -2556,41 +2527,19 @@ public final class DlcUpdateService {
     }
 
     private static void uninstallRequiredConfig(Path configPath, Path dlcRoot, UpdateContext context) {
-        if (configPath == null || dlcRoot == null || !Files.exists(configPath)) {
-            return;
-        }
+        if (configPath == null || dlcRoot == null || !Files.exists(configPath)) return;
         DlcRequiredEntry entry = DlcRequiredLoader.loadSingle(configPath, dlcRoot);
-        if (entry == null) {
-            return;
-        }
+        if (entry == null) return;
         try {
-            for (Path target : entry.resolveAppliedTargets()) {
-                Path resolved = resolveTarget(target, resolveRequiredFileName(entry, dlcRoot));
-                if (resolved != null && Files.exists(resolved)) backupPath(DlcPathUtil.toGameRelativePath(resolved), resolved, context);
+            List<Path> recorded = DlcResourceHistory.installedPaths(dlcRoot, "required", entry.getHistoryKey());
+            List<Path> targets = new ArrayList<>(recorded);
+            for (Path target : com.cozooo.dlc_manager.client.required.DlcRequiredInstaller.paths(entry)) if (!targets.contains(target)) targets.add(target);
+            for (Path target : targets) if (Files.exists(target)) backupPath(DlcPathUtil.toGameRelativePath(target), target, context);
+            if (!DlcResourceHistory.restore(dlcRoot, "required", entry.getHistoryKey(), true)) {
+                for (Path target : targets) if (Files.isRegularFile(target)) backupAndDelete(target, context);
             }
-            if (DlcResourceHistory.restore(dlcRoot, "required", entry.getHistoryKey(), true)) {
-                deleteRequiredDownload(entry, dlcRoot, resolveRequiredFileName(entry, dlcRoot), context);
-                return;
-            }
+            deleteRequiredDownload(entry, dlcRoot, resolveRequiredFileName(entry, dlcRoot), context);
         } catch (IOException exception) { throw new java.io.UncheckedIOException("Required resource recovery failed", exception); }
-        String requiredFileName = resolveRequiredFileName(entry, dlcRoot);
-        deleteRequiredDownload(entry, dlcRoot, requiredFileName, context);
-        for (Path target : entry.resolveAppliedTargets()) {
-            if (target == null) {
-                continue;
-            }
-            if (Files.isDirectory(target)) {
-                if (requiredFileName == null || requiredFileName.isBlank()) {
-                    continue;
-                }
-                Path file = target.resolve(requiredFileName);
-                if (Files.exists(file)) {
-                    backupAndDelete(file, context);
-                }
-                continue;
-            }
-            backupAndDelete(target, context);
-        }
     }
 
     private static void uninstallRemoteConfig(Path configPath, Path dlcRoot, UpdateContext context) {

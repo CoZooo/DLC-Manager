@@ -33,6 +33,7 @@ object DlcResourceHistory {
 
     private fun save(root: Path, kind: String, data: JsonObject) {
         val file = root.resolve("tmp").resolve(kind).resolve("history.dc")
+        com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeWrite(file)
         Files.createDirectories(file.parent)
         val staging = file.resolveSibling("history.pending.dc")
         if (!DlcDcConfigIO.write(staging, data, DlcDcConfigIO.Layout.GENERIC)) throw IOException("Cannot save resource history: $file")
@@ -73,8 +74,14 @@ object DlcResourceHistory {
         prepare(root, kind, key, identifier, config, source, target, replace, "hash")
     }
 
-    @JvmStatic @Synchronized @Throws(IOException::class)
+    @JvmStatic @Throws(IOException::class)
     fun prepare(root: Path, kind: String, key: String, identifier: String?, config: Path?, source: Path, target: Path, replace: Boolean, mode: String?) {
+        prepare(root, kind, key, identifier, config, source, source, target, replace, mode)
+    }
+
+    @JvmStatic @Synchronized @Throws(IOException::class)
+    fun prepare(root: Path, kind: String, key: String, identifier: String?, config: Path?, source: Path, content: Path, target: Path, replace: Boolean, mode: String?) {
+        if (replace) com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeWrite(target)
         val data = read(root, kind)
         val item = resource(data, root, key, identifier, config, source)
         val targets = item.getAsJsonObject("targets")
@@ -100,12 +107,19 @@ object DlcResourceHistory {
         val installed = JsonObject().apply {
             addProperty("path", relativePath(target))
             addProperty("mode", DlcFileMatch.mode(mode))
-            addProperty("hash", DlcFileMatch.hash(if (!replace && Files.exists(target)) target else source))
+            addProperty("hash", DlcFileMatch.hash(if (!replace && Files.exists(target)) target else content))
             addProperty("owned", replace || kind == "dlc" || previous != null && previous.get("owned").asBoolean)
         }
         targets.add(targetKey, installed)
         item.addProperty("status", if (replace) "installing" else "installed")
         save(root, kind, data)
+    }
+
+    @JvmStatic @Synchronized @Throws(IOException::class)
+    fun installedPaths(root: Path, kind: String, key: String): List<Path> {
+        val item = read(root, kind).getAsJsonObject("resources").getAsJsonObject(key) ?: return emptyList()
+        if (!item.get("active").asBoolean) return emptyList()
+        return item.getAsJsonObject("targets").entrySet().map { resolvePath(it.value.asJsonObject.get("path").asString) }
     }
 
     @JvmStatic @Synchronized @Throws(IOException::class)
@@ -177,8 +191,14 @@ object DlcResourceHistory {
                 removals.add(target)
             }
         }
-        for (target in removals) delete(target)
-        for ((target, backup) in replacements) replace(backup, target)
+        for (target in removals) {
+            com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeWrite(target)
+            delete(target)
+        }
+        for ((target, backup) in replacements) {
+            com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeWrite(target)
+            replace(backup, target)
+        }
         for (backupValue in backups.asMap().values) {
             val backup = backupValue.asJsonObject
             if (backup.get("resource").asString == key) backup.addProperty("old", true)
@@ -198,7 +218,11 @@ object DlcResourceHistory {
             if (!backup.get("old").asBoolean || stored.endsWith(".old")) continue
             val path = checkedBackup(root, kind, stored)
             val old = path.resolveSibling("${path.fileName}.old")
-            if (Files.exists(path)) move(path, old)
+            if (Files.exists(path)) {
+                com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeWrite(path)
+                com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeWrite(old)
+                move(path, old)
+            }
             backup.addProperty("path", root.toAbsolutePath().normalize().relativize(old).toString().replace('\\', '/'))
             changed = true
         }

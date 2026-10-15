@@ -91,6 +91,7 @@ val reusedCommonJavaFiles = listOf(
     "com/cozooo/dlc_manager/client/required/DlcRequiredDependency.java",
     "com/cozooo/dlc_manager/client/required/DlcRequiredEntry.java",
     "com/cozooo/dlc_manager/client/required/DlcRequiredService.java",
+    "com/cozooo/dlc_manager/client/required/DlcRequiredInstaller.java",
     "com/cozooo/dlc_manager/client/required/DlcRequiredLoader.java",
     "com/cozooo/dlc_manager/client/required/DlcRequiredRuntime.java",
     "com/cozooo/dlc_manager/client/required/DlcRequiredRuntimeState.java",

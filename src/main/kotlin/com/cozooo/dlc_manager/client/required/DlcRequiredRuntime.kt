@@ -347,28 +347,8 @@ object DlcRequiredRuntime {
 
     @JvmStatic
     fun entryNeedsApply(entry: DlcRequiredEntry?): Boolean {
-        if (entry == null) {
-            return false
-        }
-        var fileName = normalizeFileName(entry.getResolvedFileName())
-        if (fileName.isNullOrBlank()) {
-            fileName = normalizeFileName(resolveFileName(entry))
-            entry.setResolvedFileName(fileName)
-        }
-        if (isTempFileName(fileName)) {
-            entry.setResolvedFileName(null)
-            return true
-        }
-        if (fileName == null) {
-            return true
-        }
-        for (target in entry.resolveAppliedTargets()) {
-            val targetFile = resolveTarget(target, fileName)
-            try {
-                if (!com.cozooo.dlc_manager.core.DlcFileMatch.matches(entry.resolveRequiredPath(fileName), targetFile, entry.getMatchMode())) return true
-            } catch (_: IOException) { return true }
-        }
-        return false
+        if (entry == null) return false
+        return try { !DlcRequiredInstaller.isInstalled(entry) } catch (exception: IOException) { true }
     }
 
     @JvmStatic
@@ -573,17 +553,6 @@ object DlcRequiredRuntime {
             return ""
         }
         return obj.get(key).asString
-    }
-
-    private fun resolveTarget(targetDir: Path?, fileName: String?): Path? {
-        if (targetDir == null || fileName.isNullOrBlank()) {
-            return null
-        }
-        val name = targetDir.fileName?.toString() ?: ""
-        if (name.endsWith(".jar") || name.endsWith(".zip")) {
-            return targetDir
-        }
-        return targetDir.resolve(fileName)
     }
 
     private fun normalizeFileName(fileName: String?): String? {
