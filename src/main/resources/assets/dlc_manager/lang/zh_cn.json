@@ -306,6 +306,7 @@
   "dlc_manager.required.selecting_source": "正在优选下载源...",
   "dlc_manager.required.error": "下载失败：%s",
   "dlc_manager.required.restart_prompt": "必要资源已应用，是否立即重启？",
+  "dlc_manager.update.organizing_resources": "正在整理热更新资源...",
   "dlc_manager.update.manager": "更新管理器",
   "dlc_manager.pack_update.title": "检测到整合包有更新",
   "dlc_manager.pack_update.base": "底包版本：",

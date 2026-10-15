@@ -38,6 +38,11 @@ public final class DlcMessageAdapter {
         return toComponent(DlcPackReleaseUpdateService.toDownloadFailureUpdateMessage(error));
     }
 
+    public static String toProgressText(String status) {
+        if (status == null) return "";
+        return status.startsWith("dlc_manager.") ? DlcTextCompat.translatable(status).getString() : status;
+    }
+
     private static Object[] convertArgs(Object[] args) {
         if (args == null || args.length == 0) {
             return new Object[0];

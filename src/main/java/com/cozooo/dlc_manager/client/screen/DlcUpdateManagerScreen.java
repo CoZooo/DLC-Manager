@@ -52,6 +52,7 @@ public class DlcUpdateManagerScreen extends DlcUpdatePageScreen {
     private boolean rolledBackMode;
     private UpdateCheckResult updateCheck;
     private boolean hasVisibleUpdates;
+    private String updateStatus = "";
     private boolean applyingUpdates;
 
     public DlcUpdateManagerScreen(Screen parent) {
@@ -271,7 +272,8 @@ public class DlcUpdateManagerScreen extends DlcUpdatePageScreen {
             try {
                 DlcPackUpdateCoordinator coordinator = new DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot());
                 packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible);
-                UpdateApplyResult result = DlcUpdateService.applyUpdates(chain, false);
+                UpdateApplyResult result = DlcUpdateService.applyUpdates(chain, false, (status, value) ->
+                    Minecraft.getInstance().execute(() -> updateStatus = DlcMessageAdapter.toProgressText(status)));
                 if (result != null && result.isSuccess()) {
                     packSession.finishAfterSuccessfulUpdate();
                 } else {
@@ -314,7 +316,8 @@ public class DlcUpdateManagerScreen extends DlcUpdatePageScreen {
             try {
                 DlcPackUpdateCoordinator coordinator = new DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot());
                 packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible);
-                UpdateApplyResult result = DlcUpdateService.applyUpdates(chain, false);
+                UpdateApplyResult result = DlcUpdateService.applyUpdates(chain, false, (status, value) ->
+                    Minecraft.getInstance().execute(() -> updateStatus = DlcMessageAdapter.toProgressText(status)));
                 if (result != null && result.isSuccess()) {
                     packSession.finishAfterSuccessfulUpdate();
                 } else {
@@ -546,6 +549,7 @@ public class DlcUpdateManagerScreen extends DlcUpdatePageScreen {
         if (!controlsReady) { controlsReady = true; initControls(); }
         pageRevision = java.util.Objects.hash(history, rollbackButtons, applyingUpdates);
 
+        live(content, () -> applyingUpdates ? updateStatus : "", "page-description");
         var list = updateSection(baseVersion, currentVersion);
         if (rolledBackMode) text(list, tr("dlc_manager.update.rollback_info", rollbackFrom, normalizeVersion(baseVersion) + "+" + normalizeVersion(currentVersion)), "page-warning");
         if (hasVisibleUpdates) text(list, tr("dlc_manager.update.desc"), "page-description");

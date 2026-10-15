@@ -27,6 +27,7 @@ class DlcUpdateMissingScreen(
     private var forceButton: Button? = null
     private var cancelButton: Button? = null
     private var scrollIndex = 0
+    private var updateStatus = ""
     private var applying = false
 
     private fun initControls() {
@@ -73,7 +74,9 @@ class DlcUpdateMissingScreen(
             try {
                 val coordinator = DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot())
                 packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible)
-                val result = DlcUpdateService.applyUpdates(updateResult.updates, true)
+                val result = DlcUpdateService.applyUpdates(updateResult.updates, true) { status, _ ->
+                    Minecraft.getInstance().execute { updateStatus = DlcMessageAdapter.toProgressText(status) }
+                }
                 if (result?.isSuccess == true) {
                     packSession.finishAfterSuccessfulUpdate()
                 } else {
@@ -147,6 +150,7 @@ class DlcUpdateMissingScreen(
 
     override fun buildPage() {
         initControls()
+        live(content, { if (applying) updateStatus else "" }, "page-description")
         val list = section("", tr("dlc_manager.update.missing_desc"))
         for (path in missingPaths) row(list, path, "")
         cancelButton?.let { mount(footer, it) }

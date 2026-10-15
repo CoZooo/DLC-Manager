@@ -220,7 +220,8 @@ public class DlcUpdateUrlScreen extends DlcUrlPageScreen {
             try {
                 DlcPackUpdateCoordinator coordinator = new DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot());
                 packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible);
-                UpdateApplyResult result = DlcUpdateService.applyUpdates(chain, false);
+                UpdateApplyResult result = DlcUpdateService.applyUpdates(chain, false, (status, value) ->
+                    Minecraft.getInstance().execute(() -> statusText = DlcMessageAdapter.toProgressText(status)));
                 if (result != null && result.isSuccess()) {
                     packSession.finishAfterSuccessfulUpdate();
                 } else {

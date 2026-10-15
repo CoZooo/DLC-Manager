@@ -188,7 +188,7 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
                 packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible)
                 val applyResult = DlcUpdateService.applyUpdates(result?.updates, forceMissing) { status, value ->
                     Minecraft.getInstance().execute {
-                        statusText = status
+                        statusText = DlcMessageAdapter.toProgressText(status)
                         progress = value
                     }
                 }

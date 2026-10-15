@@ -387,7 +387,15 @@ public final class DlcUpdateService {
             return UpdateApplyResult.failed("Version mismatch");
         }
 
-        List<String> missingTargets = findMissingUpdateTargets(manifest, DlcPaths.gameDir());
+        DlcUpdateHashIndex hashIndex;
+        try {
+            notifyApplyProgress("dlc_manager.update.organizing_resources", -1f);
+            hashIndex = DlcUpdateHashIndex.prepare(DlcPaths.gameDir(), dlcRoot);
+            notifyApplyProgress("Applying update...", -1f);
+        } catch (IOException exception) {
+            return UpdateApplyResult.failed(exception.getMessage());
+        }
+        List<String> missingTargets = findMissingUpdateTargets(manifest, DlcPaths.gameDir(), hashIndex);
         if (!missingTargets.isEmpty() && !forceMissing) {
             return UpdateApplyResult.missing(missingTargets);
         }
@@ -418,7 +426,7 @@ public final class DlcUpdateService {
 
         CURRENT_UPDATE_CONTEXT.set(context);
         try {
-            applyDeleteOps(manifest.getFileOps(), context);
+            applyDeleteOps(manifest.getFileOps(), context, hashIndex);
             applyMoveOps(manifest.getFileOps(), context);
             applyAddOps(manifest.getFileOps(), context);
             applyModifyOps(manifest.getFileOps(), context, forceMissing);
@@ -426,6 +434,13 @@ public final class DlcUpdateService {
             applyUpdateOps(manifest.getUpdateOps(), context);
             if (!context.failureMessages.isEmpty()) {
                 throw new IllegalStateException(String.join("\n", context.failureMessages));
+            }
+            if (context.helperScheduled) {
+                List<String> changed = new ArrayList<>(meta.getRestorePaths());
+                changed.addAll(meta.getCreatedPaths());
+                DlcUpdateHashIndex.invalidate(DlcPaths.gameDir(), dlcRoot, changed);
+            } else {
+                DlcUpdateHashIndex.prepare(DlcPaths.gameDir(), dlcRoot);
             }
             meta.save(metaPath);
 
@@ -1055,7 +1070,7 @@ public final class DlcUpdateService {
             && dlc.equals(sourceDlcVersion(info));
     }
 
-    private static List<String> findMissingUpdateTargets(DlcUpdateManifest manifest, Path gameDir) {
+    private static List<String> findMissingUpdateTargets(DlcUpdateManifest manifest, Path gameDir, DlcUpdateHashIndex hashIndex) {
         if (manifest == null || manifest.getFileOps() == null) {
             return List.of();
         }
@@ -1073,7 +1088,7 @@ public final class DlcUpdateService {
             if (raw == null || raw.isBlank()) {
                 continue;
             }
-            if (DlcPathUtil.findMatches(gameDir, raw).isEmpty()) {
+            if (hashIndex.findDeleteMatches(gameDir, raw, manifest.getFileOps().getDeleteHashes().get(raw)).isEmpty()) {
                 addMissingPath(missing, raw);
             }
         }
@@ -1096,7 +1111,7 @@ public final class DlcUpdateService {
         missing.add(path);
     }
 
-    private static void applyDeleteOps(DlcUpdateManifest.FileOps ops, UpdateContext context) {
+    private static void applyDeleteOps(DlcUpdateManifest.FileOps ops, UpdateContext context, DlcUpdateHashIndex hashIndex) {
         if (ops == null) {
             return;
         }
@@ -1105,7 +1120,7 @@ public final class DlcUpdateService {
             if (raw == null || raw.isBlank()) {
                 continue;
             }
-            for (Path target : DlcPathUtil.findMatches(gameDir, raw)) {
+            for (Path target : hashIndex.findDeleteMatches(gameDir, raw, ops.getDeleteHashes().get(raw))) {
                 String actualRelative = DlcPathUtil.toGameRelativePath(target);
                 backupPath(actualRelative, target, context);
                 handleSpecialDelete(target, raw, context);
@@ -2633,6 +2648,13 @@ public final class DlcUpdateService {
         if (context == null || context.backupRoot == null || context.meta == null) {
             return;
         }
+        try {
+            List<String> changed = new ArrayList<>(context.meta.getRestorePaths());
+            changed.addAll(context.meta.getCreatedPaths());
+            DlcUpdateHashIndex.invalidate(DlcPaths.gameDir(), context.dlcRoot, changed);
+        } catch (IOException exception) {
+            recordFileOpFailure(context, "invalidate update hashes", context.dlcRoot);
+        }
         for (var keys : context.resourceRekeys.entrySet()) {
             try { DlcResourceHistory.rekey(context.dlcRoot, "dlc", keys.getValue(), keys.getKey()); }
             catch (IOException exception) { recordFileOpFailure(context, "restore DLC history", context.dlcRoot); }
@@ -2721,6 +2743,11 @@ public final class DlcUpdateService {
     private static void backupPath(String rawRelative, Path target, UpdateContext context) {
         if (context == null || target == null || rawRelative == null || rawRelative.isBlank()) {
             return;
+        }
+        try {
+            DlcUpdateHashIndex.invalidate(DlcPaths.gameDir(), context.dlcRoot, List.of(rawRelative));
+        } catch (IOException exception) {
+            throw new IllegalStateException("Failed to invalidate update hashes", exception);
         }
         String normalized = normalizePath(rawRelative, target);
         if (!context.meta.getRestorePaths().contains(normalized)) {

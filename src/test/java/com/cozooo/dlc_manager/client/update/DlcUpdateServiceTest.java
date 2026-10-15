@@ -229,6 +229,89 @@ class DlcUpdateServiceTest {
         assertEquals(List.of("config/shared.json"), result.getMissingPaths());
     }
 
+    @Test
+    void hashedDeleteUsesActualNameForBackupsAndRollback() throws Exception {
+        Path gameDir = tempDir.resolve("game");
+        Path dlcRoot = gameDir.resolve("DLC");
+        PlatformServices.setProvider(new TestPlatformProvider(gameDir, tempDir.resolve("config")));
+        DlcConfig.setDlcRoot(dlcRoot.toString());
+        Files.createDirectories(gameDir.resolve("mods"));
+        Path renamed = Files.writeString(gameDir.resolve("mods/renamed.jar"), "payload");
+        String hash = com.cozooo.dlc_manager.core.DlcFileMatch.hash(renamed);
+        Files.createDirectories(dlcRoot.resolve("info"));
+        Files.writeString(dlcRoot.resolve("info/version.dc"), """
+            base = "1.0.0"
+            dlc = "1.0.0"
+            """);
+        Path zip = tempDir.resolve("Client_1.0.0_1.0.0-1.0.1_1.0.1.zip");
+        writeZip(zip, new Entry("update.dc", """
+            [version]
+            base = "1.0.0"
+            dlc_old = "1.0.0"
+            dlc_new = "1.0.1"
+            [file]
+              [del]
+                "mods/original.jar":
+                  hash = "%s"
+            """.formatted(hash)));
+        var pkg = DlcUpdatePackage.fromZip(zip);
+        var result = DlcUpdateService.applyUpdates(List.of(pkg), false);
+        assertTrue(result.isSuccess(), result.getMessage());
+        assertFalse(Files.exists(renamed));
+        assertEquals(List.of("mods/renamed.jar"), DlcUpdateService.loadMetaForVersion("1.0.0", "1.0.1").getRestorePaths());
+        assertTrue(DlcUpdateService.rollbackTo("1.0.0+1.0.0").isSuccess());
+        assertEquals("payload", Files.readString(renamed));
+        assertEquals(List.of(renamed), DlcUpdateHashIndex.prepare(gameDir, dlcRoot).findDeleteMatches(gameDir, "mods/original.jar", hash));
+    }
+
+    @Test
+    void chainedUpdateRefreshesHashAfterReplacingAnExistingFile() throws Exception {
+        Path gameDir = tempDir.resolve("game");
+        Path dlcRoot = gameDir.resolve("DLC");
+        PlatformServices.setProvider(new TestPlatformProvider(gameDir, tempDir.resolve("config")));
+        DlcConfig.setDlcRoot(dlcRoot.toString());
+        Files.createDirectories(gameDir.resolve("mods"));
+        Path mod = Files.writeString(gameDir.resolve("mods/renamed.jar"), "old");
+        Path replacement = Files.writeString(tempDir.resolve("replacement.jar"), "new");
+        String hash = com.cozooo.dlc_manager.core.DlcFileMatch.hash(replacement);
+        Files.createDirectories(dlcRoot.resolve("info"));
+        Files.writeString(dlcRoot.resolve("info/version.dc"), """
+            base = "1.0.0"
+            dlc = "1.0.0"
+            """);
+        Path first = tempDir.resolve("first.zip");
+        writeZip(first, new Entry("update.dc", """
+            [version]
+            base = "1.0.0"
+            dlc_old = "1.0.0"
+            dlc_new = "1.0.1"
+            [file]
+              [add]
+                "mods/renamed.jar":
+                  appliedTarget = "mods/renamed.jar"
+                  override = true
+            """), new Entry("mods/renamed.jar", "new"));
+        Path second = tempDir.resolve("second.zip");
+        writeZip(second, new Entry("update.dc", """
+            [version]
+            base = "1.0.0"
+            dlc_old = "1.0.1"
+            dlc_new = "1.0.2"
+            [file]
+              [del]
+                "mods/original.jar":
+                  hash = "%s"
+            """.formatted(hash)));
+        var statuses = new java.util.ArrayList<String>();
+        var result = DlcUpdateService.applyUpdates(List.of(DlcUpdatePackage.fromZip(first), DlcUpdatePackage.fromZip(second)), false,
+            (status, progress) -> statuses.add(status));
+        assertTrue(result.isSuccess(), result.getMessage());
+        assertFalse(Files.exists(mod));
+        assertTrue(statuses.contains("dlc_manager.update.organizing_resources"));
+        var files = com.cozooo.dclanguage.DcDocuments.read(dlcRoot.resolve("tmp/update/hash_list.dc")).toJson().getAsJsonObject("files");
+        assertFalse(files.has("renamed.jar"));
+    }
+
     private static void writeZip(Path zip, Entry... entries) throws Exception {
         try (ZipOutputStream out = new ZipOutputStream(Files.newOutputStream(zip))) {
             for (Entry entry : entries) {

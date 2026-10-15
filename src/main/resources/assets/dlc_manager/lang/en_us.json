@@ -306,6 +306,7 @@
   "dlc_manager.required.selecting_source": "Selecting the best download source...",
   "dlc_manager.required.error": "Download failed: %s",
   "dlc_manager.required.restart_prompt": "Required resources applied. Restart now?",
+  "dlc_manager.update.organizing_resources": "Organizing hot update resources...",
   "dlc_manager.update.manager": "Update Manager",
   "dlc_manager.pack_update.title": "Modpack update detected",
   "dlc_manager.pack_update.base": "Base version:",

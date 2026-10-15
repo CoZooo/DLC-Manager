@@ -115,6 +115,7 @@ class DlcUpdateManifest {
 
     class FileOps {
         private val del: MutableList<String> = ArrayList()
+        private val deleteHashes: MutableMap<String, String> = LinkedHashMap()
         private val add: MutableMap<String, AddEntry> = LinkedHashMap()
         private val move: MutableMap<String, String> = LinkedHashMap()
         private val modify: MutableList<ModifyEntry> = ArrayList()
@@ -122,6 +123,8 @@ class DlcUpdateManifest {
         fun getDel(): MutableList<String> {
             return del
         }
+
+        fun getDeleteHashes(): MutableMap<String, String> = deleteHashes
 
         fun getAdd(): MutableMap<String, AddEntry> {
             return add
@@ -455,7 +458,19 @@ class DlcUpdateManifest {
                 return ops
             }
             if (DlcDcConfigIO.hasIgnoreCase(obj, "del")) {
-                ops.getDel().addAll(readStringArray(DlcDcConfigIO.getIgnoreCase(obj, "del")))
+                val deletes = DlcDcConfigIO.getIgnoreCase(obj, "del")
+                if (deletes != null && deletes.isJsonObject) {
+                    for ((path, value) in deletes.asJsonObject.entrySet()) {
+                        ops.getDel().add(path)
+                        if (value.isJsonObject) {
+                            DlcDcConfigIO.getStringIgnoreCase(value.asJsonObject, "hash")?.let {
+                                ops.getDeleteHashes()[path] = it
+                            }
+                        }
+                    }
+                } else {
+                    ops.getDel().addAll(readStringArray(deletes))
+                }
             }
             if (DlcDcConfigIO.hasIgnoreCase(obj, "add")) {
                 val addEl = DlcDcConfigIO.getIgnoreCase(obj, "add")

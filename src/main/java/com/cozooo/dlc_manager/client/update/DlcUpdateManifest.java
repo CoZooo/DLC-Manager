@@ -204,7 +204,18 @@ public class DlcUpdateManifest {
             return ops;
         }
         if (DlcDcConfigIO.hasIgnoreCase(obj, "del")) {
-            ops.del.addAll(readStringArray(DlcDcConfigIO.getIgnoreCase(obj, "del")));
+            JsonElement deletes = DlcDcConfigIO.getIgnoreCase(obj, "del");
+            if (deletes != null && deletes.isJsonObject()) {
+                for (var entry : deletes.getAsJsonObject().entrySet()) {
+                    ops.del.add(entry.getKey());
+                    if (entry.getValue().isJsonObject()) {
+                        String hash = DlcDcConfigIO.getStringIgnoreCase(entry.getValue().getAsJsonObject(), "hash");
+                        if (hash != null) ops.deleteHashes.put(entry.getKey(), hash);
+                    }
+                }
+            } else {
+                ops.del.addAll(readStringArray(deletes));
+            }
         }
         if (DlcDcConfigIO.hasIgnoreCase(obj, "add")) {
             JsonElement addEl = DlcDcConfigIO.getIgnoreCase(obj, "add");
@@ -638,12 +649,17 @@ public class DlcUpdateManifest {
 
     public static class FileOps {
         private final List<String> del = new ArrayList<>();
+        private final Map<String, String> deleteHashes = new LinkedHashMap<>();
         private final Map<String, AddEntry> add = new LinkedHashMap<>();
         private final Map<String, String> move = new LinkedHashMap<>();
         private final List<ModifyEntry> modify = new ArrayList<>();
 
         public List<String> getDel() {
             return del;
+        }
+
+        public Map<String, String> getDeleteHashes() {
+            return deleteHashes;
         }
 
         public Map<String, AddEntry> getAdd() {

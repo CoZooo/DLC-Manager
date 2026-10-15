@@ -1043,7 +1043,18 @@
             <property role="Name" value="entries" />
             <property role="P200901" value="string" />
             <property role="P200902" value="false" />
-            <property role="P200903" value="Relative path of the file to delete. Supports single-segment * wildcards." />
+            <property role="P200903" value="Relative path of the file to delete. Supports single-segment * wildcards. A mods/ entry may contain an optional SHA-256 hash used only when its file name does not match." />
+          </node>
+          <node concept="C2008" id="hD1" role="R200852">
+            <property role="Name" value="*" />
+            <property role="P200801" value="false" />
+            <property role="P200802" value="Delete path with optional hash fallback for files under mods/. File names are matched first." />
+            <node concept="C2009" id="hD2" role="R200851">
+              <property role="Name" value="hash" />
+              <property role="P200901" value="string" />
+              <property role="P200902" value="false" />
+              <property role="P200903" value="SHA-256 fallback when the mods/ file name is not found. The parent directory still matches by path." />
+            </node>
           </node>
         </node>
         <node concept="C2008" id="cgv" role="R200852">

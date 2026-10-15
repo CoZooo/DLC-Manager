@@ -207,7 +207,7 @@ public class DlcUpdatePromptScreen extends DlcPageScreen {
                 packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible);
                 UpdateApplyResult result = DlcUpdateService.applyUpdates(this.result.getUpdates(), forceMissing, (status, value) ->
                     Minecraft.getInstance().execute(() -> {
-                        statusText = status;
+                        statusText = DlcMessageAdapter.toProgressText(status);
                         progress = value;
                     }));
                 if (result != null && result.isSuccess()) {

@@ -28,6 +28,7 @@ public class DlcUpdateMissingScreen extends DlcPageScreen {
     private Button forceButton;
     private Button cancelButton;
     private int scrollIndex;
+    private String updateStatus = "";
     private boolean applying;
 
     public DlcUpdateMissingScreen(Screen parent, UpdateCheckResult updateResult, List<String> missingPaths) {
@@ -84,7 +85,8 @@ public class DlcUpdateMissingScreen extends DlcPageScreen {
             try {
                 DlcPackUpdateCoordinator coordinator = new DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot());
                 packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible);
-                UpdateApplyResult result = DlcUpdateService.applyUpdates(updateResult.getUpdates(), true);
+                UpdateApplyResult result = DlcUpdateService.applyUpdates(updateResult.getUpdates(), true, (status, value) ->
+                    Minecraft.getInstance().execute(() -> updateStatus = DlcMessageAdapter.toProgressText(status)));
                 if (result != null && result.isSuccess()) {
                     packSession.finishAfterSuccessfulUpdate();
                 } else {
@@ -156,6 +158,7 @@ public class DlcUpdateMissingScreen extends DlcPageScreen {
 
     @Override protected void buildPage() {
         initControls();
+        live(content, () -> applying ? updateStatus : "", "page-description");
         var list = section("", tr("dlc_manager.update.missing_desc"));
         for (String path : missingPaths) row(list, path, "");
         mount(footer, cancelButton);

@@ -429,8 +429,16 @@ object DlcUpdateService {
             return UpdateApplyResult.Companion.failed("Version mismatch")
         }
 
+        val hashIndex = try {
+            notifyApplyProgress("dlc_manager.update.organizing_resources", -1f)
+            DlcUpdateHashIndex.prepare(DlcPaths.gameDir(), dlcRoot).also {
+                notifyApplyProgress("Applying update...", -1f)
+            }
+        } catch (exception: IOException) {
+            return UpdateApplyResult.failed(exception.message)
+        }
         val missingTargets: MutableList<String?> =
-            DlcUpdateService.findMissingUpdateTargets(manifest, DlcPaths.gameDir())
+            DlcUpdateService.findMissingUpdateTargets(manifest, DlcPaths.gameDir(), hashIndex)
         if (!missingTargets.isEmpty() && !forceMissing) {
             return UpdateApplyResult.Companion.missing(missingTargets)
         }
@@ -462,13 +470,18 @@ object DlcUpdateService {
 
         CURRENT_UPDATE_CONTEXT.set(context)
         try {
-            applyDeleteOps(manifest.getFileOps(), context)
+            applyDeleteOps(manifest.getFileOps(), context, hashIndex)
             applyMoveOps(manifest.getFileOps(), context)
             applyAddOps(manifest.getFileOps(), context)
             applyModifyOps(manifest.getFileOps(), context, forceMissing)
             disablePresetUpdatesForApply(presetSession)
             applyUpdateOps(manifest.getUpdateOps(), context)
             check(context.failureMessages.isEmpty()) { context.failureMessages.joinToString("\n") }
+            if (context.helperScheduled) {
+                DlcUpdateHashIndex.invalidate(DlcPaths.gameDir(), dlcRoot, meta.getRestorePaths() + meta.getCreatedPaths())
+            } else {
+                DlcUpdateHashIndex.prepare(DlcPaths.gameDir(), dlcRoot)
+            }
             meta.save(metaPath)
 
             val updated = DlcUpdateVersion()
@@ -1149,7 +1162,7 @@ object DlcUpdateService {
                 && dlc == sourceDlcVersion(info)
     }
 
-    private fun findMissingUpdateTargets(manifest: DlcUpdateManifest?, gameDir: Path): MutableList<kotlin.String?> {
+    private fun findMissingUpdateTargets(manifest: DlcUpdateManifest?, gameDir: Path, hashIndex: DlcUpdateHashIndex): MutableList<kotlin.String?> {
         if (manifest == null || manifest.getFileOps() == null) {
             return mutableListOf<kotlin.String?>()
         }
@@ -1164,7 +1177,7 @@ object DlcUpdateService {
             if (raw.isBlank()) {
                 continue
             }
-            if (DlcPathUtil.findMatches(gameDir, raw).isEmpty()) {
+            if (hashIndex.findDeleteMatches(gameDir, raw, manifest.getFileOps()!!.getDeleteHashes()[raw]).isEmpty()) {
                 addMissingPath(missing, raw)
             }
         }
@@ -1187,7 +1200,7 @@ object DlcUpdateService {
         missing.add(path)
     }
 
-    private fun applyDeleteOps(ops: DlcUpdateManifest.FileOps?, context: UpdateContext) {
+    private fun applyDeleteOps(ops: DlcUpdateManifest.FileOps?, context: UpdateContext, hashIndex: DlcUpdateHashIndex) {
         if (ops == null) {
             return
         }
@@ -1196,7 +1209,7 @@ object DlcUpdateService {
             if (raw.isBlank()) {
                 continue
             }
-            for (target in DlcPathUtil.findMatches(gameDir, raw)) {
+            for (target in hashIndex.findDeleteMatches(gameDir, raw, ops.getDeleteHashes()[raw])) {
                 val actualRelative = DlcPathUtil.toGameRelativePath(target)
                 backupPath(actualRelative, target, context)
                 handleSpecialDelete(target, raw, context)
@@ -2781,6 +2794,12 @@ object DlcUpdateService {
         if (context == null || context.backupRoot == null || context.meta == null) {
             return
         }
+        try {
+            val changed = context.meta.getRestorePaths() + context.meta.getCreatedPaths()
+            DlcUpdateHashIndex.invalidate(DlcPaths.gameDir(), context.dlcRoot!!, changed)
+        } catch (exception: IOException) {
+            recordFileOpFailure(context, "invalidate update hashes", context.dlcRoot)
+        }
         for ((oldKey, newKey) in context.resourceRekeys) {
             try { DlcResourceHistory.rekey(context.dlcRoot!!, "dlc", newKey, oldKey) }
             catch (_: IOException) { recordFileOpFailure(context, "restore DLC history", context.dlcRoot) }
@@ -2879,6 +2898,11 @@ object DlcUpdateService {
     private fun backupPath(rawRelative: kotlin.String?, target: Path?, context: UpdateContext?) {
         if (context == null || target == null || rawRelative == null || rawRelative.isBlank()) {
             return
+        }
+        try {
+            DlcUpdateHashIndex.invalidate(DlcPaths.gameDir(), context.dlcRoot!!, listOf(rawRelative))
+        } catch (exception: IOException) {
+            throw IllegalStateException("Failed to invalidate update hashes", exception)
         }
         val normalized: kotlin.String = normalizePath(rawRelative, target)
         if (!context.meta!!.getRestorePaths().contains(normalized)) {

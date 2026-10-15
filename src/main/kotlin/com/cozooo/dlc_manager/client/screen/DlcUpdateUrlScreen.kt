@@ -230,7 +230,9 @@ class DlcUpdateUrlScreen(
             try {
                 val coordinator = DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot())
                 packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible)
-                val result = DlcUpdateService.applyUpdates(chain, false)
+                val result = DlcUpdateService.applyUpdates(chain, false) { status, _ ->
+                    Minecraft.getInstance().execute { statusText = DlcMessageAdapter.toProgressText(status) }
+                }
                 if (result?.isSuccess == true) {
                     packSession.finishAfterSuccessfulUpdate()
                 } else {

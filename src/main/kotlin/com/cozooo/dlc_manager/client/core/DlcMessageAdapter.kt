@@ -40,6 +40,13 @@ object DlcMessageAdapter {
         return toComponent(DlcPackReleaseUpdateService.toDownloadFailureUpdateMessage(error))
     }
 
+    @JvmStatic
+    fun toProgressText(status: String?): String = when {
+        status == null -> ""
+        status.startsWith("dlc_manager.") -> DlcTextCompat.translatable(status).string
+        else -> status
+    }
+
     private fun convertArgs(args: Array<out Any?>): Array<Any?> {
         return Array(args.size) { index ->
             val arg = args[index]

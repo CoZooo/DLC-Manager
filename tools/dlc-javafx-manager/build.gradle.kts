@@ -117,6 +117,7 @@ val reusedCommonJavaFiles = listOf(
     "com/cozooo/dlc_manager/client/server/DlcServerUpdateState.java",
     "com/cozooo/dlc_manager/client/server/DlcServerVersionUtil.java",
     "com/cozooo/dlc_manager/client/update/DlcUpdateDcParser.java",
+    "com/cozooo/dlc_manager/client/update/DlcUpdateHashIndex.java",
     "com/cozooo/dlc_manager/client/update/DlcUpdateManifest.java",
     "com/cozooo/dlc_manager/client/update/DlcUpdateMeta.java",
     "com/cozooo/dlc_manager/client/update/DlcUpdatePackage.java",

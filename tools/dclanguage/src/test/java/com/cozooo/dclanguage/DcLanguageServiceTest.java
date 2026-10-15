@@ -154,4 +154,24 @@ class DcLanguageServiceTest {
         org.junit.jupiter.api.Assertions.assertEquals(1, completions.size());
         org.junit.jupiter.api.Assertions.assertEquals("[basic]", completions.get(0).insertText());
     }
+    @Test
+    void updateDeleteHashUsesSharedDynamicPathDefinition() throws Exception {
+        var catalog = DcSchemaCatalog.loadDefault();
+        var field = catalog.field(catalog.profile("update"), List.of("file", "del", "mods/a.jar"), "hash");
+        assertNotNull(field);
+        assertEquals("string", field.type());
+        var service = new DcLanguageService(catalog);
+        String text = """
+            [file]
+              [del]
+                "mods/a.jar":
+                  hash = "abc"
+                "config/legacy.txt"
+            """;
+        assertTrue(service.diagnostics("file:///update.dc", text).isEmpty());
+        assertTrue(service.diagnostics("file:///update.dc", text.replace("hash = \"abc\"", "hash = 42")).stream()
+            .anyMatch(issue -> issue.message().contains("hash")));
+        assertEquals(DcDocuments.readText(text).toJson(), DcDocuments.readText(DcDocuments.writeText(DcDocuments.readText(text))).toJson());
+    }
+
 }
