@@ -2,7 +2,7 @@
 
 [简体中文](README.zh.md)
 
-This tool defines and maintains `.dc` syntax, fields, and validation rules. The [native MPS model](solutions/definition/models/dc.mps) is the authoritative definition; its generated outputs are shared by the DC Language library, language server, and editor plugins. The tool also includes an optional structured editor for `.dc` files.
+This tool defines and maintains generic `.dc` syntax. Application fields and validation rules are owned and explicitly registered by consuming projects. The [native MPS model](solutions/definition/models/dc.mps) is the authoritative definition; its generated outputs are shared by the DC Language library, language server, and editor plugins. The tool also includes an optional structured editor for `.dc` files.
 
 ## Requirements
 
@@ -24,7 +24,7 @@ The package is `build/distributions/dclanguage-mps-0.1.0.zip`. In MPS, choose **
 
 1. Install the plugin, then open the repository's `definition-editor` project.
 2. Open the `dc` root in the `com.cozooo.dclanguage.definitions.dc` model.
-3. Change syntax tokens, string or number rules, or the categories, fields, and constraints of a configuration profile.
+3. Change generic syntax tokens, strings, or number rules. Keep application categories, fields, and constraints in the consuming project definition and register them through the DC API.
 4. Generate and verify from this directory:
 
 ```sh

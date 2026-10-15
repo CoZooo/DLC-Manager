@@ -69,7 +69,7 @@ After installing the plugin, open `definition-editor`, navigate to `com.cozooo.d
 - `SchemaProfile` defines filename patterns and categories. Nested `Category` nodes are expanded into `path` arrays during generation.
 - `Field` contains its type, `required` flag, description, default, enum values, and constraints. Types may be unions such as `string|array`; `*` represents dynamic fields.
 
-The initial type and field constraints cover existing application files while preserving compatibility with inferred identifiers. `strict-example` demonstrates required categories and fields, plus string-length constraints.
+The default model contains only generic language syntax and has no application profiles or fields. Applications own and explicitly register their definitions through the DC API. Tests construct a temporary `strict-example` profile in memory to verify required fields and constraints; it is not part of the shipped language definition.
 
 Missing tokens, empty delimiters, conflicts, duplicate fields, invalid types, and invalid regular expressions are reported by MPS validation and the generator, stopping generation.
 

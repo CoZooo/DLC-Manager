@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-本工具用于定义和维护 `.dc` 语言的语法、字段及校验规则。权威定义位于 [原生 MPS 模型](solutions/definition/models/dc.mps)，生成结果供 DC Language 库、语言服务和配套编辑器使用。它同时提供可选的 `.dc` 配置结构编辑器。
+本工具用于定义和维护通用 `.dc` 语法。应用字段与校验规则由消费方项目自行维护，并显式注册。权威定义位于 [原生 MPS 模型](solutions/definition/models/dc.mps)，生成结果供 DC Language 库、语言服务和配套编辑器使用。它同时提供可选的 `.dc` 配置结构编辑器。
 
 ## 准备环境
 
@@ -24,7 +24,7 @@
 
 1. 安装插件后，打开仓库中的 `definition-editor` 项目。
 2. 在 `com.cozooo.dclanguage.definitions.dc` 模型中打开 `dc` 根节点。
-3. 修改语法标点、字符串、数值规则，或配置类型中的分类、字段和约束。
+3. 修改通用语法标点、字符串或数值规则。应用分类、字段和约束保存在消费方项目定义中，通过 DC API 注册。
 4. 在本目录生成并验证：
 
 ```sh

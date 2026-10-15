@@ -1,6 +1,7 @@
 package com.cozooo.dclanguage.lsp;
 
 import com.cozooo.dclanguage.DcLanguageService;
+import com.cozooo.dclanguage.DcSchemaCatalog;
 import static com.cozooo.dclanguage.generated.DcGeneratedSyntax.*;
 import com.google.gson.*;
 import java.io.*;
@@ -18,7 +19,7 @@ public final class DcLanguageServer {
     }
     private static final int MAX_DOCUMENT_CHARS = 2_000_000;
     private static final int MAX_OPEN_CHARS = 8_000_000;
-    private final DcLanguageService service;
+    private DcLanguageService service;
     private final MessageTransport transport;
     private final Gson gson = new GsonBuilder().disableHtmlEscaping().create();
     private final Object state = new Object();
@@ -98,8 +99,12 @@ public final class DcLanguageServer {
     private void initialize(JsonElement id, JsonObject params) throws IOException {
         if (initialized) { error(id, -32600, "Initialize may only be sent once"); return; }
         JsonObject options = params.has("initializationOptions") && params.get("initializationOptions").isJsonObject() ? params.getAsJsonObject("initializationOptions") : new JsonObject();
-        profile = string(options, "profile");
-        if (profile != null) service.catalog().select("", null, profile);
+        DcLanguageService registered = options.has("definition")
+            ? new DcLanguageService(DcSchemaCatalog.fromJson(options.getAsJsonObject("definition"))) : service;
+        String requestedProfile = string(options, "profile");
+        if (requestedProfile != null) registered.catalog().select("", null, requestedProfile);
+        service = registered;
+        profile = requestedProfile;
         JsonObject capabilities = new JsonObject();
         capabilities.addProperty("positionEncoding", "utf-16");
         JsonObject sync = new JsonObject(); sync.addProperty("openClose", true); sync.addProperty("change", 2); capabilities.add("textDocumentSync", sync);

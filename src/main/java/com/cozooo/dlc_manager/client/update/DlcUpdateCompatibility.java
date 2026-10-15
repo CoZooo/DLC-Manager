@@ -1,17 +1,15 @@
 package com.cozooo.dlc_manager.client.update;
 
 import com.cozooo.dclanguage.DcSchemaCatalog;
+import com.cozooo.dlc_manager.core.DlcDcDefinition;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
 public final class DlcUpdateCompatibility {
-    private static final DcSchemaCatalog CATALOG = loadCatalog();
+    private static final DcSchemaCatalog CATALOG = DlcDcDefinition.catalog();
     private static final DcSchemaCatalog.Profile PROFILE = CATALOG.profile("update");
 
     private DlcUpdateCompatibility() { }
@@ -48,14 +46,5 @@ public final class DlcUpdateCompatibility {
         List<String> result = new ArrayList<>(path);
         result.add(key);
         return result;
-    }
-
-    private static DcSchemaCatalog loadCatalog() {
-        try (var input = DlcUpdateCompatibility.class.getResourceAsStream("/META-INF/dlc-manager/update-language-definition.json")) {
-            if (input == null) throw new IllegalStateException("Missing update language definition");
-            return DcSchemaCatalog.fromJson(JsonParser.parseReader(new InputStreamReader(input, StandardCharsets.UTF_8)).getAsJsonObject());
-        } catch (java.io.IOException exception) {
-            throw new IllegalStateException("Cannot load update language definition", exception);
-        }
     }
 }

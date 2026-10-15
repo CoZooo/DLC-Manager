@@ -125,6 +125,7 @@ val sharedClasses = listOf(
     "core/DlcConfigTypeSupport",
     "core/DlcDcConfigIO",
     "core/DlcDcFormatUtil",
+    "core/DlcDcDefinition",
     "core/DlcFileMatch",
     "core/DlcItem",
     "core/DlcItemFiles",
@@ -235,9 +236,9 @@ if (currentTarget == null) {
     }
 
     tasks.named<ProcessResources>("processResources") {
-        from(managerRoot.resolve("tools/dclanguage/src/generated/resources/com/cozooo/dclanguage/language-definition.json")) {
+        from(managerRoot.resolve("src/main/resources/META-INF/dlc-manager/dlc-definition.json")) {
             into("META-INF/dlc-manager")
-            rename { "update-language-definition.json" }
+            rename { "dlc-definition.json" }
         }
     }
 

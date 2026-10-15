@@ -28,7 +28,7 @@ Alternatively, extract the distribution ZIP and run `dclanguage-lsp` on macOS or
 
 In your editor's LSP settings, associate `.dc` files with this command and use standard input/output for communication. Standard output is reserved for the editor protocol; startup and transport errors go to standard error.
 
-The server selects a configuration profile from the filename and existing fields by default. Set `profile` in the initialization options to choose one explicitly. Fix syntax errors before formatting.
+The server starts with no application fields. Pass an application-owned catalog as `initializationOptions.definition` (the same profile/category/field format accepted by `DcSchemaCatalog.fromJson`). The server registers it through the DC API, then selects a profile from its file patterns and document values. Set `initializationOptions.profile` to select one explicitly. Without a definition, diagnostics and formatting cover generic DC syntax only. Fix syntax errors before formatting.
 
 ## Capabilities
 

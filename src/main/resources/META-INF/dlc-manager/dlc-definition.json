@@ -1,0 +1,2018 @@
+{
+  "formatVersion": 1,
+  "profiles": [
+    {
+      "id": "info",
+      "description": "DLC file information\nStored in <DLC>/info",
+      "filePatterns": [
+        "**/info/**/*.dc"
+      ],
+      "categories": [
+        {
+          "path": [
+            "basic"
+          ],
+          "name": "basic",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "identifier",
+              "type": "string",
+              "required": false,
+              "description": "Logical identifier used for dependency, conflict, and preset matching.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "mode",
+              "type": "string",
+              "required": false,
+              "description": "Match by SHA-256 content (hash, default) or filename (name).",
+              "enumValues": [
+                "hash",
+                "name"
+              ],
+              "constraints": {},
+              "defaultValue": "hash"
+            },
+            {
+              "name": "file_name",
+              "type": "string",
+              "required": false,
+              "description": "DLC file name (including extension).",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "fileNames",
+              "type": "array",
+              "required": false,
+              "description": "",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "type",
+              "type": "string",
+              "required": false,
+              "description": "DLC type. Supported values: mod, resourcepack, datapack, gunpack, config, others.",
+              "enumValues": [
+                "mod",
+                "resourcepack",
+                "datapack",
+                "gunpack",
+                "config",
+                "others"
+              ],
+              "constraints": {}
+            },
+            {
+              "name": "appliedTarget",
+              "type": "string",
+              "required": false,
+              "description": "Applied target path, enter a relative path.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "RedirectUrl",
+              "type": "string",
+              "required": false,
+              "description": "Link opened when the DLC name is double-clicked.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "isHidden",
+              "type": "boolean",
+              "required": false,
+              "description": "Whether this entry is hidden, useful for libraries or internal prerequisites.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "AllowEnableByAll",
+              "type": "boolean",
+              "required": false,
+              "description": "Whether this entry follows Enable All.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "alarm",
+              "type": "boolean",
+              "required": false,
+              "description": "Whether to show the alarm confirmation page before enabling.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "dependencies"
+          ],
+          "name": "dependencies",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "object|string|array",
+              "required": false,
+              "description": "Dependency identifier or relative path list.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "conflicts"
+          ],
+          "name": "conflicts",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "object|string|array",
+              "required": false,
+              "description": "Conflict identifier or relative path list.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "DisplayName"
+          ],
+          "name": "DisplayName",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "string",
+              "required": false,
+              "description": "Localized value keyed by language code.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "tip"
+          ],
+          "name": "tip",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "string",
+              "required": false,
+              "description": "Localized value keyed by language code.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "remote",
+      "description": "Downloadable DLC\nStored in <DLC>/remote",
+      "filePatterns": [
+        "**/remote/**/*.dc"
+      ],
+      "categories": [
+        {
+          "path": [
+            "download"
+          ],
+          "name": "download",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "modrinth_projectid",
+              "type": "string",
+              "required": false,
+              "description": "Modrinth project ID or slug.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "modrinth_versionid",
+              "type": "string",
+              "required": false,
+              "description": "Modrinth version ID or version string.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "curseforge_projectid",
+              "type": "string",
+              "required": false,
+              "description": "CurseForge project ID or slug.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "curseforge_fileid",
+              "type": "string",
+              "required": false,
+              "description": "CurseForge file ID, version string, or file name.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "directUrl",
+              "type": "string|array",
+              "required": false,
+              "description": "Direct links. One URL per line.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "priority",
+              "type": "string",
+              "required": false,
+              "description": "Adjust download source priority order.",
+              "enumValues": [
+                "modrinth",
+                "curseforge",
+                "directUrl"
+              ],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "basic"
+          ],
+          "name": "basic",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "identifier",
+              "type": "string",
+              "required": false,
+              "description": "Logical identifier used for dependency, conflict, and preset matching.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "mode",
+              "type": "string",
+              "required": false,
+              "description": "Match by SHA-256 content (hash, default) or filename (name).",
+              "enumValues": [
+                "hash",
+                "name"
+              ],
+              "constraints": {},
+              "defaultValue": "hash"
+            },
+            {
+              "name": "file_name",
+              "type": "string",
+              "required": false,
+              "description": "DLC file name (including extension).",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "fileNames",
+              "type": "array",
+              "required": false,
+              "description": "",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "type",
+              "type": "string",
+              "required": false,
+              "description": "DLC type. Supported values: mod, resourcepack, datapack, gunpack, config, others.",
+              "enumValues": [
+                "mod",
+                "resourcepack",
+                "datapack",
+                "gunpack",
+                "config",
+                "others",
+                "dlcpack"
+              ],
+              "constraints": {}
+            },
+            {
+              "name": "appliedTarget",
+              "type": "string",
+              "required": false,
+              "description": "Applied target path, enter a relative path.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "RedirectUrl",
+              "type": "string",
+              "required": false,
+              "description": "Link opened when the DLC name is double-clicked.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "isHidden",
+              "type": "boolean",
+              "required": false,
+              "description": "Whether this entry is hidden, useful for libraries or internal prerequisites.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "AllowEnableByAll",
+              "type": "boolean",
+              "required": false,
+              "description": "Whether this entry follows Enable All.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "alarm",
+              "type": "boolean",
+              "required": false,
+              "description": "Whether to show the alarm confirmation page before enabling.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "dependencies"
+          ],
+          "name": "dependencies",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "object|string|array",
+              "required": false,
+              "description": "Dependency identifier or relative path list.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "conflicts"
+          ],
+          "name": "conflicts",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "object|string|array",
+              "required": false,
+              "description": "Conflict identifier or relative path list.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "DisplayName"
+          ],
+          "name": "DisplayName",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "string",
+              "required": false,
+              "description": "Localized value keyed by language code.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "tip"
+          ],
+          "name": "tip",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "string",
+              "required": false,
+              "description": "Localized value keyed by language code.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "required",
+      "description": "Required resource config\nStored in <DLC>/required",
+      "filePatterns": [
+        "**/required/**/*.dc"
+      ],
+      "categories": [
+        {
+          "path": [
+            "download"
+          ],
+          "name": "download",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "modrinth_projectid",
+              "type": "string",
+              "required": false,
+              "description": "Modrinth project ID or slug.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "modrinth_versionid",
+              "type": "string",
+              "required": false,
+              "description": "Modrinth version ID or version string.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "curseforge_projectid",
+              "type": "string",
+              "required": false,
+              "description": "CurseForge project ID or slug.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "curseforge_fileid",
+              "type": "string",
+              "required": false,
+              "description": "CurseForge file ID, version string, or file name.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "directUrl",
+              "type": "string|array",
+              "required": false,
+              "description": "Direct links. One URL per line.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "priority",
+              "type": "string",
+              "required": false,
+              "description": "Adjust download source priority order.",
+              "enumValues": [
+                "modrinth",
+                "curseforge",
+                "directUrl"
+              ],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "basic"
+          ],
+          "name": "basic",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "identifier",
+              "type": "string",
+              "required": false,
+              "description": "Logical identifier used for dependency matching.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "mode",
+              "type": "string",
+              "required": false,
+              "description": "Match by SHA-256 content (hash, default) or filename (name).",
+              "enumValues": [
+                "hash",
+                "name"
+              ],
+              "constraints": {},
+              "defaultValue": "hash"
+            },
+            {
+              "name": "file_name",
+              "type": "string",
+              "required": false,
+              "description": "DLC file name (including extension), used as the final downloaded file name.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "appliedTarget",
+              "type": "string",
+              "required": false,
+              "description": "Relative destination directory or file name for copies. End directories with / to disambiguate. When unzip is true for a .zip resource, every target is an extraction directory.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "unzip",
+              "type": "boolean",
+              "required": false,
+              "description": "Extract .zip resources into appliedTarget directories when true. Defaults to false; other file types are always copied.",
+              "enumValues": [],
+              "constraints": {},
+              "defaultValue": false
+            }
+          ]
+        },
+        {
+          "path": [
+            "dependencies"
+          ],
+          "name": "dependencies",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "object|string|array",
+              "required": false,
+              "description": "Dependency identifier or relative path list.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "preset",
+      "description": "Preset config\nStored in <DLC>/preset",
+      "filePatterns": [
+        "**/preset/**/*.dc",
+        "**/preset.dc"
+      ],
+      "categories": [
+        {
+          "path": [
+            "basic"
+          ],
+          "name": "basic",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "identifier",
+              "type": "string",
+              "required": false,
+              "description": "Preset identifier.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "alarm",
+              "type": "boolean",
+              "required": false,
+              "description": "Whether to show an alarm confirmation before enabling the preset.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "dependencies"
+          ],
+          "name": "dependencies",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "object|string|array",
+              "required": false,
+              "description": "Dependency identifier or relative path list.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "conflicts"
+          ],
+          "name": "conflicts",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "object|string|array",
+              "required": false,
+              "description": "Conflict identifier or relative path list.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "DisplayName"
+          ],
+          "name": "DisplayName",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "string",
+              "required": false,
+              "description": "Localized value keyed by language code.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "tip"
+          ],
+          "name": "tip",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "string",
+              "required": false,
+              "description": "Localized value keyed by language code.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "notice",
+      "description": "Information config\nUsually stored as <DLC>/notice.dc",
+      "filePatterns": [
+        "**/notice.dc"
+      ],
+      "categories": [
+        {
+          "path": [],
+          "name": "",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "isNoticeEnabled",
+              "type": "boolean",
+              "required": false,
+              "description": "Whether the information feature is enabled.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "ShowFrequency",
+              "type": "string",
+              "required": false,
+              "description": "Information display frequency.\nperlaunchmanager: show each time DLC Manager opens.\npergamesession: show once per game process.\nperlaunchgame: show once each game launch.\nonce: show only once.",
+              "enumValues": [
+                "perlaunchmanager",
+                "pergamesession",
+                "perlaunchgame",
+                "once"
+              ],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "Title"
+          ],
+          "name": "Title",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "string",
+              "required": false,
+              "description": "Localized value keyed by language code.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "Subhead"
+          ],
+          "name": "Subhead",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "enabled",
+              "type": "boolean",
+              "required": false,
+              "description": "Whether the subhead is enabled.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "*",
+              "type": "string",
+              "required": false,
+              "description": "Localized value keyed by language code.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "ContentUrl"
+          ],
+          "name": "ContentUrl",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "string",
+              "required": false,
+              "description": "Localized value keyed by language code.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "Contents"
+          ],
+          "name": "Contents",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "string",
+              "required": false,
+              "description": "Localized value keyed by language code.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "redirect",
+      "description": "Redirect config\nStored in <DLC>/remote/redirect",
+      "filePatterns": [
+        "**/redirect.dc"
+      ],
+      "categories": [
+        {
+          "path": [],
+          "name": "",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "RedirectUrl",
+              "type": "string",
+              "required": false,
+              "description": "Target redirect URL.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "available",
+              "type": "string",
+              "required": false,
+              "description": "Visibility control. Empty means visible for all; hidden hides it for all languages.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "DisplayName"
+          ],
+          "name": "DisplayName",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "string",
+              "required": false,
+              "description": "Localized value keyed by language code.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "notice"
+          ],
+          "name": "notice",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "string",
+              "required": false,
+              "description": "Localized value keyed by language code.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "tip"
+          ],
+          "name": "tip",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "string",
+              "required": false,
+              "description": "Localized value keyed by language code.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "update",
+      "description": "Hot-update package config",
+      "filePatterns": [
+        "**/update.dc"
+      ],
+      "categories": [
+        {
+          "path": [],
+          "name": "",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "isHidden",
+              "type": "boolean",
+              "required": false,
+              "description": "Whether to hide this update package in the update list.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "UpdateDLCM",
+              "type": "string|boolean",
+              "required": false,
+              "description": "Update DLC Manager.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "version"
+          ],
+          "name": "version",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "dlc_old",
+              "type": "string",
+              "required": false,
+              "description": "Legacy alias for dlc.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "platform",
+              "type": "string",
+              "required": false,
+              "description": "Target platform for this update package. Supported values: universal, client, server.",
+              "enumValues": [
+                "universal",
+                "client",
+                "server"
+              ],
+              "constraints": {}
+            },
+            {
+              "name": "base",
+              "type": "string",
+              "required": false,
+              "description": "Required base version before applying this update.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "base_new",
+              "type": "string",
+              "required": false,
+              "description": "New base version after applying the update, leave empty if unchanged.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "dlc",
+              "type": "string",
+              "required": false,
+              "description": "Required DLC version before applying this update.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "dlc_new",
+              "type": "string",
+              "required": false,
+              "description": "New DLC version after applying the update, leave empty if unchanged.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "changelog"
+          ],
+          "name": "changelog",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "string",
+              "required": false,
+              "description": "Localized value keyed by language code.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "file"
+          ],
+          "name": "file",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "changelog",
+              "type": "any",
+              "required": false,
+              "description": "",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "file",
+            "del"
+          ],
+          "name": "del",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "entries",
+              "type": "string",
+              "required": false,
+              "description": "Relative path of the file to delete. Supports single-segment * wildcards. A mods/ entry may contain an optional SHA-256 hash used only when its file name does not match.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "file",
+            "del",
+            "*"
+          ],
+          "name": "*",
+          "required": false,
+          "description": "Delete path with optional hash fallback for files under mods/. File names are matched first.",
+          "fields": [
+            {
+              "name": "hash",
+              "type": "string",
+              "required": false,
+              "description": "SHA-256 fallback when the mods/ file name is not found. The parent directory still matches by path.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "file",
+            "add"
+          ],
+          "name": "add",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "entries",
+              "type": "object",
+              "required": false,
+              "description": "Add-file rule. Override mode:\nChecked: overwrite (true), replace every file inside the folder.\nUnchecked: do not overwrite (false), skip files with the same name inside the folder.\nall: replace the entire folder, adjust manually in raw mode.\nnone: skip when a folder with the same name already exists, adjust manually in raw mode.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "file",
+            "add",
+            "*"
+          ],
+          "name": "*",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "appliedTarget",
+              "type": "string",
+              "required": false,
+              "description": "Destination path.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "override",
+              "type": "string|boolean",
+              "required": false,
+              "description": "Overwrite mode: true, false, all, none.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "file",
+            "move"
+          ],
+          "name": "move",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "string",
+              "required": false,
+              "description": "Destination path.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "entries",
+              "type": "object",
+              "required": false,
+              "description": "Move rule: from path => to path.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "file",
+            "modify"
+          ],
+          "name": "modify",
+          "required": false,
+          "description": "Edit [file].modify in raw mode.",
+          "fields": []
+        },
+        {
+          "path": [
+            "file",
+            "modify",
+            "*"
+          ],
+          "name": "*",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "path",
+              "type": "string",
+              "required": false,
+              "description": "",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "find",
+              "type": "string",
+              "required": false,
+              "description": "",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "replace",
+              "type": "string",
+              "required": false,
+              "description": "",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "which",
+              "type": "string|number",
+              "required": false,
+              "description": "",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "update"
+          ],
+          "name": "update",
+          "required": false,
+          "description": "",
+          "fields": []
+        },
+        {
+          "path": [
+            "update",
+            "info"
+          ],
+          "name": "info",
+          "required": false,
+          "description": "",
+          "fields": []
+        },
+        {
+          "path": [
+            "update",
+            "info",
+            "*"
+          ],
+          "name": "*",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "any",
+              "required": false,
+              "description": "Configuration field to update; unknown fields are preserved.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "update",
+            "remote"
+          ],
+          "name": "remote",
+          "required": false,
+          "description": "",
+          "fields": []
+        },
+        {
+          "path": [
+            "update",
+            "remote",
+            "*"
+          ],
+          "name": "*",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "any",
+              "required": false,
+              "description": "Configuration field to update; unknown fields are preserved.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "update",
+            "required"
+          ],
+          "name": "required",
+          "required": false,
+          "description": "",
+          "fields": []
+        },
+        {
+          "path": [
+            "update",
+            "required",
+            "*"
+          ],
+          "name": "*",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "any",
+              "required": false,
+              "description": "Configuration field to update; unknown fields are preserved.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "update",
+            "preset"
+          ],
+          "name": "preset",
+          "required": false,
+          "description": "",
+          "fields": []
+        },
+        {
+          "path": [
+            "update",
+            "preset",
+            "*"
+          ],
+          "name": "*",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "any",
+              "required": false,
+              "description": "Configuration field to update; unknown fields are preserved.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "version",
+      "description": "Modpack version config\nUsually stored as <DLC>/info/version.dc",
+      "filePatterns": [
+        "**/version.dc"
+      ],
+      "categories": [
+        {
+          "path": [],
+          "name": "",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "base",
+              "type": "string",
+              "required": false,
+              "description": "Current modpack base version.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "dlc",
+              "type": "string",
+              "required": false,
+              "description": "Current DLC version.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "config",
+      "description": "DLC Manager config\nUsually stored as config/dlc_manager/config.dc",
+      "filePatterns": [
+        "**/config.dc"
+      ],
+      "categories": [
+        {
+          "path": [
+            "paths"
+          ],
+          "name": "paths",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "dlcRoot",
+              "type": "string",
+              "required": false,
+              "description": "DLC root directory.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "taczRoot",
+              "type": "string",
+              "required": false,
+              "description": "TACZ pack directory name.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "resourcepackRoot",
+              "type": "string",
+              "required": false,
+              "description": "Resource pack directory name.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "datapackRoot",
+              "type": "string",
+              "required": false,
+              "description": "Data pack directory name.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "ui"
+          ],
+          "name": "ui",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "isEnableAllButtonShown",
+              "type": "boolean",
+              "required": false,
+              "description": "Whether to show the Enable/Disable All button.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "isConfigButtonShown",
+              "type": "boolean",
+              "required": false,
+              "description": "Whether to show the config button.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "isUButtomShown",
+              "type": "boolean",
+              "required": false,
+              "description": "Whether to show the U button.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "isUpdateManagerOn",
+              "type": "boolean",
+              "required": false,
+              "description": "Whether to enable the update manager.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "isSelfUpdateAutoCheckOn",
+              "type": "boolean",
+              "required": false,
+              "description": "Whether to auto-check DLC Manager updates.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "isPresetFuncOn",
+              "type": "boolean",
+              "required": false,
+              "description": "Whether to enable presets.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "isPackFuncOn",
+              "type": "boolean",
+              "required": false,
+              "description": "Whether to enable DLC Packs.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "isPButtomShown",
+              "type": "boolean",
+              "required": false,
+              "description": "Whether to show the P button.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "ShowOnFirstRun",
+              "type": "boolean",
+              "required": false,
+              "description": "Whether to open DLC Manager automatically on first run.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "WaitingTime",
+              "type": "number",
+              "required": false,
+              "description": "Alarm confirmation wait time.",
+              "enumValues": [],
+              "constraints": {
+                "min": 0
+              }
+            },
+            {
+              "name": "serverSupport",
+              "type": "boolean",
+              "required": false,
+              "description": "Whether to show the server manager entry.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "apiEnabled",
+              "type": "boolean",
+              "required": false,
+              "description": "Whether to enable the local API.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "apiPort",
+              "type": "number",
+              "required": false,
+              "description": "Local API port.",
+              "enumValues": [],
+              "constraints": {
+                "min": 0
+              }
+            },
+            {
+              "name": "apiToken",
+              "type": "string",
+              "required": false,
+              "description": "Local API token.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "noticeDisplayMode",
+              "type": "string",
+              "required": false,
+              "description": "Information display mode.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "noticeButtonAnchor",
+              "type": "string",
+              "required": false,
+              "description": "Main menu information button anchor.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "noticeButtonOffsetX",
+              "type": "number",
+              "required": false,
+              "description": "Main menu information button offset.",
+              "enumValues": [],
+              "constraints": {
+                "min": 0
+              }
+            },
+            {
+              "name": "noticeButtonOffsetY",
+              "type": "number",
+              "required": false,
+              "description": "Main menu information button offset.",
+              "enumValues": [],
+              "constraints": {
+                "min": 0
+              }
+            },
+            {
+              "name": "noticePanelAnchor",
+              "type": "string",
+              "required": false,
+              "description": "Main menu information panel anchor.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "noticePanelOffsetX",
+              "type": "number",
+              "required": false,
+              "description": "Main menu information panel offset.",
+              "enumValues": [],
+              "constraints": {
+                "min": 0
+              }
+            },
+            {
+              "name": "noticePanelOffsetY",
+              "type": "number",
+              "required": false,
+              "description": "Main menu information panel offset.",
+              "enumValues": [],
+              "constraints": {
+                "min": 0
+              }
+            },
+            {
+              "name": "noticePanelWidth",
+              "type": "number",
+              "required": false,
+              "description": "Main menu information panel size.",
+              "enumValues": [],
+              "constraints": {
+                "min": 0
+              }
+            },
+            {
+              "name": "noticePanelHeight",
+              "type": "number",
+              "required": false,
+              "description": "Main menu information panel size.",
+              "enumValues": [],
+              "constraints": {
+                "min": 0
+              }
+            },
+            {
+              "name": "titleAnchor",
+              "type": "string",
+              "required": false,
+              "description": "DLC Manager main menu button anchor.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "titleOffsetX",
+              "type": "number",
+              "required": false,
+              "description": "DLC Manager main menu button offset.",
+              "enumValues": [],
+              "constraints": {
+                "min": 0
+              }
+            },
+            {
+              "name": "titleOffsetY",
+              "type": "number",
+              "required": false,
+              "description": "DLC Manager main menu button offset.",
+              "enumValues": [],
+              "constraints": {
+                "min": 0
+              }
+            },
+            {
+              "name": "titleUpdateAnchor",
+              "type": "string",
+              "required": false,
+              "description": "U button anchor.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "titleUpdateOffsetX",
+              "type": "number",
+              "required": false,
+              "description": "U button offset.",
+              "enumValues": [],
+              "constraints": {
+                "min": 0
+              }
+            },
+            {
+              "name": "titleUpdateOffsetY",
+              "type": "number",
+              "required": false,
+              "description": "U button offset.",
+              "enumValues": [],
+              "constraints": {
+                "min": 0
+              }
+            }
+          ]
+        },
+        {
+          "path": [
+            "modpack"
+          ],
+          "name": "modpack",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "modpack",
+              "type": "string",
+              "required": false,
+              "description": "Current modpack identifier, used for DLC Pack modpack condition checks.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "modpackUrl",
+              "type": "string",
+              "required": false,
+              "description": "Modpack homepage link.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "updateGitRepo",
+              "type": "string",
+              "required": false,
+              "description": "Modpack version repository link.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "downloads"
+          ],
+          "name": "downloads",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "maxConcurrentDownloads",
+              "type": "number",
+              "required": false,
+              "description": "Maximum concurrent download tasks.",
+              "enumValues": [],
+              "constraints": {
+                "min": 0
+              }
+            },
+            {
+              "name": "maxSegmentsPerFile",
+              "type": "number",
+              "required": false,
+              "description": "Maximum segments per file.",
+              "enumValues": [],
+              "constraints": {
+                "min": 0
+              }
+            },
+            {
+              "name": "minSegmentMB",
+              "type": "number",
+              "required": false,
+              "description": "Minimum segment size for segmented downloads.",
+              "enumValues": [],
+              "constraints": {
+                "min": 0
+              }
+            },
+            {
+              "name": "maxRetryCount",
+              "type": "number",
+              "required": false,
+              "description": "Maximum download retry attempts.",
+              "enumValues": [],
+              "constraints": {
+                "min": 0
+              }
+            },
+            {
+              "name": "connectTimeoutSeconds",
+              "type": "number",
+              "required": false,
+              "description": "Connection timeout.",
+              "enumValues": [],
+              "constraints": {
+                "min": 0
+              }
+            },
+            {
+              "name": "taskTimeoutSeconds",
+              "type": "number",
+              "required": false,
+              "description": "Single task timeout.",
+              "enumValues": [],
+              "constraints": {
+                "min": 0
+              }
+            },
+            {
+              "name": "downloadMirrorMode",
+              "type": "string",
+              "required": false,
+              "description": "Download mirror mode.",
+              "enumValues": [
+                "smart_precheck",
+                "smart_official_first",
+                "smart_mirror_first",
+                "official_only",
+                "mirror_only",
+                "official_first",
+                "mirror_first"
+              ],
+              "constraints": {}
+            },
+            {
+              "name": "downloadMirrorProbeCount",
+              "type": "number",
+              "required": false,
+              "description": "Download source probe count.",
+              "enumValues": [],
+              "constraints": {
+                "min": 0
+              }
+            },
+            {
+              "name": "downloadMirrorProbeStrategy",
+              "type": "string",
+              "required": false,
+              "description": "Download source probe selection strategy.",
+              "enumValues": [
+                "single_best",
+                "best_of_three"
+              ],
+              "constraints": {}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pack",
+      "description": "DLC Pack config\nStored as metadata/pack.dc",
+      "filePatterns": [
+        "**/pack.dc"
+      ],
+      "categories": [
+        {
+          "path": [
+            "basic"
+          ],
+          "name": "basic",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "identifier",
+              "type": "string",
+              "required": false,
+              "description": "DLC Pack identifier.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "version",
+              "type": "string",
+              "required": false,
+              "description": "DLC Pack version.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "platform",
+              "type": "string",
+              "required": false,
+              "description": "Target side. Use client, server, or universal.",
+              "enumValues": [
+                "universal",
+                "client",
+                "server"
+              ],
+              "constraints": {}
+            },
+            {
+              "name": "gameVersion",
+              "type": "string",
+              "required": false,
+              "description": "Target game version. Empty means any game version.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "modLoader",
+              "type": "string",
+              "required": false,
+              "description": "Target mod loader. Empty means any loader.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "author",
+              "type": "array",
+              "required": false,
+              "description": "DLC Pack author list.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "modpack"
+          ],
+          "name": "modpack",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "modpack",
+              "type": "array",
+              "required": false,
+              "description": "Allowed modpack identifiers. Empty means any modpack.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "base",
+              "type": "array",
+              "required": false,
+              "description": "Allowed base versions. Supports exact versions, x wildcards, and ranges. Empty means any version.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "dlc",
+              "type": "array",
+              "required": false,
+              "description": "Allowed DLC versions. Supports exact versions, x wildcards, and ranges. Empty means any version.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "links"
+          ],
+          "name": "links",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "homepage",
+              "type": "string",
+              "required": false,
+              "description": "Global DLC Pack homepage link.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "issue",
+              "type": "string",
+              "required": false,
+              "description": "Global DLC Pack issue link.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "sponsor",
+              "type": "string",
+              "required": false,
+              "description": "Global DLC Pack sponsor link.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "dependencies"
+          ],
+          "name": "dependencies",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "object|string|array",
+              "required": false,
+              "description": "Dependency identifier or relative path list.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "conflicts"
+          ],
+          "name": "conflicts",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "object|string|array",
+              "required": false,
+              "description": "Conflict identifier or relative path list.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "DisplayName"
+          ],
+          "name": "DisplayName",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "string",
+              "required": false,
+              "description": "Localized value keyed by language code.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "description"
+          ],
+          "name": "description",
+          "required": false,
+          "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "string",
+              "required": false,
+              "description": "Localized value keyed by language code.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

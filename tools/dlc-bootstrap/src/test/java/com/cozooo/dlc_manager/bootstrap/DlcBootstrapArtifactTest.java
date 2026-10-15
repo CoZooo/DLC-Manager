@@ -209,7 +209,9 @@ class DlcBootstrapArtifactTest {
             assertSame(privateRuntime, parsed.getClass().getMethod("toJson").invoke(parsed).getClass().getClassLoader());
             Class<?> catalogType = privateRuntime.loadClass("com.cozooo.dlc_bootstrap.internal.dclanguage.DcSchemaCatalog");
             Object catalog = catalogType.getMethod("loadDefault").invoke(null);
-            assertFalse(((java.util.List<?>) catalogType.getMethod("profiles").invoke(catalog)).isEmpty());
+            Class<?> applicationDefinition = privateRuntime.loadClass("com.cozooo.dlc_bootstrap.internal.core.DlcDcDefinition");
+            Object applicationCatalog = applicationDefinition.getMethod("catalog").invoke(null);
+            assertNotNull(catalogType.getMethod("profile", String.class).invoke(applicationCatalog, "update"));
             Class<?> syntaxType = privateRuntime.loadClass("com.cozooo.dlc_bootstrap.internal.dclanguage.generated.DcGeneratedSyntax");
             assertEquals(syntaxType.getField("DEFINITION_SHA256").get(null), catalogType.getMethod("definitionHash").invoke(catalog));
             if (!System.getProperty("kotlinStdlibJar").isEmpty()) {

@@ -9,6 +9,7 @@ async function main() {
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.copyFileSync(source, target);
   writeGenerated(path.resolve(__dirname, ".."), definition);
+  fs.copyFileSync(path.resolve(__dirname, "../../../../src/main/resources/META-INF/dlc-manager/dlc-definition.json"), path.resolve(__dirname, "../dlc-definition.json"));
   console.log("Bundled language server and generated editor syntax: " + definition.definitionHash);
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

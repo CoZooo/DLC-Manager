@@ -47,7 +47,7 @@ class GeneratedRuntimeTest {
                 var categoryOpen = named(definition, "tokens", "categoryOpen");
                 var categoryClose = named(definition, "tokens", "categoryClose");
                 var bool = named(definition, "literals", "true");
-                var profile = named(definition, "profiles", "strict-example");
+                var profile = DefinitionFixtures.registerProfile(definition);
                 var category = DefinitionCompiler.children(profile, "categories").getFirst();
                 var field = DefinitionCompiler.children(category, "fields").getFirst();
                 var nestedCategory = new jetbrains.mps.smodel.SNode(DefinitionConcepts.concept("Category"));
@@ -82,6 +82,7 @@ class GeneratedRuntimeTest {
                     bool.setProperty(DefinitionConcepts.property("LiteralRule", "value"), originalBool);
                     field.setProperty(DefinitionConcepts.NAME, originalName);
                     category.removeChild(nestedCategory);
+                    definition.removeChild(profile);
                     ((EditableSModel) definition.getModel()).setChanged(false);
                 }
             });

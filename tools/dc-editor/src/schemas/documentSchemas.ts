@@ -1,5 +1,6 @@
 import { DocumentSchema, DocumentType, ROOT_SECTION_KEY, SectionSchema } from "../models/editor";
-import languageDefinition from "../../../dclanguage/src/generated/resources/com/cozooo/dclanguage/language-definition.json";
+import dlcDefinition from "../../../../src/main/resources/META-INF/dlc-manager/dlc-definition.json";
+import { registerDefinition } from "../../../dclanguage/js/registry";
 
 const typeOptions = [
   { value: "mod", label: "mod" },
@@ -125,13 +126,12 @@ const basicFields = (options?: { includeType?: boolean; includeDlcPackType?: boo
   ]
 });
 
-const requiredBasicDefinition = languageDefinition.profiles
-  .find((profile) => profile.id === "required")!.categories
-  .find((category) => category.name === "basic")!;
+const dlcLanguages = registerDefinition(dlcDefinition);
+const requiredBasicFields = dlcLanguages.get("required")!.category(["basic"]).fields;
 
-export const requiredBasicDefaults = Object.fromEntries(requiredBasicDefinition.fields
-  .filter((field) => "defaultValue" in field)
-  .map((field) => [field.name, "defaultValue" in field ? field.defaultValue : undefined]));
+export const requiredBasicDefaults = Object.fromEntries(requiredBasicFields
+  .filter((field) => field.defaultValue !== undefined)
+  .map((field) => [field.name, field.defaultValue]));
 
 const requiredBasicHelp: Record<string, string> = {
   identifier: "static.help.dependencyIdentifier",
@@ -144,7 +144,7 @@ const requiredBasicHelp: Record<string, string> = {
 const requiredBasicSection: SectionSchema = {
   key: "basic",
   label: "[basic]",
-  fields: requiredBasicDefinition.fields.map((field) => ({
+  fields: requiredBasicFields.map((field) => ({
     key: field.name,
     label: field.name,
     kind: field.type === "boolean" ? "boolean" : field.enumValues.length > 0 ? "select" : "text",

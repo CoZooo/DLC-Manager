@@ -6,9 +6,13 @@
 
 The main mod maintains corresponding implementations in `src/main/java` and `src/main/kotlin`. StoneCutter generates version-specific sources for the nodes in `versions/`. The active node uses original test sources; other nodes use generated tests alongside their version-specific tests.
 
-Native MPS models define the `.dc` language and generate shared definitions for the runtime and editor tools. The main project, Bootstrap, and external manager resolve `com.cozooo:dclanguage:0.1.0` from Maven Central.
+Native MPS models define only the generic `.dc` syntax. DLC Manager owns its application fields in `src/main/resources/META-INF/dlc-manager/dlc-definition.json`. `DlcDcDefinition.register(...)` registers a profile through the DC category/field API; editor clients register the complete application definition separately from syntax metadata. The main project, Bootstrap, and external manager resolve `com.cozooo:dclanguage:0.1.0` from Maven Central.
 
 `settings.gradle.kts` includes Bootstrap and the external manager as separate builds. DC Editor is a separate web and desktop application with its own text-editing implementation.
+
+## DC application definitions
+
+DLC field changes only edit `src/main/resources/META-INF/dlc-manager/dlc-definition.json`; they do not require regenerating the DC grammar. Java and Kotlin share that resource via `DlcDcDefinition`. Bootstrap and the external manager package the same file. DC Editor registers the complete definition through the generic TypeScript category/field API. VS Code copies it during `scripts/prepare-server.js`, while the JetBrains client copies it during `processResources`; both send it as `initializationOptions.definition` to the generic server. The library default catalog remains empty.
 
 ## Build
 

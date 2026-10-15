@@ -28,7 +28,7 @@ java -jar build/libs/dclanguage-lsp.jar --stdio
 
 在编辑器的 LSP 设置中，将 `.dc` 文件关联到上述启动命令，使用标准输入输出连接。语言服务输出用于与编辑器通信，启动及传输错误写入标准错误输出。
 
-默认根据文件名和已有字段选择配置类型。需要固定类型时，在初始化选项中设置 `profile`。语法错误应先修复，再执行格式化。
+服务默认不注册业务字段。通过 `initializationOptions.definition` 传入应用自有的 catalog（格式与 `DcSchemaCatalog.fromJson` 接收的 profile／category／field 定义相同），由服务通过 DC API 注册，再根据文件匹配模式和文档值选择类型。可用 `initializationOptions.profile` 固定类型。不传 definition 时，只提供通用 DC 语法诊断和格式化。语法错误应先修复，再执行格式化。
 
 ## 支持能力
 

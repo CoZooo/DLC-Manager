@@ -16,7 +16,7 @@ The runtime library and [language server](lsp/README.md) use the same generated 
 
 ## Change and generate the language
 
-1. Open `mps/definition-editor` in MPS and edit tokens, strings, policies, categories, fields, or constraints in the native `Definition` model.
+1. Open `mps/definition-editor` in MPS and edit generic tokens, strings, literals, or policies in the native `Definition` model. Application fields belong to the consuming project.
 2. Set `MPS_HOME` to an MPS 2026.1 SDK and run from this directory:
 
 ```sh
@@ -66,7 +66,7 @@ mode = "hash"
 
 Reading and writing do not require a `language` argument. A language object stores validation rules only; each configuration type can have its own independent rule set. `read` throws `IOException` for a missing file rather than creating or filling it.
 
-These registration APIs let applications add runtime constraints. Fields and rules shared across IDEs belong in the MPS `SchemaProfile`. The toolchain does not inspect arbitrary Java code to infer custom predicates. Use `DcSchemaCatalog.loadDefault()` to access generated configuration profiles.
+These registration APIs let applications own their runtime constraints. The library default has no application profiles or fields: `DcSchemaCatalog.loadDefault()` returns an empty catalog. Applications can register categories and `DcField` rules directly, or maintain their own catalog definition and call `DcSchemaCatalog.fromJson(definition).language(profile)`; the latter uses the same `registerCategory` / `addField` API. Definition metadata is supplied explicitly to editor services, rather than bundled into the generic syntax. The toolchain does not infer arbitrary Java predicates. The TypeScript metadata adapter in `js/registry.ts` uses the same category/field registration model and has no built-in fields.
 
 Call the same API from Kotlin:
 

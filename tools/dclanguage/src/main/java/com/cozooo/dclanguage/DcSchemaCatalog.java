@@ -132,6 +132,7 @@ public final class DcSchemaCatalog {
             for (Field field : category.fields()) {
                 DcType<JsonElement> type = new DcType<>(field.type(), value -> accepts(field, value), JsonElement::deepCopy, JsonElement::deepCopy);
                 DcField<JsonElement> rule = new DcField<>(field.name(), type).check(value -> constraintIssue(field, value) == null, "Value does not satisfy the declared constraints");
+                if (field.defaultValue() != null) rule = rule.defaultValue(field.defaultValue());
                 language.addField(current, rule, field.required());
             }
         }

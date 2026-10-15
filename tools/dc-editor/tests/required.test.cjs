@@ -14,7 +14,7 @@ const { documentSchemas, requiredBasicDefaults } = require("../src/schemas/docum
 const { createEmptyTemplate } = require("../src/services/document/templates.ts");
 const { parseStructuredDocument, serializeStructuredDocumentWithPreservedRaw } = require("../src/services/document/simpleDc.ts");
 const { translateStaticText } = require("../src/i18n/editorI18n.ts");
-const definition = require("../../dclanguage/src/generated/resources/com/cozooo/dclanguage/language-definition.json");
+const definition = require("../../../src/main/resources/META-INF/dlc-manager/dlc-definition.json");
 const schema = documentSchemas.required;
 const parse = (raw) => parseStructuredDocument(raw, schema).model;
 const save = (raw, model) => serializeStructuredDocumentWithPreservedRaw(raw, model, schema);
@@ -25,7 +25,7 @@ function editBasic(raw, changes) {
   return save(raw, model);
 }
 
-test("required fields and unzip default come from the shared language definition", () => {
+test("required fields and unzip default come from the application definition", () => {
   const basic = definition.profiles.find((profile) => profile.id === "required").categories.find((category) => category.name === "basic");
   const fields = schema.sections.find((section) => section.key === "basic").fields;
   assert.deepEqual(fields.map((field) => field.key), basic.fields.map((field) => field.name));
@@ -110,7 +110,7 @@ test("ZIP-only help is localized and does not hide the flag for unresolved filen
   const target = fields.find((field) => field.key === "appliedTarget");
   assert.equal(unzip.visibleWhen, undefined);
   assert.match(translateStaticText("zh_cn", unzip.help), /仅对 \.zip 生效/);
-  assert.match(translateStaticText("en_us", unzip.help), /Off by default/);
+  assert.match(translateStaticText("en_us", unzip.help), /Only affects \.zip/);
   for (const locale of ["zh_cn", "en_us"]) {
     assert.match(translateStaticText(locale, target.help), /mods\//);
     assert.match(translateStaticText(locale, target.help), /renamed\.zip/);
@@ -136,4 +136,20 @@ test("all existing document templates still parse and serialize", () => {
     const output = serializeStructuredDocumentWithPreservedRaw(template, parsed.model, documentSchemas[type]);
     assert.ok(!parseStructuredDocument(output, documentSchemas[type]).issues.some((issue) => issue.severity === "error"), type);
   }
+});
+
+test("generic registration has no application fields before explicit registration", () => {
+  const { DcLanguages, DcField, registerDefinition } = require("../../dclanguage/js/registry.ts");
+  const language = DcLanguages.create();
+  assert.deepEqual(language.rootCategory.fields, []);
+  assert.equal(registerDefinition({ formatVersion: 1, profiles: [] }).size, 0);
+  const options = language.registerMainCategory("options", false);
+  const enabled = language.addField(options, new DcField({ name: "enabled", type: "boolean", defaultValue: false }), false);
+  assert.equal(language.category(["OPTIONS"]).fields[0], enabled);
+  assert.equal(enabled.defaultValue, false);
+  assert.throws(() => language.addField(options, new DcField({ name: "ENABLED", type: "boolean" }), false), /already registered/);
+  const foreign = DcLanguages.create().registerMainCategory("options", false);
+  assert.throws(() => language.addField(foreign, new DcField({ name: "count", type: "number" }), false), /does not belong/);
+  assert.throws(() => registerDefinition({ formatVersion: 2, profiles: [] }), /Unsupported/);
+  assert.throws(() => registerDefinition({ profiles: [{ id: "a", categories: [] }, { id: "a", categories: [] }] }), /duplicate/);
 });

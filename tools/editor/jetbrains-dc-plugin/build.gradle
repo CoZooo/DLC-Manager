@@ -51,6 +51,7 @@ tasks.withType(PrepareSandboxTask).configureEach {
 }
 
 tasks.processResources {
+    from("../../../src/main/resources/META-INF/dlc-manager/dlc-definition.json")
     inputs.file(serverJar)
     from({ zipTree(serverJar.get()) }) { include 'com/cozooo/dclanguage/language-definition.json' }
 }

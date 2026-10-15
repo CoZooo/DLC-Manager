@@ -3,6 +3,7 @@ const path = require("node:path");
 const fs = require("node:fs");
 const { LspClient } = require("./lsp-client");
 const definition = require("./language-definition.json");
+const dlcDefinition = require("./dlc-definition.json");
 const syntaxTriggers = [...new Set(["categoryOpen", "assignment", "block", "categorySeparator", "comment"].map((name) => Array.from(definition.syntax.tokens[name] || "").at(-1)).filter(Boolean).concat(["&", "#"]))];
 let activeClient;
 
@@ -41,7 +42,7 @@ function activate(context) {
   });
   if (!fs.existsSync(jar)) report(new Error("Bundled language server is missing: " + jar));
   const profile = config.get("profile", "auto");
-  client.start(vscode.workspace.workspaceFolders?.[0]?.uri.toString(), !profile || profile === "auto" ? {} : { profile }).catch(report);
+  client.start(vscode.workspace.workspaceFolders?.[0]?.uri.toString(), { definition: dlcDefinition, ...(!profile || profile === "auto" ? {} : { profile }) }).catch(report);
   const sync = (document) => {
     if (document.languageId !== "dc") return;
     const uri = document.uri.toString();

@@ -155,37 +155,29 @@ class DcLanguageServiceTest {
         org.junit.jupiter.api.Assertions.assertEquals("[basic]", completions.get(0).insertText());
     }
     @Test
-    void updateDeleteHashUsesSharedDynamicPathDefinition() throws Exception {
+    void defaultLanguageDoesNotRegisterApplicationFields() {
         var catalog = DcSchemaCatalog.loadDefault();
-        var field = catalog.field(catalog.profile("update"), List.of("file", "del", "mods/a.jar"), "hash");
-        assertNotNull(field);
-        assertEquals("string", field.type());
-        var service = new DcLanguageService(catalog);
-        String text = """
-            [file]
-              [del]
-                "mods/a.jar":
-                  hash = "abc"
-                "config/legacy.txt"
-            """;
-        assertTrue(service.diagnostics("file:///update.dc", text).isEmpty());
-        assertTrue(service.diagnostics("file:///update.dc", text.replace("hash = \"abc\"", "hash = 42")).stream()
-            .anyMatch(issue -> issue.message().contains("hash")));
-        assertEquals(DcDocuments.readText(text).toJson(), DcDocuments.readText(DcDocuments.writeText(DcDocuments.readText(text))).toJson());
+        assertTrue(catalog.profiles().isEmpty());
+        assertTrue(catalog.suggestions().categories().isEmpty());
+        var service = new DcLanguageService();
+        String text = "[basic]\nfile_name=123\nunzip='anything'\n";
+        assertTrue(service.diagnostics("file:///required.dc", text).isEmpty());
+        assertTrue(service.completions("file:///required.dc", "[basic]\nun", new DcLanguageService.Position(1, 2)).isEmpty());
     }
 
-    @Test void requiredZipOptionUsesGeneratedBooleanDefaultAndEditorRules() {
-        var catalog = DcSchemaCatalog.loadDefault();
-        var field = catalog.profile("required").categories().stream()
-            .filter(category -> category.path().equals(List.of("basic"))).flatMap(category -> category.fields().stream())
-            .filter(value -> value.name().equals("unzip")).findFirst().orElseThrow();
-        assertEquals("boolean", field.type());
-        assertFalse(field.defaultValue().getAsBoolean());
-        var service = new DcLanguageService(catalog);
-        String uri = "file:///instance/DLC/required/main.dc";
-        assertTrue(service.diagnostics(uri, "[basic]\nunzip=false\n").isEmpty());
-        assertTrue(service.diagnostics(uri, "[basic]\nunzip='true'\n").stream().anyMatch(issue -> issue.message().contains("boolean")));
-        assertTrue(service.completions(uri, "[basic]\nun", new DcLanguageService.Position(1, 2)).stream().anyMatch(value -> value.label().equals("unzip")));
+    @Test
+    void explicitDefinitionsRegisterDefaultsUsingThePublicFieldApi() {
+        var definition = JsonParser.parseString("""
+            {"profiles":[{"id":"application","categories":[{"path":["options"],"fields":[
+              {"name":"enabled","type":"boolean","defaultValue":false}
+            ]}]}]}
+            """).getAsJsonObject();
+        var catalog = DcSchemaCatalog.fromJson(definition);
+        var language = catalog.language(catalog.profile("application"));
+        var field = language.categories().get("options").fields().get("enabled").field();
+        assertTrue(field.hasDefault());
+        assertEquals(new JsonPrimitive(false), field.defaultValue());
+        assertTrue(DcSchemaCatalog.loadDefault().profiles().isEmpty());
     }
 
 }

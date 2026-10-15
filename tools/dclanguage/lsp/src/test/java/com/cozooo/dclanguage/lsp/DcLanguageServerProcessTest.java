@@ -143,14 +143,35 @@ class DcLanguageServerProcessTest {
         }
     }
     @Test
-    void productionMainLoadsTheMatchingGeneratedSchema() throws Exception {
+    void productionMainHasNoApplicationFieldRules() throws Exception {
         try (Client client = new Client(false)) {
             client.initializeReady();
-            client.open("file:///DLC/remote/example.dc", 1, "[basic]\nidentifier='example'\nmode='hash'\n");
+            client.open("file:///DLC/remote/example.dc", 1, "[basic]\nidentifier=123\nmode=true\n");
             assertTrue(client.diagnostics("file:///DLC/remote/example.dc", 1).getAsJsonArray("diagnostics").isEmpty());
             client.stop();
         }
     }
+    @Test
+    void initializationRegistersAnApplicationDefinitionWithoutChangingDefaults() throws Exception {
+        try (Client client = new Client(false)) {
+            JsonObject definition = JsonParser.parseString("""
+                {"formatVersion":1,"profiles":[{"id":"custom","filePatterns":["**/*.dc"],"categories":[
+                  {"path":["options"],"fields":[{"name":"enabled","type":"boolean","defaultValue":false}]}
+                ]}]}
+                """).getAsJsonObject();
+            client.request(2, "initialize", object("initializationOptions", object("definition", definition, "profile", "custom")));
+            assertTrue(client.response(2).has("result"));
+            client.notify("initialized", object());
+            String uri = "file:///custom.dc";
+            client.open(uri, 1, "[options]\nenabled='bad'\n");
+            assertEquals(1, client.diagnostics(uri, 1).getAsJsonArray("diagnostics").size());
+            client.change(uri, 2, "[options]\nen");
+            client.request(20, "textDocument/completion", object("textDocument", object("uri", uri), "position", position(1, 2)));
+            assertEquals("enabled", client.response(20).getAsJsonArray("result").get(0).getAsJsonObject().get("label").getAsString());
+            client.stop();
+        }
+    }
+
     public static final class TestServer {
         public static void main(String[] args) throws Exception {
             JsonObject schema;

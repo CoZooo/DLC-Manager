@@ -16,7 +16,7 @@ Gson 的版本、版权和许可来源记录在 [THIRD_PARTY_NOTICES.md](THIRD_P
 
 ## 修改语言与生成
 
-1. 在 MPS 打开 `mps/definition-editor`，编辑原生 `Definition` 模型中的 token、字符串、策略、分类、字段或约束。
+1. 在 MPS 打开 `mps/definition-editor`，编辑原生 `Definition` 模型中的 通用 token、字符串和策略；应用字段由消费方项目维护。
 2. 设置 `MPS_HOME` 指向 MPS 2026.1 SDK，在本目录执行：
 
 ```sh
@@ -66,7 +66,7 @@ mode = "hash"
 
 读取和写入不需要传入 `language`。语言对象只保存校验规则，每种配置可以建立自己的规则集合，互不影响。缺失文件由 `read` 抛出 `IOException`，不会自动创建或填充内容。
 
-这些注册 API 用于应用自行增加运行时约束。需要在多个 IDE 中共享的字段和规则应维护在 MPS 的 `SchemaProfile` 中；工具链不会扫描任意 Java 代码来推导自定义谓词。可用 `DcSchemaCatalog.loadDefault()` 访问生成的配置类型。
+这些注册 API 用于应用自行维护运行时约束。通用库默认不注册任何业务类型或字段，`DcSchemaCatalog.loadDefault()` 返回空 catalog。应用可以直接注册分类与 `DcField`，也可以维护自己的 catalog definition，调用 `DcSchemaCatalog.fromJson(definition).language(profile)`；后者同样通过 `registerCategory`／`addField` 注册。编辑器服务显式接收应用定义，语法元数据不打包业务字段。工具链不会推导任意 Java 谓词。`js/registry.ts` 是使用相同分类／字段注册模型的 TypeScript 元数据适配层，没有内置业务字段。
 
 Kotlin 直接调用：
 

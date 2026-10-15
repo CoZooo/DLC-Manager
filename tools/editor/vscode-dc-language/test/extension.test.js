@@ -59,7 +59,7 @@ function harness() {
 test("opening and typing synchronize unchanged text without correcting user files", async () => {
   const h = harness();
   try {
-    assert.deepEqual(h.client.options, {});
+    assert.deepEqual(h.client.options, { definition: require("../dlc-definition.json") });
     assert.equal(h.client.sent[0].method, "textDocument/didOpen");
     assert.equal(h.client.sent[0].params.textDocument.text, h.doc.text);
     h.doc.text = "malformed [\n  keep my whitespace"; h.doc.version++;

@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 public final class DcGeneratedSyntax {
-    public static final String DEFINITION_SHA256 = "1460e76236ffa978efaf642dbf528af5e9a2a4f7287eedda8494fcf8332f0a31";
+    public static final String DEFINITION_SHA256 = "90a939cadc269682500fa81f029c715d4eb5eef8938dd802ea70792df4d16788";
     public static final String TOKEN_ASSIGNMENT = "=";
     public static final String TOKEN_CATEGORY_OPEN = "[";
     public static final String TOKEN_CATEGORY_CLOSE = "]";

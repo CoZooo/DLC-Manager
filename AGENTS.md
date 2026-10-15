@@ -9,7 +9,8 @@
 
 ## DC language
 
-- Define grammar and field rules in `tools/dclanguage/mps/solutions/definition/models/dc.mps`, then regenerate the shared definitions.
+- Define generic grammar in `tools/dclanguage/mps/solutions/definition/models/dc.mps`, then regenerate syntax metadata. Do not put application fields in the language library.
+- Maintain DLC Manager fields in `src/main/resources/META-INF/dlc-manager/dlc-definition.json` and register them through the DC category/field APIs. Editor integrations receive the complete application definition separately from syntax metadata.
 - Keep parsing, validation, completion, and formatting rules consistent across the runtime library and its editor integrations. Do not maintain separate grammar or field tables in consumers.
 - The main project, Bootstrap, and external manager resolve `com.cozooo:dclanguage:0.1.0` from Maven Central. Update consumer coordinates together when changing the library version.
 - FileOps Helper uses `com.cozooo.dlc_manager:dlc_fileops_helper`; its version is set in root `gradle.properties`.

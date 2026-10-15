@@ -6,9 +6,13 @@
 
 主模组在 `src/main/java` 和 `src/main/kotlin` 中维护对应实现，StoneCutter 按 `versions/` 中的节点生成各版本源码。活动节点使用原始测试源码，其他节点使用生成测试和版本专属测试。
 
-`.dc` 语言由 MPS 原生模型定义，并生成运行库与编辑工具共享的规则。主项目、Bootstrap 和外部管理器从 Maven Central 使用 `com.cozooo:dclanguage:0.1.0`。
+MPS 原生模型只定义通用 `.dc` 语法。DLC Manager 的业务字段维护在 `src/main/resources/META-INF/dlc-manager/dlc-definition.json`；`DlcDcDefinition.register(...)` 通过 DC 分类／字段 API 注册对应类型。编辑器单独注册整份项目定义，与语法元数据分开。主项目、Bootstrap 和外部管理器从 Maven Central 使用 `com.cozooo:dclanguage:0.1.0`。
 
 `settings.gradle.kts` 将 Bootstrap 和外部管理器作为独立构建纳入。DC Editor 是独立的网页与桌面应用，使用自己的文本编辑实现。
+
+## DC 应用定义
+
+DLC 字段变更只修改 `src/main/resources/META-INF/dlc-manager/dlc-definition.json`，不需要重新生成 DC 语法。Java 和 Kotlin 通过 `DlcDcDefinition` 共用该资源；Bootstrap 和外部管理器也打包同一文件。DC Editor 通过通用 TypeScript 分类／字段 API 注册整份定义。VS Code 在 `scripts/prepare-server.js` 中复制它，JetBrains 在 `processResources` 中复制它；两者都通过 `initializationOptions.definition` 传给通用服务。语言库默认 catalog 保持为空。
 
 ## 构建
 

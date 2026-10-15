@@ -44,6 +44,12 @@ public final class DCStdioClient implements AutoCloseable {
         params.addProperty("processId", ProcessHandle.current().pid());
         if (rootUri == null) params.add("rootUri", JsonNull.INSTANCE); else params.addProperty("rootUri", rootUri);
         params.add("capabilities", JsonParser.parseString("{\"general\":{\"positionEncodings\":[\"utf-16\"]},\"textDocument\":{\"completion\":{\"completionItem\":{\"snippetSupport\":false}},\"publishDiagnostics\":{\"versionSupport\":true}}}"));
+        try (var input = DCStdioClient.class.getResourceAsStream("/dlc-definition.json")) {
+            if (input == null) return CompletableFuture.failedFuture(new IOException("DLC Manager definition is missing"));
+            JsonObject options = new JsonObject();
+            options.add("definition", JsonParser.parseReader(new InputStreamReader(input, StandardCharsets.UTF_8)));
+            params.add("initializationOptions", options);
+        } catch (IOException exception) { return CompletableFuture.failedFuture(exception); }
         return request("initialize", params, Duration.ofSeconds(15)).thenApply(result -> {
             notify("initialized", new JsonObject());
             return result;

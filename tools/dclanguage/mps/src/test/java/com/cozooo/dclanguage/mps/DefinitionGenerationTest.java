@@ -20,6 +20,7 @@ class DefinitionGenerationTest {
     private MpsEnvironment environment;
     private jetbrains.mps.project.Project project;
     private SNode definition;
+    private SNode fixtureProfile;
     private Path modelFile;
     @TempDir Path temporary;
     @BeforeAll void openDefinitionProject() {
@@ -36,7 +37,7 @@ class DefinitionGenerationTest {
                 var concept=DefinitionConcepts.concept(name);assertTrue(concept.isValid());assertNotNull(concept.getSourceNode().resolve(project.getRepository()));assertEquals(1,runtime.getAspect(EditorAspectDescriptor.class).getDeclaredEditors(concept).size());
             }
             assertTrue(DefinitionCompiler.children(definition,"tokens").size()>=15);
-            assertTrue(DefinitionCompiler.children(definition,"profiles").size()>=10);
+            assertTrue(DefinitionCompiler.children(definition,"profiles").isEmpty());
             assertTrue(DefinitionCompiler.validate(definition).isEmpty());
         });
     }
@@ -79,7 +80,7 @@ class DefinitionGenerationTest {
     }
     @Test void changingNativeFieldRequiredUpdatesSharedProfile() {
         project.getModelAccess().executeCommand(()->{
-            SNode profile=DefinitionCompiler.children(definition,"profiles").stream().filter(n->DefinitionCompiler.get(n,"name").equals("strict-example")).findFirst().orElseThrow();SNode category=DefinitionCompiler.children(profile,"categories").getFirst();SNode field=DefinitionCompiler.children(category,"fields").getFirst();var property=DefinitionConcepts.property("Field","required");String original=field.getProperty(property);
+            SNode profile=testProfile();SNode category=DefinitionCompiler.children(profile,"categories").getFirst();SNode field=DefinitionCompiler.children(category,"fields").getFirst();var property=DefinitionConcepts.property("Field","required");String original=field.getProperty(property);
             try{
                 field.setProperty(property,"false");var profiles=DefinitionCompiler.metadata(definition,modelHash()).getAsJsonArray("profiles");
                 var changed=profiles.asList().stream().map(p->p.getAsJsonObject()).filter(p->p.get("id").getAsString().equals("strict-example")).findFirst().orElseThrow();assertFalse(changed.getAsJsonArray("categories").get(0).getAsJsonObject().getAsJsonArray("fields").get(0).getAsJsonObject().get("required").getAsBoolean());
@@ -143,8 +144,21 @@ class DefinitionGenerationTest {
             }
         });
     }
+    private SNode testProfile() {
+        if (fixtureProfile == null) fixtureProfile = DefinitionFixtures.registerProfile(definition);
+        return fixtureProfile;
+    }
+    @AfterEach void removeTestProfile() {
+        project.getModelAccess().executeCommand(() -> {
+            if (fixtureProfile != null) {
+                definition.removeChild(fixtureProfile);
+                fixtureProfile = null;
+                clearChanged();
+            }
+        });
+    }
     private SNode exampleField() {
-        SNode profile=named(definition,"profiles","strict-example");return DefinitionCompiler.children(DefinitionCompiler.children(profile,"categories").getFirst(),"fields").getFirst();
+        SNode profile=testProfile();return DefinitionCompiler.children(DefinitionCompiler.children(profile,"categories").getFirst(),"fields").getFirst();
     }
     private static SNode named(SNode parent,String role,String name) {
         return DefinitionCompiler.children(parent,role).stream().filter(node->DefinitionCompiler.get(node,"name").equals(name)).findFirst().orElseThrow();
