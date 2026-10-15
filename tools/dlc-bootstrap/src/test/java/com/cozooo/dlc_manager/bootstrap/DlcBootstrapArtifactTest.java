@@ -168,6 +168,9 @@ class DlcBootstrapArtifactTest {
             Files.writeString(game.resolve("DLC/info/version.dc"), "base='1'\ndlc='1'\n");
             Files.createDirectories(game.resolve("mods"));
             Files.writeString(game.resolve("mods/old.jar"), "old");
+            Files.createDirectories(game.resolve("saves/World"));
+            Files.writeString(game.resolve("saves/World/level.dat"), "world before update");
+            Files.writeString(game.resolve("saves/World/session.lock"), "unlocked");
             Path archive = job.resolve("archive-0.zip");
             try (var zip = new java.util.zip.ZipOutputStream(Files.newOutputStream(archive))) {
                 zip.putNextEntry(new java.util.zip.ZipEntry("update.dc"));
@@ -177,10 +180,15 @@ class DlcBootstrapArtifactTest {
             Files.writeString(update.resolve("pending_update.dc"), """
                 format=1
                 job='12345678-1234-1234-1234-123456789abc'
-                archives=[{file:'archive-0.zip',hash:'%s',ignore_unknown:false}]
+                archives=[{file:'archive-0.zip',hash:'%s',ignore_unknown:false,backup_worlds:['World']}]
                 """.formatted(com.cozooo.dlc_manager.core.DlcFileMatch.hash(archive)));
             serviceType.getMethod("initialize", environmentType).invoke(service, environment);
             assertFalse(Files.exists(game.resolve("mods/old.jar")));
+            try (var paths = Files.walk(game.resolve("DLC/tmp/1+2/worlds/data"))) {
+                Path backup = paths.filter(path -> path.getFileName().toString().equals("level.dat")).findFirst().orElseThrow();
+                assertEquals("world before update", Files.readString(backup));
+                assertFalse(Files.exists(backup.getParent().resolve("session.lock")));
+            }
             assertFalse(Files.exists(update.resolve("pending_update.dc")));
             assertTrue(Files.readString(game.resolve(".dlc-manager/pending_update_result.dc")).contains("true"));
             assertEquals("resource", Files.readString(game.resolve("mods/main.jar")));

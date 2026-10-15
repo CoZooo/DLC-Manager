@@ -195,17 +195,16 @@ public class DlcUpdateManagerScreen extends DlcUpdatePageScreen {
         if (targetVersion == null || targetVersion.isBlank()) {
             return;
         }
-        if (importButton != null) {
-            importButton.active = false;
-        }
-        if (backButton != null) {
-            backButton.active = false;
-        }
+        if (applyingUpdates) return;
+        updateStatus = DlcTextCompat.translatable("dlc_manager.update.world_working").getString();
+        setApplyingUpdates(true);
+        Minecraft.getInstance().setScreen(this);
         new Thread(() -> {
             UpdateRollbackResult result = DlcUpdateService.rollbackTo(targetVersion);
             Minecraft.getInstance().execute(() -> {
+                setApplyingUpdates(false);
                 if (!result.isSuccess()) {
-                    Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, DlcTextCompat.translatable("dlc_manager.update.rollback_failed")));
+                    Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, DlcTextCompat.translatable("dlc_manager.update.rollback_failed_detail", result.getMessage())));
                 } else {
                     Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, true, DlcTextCompat.translatable("dlc_manager.update.rollback_success")));
                 }
@@ -568,7 +567,13 @@ public class DlcUpdateManagerScreen extends DlcUpdatePageScreen {
             var model = i < rollbackButtons.size() ? rollbackButtons.get(i) : null;
             if (model != null) { model.visible = rowActions.get(i) != DlcUpdateRowPlanner.Action.NONE; model.active = model.visible && !applyingUpdates; }
             updates.add(new UpdateRow(label, rowActions.get(i) == DlcUpdateRowPlanner.Action.REUPDATE ? tr("dlc_manager.update.rolled_back") : null,
-                    meta.resolveChangelog(DlcPlatformServices.languageCode()), model));
+                    meta.resolveChangelog(DlcPlatformServices.languageCode()), model,
+                    rowTypes.get(i) == DlcUpdateRowPlanner.Type.MANAGER || applyingUpdates ? null : () -> {
+                        String base = meta.getBaseNew() == null || meta.getBaseNew().isBlank() ? meta.getBaseOld() : meta.getBaseNew();
+                        String dlc = meta.getDlcNew() == null || meta.getDlcNew().isBlank() ? meta.getDlcOld() : meta.getDlcNew();
+                        Minecraft.getInstance().setScreen(new DlcWorldBackupScreen(this,
+                            DlcUpdateService.resolveMetaRootByPair(DlcPaths.dlcRoot(), base, dlc)));
+                    }));
         }
         renderUpdates(list, updates, true);
         renderUpdateActions(importButton, urlButton, selfUpdateButton);

@@ -19,6 +19,13 @@ public class DlcUpdatePackage {
     public enum CompatibilityAction { ASK, IGNORE, UPDATE_MANAGER, RESUME }
     private CompatibilityAction compatibilityAction = CompatibilityAction.ASK;
     private boolean allowUninstallPacks;
+    private java.util.List<String> backupWorlds = java.util.List.of();
+    private boolean restoreWorldsAfterReapply;
+    public java.util.List<String> getBackupWorlds() { return backupWorlds; }
+    public void setBackupWorlds(java.util.List<String> value) { backupWorlds = java.util.List.copyOf(value); }
+    public boolean isRestoreWorldsAfterReapply() { return restoreWorldsAfterReapply; }
+    public void setRestoreWorldsAfterReapply(boolean value) { restoreWorldsAfterReapply = value; }
+
 
     public CompatibilityAction getCompatibilityAction() { return compatibilityAction; }
     public void setCompatibilityAction(CompatibilityAction value) { compatibilityAction = value; }

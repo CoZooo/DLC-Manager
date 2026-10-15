@@ -16,6 +16,7 @@ object DlcUpdatePackGuard {
         packages: List<DlcUpdatePackage?>?,
         handler: DecisionHandler,
     ) {
+        if (packages.isNullOrEmpty()) { handler.proceed(null, false); return }
         val unknown = DlcUpdateService.unknownParameters(packages)
         if (unknown.isNotEmpty()) {
             Minecraft.getInstance().setScreen(DlcUpdateCompatibilityScreen(returnScreen, unknown) { action ->
@@ -27,7 +28,7 @@ object DlcUpdatePackGuard {
         val target = resolveTargetVersion(packages)
         val check = DlcPackUpdateGuard.check(DlcPaths.dlcRoot(), target.base, target.dlc)
         if (!check.hasInstalledPacks() || !check.hasIncompatiblePacks()) {
-            proceed(packages, handler, check, false)
+            proceed(returnScreen, packages, handler, check, false)
             return
         }
         val title = DlcTextCompat.translatable("dlc_manager.pack.manager_title")
@@ -36,7 +37,7 @@ object DlcUpdatePackGuard {
             DlcConfirmScreen({ accepted ->
                 if (accepted) {
                     Minecraft.getInstance().setScreen(returnScreen)
-                    proceed(packages, handler, check, true)
+                    proceed(returnScreen, packages, handler, check, true)
                 } else {
                     Minecraft.getInstance().setScreen(returnScreen)
                 }
@@ -44,9 +45,9 @@ object DlcUpdatePackGuard {
         )
     }
 
-    private fun proceed(packages: List<DlcUpdatePackage?>?, handler: DecisionHandler, check: DlcPackUpdateGuard.CheckResult?, uninstall: Boolean) {
+    private fun proceed(returnScreen: Screen, packages: List<DlcUpdatePackage?>?, handler: DecisionHandler, check: DlcPackUpdateGuard.CheckResult?, uninstall: Boolean) {
         packages.orEmpty().filterNotNull().forEach { it.setAllowUninstallPacks(uninstall) }
-        handler.proceed(check, uninstall)
+        Minecraft.getInstance().setScreen(DlcWorldBackupScreen(returnScreen, packages.orEmpty().filterNotNull()) { handler.proceed(check, uninstall) })
     }
 
     fun resolveTargetVersion(packages: List<DlcUpdatePackage?>?): TargetVersion {

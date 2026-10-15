@@ -461,8 +461,19 @@ public final class DlcUpdateService {
         UpdateContext context = new UpdateContext(dlcRoot, staging, backupRoot, meta);
         PresetUpdateSession presetSession = preparePresetUpdateSession(manifest.getUpdateOps(), dlcRoot);
 
+        String worldBefore = null;
+        String worldAfter = null;
+        boolean worldsRestored = false;
         CURRENT_UPDATE_CONTEXT.set(context);
         try {
+            worldAfter = pkg.isRestoreWorldsAfterReapply() ? DlcUpdateWorldBackup.pointer(backupRoot, "after") : null;
+            Set<String> worlds = new LinkedHashSet<>(pkg.getBackupWorlds());
+            if (worldAfter != null) {
+                worlds.addAll(DlcUpdateWorldBackup.worldNames(backupRoot, worldAfter));
+            }
+            notifyApplyProgress("dlc_manager.update.world_backing_up", -1f);
+            worldBefore = DlcUpdateWorldBackup.capture(DlcPaths.gameDir(), backupRoot, worlds, "update");
+            notifyApplyProgress("Applying update...", -1f);
             applyDeleteOps(manifest.getFileOps(), context, hashIndex);
             applyMoveOps(manifest.getFileOps(), context);
             applyAddOps(manifest.getFileOps(), context);
@@ -479,6 +490,11 @@ public final class DlcUpdateService {
             } else {
                 DlcUpdateHashIndex.prepare(DlcPaths.gameDir(), dlcRoot);
             }
+            if (worldAfter != null) {
+                worldsRestored = true;
+                DlcUpdateWorldBackup.restore(DlcPaths.gameDir(), backupRoot, worldAfter, null);
+            }
+            DlcUpdateWorldBackup.point(backupRoot, "before", worldBefore);
             meta.save(metaPath);
 
             DlcUpdateVersion updated = new DlcUpdateVersion();
@@ -496,6 +512,10 @@ public final class DlcUpdateService {
             pkg.cleanupStaging();
             return UpdateApplyResult.success("OK", context.addedRequired, context.addedRemote, context.helperScheduled, false);
         } catch (Exception ex) {
+            if (worldsRestored && worldBefore != null) {
+                try { DlcUpdateWorldBackup.restore(DlcPaths.gameDir(), backupRoot, worldBefore, null); }
+                catch (Exception restoreError) { ex.addSuppressed(restoreError); }
+            }
             rollbackUpdate(context);
             restorePresetUpdatesAfterRollback(presetSession);
             pkg.cleanupStaging();
@@ -559,6 +579,8 @@ public final class DlcUpdateService {
             }
             Path backupRoot = resolveMetaRootByPair(dlcRoot, metaTargetBase, metaTargetDlc);
             UpdateContext context = new UpdateContext(dlcRoot, null, backupRoot, meta);
+            try { DlcUpdateWorldBackup.rollback(DlcPaths.gameDir(), backupRoot); }
+            catch (Exception exception) { return UpdateRollbackResult.failed(exception.getMessage()); }
             rollbackUpdate(context);
             working = sourceDlcVersion(meta);
             workingBase = sourceBaseVersion(meta);
@@ -3447,7 +3469,7 @@ public final class DlcUpdateService {
         return safeVersion(baseVersion) + "+" + safeVersion(dlcVersion);
     }
 
-    private static Path resolveMetaRootByPair(Path dlcRoot, String baseVersion, String dlcVersion) {
+    public static Path resolveMetaRootByPair(Path dlcRoot, String baseVersion, String dlcVersion) {
         return DlcTmpPaths.resolve(dlcRoot, metaPairKey(baseVersion, dlcVersion));
     }
 

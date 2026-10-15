@@ -335,7 +335,6 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
     private fun applyAll() {
         val minecraft = Minecraft.getInstance()
         var didApply = downloadedAny
-        var updateApplied = false
         if (!ensureAllRequiredReady()) {
             throw IOException("download incomplete")
         }
@@ -359,23 +358,8 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
         if (updatePackageRequired) {
             val updateCheck: UpdateCheckResult = DlcUpdateService.checkForUpdates(true)
             if (updateCheck.updates.isNotEmpty()) {
-                val updateResult = DlcUpdateService.applyUpdates(updateCheck.updates, false)
-                if (updateResult?.isMissing == true) {
-                    Minecraft.getInstance().execute {
-                        minecraft.setScreen(DlcUpdateMissingScreen(parent, updateCheck, updateResult.missingPaths))
-                    }
-                    return
-                }
-                if (updateResult?.isSuccess != true) {
-                    Minecraft.getInstance().execute {
-                        minecraft.setScreen(DlcUpdateResultScreen(parent, false, DlcMessageAdapter.toFailureComponent(updateResult)))
-                    }
-                    return
-                }
-                updateApplied = true
-                if (tryShowPostUpdateDownloads(updateResult)) {
-                    return
-                }
+                Minecraft.getInstance().execute { minecraft.setScreen(DlcUpdatePromptScreen(parent, updateCheck)) }
+                return
             }
         }
         if (postUpdateResult != null) {
@@ -385,7 +369,7 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
             Minecraft.getInstance().execute { minecraft.setScreen(createPostUpdateResultScreen(postUpdateResult)) }
             return
         }
-        if (!didApply && !updateApplied) {
+        if (!didApply) {
             Minecraft.getInstance().execute {
                 if (!DlcClientRuntime.tryContinueFirstRun(parent)) {
                     minecraft.setScreen(parent)

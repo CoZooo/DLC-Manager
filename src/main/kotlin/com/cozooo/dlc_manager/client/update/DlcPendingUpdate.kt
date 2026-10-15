@@ -43,6 +43,10 @@ object DlcPendingUpdate {
             archive.addProperty("file", name)
             archive.addProperty("hash", DlcFileMatch.hash(copy))
             archive.addProperty("ignore_unknown", pkg.getCompatibilityAction() == DlcUpdatePackage.CompatibilityAction.IGNORE)
+            val worlds = JsonArray()
+            pkg.getBackupWorlds().forEach { worlds.add(it) }
+            archive.add("backup_worlds", worlds)
+            archive.addProperty("restore_worlds", pkg.isRestoreWorldsAfterReapply())
             archives.add(archive)
             uninstall = uninstall || pkg.isAllowUninstallPacks()
         }
@@ -106,6 +110,8 @@ object DlcPendingUpdate {
                     throw IOException("Unknown update parameters: " + pkg.getManifest().getUnknownParameters().joinToString(", "))
                 }
                 pkg.setCompatibilityAction(if (ignore) DlcUpdatePackage.CompatibilityAction.IGNORE else DlcUpdatePackage.CompatibilityAction.RESUME)
+                if (archive.has("backup_worlds")) pkg.setBackupWorlds(archive.getAsJsonArray("backup_worlds").map { it.asString })
+                pkg.setRestoreWorldsAfterReapply(archive.has("restore_worlds") && archive.get("restore_worlds").asBoolean)
                 packages.add(pkg)
             }
             if (packages.isEmpty()) throw IOException("Pending update contains no packages")
@@ -191,13 +197,13 @@ object DlcPendingUpdate {
 
     private fun locate(update: Path) {
         val locator = JsonObject()
-        locator.addProperty("directory", update.toAbsolutePath().normalize().toString())
+        locator.addProperty("directory", DlcUpdateJournal.relativePath(DlcPaths.gameDir(), update))
         write(locatorPath(), locator)
     }
 
     private fun locateUpdate(root: Path): Path {
         if (!Files.exists(locatorPath())) return root.resolve("tmp/update").toAbsolutePath().normalize()
-        val path = Path.of(DcDocuments.read(locatorPath()).toJson().get("directory").asString).toAbsolutePath().normalize()
+        val path = DlcUpdateJournal.resolveRelativePath(DlcPaths.gameDir(), DcDocuments.read(locatorPath()).toJson().get("directory").asString)
         if (!path.endsWith(Path.of("tmp/update"))) throw IOException("Invalid pending update location")
         return path
     }

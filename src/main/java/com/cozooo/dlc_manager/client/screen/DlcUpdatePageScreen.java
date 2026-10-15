@@ -10,7 +10,9 @@ public abstract class DlcUpdatePageScreen extends DlcPageScreen {
     private Element updateHistory;
     protected DlcUpdatePageScreen(Screen parent, Component title) { this(DlcUiPage.PAGE, parent, title); }
     protected DlcUpdatePageScreen(DlcUiPage page, Screen parent, Component title) { super(page, parent, title); }
-    protected record UpdateRow(String label, String note, String changelog, Button action) {}
+    protected record UpdateRow(String label, String note, String changelog, Button action, Runnable manageBackups) {
+        protected UpdateRow(String label, String note, String changelog, Button action) { this(label, note, changelog, action, null); }
+    }
 
     protected final Element updateSection(String baseVersion, String currentVersion) {
         content.parentElement.setAttribute("class", "page-shell update-page");
@@ -35,7 +37,9 @@ public abstract class DlcUpdatePageScreen extends DlcPageScreen {
                 String description = com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer.renderMarkdownComponent(update.changelog).getString();
                 tip(line, () -> new DlcUiTooltip.Content(tr("dlc_manager.update.changelog_tooltip_title"), description, List.of(), ""));
             }
-            if (update.action != null) mount(node(line, "div", "row-controls"), update.action);
+            var controls = node(line, "div", "row-controls");
+            if (update.manageBackups != null) action(controls, tr("dlc_manager.update.world_manage"), update.manageBackups);
+            if (update.action != null) mount(controls, update.action);
         }
         history.setScrollTop(scroll);
     }

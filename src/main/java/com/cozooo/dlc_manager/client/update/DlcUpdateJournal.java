@@ -32,7 +32,7 @@ public final class DlcUpdateJournal implements AutoCloseable {
         List<Path> roots = new java.util.ArrayList<>(com.cozooo.dlc_manager.core.DlcConfig.getDlcRoots());
         if (saved.has("roots")) {
             roots.clear();
-            for (var root : saved.getAsJsonArray("roots")) roots.add(Path.of(root.getAsString()).toAbsolutePath().normalize());
+            for (var root : saved.getAsJsonArray("roots")) roots.add(resolveRelativePath(game, root.getAsString()));
         }
         if (entries == null) throw new IOException("Invalid pending update recovery journal");
         DlcUpdateJournal journal = new DlcUpdateJournal(game, directory, entries, roots);
@@ -52,6 +52,24 @@ public final class DlcUpdateJournal implements AutoCloseable {
         if (!journal.allowed(path) || path.startsWith(internal) || internal.startsWith(path) || path.startsWith(runtime) || runtime.startsWith(path)) {
             throw new IllegalStateException("Invalid pending update operation target: " + target);
         }
+    }
+
+    public static void beforeWriteCanonical(Path target) throws IOException {
+        DlcUpdateJournal journal = ACTIVE.get();
+        if (journal == null) return;
+        List<Path> anchors = new java.util.ArrayList<>(journal.roots);
+        anchors.add(journal.game);
+        for (Path anchor : anchors) {
+            Path original = anchor.toAbsolutePath().normalize();
+            Path ancestor = original;
+            while (!Files.exists(ancestor, LinkOption.NOFOLLOW_LINKS)) ancestor = ancestor.getParent();
+            Path canonical = ancestor.toRealPath().resolve(ancestor.relativize(original));
+            if (target.startsWith(canonical)) {
+                journal.capture(original.resolve(canonical.relativize(target)));
+                return;
+            }
+        }
+        throw new IOException("Invalid pending update target: " + target);
     }
 
     public static void beforeWrite(Path target) {
@@ -76,20 +94,32 @@ public final class DlcUpdateJournal implements AutoCloseable {
             Path previous = resolve(value.getAsJsonObject().get("path").getAsString());
             if (normalized.startsWith(previous)) return;
         }
+        String relative = relativePath(game, normalized);
+        JsonArray trusted = new JsonArray();
+        for (Path root : roots) trusted.add(relativePath(game, root));
         String name = Integer.toString(entries.size());
         boolean exists = Files.exists(normalized, LinkOption.NOFOLLOW_LINKS);
         if (exists) copy(normalized, directory.resolve("backups").resolve(name));
         JsonObject entry = new JsonObject();
-        entry.addProperty("path", normalized.toString().replace('\\', '/'));
+        entry.addProperty("path", relative);
         entry.addProperty("backup", name);
         entry.addProperty("existed", exists);
         entries.add(entry);
         JsonObject root = new JsonObject();
         root.add("entries", entries);
-        JsonArray trusted = new JsonArray();
-        roots.forEach(path -> trusted.add(path.toAbsolutePath().normalize().toString()));
         root.add("roots", trusted);
         DcDocuments.write(directory.resolve("recovery.dc"), DcDocuments.fromJson(root));
+    }
+
+    public static String relativePath(Path base, Path path) throws IOException {
+        try { return base.toAbsolutePath().normalize().relativize(path.toAbsolutePath().normalize()).toString().replace('\\', '/'); }
+        catch (IllegalArgumentException exception) { throw new IOException("Cannot store a relative path across filesystem roots", exception); }
+    }
+
+    public static Path resolveRelativePath(Path base, String value) throws IOException {
+        Path relative = Path.of(value);
+        if (relative.isAbsolute() || value.startsWith("\\") || value.matches("^[A-Za-z]:.*")) throw new IOException("Expected a relative path");
+        return base.toAbsolutePath().normalize().resolve(relative).normalize();
     }
 
     public void rollback() throws IOException {
@@ -119,7 +149,7 @@ public final class DlcUpdateJournal implements AutoCloseable {
     }
 
     private Path resolve(String relative) throws IOException {
-        Path target = game.resolve(relative).normalize();
+        Path target = resolveRelativePath(game, relative);
         if (!allowed(target) || target.startsWith(directory)) throw new IOException("Invalid recovery path");
         for (Path part = target; part != null && (part.equals(game) || allowed(part)); part = part.getParent()) {
             if (Files.isSymbolicLink(part)) throw new IOException("Cannot restore symbolic link: " + target);

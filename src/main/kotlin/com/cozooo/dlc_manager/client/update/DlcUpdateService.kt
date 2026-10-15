@@ -501,8 +501,18 @@ object DlcUpdateService {
         val context = UpdateContext(dlcRoot, staging, backupRoot, meta)
         val presetSession = preparePresetUpdateSession(manifest.getUpdateOps(), dlcRoot)
 
+        var worldBefore: String? = null
+        var worldsRestored = false
         CURRENT_UPDATE_CONTEXT.set(context)
         try {
+            val worldAfter = if (pkg.isRestoreWorldsAfterReapply()) DlcUpdateWorldBackup.pointer(backupRoot!!, "after") else null
+            val worlds = pkg.getBackupWorlds().toMutableSet()
+            if (worldAfter != null) {
+                worlds.addAll(DlcUpdateWorldBackup.worldNames(backupRoot!!, worldAfter))
+            }
+            notifyApplyProgress("dlc_manager.update.world_backing_up", -1f)
+            worldBefore = DlcUpdateWorldBackup.capture(DlcPaths.gameDir(), backupRoot!!, worlds, "update")
+            notifyApplyProgress("Applying update...", -1f)
             applyDeleteOps(manifest.getFileOps(), context, hashIndex)
             applyMoveOps(manifest.getFileOps(), context)
             applyAddOps(manifest.getFileOps(), context)
@@ -515,6 +525,11 @@ object DlcUpdateService {
             } else {
                 DlcUpdateHashIndex.prepare(DlcPaths.gameDir(), dlcRoot)
             }
+            if (worldAfter != null) {
+                worldsRestored = true
+                DlcUpdateWorldBackup.restore(DlcPaths.gameDir(), backupRoot, worldAfter, null)
+            }
+            DlcUpdateWorldBackup.point(backupRoot, "before", worldBefore)
             meta.save(metaPath)
 
             val updated = DlcUpdateVersion()
@@ -538,6 +553,10 @@ object DlcUpdateService {
                 false
             )
         } catch (ex: Exception) {
+            if (worldsRestored && worldBefore != null) {
+                try { DlcUpdateWorldBackup.restore(DlcPaths.gameDir(), backupRoot!!, worldBefore, null) }
+                catch (restoreError: Exception) { ex.addSuppressed(restoreError) }
+            }
             rollbackUpdate(context)
             restorePresetUpdatesAfterRollback(presetSession)
             pkg.cleanupStaging()
@@ -602,6 +621,8 @@ object DlcUpdateService {
             }
             val backupRoot: Path? = resolveMetaRootByPair(dlcRoot, metaTargetBase, metaTargetDlc)
             val context = UpdateContext(dlcRoot, null, backupRoot, meta)
+            try { DlcUpdateWorldBackup.rollback(DlcPaths.gameDir(), backupRoot!!) }
+            catch (exception: Exception) { return UpdateRollbackResult.failed(exception.message) }
             rollbackUpdate(context)
             working = sourceDlcVersion(meta)
             workingBase = sourceBaseVersion(meta)
@@ -3624,7 +3645,8 @@ object DlcUpdateService {
         return safeVersion(baseVersion) + "+" + safeVersion(dlcVersion)
     }
 
-    private fun resolveMetaRootByPair(dlcRoot: Path?, baseVersion: kotlin.String?, dlcVersion: kotlin.String?): Path? {
+    @JvmStatic
+    fun resolveMetaRootByPair(dlcRoot: Path?, baseVersion: kotlin.String?, dlcVersion: kotlin.String?): Path? {
         return DlcTmpPaths.resolve(dlcRoot, metaPairKey(baseVersion, dlcVersion))
     }
 

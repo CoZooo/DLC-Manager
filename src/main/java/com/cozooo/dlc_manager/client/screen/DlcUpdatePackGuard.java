@@ -18,6 +18,7 @@ public final class DlcUpdatePackGuard {
     }
 
     public static void confirmBeforeUpdate(Screen returnScreen, List<DlcUpdatePackage> packages, DecisionHandler handler) {
+        if (packages == null || packages.isEmpty()) { handler.proceed(null, false); return; }
         List<String> unknown = DlcUpdateService.unknownParameters(packages);
         if (!unknown.isEmpty()) {
             Minecraft.getInstance().setScreen(new DlcUpdateCompatibilityScreen(returnScreen, unknown, action -> {
@@ -29,7 +30,7 @@ public final class DlcUpdatePackGuard {
         TargetVersion target = resolveTargetVersion(packages);
         DlcPackUpdateGuard.CheckResult check = DlcPackUpdateGuard.check(DlcPaths.dlcRoot(), target.base, target.dlc);
         if (check == null || !check.hasInstalledPacks() || !check.hasIncompatiblePacks()) {
-            proceed(packages, handler, check, false);
+            proceed(returnScreen, packages, handler, check, false);
             return;
         }
         Component title = DlcTextCompat.translatable("dlc_manager.pack.manager_title");
@@ -37,16 +38,16 @@ public final class DlcUpdatePackGuard {
         Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             if (accepted) {
                 Minecraft.getInstance().setScreen(returnScreen);
-                proceed(packages, handler, check, true);
+                proceed(returnScreen, packages, handler, check, true);
             } else {
                 Minecraft.getInstance().setScreen(returnScreen);
             }
         }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
     }
 
-    private static void proceed(List<DlcUpdatePackage> packages, DecisionHandler handler, DlcPackUpdateGuard.CheckResult check, boolean uninstall) {
+    private static void proceed(Screen returnScreen, List<DlcUpdatePackage> packages, DecisionHandler handler, DlcPackUpdateGuard.CheckResult check, boolean uninstall) {
         if (packages != null) for (DlcUpdatePackage pkg : packages) if (pkg != null) pkg.setAllowUninstallPacks(uninstall);
-        handler.proceed(check, uninstall);
+        Minecraft.getInstance().setScreen(new DlcWorldBackupScreen(returnScreen, packages, () -> handler.proceed(check, uninstall)));
     }
 
     public static TargetVersion resolveTargetVersion(List<DlcUpdatePackage> packages) {

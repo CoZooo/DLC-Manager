@@ -346,7 +346,6 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
     private void applyAll() throws IOException {
         Minecraft minecraft = Minecraft.getInstance();
         boolean didApply = downloadedAny;
-        boolean updateApplied = false;
         if (!ensureAllRequiredReady()) {
             throw new IOException("download incomplete");
         }
@@ -376,19 +375,8 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
         if (updatePackageRequired) {
             UpdateCheckResult updateCheck = DlcUpdateService.checkForUpdates(true);
             if (updateCheck != null && updateCheck.getUpdates() != null && !updateCheck.getUpdates().isEmpty()) {
-                UpdateApplyResult updateResult = DlcUpdateService.applyUpdates(updateCheck.getUpdates(), false);
-                if (updateResult != null && updateResult.isMissing()) {
-                    Minecraft.getInstance().execute(() -> minecraft.setScreen(new DlcUpdateMissingScreen(parent, updateCheck, updateResult.getMissingPaths())));
-                    return;
-                }
-                if (updateResult == null || !updateResult.isSuccess()) {
-                    Minecraft.getInstance().execute(() -> minecraft.setScreen(new DlcUpdateResultScreen(parent, false, DlcMessageAdapter.toFailureComponent(updateResult))));
-                    return;
-                }
-                updateApplied = true;
-                if (tryShowPostUpdateDownloads(updateResult)) {
-                    return;
-                }
+                Minecraft.getInstance().execute(() -> minecraft.setScreen(new DlcUpdatePromptScreen(parent, updateCheck)));
+                return;
             }
         }
         if (postUpdateResult != null) {
@@ -398,7 +386,7 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
             Minecraft.getInstance().execute(() -> minecraft.setScreen(createPostUpdateResultScreen(postUpdateResult)));
             return;
         }
-        if (!didApply && !updateApplied) {
+        if (!didApply) {
             Minecraft.getInstance().execute(() -> {
                 if (!DlcClientRuntime.tryContinueFirstRun(parent)) {
                     minecraft.setScreen(parent);

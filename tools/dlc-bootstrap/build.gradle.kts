@@ -113,6 +113,7 @@ val sharedClasses = listOf(
     "client/update/DlcUpdateJournal",
     "client/update/DlcUpdateManifest",
     "client/update/DlcUpdateMeta",
+    "client/update/DlcUpdateWorldBackup",
     "client/update/DlcUpdatePackage",
     "client/update/DlcUpdateService",
     "client/update/DlcUpdateSkipStore",

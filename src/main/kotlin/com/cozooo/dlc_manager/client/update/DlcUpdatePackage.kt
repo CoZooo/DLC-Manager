@@ -19,6 +19,12 @@ class DlcUpdatePackage private constructor(
 ) {
     enum class CompatibilityAction { ASK, IGNORE, UPDATE_MANAGER, RESUME }
     private var compatibilityAction = CompatibilityAction.ASK
+    private var backupWorlds: List<String> = emptyList()
+    private var restoreWorldsAfterReapply = false
+    fun getBackupWorlds(): List<String> = backupWorlds
+    fun setBackupWorlds(value: List<String>) { backupWorlds = value.toList() }
+    fun isRestoreWorldsAfterReapply(): Boolean = restoreWorldsAfterReapply
+    fun setRestoreWorldsAfterReapply(value: Boolean) { restoreWorldsAfterReapply = value }
     private var allowUninstallPacks = false
     fun getCompatibilityAction(): CompatibilityAction = compatibilityAction
     fun setCompatibilityAction(value: CompatibilityAction) { compatibilityAction = value }

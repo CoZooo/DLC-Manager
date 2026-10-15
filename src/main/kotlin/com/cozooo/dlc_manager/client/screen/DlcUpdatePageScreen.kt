@@ -8,7 +8,7 @@ import net.minecraft.network.chat.Component
 abstract class DlcUpdatePageScreen(page: DlcUiPage, parent: Screen?, title: Component) : DlcPageScreen(page, parent, title) {
     protected constructor(parent: Screen?, title: Component) : this(DlcUiPage.PAGE, parent, title)
     private var updateHistory: Element? = null
-    protected data class UpdateRow(val label: String, val note: String?, val changelog: String?, val action: Button?)
+    protected data class UpdateRow(val label: String, val note: String?, val changelog: String?, val action: Button?, val manageBackups: Runnable? = null)
 
     protected fun updateSection(baseVersion: String?, currentVersion: String?): Element {
         content.parentElement.setAttribute("class", "page-shell update-page")
@@ -34,7 +34,9 @@ abstract class DlcUpdatePageScreen(page: DlcUiPage, parent: Screen?, title: Comp
                 val description = com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer.renderMarkdownComponent(it).string
                 tip(line) { DlcUiTooltip.Content(tr("dlc_manager.update.changelog_tooltip_title"), description, emptyList(), "") }
             }
-            update.action?.let { mount(node(line, "div", "row-controls"), it) }
+            val controls = node(line, "div", "row-controls")
+            update.manageBackups?.let { action(controls, tr("dlc_manager.update.world_manage"), it) }
+            update.action?.let { mount(controls, it) }
         }
         history.setScrollTop(scroll)
     }

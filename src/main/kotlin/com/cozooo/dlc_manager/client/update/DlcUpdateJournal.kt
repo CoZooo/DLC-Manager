@@ -24,18 +24,19 @@ class DlcUpdateJournal private constructor(game: Path, directory: Path, private 
         if (!allowed(normalized)) throw IOException("Invalid pending update target: $target")
         checkLinks(normalized)
         for (value in entries) if (normalized.startsWith(resolve(value.asJsonObject.get("path").asString))) return
+        val relative = relativePath(game, normalized)
+        val trusted = JsonArray()
+        roots.forEach { trusted.add(relativePath(game, it)) }
         val name = entries.size().toString()
         val exists = Files.exists(normalized, LinkOption.NOFOLLOW_LINKS)
         if (exists) copy(normalized, directory.resolve("backups").resolve(name))
         val entry = JsonObject()
-        entry.addProperty("path", normalized.toString().replace('\\', '/'))
+        entry.addProperty("path", relative)
         entry.addProperty("backup", name)
         entry.addProperty("existed", exists)
         entries.add(entry)
         val root = JsonObject()
         root.add("entries", entries)
-        val trusted = JsonArray()
-        roots.forEach { trusted.add(it.toAbsolutePath().normalize().toString()) }
         root.add("roots", trusted)
         DcDocuments.write(directory.resolve("recovery.dc"), DcDocuments.fromJson(root))
     }
@@ -63,7 +64,7 @@ class DlcUpdateJournal private constructor(game: Path, directory: Path, private 
         roots.any { path.startsWith(it.toAbsolutePath().normalize()) })
 
     private fun resolve(relative: String): Path {
-        val target = game.resolve(relative).normalize()
+        val target = resolveRelativePath(game, relative)
         if (!allowed(target) || target.startsWith(directory)) throw IOException("Invalid recovery path")
         checkLinks(target)
         return target
@@ -90,13 +91,27 @@ class DlcUpdateJournal private constructor(game: Path, directory: Path, private 
             val log = directory.resolve("recovery.dc")
             val saved = if (Files.exists(log)) DcDocuments.read(log).toJson() else JsonObject()
             val entries = if (saved.has("entries")) saved.getAsJsonArray("entries") else JsonArray()
-            val roots = if (saved.has("roots")) saved.getAsJsonArray("roots").map { Path.of(it.asString).toAbsolutePath().normalize() }
+            val roots = if (saved.has("roots")) saved.getAsJsonArray("roots").map { resolveRelativePath(game, it.asString) }
                 else com.cozooo.dlc_manager.core.DlcConfig.getDlcRoots()
             if (entries == null) throw IOException("Invalid pending update recovery journal")
             return DlcUpdateJournal(game, directory, entries, roots.toList()).also {
                 ACTIVE.set(it)
                 com.cozooo.dlc_manager.client.helper.DlcFileOpsHelperClient.requireImmediateOperations(true)
             }
+        }
+
+        @JvmStatic
+        fun relativePath(base: Path, path: Path): String = try {
+            base.toAbsolutePath().normalize().relativize(path.toAbsolutePath().normalize()).toString().replace('\\', '/')
+        } catch (exception: IllegalArgumentException) {
+            throw IOException("Cannot store a relative path across filesystem roots", exception)
+        }
+
+        @JvmStatic
+        fun resolveRelativePath(base: Path, value: String): Path {
+            val relative = Path.of(value)
+            if (relative.isAbsolute || value.startsWith("\\") || value.matches(Regex("^[A-Za-z]:.*"))) throw IOException("Expected a relative path")
+            return base.toAbsolutePath().normalize().resolve(relative).normalize()
         }
 
         @JvmStatic
@@ -112,6 +127,22 @@ class DlcUpdateJournal private constructor(game: Path, directory: Path, private 
             check(journal.allowed(path) && !path.startsWith(internal) && !internal.startsWith(path) && !path.startsWith(runtime) && !runtime.startsWith(path)) {
                 "Invalid pending update operation target: $target"
             }
+        }
+
+        @JvmStatic
+        fun beforeWriteCanonical(target: Path) {
+            val journal = ACTIVE.get() ?: return
+            for (anchor in journal.roots + listOf(journal.game)) {
+                val original = anchor.toAbsolutePath().normalize()
+                var ancestor = original
+                while (!Files.exists(ancestor, LinkOption.NOFOLLOW_LINKS)) ancestor = ancestor.parent
+                val canonical = ancestor.toRealPath().resolve(ancestor.relativize(original))
+                if (target.startsWith(canonical)) {
+                    journal.capture(original.resolve(canonical.relativize(target)))
+                    return
+                }
+            }
+            throw IOException("Invalid pending update target: $target")
         }
 
         @JvmStatic

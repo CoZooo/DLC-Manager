@@ -209,13 +209,16 @@ class DlcUpdateManagerScreen(
         if (targetVersion.isNullOrBlank()) {
             return
         }
-        importButton?.active = false
-        backButton?.active = false
+        if (applyingUpdates) return
+        updateStatus = DlcTextCompat.translatable("dlc_manager.update.world_working").string
+        setApplyingUpdates(true)
+        Minecraft.getInstance().setScreen(this)
         Thread({
             val result: UpdateRollbackResult = DlcUpdateService.rollbackTo(targetVersion)
             Minecraft.getInstance().execute {
+                setApplyingUpdates(false)
                 if (!result.isSuccess) {
-                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, DlcTextCompat.translatable("dlc_manager.update.rollback_failed")))
+                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, DlcTextCompat.translatable("dlc_manager.update.rollback_failed_detail", result.message)))
                 } else {
                     Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, true, DlcTextCompat.translatable("dlc_manager.update.rollback_success")))
                 }
@@ -638,7 +641,13 @@ class DlcUpdateManagerScreen(
             val model = rollbackButtons.getOrNull(index)
             model?.let { it.visible = rowActions[index] != DlcUpdateRowPlanner.Action.NONE; it.active = it.visible && !applyingUpdates }
             updates.add(UpdateRow(label, if (rowActions[index] == DlcUpdateRowPlanner.Action.REUPDATE) tr("dlc_manager.update.rolled_back") else null,
-                meta.resolveChangelog(DlcPlatformServices.languageCode()), model))
+                meta.resolveChangelog(DlcPlatformServices.languageCode()), model,
+                if (rowTypes[index] == DlcUpdateRowPlanner.Type.MANAGER || applyingUpdates) null else Runnable {
+                    val base = meta.getBaseNew()?.takeIf { it.isNotBlank() } ?: meta.getBaseOld()
+                    val dlc = meta.getDlcNew()?.takeIf { it.isNotBlank() } ?: meta.getDlcOld()
+                    Minecraft.getInstance().setScreen(DlcWorldBackupScreen(this,
+                        DlcUpdateService.resolveMetaRootByPair(DlcPaths.dlcRoot(), base, dlc)!!))
+                }))
         }
         renderUpdates(list, updates, true)
         renderUpdateActions(importButton, urlButton, selfUpdateButton)

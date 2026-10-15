@@ -237,4 +237,46 @@ class DlcPendingUpdateTest {
         assertFalse(Files.exists(root.resolve("tmp/update/pending_update.dc")));
     }
 
+    @Test void interruptedUpdateUsesOnlyRelativePathsAndRecoversAfterGameDirectoryMoves(@TempDir Path relocatedBase) throws Exception {
+        Path root = setup();
+        Path mod = Files.writeString(game.resolve("mods/a.jar"), "original");
+        DlcPendingUpdate.schedule(List.of(pack("1", "2", "", null)), false);
+        var locator = DcDocuments.read(game.resolve(".dlc-manager/pending_update_location.dc")).toJson();
+        assertEquals("DLC/tmp/update", locator.get("directory").getAsString());
+        Path update = root.resolve("tmp/update");
+        var request = DcDocuments.read(update.resolve("pending_update.dc")).toJson();
+        Path directory = update.resolve("jobs").resolve(request.get("job").getAsString());
+        try (var journal = DlcUpdateJournal.open(game, directory)) {
+            journal.capture(mod);
+            Files.writeString(mod, "interrupted");
+        }
+        var saved = DcDocuments.read(directory.resolve("recovery.dc")).toJson();
+        for (var entry : saved.getAsJsonArray("entries")) assertFalse(Path.of(entry.getAsJsonObject().get("path").getAsString()).isAbsolute());
+        for (var entry : saved.getAsJsonArray("roots")) assertFalse(Path.of(entry.getAsString()).isAbsolute());
+        var marker = new com.google.gson.JsonObject();
+        marker.addProperty("job", request.get("job").getAsString());
+        marker.addProperty("committed", false);
+        DcDocuments.write(update.resolve("pending_recovery.dc"), DcDocuments.fromJson(marker));
+        Path relocated = relocatedBase.resolve("moved-game");
+        Files.move(game, relocated);
+        PlatformServices.setProvider(new TestPlatformProvider(relocated, relocated.resolve("config")));
+        DlcConfig.setDlcRoot("DLC");
+        assertTrue(DlcPendingUpdate.process(ignored -> {}, false));
+        assertEquals("original", Files.readString(relocated.resolve("mods/a.jar")));
+        assertFalse(Files.exists(relocated.resolve("DLC/tmp/update/pending_update.dc")));
+        assertFalse(Files.exists(relocated.resolve(".dlc-manager/pending_update_location.dc")));
+        assertFalse(DlcPendingUpdate.readResult().get("success").getAsBoolean());
+    }
+
+    @Test void newRuntimeConfigurationsRejectAbsolutePathFields() throws Exception {
+        setup();
+        assertThrows(java.io.IOException.class, () -> DlcUpdateJournal.resolveRelativePath(game, game.resolve("mods/a.jar").toString()));
+        assertThrows(java.io.IOException.class, () -> DlcUpdateJournal.resolveRelativePath(game, "C:\\game\\mods"));
+        Path locator = game.resolve(".dlc-manager/pending_update_location.dc");
+        var value = new com.google.gson.JsonObject();
+        value.addProperty("directory", game.resolve("DLC/tmp/update").toString());
+        DcDocuments.write(locator, DcDocuments.fromJson(value));
+        assertThrows(java.io.IOException.class, DlcPendingUpdate::hasPending);
+    }
+
 }

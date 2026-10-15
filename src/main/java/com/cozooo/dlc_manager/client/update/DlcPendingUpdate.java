@@ -46,6 +46,10 @@ public final class DlcPendingUpdate {
             archive.addProperty("file", name);
             archive.addProperty("hash", DlcFileMatch.hash(copy));
             archive.addProperty("ignore_unknown", pkg.getCompatibilityAction() == DlcUpdatePackage.CompatibilityAction.IGNORE);
+            JsonArray worlds = new JsonArray();
+            for (String world : pkg.getBackupWorlds()) worlds.add(world);
+            archive.add("backup_worlds", worlds);
+            archive.addProperty("restore_worlds", pkg.isRestoreWorldsAfterReapply());
             archives.add(archive);
             uninstall |= pkg.isAllowUninstallPacks();
         }
@@ -108,6 +112,12 @@ public final class DlcPendingUpdate {
                     throw new IOException("Unknown update parameters: " + String.join(", ", pkg.getManifest().getUnknownParameters()));
                 }
                 pkg.setCompatibilityAction(ignore ? DlcUpdatePackage.CompatibilityAction.IGNORE : DlcUpdatePackage.CompatibilityAction.RESUME);
+                if (archive.has("backup_worlds")) {
+                    List<String> worlds = new ArrayList<>();
+                    for (var world : archive.getAsJsonArray("backup_worlds")) worlds.add(world.getAsString());
+                    pkg.setBackupWorlds(worlds);
+                }
+                pkg.setRestoreWorldsAfterReapply(archive.has("restore_worlds") && archive.get("restore_worlds").getAsBoolean());
                 packages.add(pkg);
             }
             if (packages.isEmpty()) throw new IOException("Pending update contains no packages");
@@ -194,13 +204,13 @@ public final class DlcPendingUpdate {
 
     private static void locate(Path update) throws IOException {
         JsonObject locator = new JsonObject();
-        locator.addProperty("directory", update.toAbsolutePath().normalize().toString());
+        locator.addProperty("directory", DlcUpdateJournal.relativePath(DlcPaths.gameDir(), update));
         write(locatorPath(), locator);
     }
 
     private static Path locateUpdate(Path root) throws IOException {
         if (!Files.exists(locatorPath())) return root.resolve("tmp/update").toAbsolutePath().normalize();
-        Path path = Path.of(DcDocuments.read(locatorPath()).toJson().get("directory").getAsString()).toAbsolutePath().normalize();
+        Path path = DlcUpdateJournal.resolveRelativePath(DlcPaths.gameDir(), DcDocuments.read(locatorPath()).toJson().get("directory").getAsString());
         if (!path.endsWith(Path.of("tmp/update"))) throw new IOException("Invalid pending update location");
         return path;
     }
