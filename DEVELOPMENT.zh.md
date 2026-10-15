@@ -6,7 +6,7 @@
 
 主模组在 `src/main/java` 和 `src/main/kotlin` 中维护对应实现，StoneCutter 按 `versions/` 中的节点生成各版本源码。活动节点使用原始测试源码，其他节点使用生成测试和版本专属测试。
 
-MPS 原生模型只定义通用 `.dc` 语法。DLC Manager 的业务字段维护在 `src/main/resources/META-INF/dlc-manager/dlc-definition.json`；`DlcDcDefinition.register(...)` 通过 DC 分类／字段 API 注册对应类型。编辑器单独注册整份项目定义，与语法元数据分开。主项目、Bootstrap 和外部管理器从 Maven Central 使用 `com.cozooo:dclanguage:0.1.0`。
+MPS 原生模型只定义通用 `.dc` 语法。DLC Manager 的业务字段维护在 `src/main/resources/META-INF/dlc-manager/dlc-definition.json`；`DlcDcDefinition.register(...)` 通过 DC 分类／字段 API 注册对应类型。编辑器单独注册整份项目定义，与语法元数据分开。主项目、Bootstrap 和外部管理器从 Maven Central 使用 `com.cozooo:dclanguage:0.1.1`。
 
 `settings.gradle.kts` 将 Bootstrap 和外部管理器作为独立构建纳入。DC Editor 是独立的网页与桌面应用，使用自己的文本编辑实现。
 

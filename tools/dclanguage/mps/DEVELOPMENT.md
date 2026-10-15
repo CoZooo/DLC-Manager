@@ -79,7 +79,7 @@ Gradle compiles the definition DSL's runtime descriptors, projectional editors, 
 
 The companion language at `languages/dc` edits configuration files directly. It includes Document, Member, Object, Array, and Scalar concepts and uses the runtime library for reading and saving.
 
-Install `build/distributions/dclanguage-mps-0.1.0.zip` through MPS **Settings → Plugins → Install Plugin from Disk**. The plugin includes both languages and their runtime dependencies, but not the MPS SDK.
+Install `build/distributions/dclanguage-mps-0.1.1.zip` through MPS **Settings → Plugins → Install Plugin from Disk**. The plugin includes both languages and their runtime dependencies, but not the MPS SDK.
 
 After installation, open the repository's `example` directory to use the sample configuration. That project references only the sandbox Solution, avoiding duplicate loading of source languages with the same UUID. A `.dc` file placed in a Solution's model source root is discovered automatically in the project tree.
 

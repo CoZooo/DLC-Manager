@@ -18,7 +18,7 @@
 ../gradlew check pluginZip
 ```
 
-安装包位于 `build/distributions/dclanguage-mps-0.1.0.zip`。在 MPS 的 **Settings → Plugins → Install Plugin from Disk** 选择此 ZIP，按提示安装并重启。
+安装包位于 `build/distributions/dclanguage-mps-0.1.1.zip`。在 MPS 的 **Settings → Plugins → Install Plugin from Disk** 选择此 ZIP，按提示安装并重启。
 
 ## 修改语言定义
 

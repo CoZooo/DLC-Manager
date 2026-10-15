@@ -1,7 +1,7 @@
 <idea-plugin>
   <id>com.cozooo.dclanguage.mps</id>
   <name>DC Language</name>
-  <version>0.1.0</version>
+  <version>0.1.1</version>
   <vendor>cozooo</vendor>
   <description>Defines the DC language, generates its shared syntax and schema toolchain, and provides structured .dc configuration editing.</description>
   <idea-version since-build="261" until-build="261.*" />

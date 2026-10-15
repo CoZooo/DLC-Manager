@@ -2,7 +2,7 @@
 
 [简体中文](DEVELOPMENT.zh.md)
 
-DC Language is a `.dc` toolchain whose language definition is maintained in MPS. Its Java package is `com.cozooo.dclanguage`, and the runtime library coordinates are `com.cozooo:dclanguage:0.1.0`. The main project resolves that coordinate directly from Maven Central.
+DC Language is a `.dc` toolchain whose language definition is maintained in MPS. Its Java package is `com.cozooo.dclanguage`, and the runtime library coordinates are `com.cozooo:dclanguage:0.1.1`. The main project resolves that coordinate directly from Maven Central.
 
 The library reads, edits, and writes documents, with optional category and field validation. It has its own Gradle project and wrapper, requires Java 17, and depends on Gson at runtime. Java and Kotlin use the same API. The Kotlin standard library is used only in interoperability tests, not as a runtime dependency.
 
@@ -186,7 +186,7 @@ Tests cover existing Remote, dependency/conflict, history, state, update, and an
 
 ## Main project integration
 
-The root project, Bootstrap, and JavaFX resolve `com.cozooo:dclanguage:0.1.0` from Maven Central without a local composite-build replacement.
+The root project, Bootstrap, and JavaFX resolve `com.cozooo:dclanguage:0.1.1` from Maven Central without a local composite-build replacement.
 
 - Fabric, Forge, and NeoForge distributions embed the library. Development environments resolve the same dependency.
 - Bootstrap relocates the library and Gson in its independent early-loading package so it does not rely on the game's runtime libraries being loaded.

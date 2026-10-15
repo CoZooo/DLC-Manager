@@ -6,7 +6,7 @@
 
 The main mod maintains corresponding implementations in `src/main/java` and `src/main/kotlin`. StoneCutter generates version-specific sources for the nodes in `versions/`. The active node uses original test sources; other nodes use generated tests alongside their version-specific tests.
 
-Native MPS models define only the generic `.dc` syntax. DLC Manager owns its application fields in `src/main/resources/META-INF/dlc-manager/dlc-definition.json`. `DlcDcDefinition.register(...)` registers a profile through the DC category/field API; editor clients register the complete application definition separately from syntax metadata. The main project, Bootstrap, and external manager resolve `com.cozooo:dclanguage:0.1.0` from Maven Central.
+Native MPS models define only the generic `.dc` syntax. DLC Manager owns its application fields in `src/main/resources/META-INF/dlc-manager/dlc-definition.json`. `DlcDcDefinition.register(...)` registers a profile through the DC category/field API; editor clients register the complete application definition separately from syntax metadata. The main project, Bootstrap, and external manager resolve `com.cozooo:dclanguage:0.1.1` from Maven Central.
 
 `settings.gradle.kts` includes Bootstrap and the external manager as separate builds. DC Editor is a separate web and desktop application with its own text-editing implementation.
 

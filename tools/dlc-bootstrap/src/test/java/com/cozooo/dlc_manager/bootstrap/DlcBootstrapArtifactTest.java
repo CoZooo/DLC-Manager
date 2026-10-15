@@ -209,6 +209,7 @@ class DlcBootstrapArtifactTest {
             assertSame(privateRuntime, parsed.getClass().getMethod("toJson").invoke(parsed).getClass().getClassLoader());
             Class<?> catalogType = privateRuntime.loadClass("com.cozooo.dlc_bootstrap.internal.dclanguage.DcSchemaCatalog");
             Object catalog = catalogType.getMethod("loadDefault").invoke(null);
+            assertTrue(((java.util.List<?>) catalogType.getMethod("profiles").invoke(catalog)).isEmpty());
             Class<?> applicationDefinition = privateRuntime.loadClass("com.cozooo.dlc_bootstrap.internal.core.DlcDcDefinition");
             Object applicationCatalog = applicationDefinition.getMethod("catalog").invoke(null);
             assertNotNull(catalogType.getMethod("profile", String.class).invoke(applicationCatalog, "update"));

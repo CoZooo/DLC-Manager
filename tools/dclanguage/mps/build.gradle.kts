@@ -1,7 +1,7 @@
 plugins { java }
 
 group = "com.cozooo"
-version = "0.1.0"
+version = "0.1.1"
 
 repositories { mavenCentral() }
 
@@ -16,7 +16,7 @@ dependencies {
     if (providers.gradleProperty("dcLibraryJar").isPresent) {
         implementation(files(providers.gradleProperty("dcLibraryJar").get()))
         implementation("com.google.code.gson:gson:2.10.1")
-    } else implementation("com.cozooo:dclanguage:0.1.0")
+    } else implementation("com.cozooo:dclanguage:0.1.1")
     compileOnly(mpsLibraries)
     testImplementation(mpsLibraries)
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.3")

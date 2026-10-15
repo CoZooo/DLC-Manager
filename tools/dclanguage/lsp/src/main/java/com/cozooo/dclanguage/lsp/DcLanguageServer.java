@@ -111,7 +111,7 @@ public final class DcLanguageServer {
         JsonObject completion = new JsonObject(); completion.addProperty("resolveProvider", false); completion.add("triggerCharacters", gson.toJsonTree(java.util.stream.Stream.concat(java.util.stream.Stream.of(TOKEN_CATEGORY_OPEN, TOKEN_CATEGORY_SEPARATOR, TOKEN_ASSIGNMENT), STRING_RULES.stream().filter(rule -> !rule.multiline()).map(rule -> rule.delimiter())).filter(value -> !value.isEmpty()).map(value -> new String(Character.toChars(value.codePointBefore(value.length())))).distinct().toList())); capabilities.add("completionProvider", completion);
         capabilities.addProperty("hoverProvider", true); capabilities.addProperty("documentFormattingProvider", true);
         JsonObject response = new JsonObject(); response.add("capabilities", capabilities);
-        JsonObject info = new JsonObject(); info.addProperty("name", "DC Language Server"); info.addProperty("version", "0.1.0"); response.add("serverInfo", info);
+        JsonObject info = new JsonObject(); info.addProperty("name", "DC Language Server"); info.addProperty("version", "0.1.1"); response.add("serverInfo", info);
         initialized = true;
         result(id, response);
     }

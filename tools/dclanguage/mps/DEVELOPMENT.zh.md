@@ -79,7 +79,7 @@ MPS 的 **TextGen** 同样注册了四个输出单元：共享 JSON、Java 语�
 
 本工程还保留直接编辑配置文件的辅助语言，位于 `languages/dc`。它包含 Document、Member、Object、Array、Scalar，读取和保存都复用运行库。
 
-安装包为 `build/distributions/dclanguage-mps-0.1.0.zip`，可在 MPS **Settings → Plugins → Install Plugin from Disk** 安装。插件包含两种语言及所需运行库，不包含 MPS SDK。
+安装包为 `build/distributions/dclanguage-mps-0.1.1.zip`，可在 MPS **Settings → Plugins → Install Plugin from Disk** 安装。插件包含两种语言及所需运行库，不包含 MPS SDK。
 
 安装后打开 `example` 目录即可使用配置示例；这个项目只引用 sandbox Solution，避免与安装包重复加载同 UUID 的源码语言。把 `.dc` 放入 Solution 的 model source root 后，项目树会自动发现它。
 

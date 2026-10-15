@@ -10,7 +10,7 @@ DC Language 是用于读取、检查和修改 `.dc` 配置文件的 Java 17 库�
 
 ```kotlin
 dependencies {
-    implementation("com.cozooo:dclanguage:0.1.0")
+    implementation("com.cozooo:dclanguage:0.1.1")
 }
 ```
 

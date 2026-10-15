@@ -687,13 +687,13 @@ if (stoneNodes.contains(project.name)) {
             }
         }
 
-        addEmbedded("com.cozooo:dclanguage:0.1.0")
+        addEmbedded("com.cozooo:dclanguage:0.1.1")
         addEmbedded("com.cozooo.dlc_manager:dlc_fileops_helper:${prop("file_ops_helper_version")}")
         addEmbedded("org.commonmark:commonmark:0.21.0")
         addEmbedded("org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0")
 
         if (loaderName == "forge" || loaderName == "neoforge") {
-            add("forgeRuntimeLibrary", "com.cozooo:dclanguage:0.1.0")
+            add("forgeRuntimeLibrary", "com.cozooo:dclanguage:0.1.1")
             add("forgeRuntimeLibrary", "com.cozooo.dlc_manager:dlc_fileops_helper:${prop("file_ops_helper_version")}")
             add("forgeRuntimeLibrary", "org.commonmark:commonmark:0.21.0")
             add("forgeRuntimeLibrary", "org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0")

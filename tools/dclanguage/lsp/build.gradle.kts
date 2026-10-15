@@ -1,12 +1,12 @@
 plugins { application }
 group = "com.cozooo"
-version = "0.1.0"
+version = "0.1.1"
 repositories { mavenCentral() }
 java { toolchain.languageVersion.set(JavaLanguageVersion.of(17)) }
 tasks.withType<JavaCompile>().configureEach { options.release.set(17) }
 application { mainClass.set("com.cozooo.dclanguage.lsp.DcLanguageServer") }
 dependencies {
-    implementation("com.cozooo:dclanguage:0.1.0")
+    implementation("com.cozooo:dclanguage:0.1.1")
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

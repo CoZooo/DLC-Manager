@@ -6,7 +6,7 @@
 
 Gson 的版本、版权和许可来源记录在 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)，原文保存在 `licenses/gson/`。这些文件随运行库、源码和 Javadoc JAR 一起进入 `META-INF/dclanguage/`；源码包另含本维护说明、README 和语言规范的中英文版本。LSP 和 MPS 分发包从此目录携带同一份许可资料。更新 Gson 时同时核对实际解析版本、上游版权和发行包内的文本，不沿用 Bootstrap 专用的重定位说明。
 
-由 MPS 维护语言定义的 `.dc` 工具链。包名 `com.cozooo.dclanguage`，运行库坐标为 `com.cozooo:dclanguage:0.1.0`。主项目直接从 Maven Central 解析这个坐标。
+由 MPS 维护语言定义的 `.dc` 工具链。包名 `com.cozooo.dclanguage`，运行库坐标为 `com.cozooo:dclanguage:0.1.1`。主项目直接从 Maven Central 解析这个坐标。
 
 库提供文档读取、修改、写回及可选的分类／字段校验。它有自己的 Gradle 工程和 Wrapper，运行需要 Java 17，运行时依赖 Gson。Java 与 Kotlin 使用相同 API；Kotlin 标准库仅用于互操作测试，不是本库的运行依赖。
 
@@ -186,7 +186,7 @@ DcDocuments.write(path, document);
 
 ## 主项目接入
 
-根项目以及 Bootstrap、JavaFX 从 Maven Central 解析 `com.cozooo:dclanguage:0.1.0`，不使用本地复合构建替换。
+根项目以及 Bootstrap、JavaFX 从 Maven Central 解析 `com.cozooo:dclanguage:0.1.1`，不使用本地复合构建替换。
 
 - Fabric、Forge、NeoForge 的模组包内嵌本库，开发环境也能解析相同依赖。
 - Bootstrap 的独立早期加载包重定位本库与 Gson，避免依赖游戏尚未加载的运行库。

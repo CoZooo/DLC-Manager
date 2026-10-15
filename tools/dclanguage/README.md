@@ -10,7 +10,7 @@ Add the dependency from Maven Central:
 
 ```kotlin
 dependencies {
-    implementation("com.cozooo:dclanguage:0.1.0")
+    implementation("com.cozooo:dclanguage:0.1.1")
 }
 ```
 

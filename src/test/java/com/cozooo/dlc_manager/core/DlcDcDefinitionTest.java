@@ -2,6 +2,8 @@ package com.cozooo.dlc_manager.core;
 
 import com.cozooo.dclanguage.DcDocuments;
 import com.cozooo.dclanguage.DcLanguageService;
+import com.cozooo.dclanguage.DcSchemaCatalog;
+import com.google.gson.JsonPrimitive;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
@@ -45,7 +47,11 @@ class DlcDcDefinitionTest {
         var language = DlcDcDefinition.register("required");
         var basic = language.categories().get("basic");
         assertNotNull(basic);
-        assertEquals("boolean", basic.fields().get("unzip").field().type().name());
+        var unzip = basic.fields().get("unzip").field();
+        assertEquals("boolean", unzip.type().name());
+        assertTrue(unzip.hasDefault());
+        assertEquals(new JsonPrimitive(false), unzip.defaultValue());
+        assertTrue(DcSchemaCatalog.loadDefault().profiles().isEmpty());
         assertTrue(language.validate(DcDocuments.readText("[basic]\nunzip=true\n")).valid());
         assertFalse(language.validate(DcDocuments.readText("[basic]\nunzip='true'\n")).valid());
         assertThrows(IllegalArgumentException.class, () -> DlcDcDefinition.register("not-registered"));

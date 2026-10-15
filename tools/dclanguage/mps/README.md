@@ -18,7 +18,7 @@ Run in this directory:
 ../gradlew check pluginZip
 ```
 
-The package is `build/distributions/dclanguage-mps-0.1.0.zip`. In MPS, choose **Settings → Plugins → Install Plugin from Disk**, select the ZIP, and follow the prompts to install and restart.
+The package is `build/distributions/dclanguage-mps-0.1.1.zip`. In MPS, choose **Settings → Plugins → Install Plugin from Disk**, select the ZIP, and follow the prompts to install and restart.
 
 ## Change the language definition
 

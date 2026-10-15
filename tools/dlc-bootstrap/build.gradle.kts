@@ -262,7 +262,7 @@ if (currentTarget == null) {
             add(bootstrapLibraries.name, "org.jetbrains.kotlin:kotlin-reflect:$kotlinStdlibVersion") { isTransitive = false }
         }
         implementation("com.cozooo.dlc_manager:dlc_fileops_helper:${managerProperties.getProperty("file_ops_helper_version")}")
-        implementation("com.cozooo:dclanguage:0.1.0")
+        implementation("com.cozooo:dclanguage:0.1.1")
         implementation("com.google.code.gson:gson:2.10.1")
         val modLauncherVersion = when (target.node) {
             "1.18.2-forge" -> "9.0.24"

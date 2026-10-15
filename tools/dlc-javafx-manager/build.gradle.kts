@@ -192,7 +192,7 @@ val javafxRuntimeConfigurations = javafxFatJarPlatforms.mapKeys { (platformName,
 }
 
 dependencies {
-    implementation("com.cozooo:dclanguage:0.1.0")
+    implementation("com.cozooo:dclanguage:0.1.1")
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("org.commonmark:commonmark:0.21.0")
     implementation("org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0")
