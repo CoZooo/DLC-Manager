@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import hashlib
 import json
 import re
 import subprocess
@@ -742,6 +743,30 @@ def build_auto_update_ops(
     return remote_updates, required_updates, info_updates, preset_updates, converted_paths
 
 
+def build_delete_hashes(from_ref: str, paths: list[str]) -> dict[str, str]:
+    hashes: dict[str, str] = {}
+    candidates = [path for path in paths if normalize_relpath(path).startswith("mods/") and "*" not in path]
+    if not candidates:
+        return hashes
+    tracked = list_paths_at_ref_under_prefix(from_ref, "mods")
+    for path in candidates:
+        normalized = normalize_relpath(path)
+        if normalized not in tracked:
+            continue
+        try:
+            data = read_file_at_ref(from_ref, normalized)
+        except subprocess.CalledProcessError:
+            continue
+        if is_lfs_pointer_content(data):
+            oid = re.search(rb"^oid sha256:([0-9a-f]{64})\r?$", data, re.MULTILINE)
+            if oid is None:
+                raise ValueError(f"Invalid LFS SHA-256 for deletion: {path}")
+            hashes[path] = oid.group(1).decode("ascii")
+        else:
+            hashes[path] = hashlib.sha256(data).hexdigest()
+    return hashes
+
+
 def render_update_dc(
     *,
     platform: str,
@@ -757,6 +782,7 @@ def render_update_dc(
     required_updates: dict[str, dict[str, object]],
     info_updates: dict[str, dict[str, object]],
     preset_updates: dict[str, dict[str, object]],
+    delete_hashes: dict[str, str] | None = None,
 ) -> str:
     lines: list[str] = []
     same_base = base.strip() == base_new.strip()
@@ -781,7 +807,12 @@ def render_update_dc(
     if del_paths:
         lines.append("  [del]")
         for path in del_paths:
-            lines.append(f"    {dc_quote(path)}")
+            hash_value = (delete_hashes or {}).get(path)
+            if hash_value:
+                lines.append(f"    {dc_quote(path)}:")
+                lines.append(f"      hash = {dc_quote(hash_value)}")
+            else:
+                lines.append(f"    {dc_quote(path)}")
     if add_paths:
         if del_paths:
             lines.append("")
@@ -931,6 +962,7 @@ def main() -> int:
         changelog=changelog,
         add_paths=add_paths,
         del_paths=del_paths,
+        delete_hashes=build_delete_hashes(args.from_ref, del_paths),
         remote_updates=remote_updates,
         required_updates=required_updates,
         info_updates=info_updates,
