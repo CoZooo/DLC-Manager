@@ -20,6 +20,8 @@ public class DlcManagerClient {
     }
 
     private static void registerConfigScreen() {
+        //? if <26.1 {
         Platform.getMod(DlcManager.MOD_ID).registerConfigurationScreen(DlcConfigScreen::new);
+        //?}
     }
 }

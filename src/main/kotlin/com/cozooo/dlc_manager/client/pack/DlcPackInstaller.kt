@@ -519,9 +519,9 @@ class DlcPackInstaller(
     private fun resolveCompatibility(metadata: DlcPackMetadata): CompatibilityResolution {
         val result = CompatibilityResolution()
         val version = DlcUpdateVersion.load(dlcRoot)
-        val currentModpack = version?.getModpack()
-        val currentBase = version?.getBase()
-        val currentDlc = version?.getDlc()
+        val currentModpack = version.getModpack()
+        val currentBase = version.getBase()
+        val currentDlc = version.getDlc()
         val currentPlatform = DlcPackMetadata.currentPlatform()
         val currentGameVersion = DlcPlatformServices.mcVersion()
         val currentModLoader = DlcPlatformServices.loaderName()

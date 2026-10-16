@@ -80,7 +80,7 @@ object DlcPackReleaseUpdateService {
         fun canDownload(): Boolean {
             if (compareState(currentBase, currentDlc, downloadBase, downloadDlc) >= 0) return false
             for (step in steps) {
-                if (step?.assetUrl.isNullOrBlank()) return false
+                if (step.assetUrl.isNullOrBlank()) return false
             }
             return true
         }
@@ -450,7 +450,7 @@ object DlcPackReleaseUpdateService {
                 val path = downloadClientStepWithFallback(step, updateDir, stepIndex, totalSteps, progress, cancelChecker)
                 downloaded.add(path)
                 if (!DlcUpdateService.importUpdatePackage(path)) return DownloadResult.failed("import_failed")
-                notifyProgress(progress, stepIndex, totalSteps, step?.assetName, 1L, 1L)
+                notifyProgress(progress, stepIndex, totalSteps, step.assetName, 1L, 1L)
             } catch (_: DlcDownloadService.DownloadCanceledException) {
                 return DownloadResult.canceled()
             } catch (ex: Exception) {
@@ -487,7 +487,7 @@ object DlcPackReleaseUpdateService {
             try {
                 val imported = downloadServerStepWithFallback(step, entry, timeoutMs, stepIndex, totalSteps, progress, cancelChecker)
                 if (!imported) return DownloadResult.failed("server_import_failed")
-                notifyProgress(progress, stepIndex, totalSteps, step?.assetName, 1L, 1L)
+                notifyProgress(progress, stepIndex, totalSteps, step.assetName, 1L, 1L)
             } catch (ex: Exception) {
                 return DownloadResult.failed(ex.message ?: "download_failed")
             }
@@ -904,6 +904,7 @@ object DlcPackReleaseUpdateService {
     }
 
     @Throws(IOException::class)
+    @Suppress("DEPRECATION")
     private fun parseReleaseArray(payload: String?, api: String): JsonArray? {
         if (payload == null) return JsonArray()
         val text = stripJsonPrefix(payload)
@@ -969,7 +970,7 @@ object DlcPackReleaseUpdateService {
         }
         val uri = parseRepoUri(normalized)
         if (uri?.host.isNullOrBlank()) return null
-        val host = normalizeHost(uri!!.host)
+        val host = normalizeHost(uri.host)
         val provider = detectProvider(host)
         val rawPath = uri.path
         if (rawPath.isNullOrBlank()) return null

@@ -1,4 +1,6 @@
 import { DocumentSchema, DocumentType, ROOT_SECTION_KEY, SectionSchema } from "../models/editor";
+import dlcDefinition from "../../../../src/main/resources/META-INF/dlc-manager/dlc-definition.json";
+import { registerDefinition } from "../../../dclanguage/js/registry";
 
 const typeOptions = [
   { value: "mod", label: "mod" },
@@ -44,6 +46,13 @@ const basicFields = (options?: { includeType?: boolean; includeDlcPackType?: boo
       label: "identifier",
       kind: "text",
       help: "static.help.identifier"
+    },
+    {
+      key: "mode",
+      label: "mode",
+      kind: "select",
+      options: [{ value: "hash", label: "hash" }, { value: "name", label: "name" }],
+      help: "static.help.matchMode"
     },
     {
       key: "file_name",
@@ -96,12 +105,6 @@ const basicFields = (options?: { includeType?: boolean; includeDlcPackType?: boo
       help: "static.help.redirectUrl"
     },
     {
-      key: "isInList",
-      label: "isInList",
-      kind: "boolean",
-      help: "static.help.isInDlcList"
-    },
-    {
       key: "isHidden",
       label: "isHidden",
       kind: "boolean",
@@ -123,48 +126,37 @@ const basicFields = (options?: { includeType?: boolean; includeDlcPackType?: boo
   ]
 });
 
+const dlcLanguages = registerDefinition(dlcDefinition);
+const requiredBasicFields = dlcLanguages.get("required")!.category(["basic"]).fields;
+
+export const requiredBasicDefaults = Object.fromEntries(requiredBasicFields
+  .filter((field) => field.defaultValue !== undefined)
+  .map((field) => [field.name, field.defaultValue]));
+
+const requiredBasicHelp: Record<string, string> = {
+  identifier: "static.help.dependencyIdentifier",
+  mode: "static.help.matchMode",
+  file_name: "static.help.downloadFileName",
+  appliedTarget: "static.help.requiredAppliedTarget",
+  unzip: "static.help.requiredUnzip"
+};
+
 const requiredBasicSection: SectionSchema = {
   key: "basic",
   label: "[basic]",
-  fields: [
-    {
-      key: "identifier",
-      label: "identifier",
-      kind: "text",
-      help: "static.help.dependencyIdentifier"
-    },
-    {
-      key: "file_name",
-      label: "file_name",
-      kind: "text",
-      help: "static.help.downloadFileName"
-    },
-    {
-      key: "appliedTarget",
-      label: "appliedTarget",
-      kind: "text",
-      help: "static.help.appliedTarget"
-    },
-    {
-      key: "RedirectUrl",
-      label: "RedirectUrl",
-      kind: "text",
-      help: "static.help.redirectUrl"
-    },
-    {
-      key: "isInList",
-      label: "isInList",
-      kind: "boolean",
-      help: "static.help.isInRequiredList"
-    },
-    {
-      key: "isHidden",
-      label: "isHidden",
-      kind: "boolean",
-      help: "static.help.isHidden",
-      toggleLabels: { checked: "static.label.hidden", unchecked: "static.label.hidden" }
-    },
-  ]
+  fields: requiredBasicFields.map((field) => ({
+    key: field.name,
+    label: field.name,
+    kind: field.type === "boolean" ? "boolean" : field.enumValues.length > 0 ? "select" : "text",
+    ...(field.enumValues.length > 0
+      ? { options: field.enumValues.map((value) => ({ value, label: value })) }
+      : {}),
+    help: requiredBasicHelp[field.name] ?? field.description,
+    ...(field.name === "unzip"
+      ? { toggleLabels: { checked: "static.label.extractZip", unchecked: "static.label.extractZip" } }
+      : {}),
+    ...(field.name === "appliedTarget" ? { placeholder: "mods/" } : {})
+  }))
 };
 
 const dependenciesSection: SectionSchema = {
@@ -533,18 +525,8 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
         ]
       },
       requiredBasicSection,
-      dependenciesSection,
-      displayNameSection,
-      tipSection
+      dependenciesSection
     ]
-  },
-  required_notice: {
-    type: "required_notice",
-    label: "Required Notice",
-    summary: "static.summary.requiredNotice",
-    defaultFileName: "notice.dc",
-    supportsStructured: false,
-    sections: []
   },
   preset: {
     type: "preset",
@@ -579,7 +561,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
   },
   notice: {
     type: "notice",
-    label: "Notice",
+    label: "Information",
     summary: "static.summary.notice",
     defaultFileName: "notice.dc",
     supportsStructured: true,
@@ -864,7 +846,6 @@ export const orderedDocumentTypes: DocumentType[] = [
   "info",
   "remote",
   "required",
-  "required_notice",
   "preset",
   "notice",
   "redirect",
@@ -886,7 +867,3 @@ export const configurableDocumentTypes: DocumentType[] = [
   "config",
   "pack"
 ];
-
-export const internalDocumentTypes = new Set<DocumentType>([
-  "required_notice"
-]);

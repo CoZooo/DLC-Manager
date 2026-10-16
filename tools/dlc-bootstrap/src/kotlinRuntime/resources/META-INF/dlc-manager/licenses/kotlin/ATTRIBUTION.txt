@@ -1,0 +1,20 @@
+Kotlin JVM Standard Library version selected by the main project build
+Source: https://github.com/JetBrains/kotlin/tree/master/libraries/stdlib
+Upstream attribution index: https://github.com/JetBrains/kotlin/blob/master/license/README.md
+
+The JetBrains code is licensed under Apache-2.0 (../Apache-2.0.txt).
+Upstream copyright notice: COPYRIGHT.txt.
+
+The JVM standard library includes code derived from:
+- GWT collections: Copyright (C) 2007-08 Google Inc.; Apache-2.0 (gwt_license.txt).
+- Guava unsigned utilities: Copyright (C) 2011 The Guava Authors;
+  Apache-2.0 (guava_license.txt).
+- ThreeTen backport time code: Copyright (c) 2007-present, Stephen Colebourne
+  & Michael Nascimento Santos; BSD-3-Clause (threetenbp_license.txt).
+- Boost special math functions: Copyright Eric Ford & Hubert Holin 2001;
+  BSL-1.0 (boost_LICENSE.txt).
+
+DLC Manager embeds the original Kotlin JVM standard library JAR without changing
+its class files, package names, module descriptors or multi-release metadata.
+The early Java bridge loads this archive through an isolated runtime class loader.
+The Kotlin compiler, Kotlin/Native runtime, JS and Wasm distributions are not bundled.

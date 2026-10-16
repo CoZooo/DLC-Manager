@@ -1,10 +1,17 @@
 package com.cozooo.dlc_manager.client;
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
-import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen;
+import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
+import com.cozooo.dlc_manager.client.screen.DlcManagerScreen;
+import com.cozooo.dlc_manager.client.screen.DlcApricityScreen;
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import dev.architectury.event.EventResult;
+import dev.architectury.event.CompoundEventResult;
 import dev.architectury.event.events.client.ClientCommandRegistrationEvent;
 import dev.architectury.event.events.client.ClientGuiEvent;
 import dev.architectury.event.events.client.ClientScreenInputEvent;
@@ -18,7 +25,6 @@ import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.contents.TranslatableContents;
 
 import java.util.List;
 
@@ -42,7 +48,14 @@ public final class DlcClientEvents {
     }
 
     private static void registerCommands() {
-        ClientCommandRegistrationEvent.EVENT.register((dispatcher, context) -> dispatcher.register(
+        ClientCommandRegistrationEvent.EVENT.register(
+            //? if >=1.19.2 {
+            (dispatcher, context) ->
+            //?}
+            //? if <1.19.2 {
+            //dispatcher ->
+            //?}
+            dispatcher.register(
             ClientCommandRegistrationEvent.literal("dlcmanager")
                 .executes(ctx -> {
                     DlcClientRuntime.openManagerFromCommand();
@@ -68,6 +81,10 @@ public final class DlcClientEvents {
     }
 
     private static void registerGuiEvents() {
+        ClientGuiEvent.SET_SCREEN.register(screen -> {
+            DlcApricityScreen.beforeScreenChange(screen);
+            return CompoundEventResult.pass();
+        });
         ClientGuiEvent.INIT_POST.register((screen, access) -> {
             if (screen instanceof PauseScreen) {
                 addPauseScreenButton(screen, access);
@@ -78,6 +95,7 @@ public final class DlcClientEvents {
             }
         });
         ClientGuiEvent.RENDER_POST.register((screen, guiGraphics, mouseX, mouseY, delta) -> {
+            if (screen instanceof DlcApricityScreen dlc) dlc.finishUiFrame(guiGraphics);
             if (screen instanceof TitleScreen) {
                 DlcClientRuntime.renderTitleNoticePanel(screen, guiGraphics, mouseX, mouseY);
             }
@@ -85,6 +103,27 @@ public final class DlcClientEvents {
     }
 
     private static void registerInputEvents() {
+        //? if >=26.1 {
+        /*
+        ClientScreenInputEvent.MOUSE_CLICKED_PRE.register((client, screen, event, doubleClick) -> {
+            if (screen instanceof TitleScreen && DlcClientRuntime.handleTitleNoticePanelClick(screen, event.x(), event.y(), event.button())) {
+                return EventResult.interruptFalse();
+            }
+            return EventResult.pass();
+        });
+        ClientScreenInputEvent.MOUSE_RELEASED_PRE.register((client, screen, event) -> {
+            if (screen instanceof TitleScreen && DlcClientRuntime.handleTitleNoticePanelRelease(screen, event.x(), event.y(), event.button())) {
+                return EventResult.interruptFalse();
+            }
+            return EventResult.pass();
+        });
+        ClientScreenInputEvent.MOUSE_DRAGGED_PRE.register((client, screen, event, dragX, dragY) -> {
+            if (screen instanceof TitleScreen && DlcClientRuntime.handleTitleNoticePanelDrag(screen, event.x(), event.y(), event.button(), dragX, dragY)) {
+                return EventResult.interruptFalse();
+            }
+            return EventResult.pass();
+        });
+        *///?} else {
         ClientScreenInputEvent.MOUSE_CLICKED_PRE.register((client, screen, mouseX, mouseY, button) -> {
             if (screen instanceof TitleScreen && DlcClientRuntime.handleTitleNoticePanelClick(screen, mouseX, mouseY, button)) {
                 return EventResult.interruptFalse();
@@ -103,6 +142,7 @@ public final class DlcClientEvents {
             }
             return EventResult.pass();
         });
+        //?}
         //? if >=1.21.1 {
         /*ClientScreenInputEvent.MOUSE_SCROLLED_PRE.register((client, screen, mouseX, mouseY, amountX, amountY) -> {
             if (screen instanceof TitleScreen && DlcClientRuntime.handleTitleNoticePanelScroll(screen, mouseX, mouseY, amountX, amountY)) {
@@ -122,6 +162,7 @@ public final class DlcClientEvents {
 
     private static void registerTickEvents() {
         ClientTickEvent.CLIENT_POST.register(client -> {
+            DlcApricityScreen.cancelAbandonedNavigation(client.screen);
             if (pendingAlignScreen != null) {
                 if (client.screen == pendingAlignScreen) {
                     alignTitleButtons(pendingAlignScreen);
@@ -141,29 +182,29 @@ public final class DlcClientEvents {
         int y = screen.height / 4 + 32 + 24 * 2;
         int w = 200;
         int h = 20;
-        Button button = Button.builder(Component.translatable("dlc_manager.title"), btn -> {
-            Screen managerScreen = new DlcMaLiLibScreen(screen);
+        Button button = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.title"), btn -> {
+            Screen managerScreen = new DlcManagerScreen(screen);
             if (DlcRemoteManager.tryShowFromManager(managerScreen)) {
                 return;
             }
             Minecraft.getInstance().setScreen(managerScreen);
         }).bounds(x, y, w, h).build();
-        Button updateButton = Button.builder(Component.translatable("dlc_manager.update.import_icon"),
+        Button updateButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.import_icon"),
                 btn -> DlcUpdateClient.openUpdateManager(screen))
             .bounds(x + w + 4, y, 20, h)
             .build();
-        Button packButton = Button.builder(Component.translatable("dlc_manager.pack.quick_icon"),
+        Button packButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack.quick_icon"),
                 btn -> DlcClientRuntime.openPackManagerFromTitle(screen))
             .bounds(x + w + 28, y, 20, h)
             .build();
-        int noticeWidth = Math.max(48, Minecraft.getInstance().font.width(Component.translatable("dlc_manager.notice")) + 8);
+        int noticeWidth = Math.max(48, Minecraft.getInstance().font.width(DlcTextCompat.translatable("dlc_manager.notice")) + 8);
         int noticeHeight = 20;
         int noticeDefaultX = screen.width - noticeWidth - 8;
         int noticeDefaultY = screen.height - noticeHeight - 8;
         int[] noticePos = DlcConfig.computeNoticeButtonPosition(
             screen.width, screen.height, noticeWidth, noticeHeight, noticeDefaultX, noticeDefaultY
         );
-        Button noticeButton = Button.builder(Component.translatable("dlc_manager.notice"),
+        Button noticeButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.notice"),
                 btn -> DlcClientRuntime.openNoticeFromTitle(screen))
             .bounds(noticePos[0], noticePos[1], noticeWidth, noticeHeight)
             .build();
@@ -185,6 +226,7 @@ public final class DlcClientEvents {
         }
         alignTitleButtons(screen);
         pendingAlignScreen = screen;
+        if (DlcRequiredManager.tryShowFromTitle(screen)) return;
         DlcClientRuntime.maybeOpenManagerOnFirstRun(screen);
         DlcClientRuntime.runStartupChecksAsync(screen);
     }
@@ -214,8 +256,8 @@ public final class DlcClientEvents {
         int h = 20;
         if (anchor != null) {
             if (feedbackAnchor) {
-                x = anchor.getX();
-                y = anchor.getY();
+                x = DlcScreenCompat.getX(anchor);
+                y = DlcScreenCompat.getY(anchor);
                 w = anchor.getWidth();
                 h = anchor.getHeight();
             } else if (anchor == findButtonByKey(screen, "menu.mods")) {
@@ -223,18 +265,18 @@ public final class DlcClientEvents {
                 int originalWidth = anchor.getWidth();
                 int halfWidth = Math.max(20, (originalWidth - gap) / 2);
                 anchor.setWidth(halfWidth);
-                x = anchor.getX() + halfWidth + gap;
-                y = anchor.getY();
+                x = DlcScreenCompat.getX(anchor) + halfWidth + gap;
+                y = DlcScreenCompat.getY(anchor);
                 w = Math.max(20, originalWidth - halfWidth - gap);
                 h = anchor.getHeight();
             } else {
-                x = anchor.getX();
-                y = anchor.getY() + anchor.getHeight() + 4;
+                x = DlcScreenCompat.getX(anchor);
+                y = DlcScreenCompat.getY(anchor) + anchor.getHeight() + 4;
                 w = anchor.getWidth();
                 h = anchor.getHeight();
             }
         }
-        Button button = Button.builder(Component.translatable("dlc_manager.server.manage"),
+        Button button = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.manage"),
                 btn -> DlcClientRuntime.openServerManagerFromIngame(screen))
             .bounds(x, y, w, h)
             .build();
@@ -255,11 +297,8 @@ public final class DlcClientEvents {
     }
 
     private static boolean isRealmsButton(AbstractWidget widget) {
-        if (widget.getMessage().getContents() instanceof TranslatableContents contents) {
-            String key = contents.getKey();
-            return "menu.online".equals(key) || "menu.realms".equals(key);
-        }
-        return false;
+        String key = DlcScreenCompat.translationKey(widget.getMessage());
+        return "menu.online".equals(key) || "menu.realms".equals(key);
     }
 
     private static AbstractWidget findButtonByKey(Screen screen, String key) {
@@ -267,7 +306,7 @@ public final class DlcClientEvents {
             if (!(child instanceof AbstractWidget widget)) {
                 continue;
             }
-            if (widget.getMessage().getContents() instanceof TranslatableContents contents && key.equals(contents.getKey())) {
+            if (key.equals(DlcScreenCompat.translationKey(widget.getMessage()))) {
                 return widget;
             }
         }
@@ -289,10 +328,10 @@ public final class DlcClientEvents {
     private static void moveBottomRow(Screen screen, int targetY) {
         AbstractWidget optionsWidget = findButtonByKey(screen, "menu.options");
         if (optionsWidget != null) {
-            int currentY = optionsWidget.getY();
+            int currentY = DlcScreenCompat.getY(optionsWidget);
             for (GuiEventListener child : screen.children()) {
-                if (child instanceof AbstractWidget widget && Math.abs(widget.getY() - currentY) <= 1) {
-                    widget.setY(targetY);
+                if (child instanceof AbstractWidget widget && Math.abs(DlcScreenCompat.getY(widget) - currentY) <= 1) {
+                    DlcScreenCompat.setY(widget, targetY);
                 }
             }
             return;
@@ -300,7 +339,7 @@ public final class DlcClientEvents {
         for (String key : new String[] {"menu.options", "menu.quit", "options.language", "options.accessibility"}) {
             AbstractWidget widget = findButtonByKey(screen, key);
             if (widget != null) {
-                widget.setY(targetY);
+                DlcScreenCompat.setY(widget, targetY);
             }
         }
     }
@@ -329,12 +368,12 @@ public final class DlcClientEvents {
         if (anchor != null) {
             rowGap = 2;
             rowStep = anchor.getHeight() + 4;
-            rowX = anchor.getX();
+            rowX = DlcScreenCompat.getX(anchor);
             rowW = anchor.getWidth();
             rowH = anchor.getHeight();
-            rowY = anchor.getY() + anchor.getHeight() + rowGap;
+            rowY = DlcScreenCompat.getY(anchor) + anchor.getHeight() + rowGap;
             if (anchor == realmsWidget && multiplayerWidget == null) {
-                rowY = anchor.getY();
+                rowY = DlcScreenCompat.getY(anchor);
             }
         }
         int[] pos = DlcConfig.computeTitleButtonPosition(screen.width, screen.height, rowW, rowH, rowX, rowY);
@@ -346,12 +385,12 @@ public final class DlcClientEvents {
             int halfWidth = Math.max(40, (rowW - gap) / 2);
             int iconGap = 4;
             int iconWidth = 20;
-            modsWidget.setX(rowX);
-            modsWidget.setY(rowY);
+            DlcScreenCompat.setX(modsWidget, rowX);
+            DlcScreenCompat.setY(modsWidget, rowY);
             modsWidget.setWidth(halfWidth);
             //? if >=1.21.1 {
-            /*modsWidget.setHeight(rowH);
-            *///?}
+            //modsWidget.setHeight(rowH);
+            //?}
             int dlcX = rowX + halfWidth + gap;
             int dlcWidth = halfWidth;
             int defaultUpdateX = dlcX + dlcWidth + iconGap;
@@ -362,25 +401,25 @@ public final class DlcClientEvents {
             if (updateWidget != null) {
                 updateWidget.setWidth(iconWidth);
                 //? if >=1.21.1 {
-                /*updateWidget.setHeight(rowH);
-                *///?}
-                updateWidget.setX(updatePos[0]);
-                updateWidget.setY(updatePos[1]);
+                //updateWidget.setHeight(rowH);
+                //?}
+                DlcScreenCompat.setX(updateWidget, updatePos[0]);
+                DlcScreenCompat.setY(updateWidget, updatePos[1]);
             }
             if (packWidget != null) {
                 packWidget.setWidth(iconWidth);
                 //? if >=1.21.1 {
-                /*packWidget.setHeight(rowH);
-                *///?}
-                packWidget.setX(updatePos[0] + iconWidth + iconGap);
-                packWidget.setY(updatePos[1]);
+                //packWidget.setHeight(rowH);
+                //?}
+                DlcScreenCompat.setX(packWidget, updatePos[0] + iconWidth + iconGap);
+                DlcScreenCompat.setY(packWidget, updatePos[1]);
             }
-            dlcWidget.setX(dlcX);
-            dlcWidget.setY(rowY);
+            DlcScreenCompat.setX(dlcWidget, dlcX);
+            DlcScreenCompat.setY(dlcWidget, rowY);
             dlcWidget.setWidth(dlcWidth);
             //? if >=1.21.1 {
-            /*dlcWidget.setHeight(rowH);
-            *///?}
+            //dlcWidget.setHeight(rowH);
+            //?}
             moveBottomRow(screen, rowY + rowStep);
         } else {
             int iconGap = 4;
@@ -394,25 +433,25 @@ public final class DlcClientEvents {
             if (updateWidget != null) {
                 updateWidget.setWidth(iconWidth);
                 //? if >=1.21.1 {
-                /*updateWidget.setHeight(rowH);
-                *///?}
-                updateWidget.setX(updatePos[0]);
-                updateWidget.setY(updatePos[1]);
+                //updateWidget.setHeight(rowH);
+                //?}
+                DlcScreenCompat.setX(updateWidget, updatePos[0]);
+                DlcScreenCompat.setY(updateWidget, updatePos[1]);
             }
             if (packWidget != null) {
                 packWidget.setWidth(iconWidth);
                 //? if >=1.21.1 {
-                /*packWidget.setHeight(rowH);
-                *///?}
-                packWidget.setX(updatePos[0] + iconWidth + iconGap);
-                packWidget.setY(updatePos[1]);
+                //packWidget.setHeight(rowH);
+                //?}
+                DlcScreenCompat.setX(packWidget, updatePos[0] + iconWidth + iconGap);
+                DlcScreenCompat.setY(packWidget, updatePos[1]);
             }
-            dlcWidget.setX(rowX);
-            dlcWidget.setY(rowY);
+            DlcScreenCompat.setX(dlcWidget, rowX);
+            DlcScreenCompat.setY(dlcWidget, rowY);
             dlcWidget.setWidth(dlcWidth);
             //? if >=1.21.1 {
-            /*dlcWidget.setHeight(rowH);
-            *///?}
+            //dlcWidget.setHeight(rowH);
+            //?}
         }
     }
 }

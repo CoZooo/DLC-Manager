@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator;
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
@@ -11,21 +15,15 @@ import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
 import com.cozooo.dlc_manager.client.core.DlcMessageAdapter;
-import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
-import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.FormattedCharSequence;
 import java.util.List;
-import java.util.ArrayList;
 
-public class DlcUpdatePromptScreen extends DlcScreenCompat.MouseScroll {
+public class DlcUpdatePromptScreen extends DlcUpdatePageScreen {
     private final Screen parent;
     private final UpdateCheckResult result;
     private final boolean forceUpdate;
@@ -43,20 +41,19 @@ public class DlcUpdatePromptScreen extends DlcScreenCompat.MouseScroll {
     }
 
     public DlcUpdatePromptScreen(Screen parent, UpdateCheckResult result, boolean allowSkipThisUpdate) {
-        super(Component.translatable("dlc_manager.update.title"));
+        super(DlcUiPage.UPDATE_PROMPT, parent, DlcTextCompat.translatable("dlc_manager.update.title"));
         this.parent = parent;
         this.result = result;
         this.forceUpdate = hasHiddenUpdates(result);
         this.allowSkipThisUpdate = allowSkipThisUpdate;
     }
 
-    @Override
-    protected void init() {
+    private void initControls() {
         int buttonWidth = 120;
         int buttonHeight = 20;
         int y = this.height - 40;
         if (forceUpdate) {
-            applyButton = Button.builder(Component.translatable("dlc_manager.update.apply"), button -> confirmApply())
+            applyButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.apply"), button -> confirmApply())
                 .bounds(this.width / 2 - buttonWidth / 2, y, buttonWidth, buttonHeight)
                 .build();
             addRenderableWidget(applyButton);
@@ -67,23 +64,23 @@ public class DlcUpdatePromptScreen extends DlcScreenCompat.MouseScroll {
             int skipButtonWidth = 108;
             int totalWidth = buttonWidth + skipButtonWidth + buttonWidth + spacing * 2;
             int startX = this.width / 2 - totalWidth / 2;
-            applyButton = Button.builder(Component.translatable("dlc_manager.update.apply"), button -> confirmApply())
+            applyButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.apply"), button -> confirmApply())
                 .bounds(startX, y, buttonWidth, buttonHeight)
                 .build();
-            skipThisUpdateButton = Button.builder(Component.translatable("dlc_manager.self_update.skip_this_update"), button -> skipThisUpdate())
+            skipThisUpdateButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.self_update.skip_this_update"), button -> skipThisUpdate())
                 .bounds(startX + buttonWidth + spacing, y, skipButtonWidth, buttonHeight)
                 .build();
-            cancelButton = Button.builder(Component.translatable("dlc_manager.update.cancel"), button -> Minecraft.getInstance().setScreen(parent))
+            cancelButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.cancel"), button -> Minecraft.getInstance().setScreen(parent))
                 .bounds(startX + buttonWidth + spacing + skipButtonWidth + spacing, y, buttonWidth, buttonHeight)
                 .build();
             addRenderableWidget(applyButton);
             addRenderableWidget(skipThisUpdateButton);
             addRenderableWidget(cancelButton);
         } else {
-            applyButton = Button.builder(Component.translatable("dlc_manager.update.apply"), button -> confirmApply())
+            applyButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.apply"), button -> confirmApply())
                 .bounds(this.width / 2 - buttonWidth - 6, y, buttonWidth, buttonHeight)
                 .build();
-            cancelButton = Button.builder(Component.translatable("dlc_manager.update.cancel"), button -> Minecraft.getInstance().setScreen(parent))
+            cancelButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.cancel"), button -> Minecraft.getInstance().setScreen(parent))
                 .bounds(this.width / 2 + 6, y, buttonWidth, buttonHeight)
                 .build();
             skipThisUpdateButton = null;
@@ -100,9 +97,9 @@ public class DlcUpdatePromptScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private void confirmApply() {
-        Component title = Component.translatable("dlc_manager.update.title");
+        Component title = DlcTextCompat.translatable("dlc_manager.update.title");
         Component message = DlcConfirmUtil.buildUpdateConfirmApplyMessage();
-        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+        Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             if (accepted) {
                 DlcUpdatePackGuard.confirmBeforeUpdate(this, this.result.getUpdates(),
                     (packCheck, uninstallIncompatible) -> startApply(false, packCheck, uninstallIncompatible));
@@ -112,89 +109,6 @@ public class DlcUpdatePromptScreen extends DlcScreenCompat.MouseScroll {
         }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
     }
 
-    @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
-        if (applyButton != null) {
-            applyButton.active = !applying;
-        }
-        if (cancelButton != null) {
-            cancelButton.active = !applying;
-        }
-        if (skipThisUpdateButton != null) {
-            skipThisUpdateButton.active = !applying;
-        }
-        int centerX = this.width / 2;
-        int y = 20;
-        int titleX = (this.width - this.font.width(getTitle())) / 2;
-        guiGraphics.drawString(this.font, getTitle(), titleX, y, 0xFFFFFF, false);
-        y += 16;
-        String currentVersion = result.getCurrent() == null
-            ? formatVersionPair("", "")
-            : formatVersionPair(result.getCurrent().getBase(), result.getCurrent().getDlc());
-        guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.update.current_full", currentVersion), centerX, y, 0xC8C8C8);
-        y += 14;
-        if (applying) {
-            String text = statusText == null ? "" : statusText;
-            guiGraphics.drawCenteredString(this.font, text, centerX, y, 0xE6E6E6);
-            y += 12;
-            if (progress >= 0f) {
-                drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, progress);
-                int percent = Math.round(Math.max(0f, Math.min(1f, progress)) * 100f);
-                guiGraphics.drawCenteredString(this.font, percent + "%", centerX, y + 12, 0xC8C8C8);
-                y += 24;
-            }
-        } else {
-            guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.update.desc"), centerX, y, 0xE6E6E6);
-            y += 12;
-        }
-        drawUpdateList(guiGraphics, y);
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
-    }
-
-    private void drawUpdateList(GuiGraphics guiGraphics, int startY) {
-        List<FormattedCharSequence> lines = buildUpdateLines();
-        int listTop = startY;
-        int listBottom = this.height - 70;
-        int lineHeight = 12;
-        int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
-        int totalLines = lines.size();
-        int maxScroll = Math.max(0, totalLines - maxVisible);
-        if (scrollIndex > maxScroll) {
-            scrollIndex = maxScroll;
-        }
-        int y = listTop;
-        for (int i = scrollIndex; i < Math.min(totalLines, scrollIndex + maxVisible); i++) {
-            guiGraphics.drawString(this.font, lines.get(i), 24, y, 0xE6E6E6, false);
-            y += lineHeight;
-        }
-        drawScrollBar(guiGraphics, listTop, listBottom, totalLines, maxVisible, maxScroll);
-    }
-
-    private List<FormattedCharSequence> buildUpdateLines() {
-        List<FormattedCharSequence> lines = new ArrayList<>();
-        List<DlcUpdatePackage> updates = result == null ? List.of() : result.getUpdates();
-        if (updates == null || updates.isEmpty()) {
-            return lines;
-        }
-        String lang = DlcPlatformServices.languageCode();
-        int maxWidth = Math.max(120, this.width - 56);
-        for (DlcUpdatePackage pkg : updates) {
-            String updateLine = "- " + formatUpdateLine(pkg);
-            lines.addAll(this.font.split(Component.literal(updateLine), maxWidth));
-            String changelog = "";
-            if (pkg != null && pkg.getManifest() != null) {
-                changelog = pkg.getManifest().resolveChangelog(lang);
-            }
-            if (changelog != null && !changelog.isBlank()) {
-                lines.addAll(this.font.split(Component.translatable("dlc_manager.update.changelog_tooltip_title"), maxWidth));
-                lines.addAll(DlcMarkdownRenderer.wrapMarkdown(this.font, changelog, maxWidth));
-            }
-            lines.add(FormattedCharSequence.EMPTY);
-        }
-        return lines;
-    }
-
     private String formatUpdateLine(DlcUpdatePackage pkg) {
         if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) {
             return "";
@@ -202,14 +116,8 @@ public class DlcUpdatePromptScreen extends DlcScreenCompat.MouseScroll {
         var version = pkg.getManifest().getVersion();
         String oldBase = normalizeVersion(version.getBase());
         String oldDlc = normalizeVersion(version.getDlcOld());
-        String newBase = normalizeVersion(version.getBaseNew());
-        String newDlc = normalizeVersion(version.getDlcNew());
-        if (newBase == null || newBase.isBlank()) {
-            newBase = oldBase;
-        }
-        if (newDlc == null || newDlc.isBlank()) {
-            newDlc = oldDlc;
-        }
+        String newBase = version.getBaseNew() == null || version.getBaseNew().isBlank() ? oldBase : normalizeVersion(version.getBaseNew());
+        String newDlc = version.getDlcNew() == null || version.getDlcNew().isBlank() ? oldDlc : normalizeVersion(version.getDlcNew());
         String[] compact = compactTransition(oldBase, oldDlc, newBase, newDlc);
         String from = compact[0];
         String to = compact[1];
@@ -246,44 +154,12 @@ public class DlcUpdatePromptScreen extends DlcScreenCompat.MouseScroll {
         return value == null || value.isBlank() ? "1.0.0" : value.trim();
     }
 
-    private void drawScrollBar(GuiGraphics guiGraphics, int top, int bottom, int totalLines, int maxVisible, int maxScroll) {
-        if (maxScroll <= 0 || totalLines <= maxVisible) {
-            return;
-        }
-        int barX = this.width - 12;
-        int barWidth = 4;
-        int barHeight = Math.max(12, (bottom - top) * maxVisible / totalLines);
-        int trackHeight = bottom - top;
-        int maxTrack = Math.max(1, trackHeight - barHeight);
-        int barY = top + (int) ((scrollIndex / (float) maxScroll) * maxTrack);
-        guiGraphics.fill(barX, top, barX + barWidth, bottom, 0xFF2B2B2B);
-        guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFF6B6B6B);
-    }
-
-    @Override
-    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
-        return handleMouseScrolled(deltaY);
-    }
-
-    private boolean handleMouseScrolled(double deltaY) {
-        int listTop = 20 + 16 + 14 + 12;
-        int listBottom = this.height - 70;
-        int lineHeight = 12;
-        int totalLines = buildUpdateLines().size();
-        int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
-        int maxScroll = Math.max(0, totalLines - maxVisible);
-        if (maxScroll > 0) {
-            int step = deltaY > 0 ? -1 : 1;
-            scrollIndex = Math.max(0, Math.min(maxScroll, scrollIndex + step));
-            return true;
-        }
-        return false;
-    }
-
     @Override
     public boolean shouldCloseOnEsc() {
         return !forceUpdate && !applying;
     }
+
+    @Override protected boolean showHeaderBackButton() { return false; }
 
     @Override
     public void onClose() {
@@ -309,7 +185,7 @@ public class DlcUpdatePromptScreen extends DlcScreenCompat.MouseScroll {
             return;
         }
         applying = true;
-        statusText = Component.translatable("dlc_manager.update.applying").getString();
+        statusText = DlcTextCompat.translatable("dlc_manager.update.applying").getString();
         progress = -1f;
         if (applyButton != null) {
             applyButton.active = false;
@@ -320,20 +196,21 @@ public class DlcUpdatePromptScreen extends DlcScreenCompat.MouseScroll {
         if (skipThisUpdateButton != null) {
             skipThisUpdateButton.active = false;
         }
+        refreshPage();
         new Thread(() -> {
             DlcPackUpdateCoordinator.UpdateSession packSession = null;
             try {
                 DlcPackUpdateCoordinator coordinator = new DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot());
-                packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible);
+                if (!DlcUpdateService.willDefer(this.result.getUpdates())) packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible);
                 UpdateApplyResult result = DlcUpdateService.applyUpdates(this.result.getUpdates(), forceMissing, (status, value) ->
                     Minecraft.getInstance().execute(() -> {
-                        statusText = status;
+                        statusText = DlcMessageAdapter.toProgressText(status);
                         progress = value;
                     }));
                 if (result != null && result.isSuccess()) {
-                    packSession.finishAfterSuccessfulUpdate();
+                    if (packSession != null) packSession.finishAfterSuccessfulUpdate();
                 } else {
-                    packSession.restoreAfterFailedUpdate();
+                    if (packSession != null) packSession.restoreAfterFailedUpdate();
                 }
                 UpdateApplyResult finalResult = result;
                 Minecraft.getInstance().execute(() -> handleApplyResult(finalResult));
@@ -349,17 +226,10 @@ public class DlcUpdatePromptScreen extends DlcScreenCompat.MouseScroll {
                 String message = ex.getMessage() == null ? "Failed to apply update" : ex.getMessage();
                 Minecraft.getInstance().execute(() -> {
                     applying = false;
-                    Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, Component.literal(message)));
+                    Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, DlcTextCompat.literal(message)));
                 });
             }
         }, "dlc-update-apply").start();
-    }
-
-    private void drawProgressBar(GuiGraphics guiGraphics, int x, int y, int width, int height, float value) {
-        float clamped = Math.max(0f, Math.min(1f, value));
-        int filled = (int) (width * clamped);
-        guiGraphics.fill(x, y, x + width, y + height, 0xFF2B2B2B);
-        guiGraphics.fill(x, y, x + filled, y + height, 0xFF4CAF50);
     }
 
     private void handleApplyResult(UpdateApplyResult result) {
@@ -375,9 +245,11 @@ public class DlcUpdatePromptScreen extends DlcScreenCompat.MouseScroll {
         if (tryShowPostUpdateDownloads(result)) {
             return;
         }
-        Component message = result != null && result.isHelperScheduled()
-            ? Component.translatable("dlc_manager.update.deferred_restart")
-            : Component.translatable("dlc_manager.update.success");
+        Component message = result != null && result.isPendingUpdate()
+            ? DlcTextCompat.translatable("dlc_manager.update.pending_restart")
+            : result != null && result.isHelperScheduled()
+            ? DlcTextCompat.translatable("dlc_manager.update.deferred_restart")
+            : DlcTextCompat.translatable("dlc_manager.update.success");
         Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, true, message));
     }
 
@@ -404,9 +276,58 @@ public class DlcUpdatePromptScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private Screen createSuccessResultScreen(UpdateApplyResult result) {
-        Component message = result != null && result.isHelperScheduled()
-            ? Component.translatable("dlc_manager.update.deferred_restart")
-            : Component.translatable("dlc_manager.update.success");
+        Component message = result != null && result.isPendingUpdate()
+            ? DlcTextCompat.translatable("dlc_manager.update.pending_restart")
+            : result != null && result.isHelperScheduled()
+            ? DlcTextCompat.translatable("dlc_manager.update.deferred_restart")
+            : DlcTextCompat.translatable("dlc_manager.update.success");
         return new DlcUpdateResultScreen(parent, true, message);
     }
+
+    private boolean controlsReady;
+    private int pageRevision;
+    @Override protected void buildPage() {
+        if (!controlsReady) { controlsReady = true; initControls(); }
+        pageRevision = applying ? 1 : 0;
+        var current = result == null ? null : result.getCurrent();
+        String baseVersion = normalizeVersion(current == null ? null : current.getBase());
+        String dlcVersion = normalizeVersion(current == null ? null : current.getDlc());
+
+        if (applying) {
+            renderExecution(() -> statusText, baseVersion, dlcVersion, () -> progress);
+            return;
+        }
+
+        String targetBase = baseVersion;
+        String targetDlc = dlcVersion;
+        if (result != null) for (var pkg : result.getUpdates()) {
+            if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) continue;
+            var version = pkg.getManifest().getVersion();
+            if (version.getBaseNew() != null && !version.getBaseNew().isBlank()) targetBase = normalizeVersion(version.getBaseNew());
+            if (version.getDlcNew() != null && !version.getDlcNew().isBlank()) targetDlc = normalizeVersion(version.getDlcNew());
+        }
+        var panel = updateSection(baseVersion + " -> " + targetBase, dlcVersion + " -> " + targetDlc);
+        content.parentElement.setAttribute("class", "page-shell update-page update-prompt-page");
+        text(panel, tr("dlc_manager.update.desc"), "page-description");
+        var list = node(panel, "div", "update-history update-prompt-history");
+        if (result != null) for (var pkg : result.getUpdates()) {
+            if (pkg == null) continue;
+            var part = node(list, "section", "page-section");
+            text(part, formatUpdateLine(pkg), "section-title");
+            String changelog = pkg.getManifest() == null ? "" : pkg.getManifest().resolveChangelog(DlcPlatformServices.languageCode());
+            if (changelog != null && !changelog.isBlank()) {
+                text(part, tr("dlc_manager.update.changelog_tooltip_title"), "update-prompt-changelog-title");
+                markdown(part, changelog);
+            }
+        }
+        mount(footer, applyButton).getElement().setAttribute("class", "button primary");
+        if (skipThisUpdateButton != null) mount(footer, skipThisUpdateButton);
+        if (cancelButton != null) mount(footer, cancelButton);
+
+    }
+    @Override protected void updatePage() {
+        applyButton.active = !applying; if (cancelButton != null) cancelButton.active = !applying; if (skipThisUpdateButton != null) skipThisUpdateButton.active = !applying;
+        if (pageRevision != (applying ? 1 : 0)) refreshPage();
+    }
+
 }

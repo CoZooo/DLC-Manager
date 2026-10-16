@@ -1,0 +1,24 @@
+format = 1
+
+[resources."68ec7982-5b13-3afd-bd13-61c64f2ba30c"]
+identifier = "required.example"
+config = "DLC/required/nested/example.dc"
+source = "DLC/downloaded/required/example.jar"
+downloads = ["DLC/downloaded/required/example.jar", "DLC/downloaded/required/example-v2.jar"]
+downloaded = true
+active = true
+status = "installed"
+installedAt = 1791500000000
+
+[resources."68ec7982-5b13-3afd-bd13-61c64f2ba30c".targets."78f84385-e5e5-37e3-98a5-93e2e765bf28"]
+path = "mods/example.jar"
+mode = "hash"
+hash = "0123456789abcdef"
+owned = true
+
+[backups."original.1791500000000"]
+resource = "68ec7982-5b13-3afd-bd13-61c64f2ba30c"
+target = "mods/example.jar"
+path = "tmp/required/required.example.1791500000000"
+timestamp = 1791500000000
+old = false

@@ -37,14 +37,20 @@ fun String.capitalized(): String =
 val fileOpsHelperVersion = rootGradleProperty("file_ops_helper_version").orEmpty()
 val appVersion = rootGradleProperty("mod_version") ?: "0.0.0"
 val releaseOutputDir = layout.projectDirectory.dir("../../output/$appVersion")
+val javafxRuntimeJdkVersion = 25
 version = appVersion
 
 java {
+    toolchain.languageVersion.set(JavaLanguageVersion.of(javafxRuntimeJdkVersion))
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
 }
 
 val reusedCommonJavaFiles = listOf(
+    "com/cozooo/dlc_manager/core/DlcFileMatch.java",
+    "com/cozooo/dlc_manager/core/DlcItemFiles.java",
+    "com/cozooo/dlc_manager/core/DlcResourceHistory.java",
+    "com/cozooo/dlc_manager/bootstrap/DlcEarlyInstaller.java",
     "com/cozooo/dlc_manager/client/core/DlcZipUtil.java",
     "com/cozooo/dlc_manager/client/download/DlcCurseForgeClient.java",
     "com/cozooo/dlc_manager/client/download/DlcDownloadCandidate.java",
@@ -85,6 +91,7 @@ val reusedCommonJavaFiles = listOf(
     "com/cozooo/dlc_manager/client/required/DlcRequiredDependency.java",
     "com/cozooo/dlc_manager/client/required/DlcRequiredEntry.java",
     "com/cozooo/dlc_manager/client/required/DlcRequiredService.java",
+    "com/cozooo/dlc_manager/client/required/DlcRequiredInstaller.java",
     "com/cozooo/dlc_manager/client/required/DlcRequiredLoader.java",
     "com/cozooo/dlc_manager/client/required/DlcRequiredRuntime.java",
     "com/cozooo/dlc_manager/client/required/DlcRequiredRuntimeState.java",
@@ -110,9 +117,14 @@ val reusedCommonJavaFiles = listOf(
     "com/cozooo/dlc_manager/client/server/DlcServerUpdateInfo.java",
     "com/cozooo/dlc_manager/client/server/DlcServerUpdateState.java",
     "com/cozooo/dlc_manager/client/server/DlcServerVersionUtil.java",
+    "com/cozooo/dlc_manager/client/update/DlcPendingUpdate.java",
+    "com/cozooo/dlc_manager/client/update/DlcUpdateJournal.java",
+    "com/cozooo/dlc_manager/client/update/DlcUpdateCompatibility.java",
     "com/cozooo/dlc_manager/client/update/DlcUpdateDcParser.java",
+    "com/cozooo/dlc_manager/client/update/DlcUpdateHashIndex.java",
     "com/cozooo/dlc_manager/client/update/DlcUpdateManifest.java",
     "com/cozooo/dlc_manager/client/update/DlcUpdateMeta.java",
+    "com/cozooo/dlc_manager/client/update/DlcUpdateWorldBackup.java",
     "com/cozooo/dlc_manager/client/update/DlcUpdatePackage.java",
     "com/cozooo/dlc_manager/client/update/DlcUpdateRowPlanner.java",
     "com/cozooo/dlc_manager/client/update/DlcUpdateRuntime.java",
@@ -126,6 +138,7 @@ val reusedCommonJavaFiles = listOf(
     "com/cozooo/dlc_manager/core/DlcConfigTypeSupport.java",
     "com/cozooo/dlc_manager/core/DlcDcConfigIO.java",
     "com/cozooo/dlc_manager/core/DlcDcFormatUtil.java",
+    "com/cozooo/dlc_manager/core/DlcDcDefinition.java",
     "com/cozooo/dlc_manager/core/DlcItem.java",
     "com/cozooo/dlc_manager/core/DlcPathUtil.java",
     "com/cozooo/dlc_manager/core/DlcPaths.java",
@@ -179,6 +192,7 @@ val javafxRuntimeConfigurations = javafxFatJarPlatforms.mapKeys { (platformName,
 }
 
 dependencies {
+    implementation("com.cozooo:dclanguage:0.1.1")
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("org.commonmark:commonmark:0.21.0")
     implementation("org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0")
@@ -201,7 +215,6 @@ application {
     mainClass.set("com.cozooo.dlc_manager.app.DlcFxLauncher")
 }
 
-val javafxRuntimeJdkVersion = 25
 val jpackageLauncher = javaToolchains.launcherFor {
     languageVersion.set(JavaLanguageVersion.of(javafxRuntimeJdkVersion))
 }
@@ -221,10 +234,22 @@ application {
 distributions {
     main {
         contents {
-            from("README.md") {
+            from(files("README.md", "README.zh.md")) {
                 into("")
             }
+            from(files("../../LICENSE")) { into("") }
         }
+    }
+}
+
+tasks.withType<org.gradle.jvm.tasks.Jar>().configureEach {
+    from("../../LICENSE") { into("META-INF/dlc-manager") }
+}
+
+tasks.named<ProcessResources>("processResources") {
+    from("../../src/main/resources/META-INF/dlc-manager/dlc-definition.json") {
+        into("META-INF/dlc-manager")
+        rename { "dlc-definition.json" }
     }
 }
 
@@ -266,6 +291,7 @@ fun registerPlatformFatJar(
         group = "distribution"
         description = "Build a runnable fat jar for $label."
         dependsOn(tasks.named("classes"))
+        dependsOn(configurations.runtimeClasspath, javafxRuntime)
         archiveBaseName.set("DLC-Manager")
         archiveVersion.set(appVersion)
         archiveClassifier.set(classifier)

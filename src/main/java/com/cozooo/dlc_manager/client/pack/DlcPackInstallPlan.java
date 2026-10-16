@@ -15,11 +15,8 @@ public class DlcPackInstallPlan {
     private static final List<String> IGNORED_JAR_PREFIXES = List.of(
         "DLC-Manager-",
         "architectury-",
-        "mafglib-",
-        "malilib-",
         "kotlinforforge-",
-        "fabric-language-kotlin-",
-        "MaFgLib-"
+        "fabric-language-kotlin-"
     );
     private static final List<String> GAME_ROOT_FORBIDDEN_PATHS = List.of(
         "config/dlc_manager/"
@@ -28,8 +25,6 @@ public class DlcPackInstallPlan {
         "tmp/",
         "info/version.dc",
         "info/notice.dc",
-        "required/notice.dc",
-        "required/skip",
         "update/",
         "shownonfirstrun",
         "skip"

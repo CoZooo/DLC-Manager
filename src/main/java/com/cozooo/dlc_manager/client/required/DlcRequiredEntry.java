@@ -1,23 +1,16 @@
 package com.cozooo.dlc_manager.client.required;
-import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import java.nio.file.Path;
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPaths;
-import com.cozooo.dlc_manager.core.DlcDcConfigIO;
-import com.cozooo.dlc_manager.platform.PlatformServices;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class DlcRequiredEntry {
     private final Path configPath;
     private final Path requiredDir;
     private final String baseName;
     private String identifier;
-    private final Map<String, String> displayNames = new HashMap<>();
-    private final Map<String, String> tips = new HashMap<>();
+    private String matchMode = "hash";
     private String requiredFileName;
     private String directUrl;
     private List<String> directUrls = new ArrayList<>();
@@ -26,10 +19,8 @@ public class DlcRequiredEntry {
     private String modrinthVersionId;
     private String curseforgeProjectId;
     private String curseforgeFileId;
-    private boolean hidden;
-    private boolean userRemoved;
     private String appliedTargetRaw;
-    private String redirectUrl;
+    private boolean unzip;
     private String resolvedFileName;
     private final List<DlcRequiredDependency> dependencies = new ArrayList<>();
 
@@ -40,6 +31,39 @@ public class DlcRequiredEntry {
         name = DlcDcFormatUtil.stripConfigExtension(name);
         this.baseName = name;
         this.identifier = name;
+    }
+
+    public boolean isUnzip() { return unzip; }
+    public void setUnzip(boolean value) { unzip = value; }
+    public boolean shouldUnzip(String fileName) { return unzip && fileName != null && fileName.toLowerCase(java.util.Locale.ROOT).endsWith(".zip"); }
+
+    public List<Path> resolveInstallationTargets(String fileName) {
+        List<Path> result = new ArrayList<>();
+        if (fileName == null || fileName.isBlank() || appliedTargetRaw == null) return result;
+        for (String part : appliedTargetRaw.split(",")) {
+            String value = part.trim().replace('\\', '/');
+            if (value.isEmpty()) continue;
+            Path path = Path.of(value);
+            if (!path.isAbsolute()) path = DlcPaths.gameDir().resolve(path);
+            path = path.normalize();
+            String name = path.getFileName() == null ? "" : path.getFileName().toString();
+            boolean directory = value.endsWith("/") || value.equals(".") || value.equals("..")
+                || value.endsWith("/.") || value.endsWith("/..") || !java.nio.file.Files.isRegularFile(path) && !name.contains(".");
+            result.add(shouldUnzip(fileName) || !directory ? path : path.resolve(fileName));
+        }
+        return result;
+    }
+
+    public String getMatchMode() { return matchMode; }
+    public void setMatchMode(String value) { matchMode = com.cozooo.dlc_manager.core.DlcFileMatch.mode(value); }
+    public Path getDlcRoot() { return requiredDir == null ? null : requiredDir.getParent(); }
+    public Path getDownloadDir() { return getDlcRoot() == null ? null : getDlcRoot().resolve("downloaded/required"); }
+    public String getHistoryKey() { return com.cozooo.dlc_manager.core.DlcResourceHistory.key(configPath == null ? "" : com.cozooo.dlc_manager.core.DlcResourceHistory.relativePath(configPath), identifier); }
+
+    public Path resolveDownloadPath(String fileName) {
+        if (getDownloadDir() == null || fileName == null || fileName.isBlank()) return null;
+        Path path = getDownloadDir().resolve(fileName).normalize();
+        return path.startsWith(getDownloadDir().normalize()) ? path : null;
     }
 
     public Path getConfigPath() {
@@ -62,28 +86,6 @@ public class DlcRequiredEntry {
         if (identifier != null && !identifier.isBlank()) {
             this.identifier = identifier;
         }
-    }
-
-    public Map<String, String> getDisplayNames() {
-        return Collections.unmodifiableMap(displayNames);
-    }
-
-    public void putDisplayName(String lang, String value) {
-        if (lang == null || lang.isBlank() || value == null) {
-            return;
-        }
-        displayNames.put(lang, value);
-    }
-
-    public Map<String, String> getTips() {
-        return Collections.unmodifiableMap(tips);
-    }
-
-    public void putTip(String lang, String value) {
-        if (lang == null || lang.isBlank() || value == null) {
-            return;
-        }
-        tips.put(lang, value);
     }
 
     public String getDirectUrl() {
@@ -240,22 +242,6 @@ public class DlcRequiredEntry {
         };
     }
 
-    public boolean isHidden() {
-        return hidden;
-    }
-
-    public void setHidden(boolean hidden) {
-        this.hidden = hidden;
-    }
-
-    public boolean isUserRemoved() {
-        return userRemoved;
-    }
-
-    public void setUserRemoved(boolean userRemoved) {
-        this.userRemoved = userRemoved;
-    }
-
     public List<DlcRequiredDependency> getDependencies() {
         return dependencies;
     }
@@ -274,14 +260,6 @@ public class DlcRequiredEntry {
         return appliedTargetRaw;
     }
 
-    public void setRedirectUrl(String redirectUrl) {
-        this.redirectUrl = redirectUrl;
-    }
-
-    public String getRedirectUrl() {
-        return redirectUrl;
-    }
-
     public void setResolvedFileName(String resolvedFileName) {
         this.resolvedFileName = resolvedFileName;
     }
@@ -294,7 +272,10 @@ public class DlcRequiredEntry {
         if (requiredDir == null || fileName == null || fileName.isBlank()) {
             return null;
         }
-        return requiredDir.resolve(fileName);
+        Path downloaded = resolveDownloadPath(fileName);
+        if (downloaded != null && java.nio.file.Files.exists(downloaded)) return downloaded;
+        Path local = requiredDir.resolve(fileName).normalize();
+        return local.startsWith(requiredDir.normalize()) ? local : null;
     }
 
     public List<Path> resolveAppliedTargets() {
@@ -325,16 +306,6 @@ public class DlcRequiredEntry {
         if (fallback == null || fallback.isBlank()) {
             fallback = "required";
         }
-        if (displayNames.isEmpty()) {
-            return fallback;
-        }
-        String lang = DlcDcConfigIO.normalizeLangKey(DlcPlatformServices.languageCode());
-        if (displayNames.containsKey(lang)) {
-            return displayNames.get(lang);
-        }
-        if (displayNames.containsKey("en_us")) {
-            return displayNames.get("en_us");
-        }
-        return displayNames.values().stream().findFirst().orElse(fallback);
+        return fallback;
     }
 }

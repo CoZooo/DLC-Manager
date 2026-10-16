@@ -24,33 +24,36 @@ public class DlcScanner {
     }
 
     public Map<DlcType, List<DlcItem>> scan(boolean detectInstalledState) {
-        Map<DlcType, List<DlcItem>> grouped = new EnumMap<>(DlcType.class);
-        for (DlcType type : DlcType.values()) {
-            grouped.put(type, new ArrayList<>());
-        }
-
-        List<Path> roots = DlcConfig.getDlcRoots();
-        List<Path> taczRoots = DlcConfig.getTaczDlcRoots();
-        DlcTooltipLoader tooltipLoader = new DlcTooltipLoader();
-        Path mainDlcRoot = DlcConfig.getDlcRoots().isEmpty() ? null : DlcConfig.getDlcRoots().get(0);
-        Path mainInfoDir = mainDlcRoot == null ? null : mainDlcRoot.resolve("info");
-        Map<String, DlcTooltipLoader.TooltipData> tooltips = mainDlcRoot == null
-            ? java.util.Map.of()
-            : tooltipLoader.loadTooltips(mainDlcRoot);
-        Set<Path> seen = new HashSet<>();
-        for (Path root : roots) {
-            if (!Files.exists(root) || seen.contains(root)) {
-                continue;
+        DlcFileMatch.beginScan();
+        try {
+            Map<DlcType, List<DlcItem>> grouped = new EnumMap<>(DlcType.class);
+            for (DlcType type : DlcType.values()) {
+                grouped.put(type, new ArrayList<>());
             }
-            seen.add(root);
-            scanRoot(grouped, root, taczRoots, tooltips, tooltipLoader, mainInfoDir, detectInstalledState);
-        }
 
-        if (DlcPlatformServices.isModLoaded("tacz")) {
-            scanTaczRoots(grouped, tooltipLoader, detectInstalledState);
-        }
+            List<Path> roots = DlcConfig.getDlcRoots();
+            List<Path> taczRoots = DlcConfig.getTaczDlcRoots();
+            DlcTooltipLoader tooltipLoader = new DlcTooltipLoader();
+            Path mainDlcRoot = DlcConfig.getDlcRoots().isEmpty() ? null : DlcConfig.getDlcRoots().get(0);
+            Path mainInfoDir = mainDlcRoot == null ? null : mainDlcRoot.resolve("info");
+            Map<String, DlcTooltipLoader.TooltipData> tooltips = mainDlcRoot == null
+                ? java.util.Map.of()
+                : tooltipLoader.loadTooltips(mainDlcRoot);
+            Set<Path> seen = new HashSet<>();
+            for (Path root : roots) {
+                if (!Files.exists(root) || seen.contains(root)) {
+                    continue;
+                }
+                seen.add(root);
+                scanRoot(grouped, root, taczRoots, tooltips, tooltipLoader, mainInfoDir, detectInstalledState);
+            }
 
-        return grouped;
+            if (DlcPlatformServices.isModLoaded("tacz")) {
+                scanTaczRoots(grouped, tooltipLoader, detectInstalledState);
+            }
+
+            return grouped;
+        } finally { DlcFileMatch.endScan(); }
     }
 
     private void scanRoot(Map<DlcType, List<DlcItem>> grouped, Path root, List<Path> taczRoots,
@@ -68,6 +71,7 @@ public class DlcScanner {
             Files.walkFileTree(root, new SimpleFileVisitor<>() {
                 @Override
                 public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+                    if (dir.normalize().startsWith(root.resolve("downloaded/required").normalize())) return FileVisitResult.SKIP_SUBTREE;
                     if (root.equals(dir)) {
                         return FileVisitResult.CONTINUE;
                     }
@@ -202,10 +206,13 @@ public class DlcScanner {
     private void addItem(Map<DlcType, List<DlcItem>> grouped, Path root, Path source, DlcType detectedType,
         Map<String, DlcTooltipLoader.TooltipData> tooltips, RemoteMetadataLookup remoteMetadata,
         DlcTooltipLoader tooltipLoader, Path infoDir, boolean detectInstalledState) {
+        if (remoteMetadata.shadowed.contains(source.toAbsolutePath().normalize())) return;
         String relative = root.relativize(source).toString().replace('\\', '/');
+        if (relative.startsWith("downloaded/DLCs/")) relative = relative.substring("downloaded/DLCs/".length());
         String rootId = DlcPathUtil.toGameRelativePath(root).replace('\\', '/');
         String name = source.getFileName().toString();
-        DlcTooltipLoader.TooltipData tooltipData = remoteMetadata.get(name);
+        DlcTooltipLoader.TooltipData tooltipData = remoteMetadata.get(relative);
+        if (tooltipData == null) tooltipData = remoteMetadata.get(name);
         if (tooltipData == null && tooltips != null) {
             tooltipData = tooltips.get(name);
         }
@@ -239,9 +246,7 @@ public class DlcScanner {
         if (effectiveType == DlcType.UNKNOWN && (appliedTargetRaw == null || appliedTargetRaw.isBlank())) {
             return;
         }
-        boolean enabled = detectInstalledState
-            ? isEnabledInTargets(id, name, fileNames, effectiveType, appliedTargetRaw, source, configType)
-            : isEnabledInState(id);
+        boolean enabled = isEnabledInState(id);
         Map<String, String> tips = tooltipData != null ? tooltipData.getTips() : null;
         boolean hidden = tooltipData != null && tooltipData.isHidden();
         Map<String, String> displayNames = tooltipData != null ? tooltipData.getDisplayName() : null;
@@ -268,165 +273,21 @@ public class DlcScanner {
         if (tooltipData != null) {
             item.setRedirectUrl(tooltipData.getRedirectUrl());
         }
-        if (detectInstalledState && enabled) {
-            item.getAppliedTargets().addAll(detectAppliedTargets(id, name, fileNames, effectiveType, appliedTargetRaw, source, configType));
+        item.setDlcRoot(DlcConfig.getDlcRoots().contains(root) ? root : DlcConfig.getDlcRoot());
+        item.setMatchMode(tooltipData == null ? "hash" : tooltipData.getMatchMode());
+        if (detectInstalledState) {
+            try {
+                List<Path> installed = DlcItemFiles.installed(item);
+                item.setEnabled(!installed.isEmpty());
+                item.getAppliedTargets().addAll(installed);
+            } catch (IOException exception) { item.setEnabled(false); }
         }
         grouped.get(effectiveType).add(item);
-        // if (tooltipLoader != null && infoDir != null) {
-        //     boolean updateType = !typeValid || !hadTypeField;
-        //     tooltipLoader.ensureTooltipFile(infoDir, name, effectiveType, updateType);
-        // }
-    }
-
-    private boolean isEnabledInTargets(String itemId, String fileName, java.util.List<String> fileNames, DlcType type, String appliedTargetRaw, Path source, boolean configType) {
-        if (type == DlcType.UNKNOWN) {
-            Path target = DlcPaths.resolveAppliedTarget(appliedTargetRaw);
-            if (target == null) {
-                return false;
-            }
-            boolean dirTarget = DlcPaths.isAppliedTargetDirectory(appliedTargetRaw, target, source);
-            if (fileNames != null && !fileNames.isEmpty()) {
-                if (!dirTarget && fileNames.size() > 1) {
-                    return false;
-                }
-                for (String entry : fileNames) {
-                    if (entry == null || entry.isBlank()) {
-                        continue;
-                    }
-                    String normalized = entry.replace('\\', '/');
-                    Path check = dirTarget ? target.resolve(normalized) : target;
-                    if (configType) {
-                        if (!DlcConfigTypeSupport.hasBackupForItemTarget(itemId, check)
-                            && !DlcConfigTypeSupport.hasBackupForTarget(check)) {
-                            return false;
-                        }
-                    } else if (!Files.exists(check)) {
-                        return false;
-                    }
-                    if (!dirTarget) {
-                        break;
-                    }
-                }
-                return true;
-            }
-            if (dirTarget) {
-                Path check = target.resolve(fileName);
-                return configType
-                    ? DlcConfigTypeSupport.hasBackupForItemTarget(itemId, check) || DlcConfigTypeSupport.hasBackupForTarget(check)
-                    : Files.exists(check);
-            }
-            return configType
-                ? DlcConfigTypeSupport.hasBackupForItemTarget(itemId, target) || DlcConfigTypeSupport.hasBackupForTarget(target)
-                : Files.exists(target);
-        }
-        List<Path> targetDirs = switch (type) {
-            case MOD -> List.of(DlcPaths.modsDir());
-            case RESOURCE_PACK -> DlcConfig.getResourcepackRoots();
-            case DATA_PACK -> DlcConfig.getDatapackRoots();
-            case TACZ_PACK -> List.of(DlcPaths.taczDir());
-            default -> List.of();
-        };
-        if (type == DlcType.RESOURCE_PACK) {
-            return DlcPlatformServices.isResourcePackSelected(fileName);
-        }
-        if (targetDirs.isEmpty()) {
-            return false;
-        }
-        for (Path dir : targetDirs) {
-            if (!Files.exists(dir.resolve(fileName))) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private boolean isEnabledInState(String id) {
         DlcStateConfig.DlcState state = DlcStateConfig.getState(id);
         return state != null && state.enabled;
-    }
-
-    private List<Path> detectAppliedTargets(String itemId, String fileName, java.util.List<String> fileNames, DlcType type, String appliedTargetRaw, Path source, boolean configType) {
-        if (type == DlcType.UNKNOWN) {
-            Path target = DlcPaths.resolveAppliedTarget(appliedTargetRaw);
-            if (target == null) {
-                return List.of();
-            }
-            boolean dirTarget = DlcPaths.isAppliedTargetDirectory(appliedTargetRaw, target, source);
-            if (fileNames != null && !fileNames.isEmpty()) {
-                List<Path> result = new ArrayList<>();
-                if (!dirTarget && fileNames.size() > 1) {
-                    return List.of();
-                }
-                for (String entry : fileNames) {
-                    if (entry == null || entry.isBlank()) {
-                        continue;
-                    }
-                    String normalized = entry.replace('\\', '/');
-                    Path check = dirTarget ? target.resolve(normalized) : target;
-                    if (configType) {
-                        Path stored = detectConfigStatePath(itemId, check);
-                        if (stored == null) {
-                            return List.of();
-                        }
-                        result.add(stored);
-                    } else {
-                        if (!Files.exists(check)) {
-                            return List.of();
-                        }
-                        result.add(check);
-                    }
-                    if (!dirTarget) {
-                        break;
-                    }
-                }
-                return result;
-            }
-            Path check = dirTarget ? target.resolve(fileName) : target;
-            if (configType) {
-                Path stored = detectConfigStatePath(itemId, check);
-                return stored == null ? List.of() : List.of(stored);
-            }
-            return Files.exists(check) ? List.of(check) : List.of();
-        }
-        List<Path> targetDirs = switch (type) {
-            case MOD -> List.of(DlcPaths.modsDir());
-            case RESOURCE_PACK -> DlcConfig.getResourcepackRoots();
-            case DATA_PACK -> DlcConfig.getDatapackRoots();
-            case TACZ_PACK -> List.of(DlcPaths.taczDir());
-            default -> List.of();
-        };
-        if (targetDirs.isEmpty()) {
-            return List.of();
-        }
-        List<Path> result = new ArrayList<>();
-        for (Path dir : targetDirs) {
-            Path check = dir.resolve(fileName);
-            if (!Files.exists(check)) {
-                return List.of();
-            }
-            result.add(check);
-        }
-        return result;
-    }
-
-    private Path detectConfigStatePath(String itemId, Path target) {
-        Path backup = DlcConfigTypeSupport.backupPathForItemTarget(itemId, target);
-        Path marker = DlcConfigTypeSupport.missingMarkerPath(backup);
-        if (Files.exists(marker)) {
-            return marker;
-        }
-        if (Files.exists(backup)) {
-            return backup;
-        }
-        Path legacyBackup = DlcConfigTypeSupport.backupPathForTarget(target);
-        Path legacyMarker = DlcConfigTypeSupport.missingMarkerPath(legacyBackup);
-        if (Files.exists(legacyMarker)) {
-            return legacyMarker;
-        }
-        if (Files.exists(legacyBackup)) {
-            return legacyBackup;
-        }
-        return null;
     }
 
     private Map<String, String> buildGroupedOwners(Map<String, DlcTooltipLoader.TooltipData> tooltips) {
@@ -536,6 +397,7 @@ public class DlcScanner {
             return RemoteMetadataLookup.empty();
         }
         Map<String, DlcTooltipLoader.TooltipData> byFileName = new java.util.HashMap<>();
+        RemoteMetadataLookup lookup = new RemoteMetadataLookup(byFileName);
         java.util.Set<String> ambiguousFileNames = new java.util.HashSet<>();
         for (DlcRemoteEntry entry : entries) {
             if (entry == null) {
@@ -545,7 +407,12 @@ public class DlcScanner {
             if (fileName == null || fileName.isBlank()) {
                 continue;
             }
+            Path newPath = entry.resolveTargetPath(fileName);
+            Path legacy = entry.getType() == DlcType.DLC_PACK ? root.resolve("pack").resolve(fileName) : entry.getBaseDir().resolve(fileName);
+            if (newPath != null && Files.exists(newPath)) lookup.shadowed.add(legacy.toAbsolutePath().normalize());
             if (entry.getType() == DlcType.DLC_PACK) {
+                if (newPath != null) lookup.shadowed.add(newPath.toAbsolutePath().normalize());
+                lookup.shadowed.add(legacy.toAbsolutePath().normalize());
                 continue;
             }
             String identifier = entry.getDlcIdentifier();
@@ -570,6 +437,8 @@ public class DlcScanner {
                 java.util.List.of(),
                 entry.isAlarm()
             );
+            data.setMatchMode(entry.getMatchMode());
+            lookup.byPath.put(root.toAbsolutePath().normalize().relativize(legacy.toAbsolutePath().normalize()).toString().replace('\\', '/'), data);
             if (ambiguousFileNames.contains(fileName)) {
                 continue;
             }
@@ -581,11 +450,13 @@ public class DlcScanner {
                 ambiguousFileNames.add(fileName);
             }
         }
-        return new RemoteMetadataLookup(byFileName);
+        return lookup;
     }
 
     private static final class RemoteMetadataLookup {
         private final Map<String, DlcTooltipLoader.TooltipData> byFileName;
+        private final Map<String, DlcTooltipLoader.TooltipData> byPath = new java.util.HashMap<>();
+        private final Set<Path> shadowed = new HashSet<>();
 
         private RemoteMetadataLookup(Map<String, DlcTooltipLoader.TooltipData> byFileName) {
             this.byFileName = byFileName == null ? java.util.Map.of() : byFileName;
@@ -599,7 +470,7 @@ public class DlcScanner {
             if (fileName == null || fileName.isBlank()) {
                 return null;
             }
-            return byFileName.get(fileName);
+            return byPath.containsKey(fileName) ? byPath.get(fileName) : byFileName.get(fileName);
         }
 
         private boolean contains(String fileName) {

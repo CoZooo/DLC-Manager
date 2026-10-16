@@ -1,44 +1,66 @@
+import org.jetbrains.intellij.platform.gradle.tasks.PrepareSandboxTask
+
 plugins {
-    id "java"
-    id "org.jetbrains.intellij" version "1.17.4"
+    id 'java'
+    id 'org.jetbrains.intellij.platform' version '2.18.1'
 }
 
-group = "com.cozooo.dlc_manager"
-version = "1.2.1"
+group = 'com.cozooo.dlc_manager'
+version = '2.0.0'
 
 repositories {
     mavenCentral()
+    intellijPlatform { defaultRepositories() }
 }
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
-}
+java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
+tasks.withType(JavaCompile).configureEach { options.release = 17 }
 
-intellij {
-    version.set("2023.3.8")
-    type.set("IC")
-    plugins.set([])
-    updateSinceUntilBuild.set(false)
-}
+final serverJar = providers.gradleProperty('dcLanguageServerJar')
+    .map { file(it) }
+    .orElse(file('../../dclanguage/lsp/build/libs/dclanguage-lsp.jar'))
 
-tasks {
-    patchPluginXml {
-        sinceBuild.set("0")
-        untilBuild.set("999.*")
-        changeNotes.set(
-            """
-            Initial support for .dc files:
-            <ul>
-              <li>Syntax highlighting</li>
-              <li>Basic completion</li>
-              <li>Basic syntax inspection</li>
-            </ul>
-            """.trim()
-        )
-    }
-
-    buildPlugin {
-        destinationDirectory.set(file("${rootDir}/.."))
+dependencies {
+    implementation 'com.google.code.gson:gson:2.10.1'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.3'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    intellijPlatform {
+        if (providers.gradleProperty('intellijHome').isPresent()) local(providers.gradleProperty('intellijHome').get())
+        else intellijIdeaCommunity('2023.3.8')
     }
 }
+
+intellijPlatform {
+    pluginConfiguration {
+        ideaVersion { sinceBuild = '233'; untilBuild = providers.provider { null } }
+        changeNotes = 'Edit .dc files with completion, error hints, field documentation, formatting and hex color tools.'
+    }
+    buildSearchableOptions = false
+}
+
+tasks.withType(PrepareSandboxTask).configureEach {
+    inputs.file(serverJar)
+    from(serverJar) { into(pluginName.map { "${it}/server" }) }
+    from(files('README.md', 'README.zh.md', 'THIRD_PARTY_NOTICES.md', '../../dclanguage/LICENSE')) {
+        into(pluginName.map { it })
+    }
+    from('../../dclanguage/licenses') { into(pluginName.map { "${it}/licenses" }) }
+    doFirst {
+        if (!serverJar.get().isFile()) throw new GradleException('Build tools/dclanguage/lsp shadowJar before packaging this plugin.')
+    }
+}
+
+tasks.processResources {
+    from("../../../src/main/resources/META-INF/dlc-manager/dlc-definition.json")
+    inputs.file(serverJar)
+    from({ zipTree(serverJar.get()) }) { include 'com/cozooo/dclanguage/language-definition.json' }
+}
+
+tasks.test {
+    inputs.file(serverJar)
+    useJUnitPlatform()
+    systemProperty 'dc.language.server', serverJar.get().absolutePath
+    systemProperty 'dc.test.classpath', files(sourceSets.test.output, sourceSets.main.output, configurations.runtimeClasspath).asPath
+}
+
+tasks.buildPlugin { destinationDirectory = file('..') }

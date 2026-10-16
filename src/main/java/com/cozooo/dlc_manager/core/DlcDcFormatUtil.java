@@ -1,8 +1,8 @@
 package com.cozooo.dlc_manager.core;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonArray;
+import com.cozooo.dclanguage.DcCategoryHeader;
+import com.cozooo.dclanguage.DcDocument;
+import com.cozooo.dclanguage.DcDocuments;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
@@ -11,15 +11,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 
 public final class DlcDcFormatUtil {
     public static final String DC_EXTENSION = ".dc";
-    private static final Gson COMPACT_GSON = new GsonBuilder().disableHtmlEscaping().create();
+    private static final Set<String> DOWNLOAD_KEYS = Set.of(
+        "modrinth_projectid", "modrinth_versionid", "curseforge_projectid", "curseforge_fileid", "directurl", "priority"
+    );
 
     private DlcDcFormatUtil() {
     }
@@ -66,1217 +67,308 @@ public final class DlcDcFormatUtil {
     }
 
     public static JsonObject read(Path path) {
-        if (path == null || !Files.exists(path)) {
-            return null;
-        }
-        List<String> lines;
+        if (path == null || !Files.exists(path)) return null;
         try {
-            lines = Files.readAllLines(path);
-        } catch (IOException ignored) {
+            return readNode(readStructuredDocument(path).root());
+        } catch (IOException | IllegalArgumentException ignored) {
             return null;
         }
-        DlcNode root = new DlcNode();
-        ArrayDeque<Frame> stack = new ArrayDeque<>();
-        stack.push(Frame.root(root));
-        int index = 0;
-        while (index < lines.size()) {
-            String raw = lines.get(index);
-            if (raw == null) {
-                index++;
-                continue;
-            }
-            if (index == 0 && raw.startsWith("\uFEFF")) {
-                raw = raw.substring(1);
-            }
-            String noComment = stripComment(raw);
-            if (noComment.isBlank()) {
-                index++;
-                continue;
-            }
-            int indent = countLeadingSpaces(noComment);
-            String content = noComment.substring(indent).trim();
-            if (content.isBlank()) {
-                index++;
-                continue;
-            }
-            if (content.startsWith("[") && content.endsWith("]") && content.length() >= 3) {
-                String header = content.substring(1, content.length() - 1).trim();
-                while (stack.size() > 1 && stack.peek().indent >= indent) {
-                    stack.pop();
-                }
-                if (indent == 0 && (header.equals("dependencies")
-                    || header.equals("conflicts")
-                    || (!isQuotedKey(header) && header.startsWith("dependencies.")))) {
-                    while (stack.size() > 1) {
-                        stack.pop();
-                    }
-                }
-                if (!isQuotedKey(header) && header.startsWith("dependencies.")) {
-                    DlcNode node = findNearestNode(stack);
-                    String depKey = unquoteKey(header.substring("dependencies.".length()));
-                    if (node != null && !depKey.isBlank()) {
-                        DlcNode child = node.dependencies.computeIfAbsent(depKey, key -> new DlcNode());
-                        stack.push(Frame.node(indent, child));
-                    }
-                } else if (header.equals("dependencies")) {
-                    DlcNode node = findNearestNode(stack);
-                    if (node != null) {
-                        stack.push(Frame.relationContainer(indent, node, "dependencies"));
-                    }
-                } else if (header.equals("conflicts")) {
-                    DlcNode node = findNearestNode(stack);
-                    if (node != null) {
-                        stack.push(Frame.relationContainer(indent, node, "conflicts"));
-                    }
-                } else if (isSectionHeader(header)) {
-                    DlcNode node = findNearestNode(stack);
-                    if (node != null) {
-                        stack.push(Frame.section(indent, node, header));
-                    }
-                } else if (stack.peek().type == FrameType.RELATION_CONTAINER) {
-                    header = unquoteKey(header);
-                    DlcNode parent = stack.peek().node;
-                    if ("dependencies".equals(stack.peek().section)) {
-                        DlcNode child = parent.dependencies.computeIfAbsent(header, key -> new DlcNode());
-                        stack.push(Frame.node(indent, child));
-                    } else if ("conflicts".equals(stack.peek().section)) {
-                        parent.conflictEntries.add(header);
-                    }
-                }
-                index++;
-                continue;
-            }
-
-            if (content.endsWith(":") && content.length() >= 2 && !content.contains("=")) {
-                while (stack.size() > 1 && stack.peek().indent >= indent) {
-                    stack.pop();
-                }
-                if (stack.peek().type == FrameType.RELATION_CONTAINER) {
-                    String rawKey = content.substring(0, content.length() - 1).trim();
-                    String depKey = unquoteKey(rawKey);
-                    if (!depKey.isBlank()) {
-                        DlcNode parent = stack.peek().node;
-                        if ("dependencies".equals(stack.peek().section)) {
-                            DlcNode child = parent.dependencies.computeIfAbsent(depKey, key -> new DlcNode());
-                            stack.push(Frame.node(indent, child));
-                        } else if ("conflicts".equals(stack.peek().section)) {
-                            parent.conflictEntries.add(depKey);
-                        }
-                    }
-                }
-                index++;
-                continue;
-            }
-
-            if (stack.peek().type == FrameType.RELATION_CONTAINER && !content.contains("=")) {
-                String relation = stack.peek().section;
-                DlcNode node = stack.peek().node;
-                String token = unquoteKey(content);
-                if (!token.isBlank()) {
-                    if ("dependencies".equals(relation)) {
-                        node.dependencyEntries.add(token);
-                    } else if ("conflicts".equals(relation)) {
-                        node.conflictEntries.add(token);
-                    }
-                }
-                index++;
-                continue;
-            }
-
-            int eq = content.indexOf('=');
-            if (eq < 0) {
-                index++;
-                continue;
-            }
-            String key = content.substring(0, eq).trim();
-            String valueText = content.substring(eq + 1).trim();
-            ParseValue parsed = parseValue(lines, index, valueText);
-            index = parsed.nextIndex + 1;
-            assignValue(stack, key, parsed.value);
-        }
-        return root.toJsonObject();
     }
 
     public static String write(JsonObject ordered) {
-        if (ordered == null) {
-            return "";
-        }
-        StringBuilder out = new StringBuilder(512);
-        writeNode(out, ordered, 0, true);
-        return out.toString();
+        if (ordered == null) return "";
+        JsonObject root = new JsonObject();
+        updateNode(root, ordered);
+        return DcDocuments.writeText(DcDocuments.fromJson(root));
     }
 
     public static boolean write(Path path, JsonObject ordered) {
-        if (path == null || ordered == null) {
-            return false;
-        }
-        try {
-            if (path.getParent() != null) {
-                Files.createDirectories(path.getParent());
-            }
-            Files.writeString(path, write(ordered));
-            return true;
-        } catch (IOException ignored) {
-            return false;
-        }
+        return writeDocument(path, ordered, true);
     }
 
     public static JsonObject readGeneric(Path path) {
-        if (path == null || !Files.exists(path)) {
-            return null;
-        }
-        List<String> lines;
+        if (path == null || !Files.exists(path)) return null;
         try {
-            lines = Files.readAllLines(path);
-        } catch (IOException ignored) {
+            return DcDocuments.read(path).toJson();
+        } catch (IOException | IllegalArgumentException ignored) {
             return null;
         }
-        return readGenericLines(lines);
     }
 
     public static JsonElement readElement(Path path) {
-        if (path == null || !Files.exists(path) || !isDcName(path.getFileName() == null ? null : path.getFileName().toString())) {
-            return null;
-        }
+        if (path == null || !isDcName(path.getFileName() == null ? null : path.getFileName().toString())) return null;
         return readGeneric(path);
     }
 
     public static JsonObject readObject(Path path) {
         JsonElement element = readElement(path);
-        if (element != null && element.isJsonObject()) {
-            return element.getAsJsonObject();
-        }
-        return null;
+        return element != null && element.isJsonObject() ? element.getAsJsonObject() : null;
     }
 
     public static JsonObject readGenericText(String text) {
-        if (text == null) {
+        if (text == null) return null;
+        try {
+            return DcDocuments.readText(text).toJson();
+        } catch (IOException | IllegalArgumentException ignored) {
             return null;
         }
-        String[] raw = text.split("\\R", -1);
-        List<String> lines = new ArrayList<>(raw.length);
-        for (String line : raw) {
-            lines.add(line);
-        }
-        return readGenericLines(lines);
-    }
-
-    private static JsonObject readGenericLines(List<String> lines) {
-        if (lines == null) {
-            return null;
-        }
-        JsonObject root = new JsonObject();
-        ArrayDeque<GenericFrame> stack = new ArrayDeque<>();
-        stack.push(new GenericFrame(-1, root, null));
-        int index = 0;
-        while (index < lines.size()) {
-            String raw = lines.get(index);
-            if (raw == null) {
-                index++;
-                continue;
-            }
-            if (index == 0 && raw.startsWith("\uFEFF")) {
-                raw = raw.substring(1);
-            }
-            String noComment = stripComment(raw);
-            if (noComment.isBlank()) {
-                index++;
-                continue;
-            }
-            int indent = countLeadingSpaces(noComment);
-            String content = noComment.substring(indent).trim();
-            if (content.isBlank()) {
-                index++;
-                continue;
-            }
-            if (content.startsWith("[") && content.endsWith("]") && content.length() >= 3) {
-                String rawHeader = content.substring(1, content.length() - 1).trim();
-                String header = unquoteKey(rawHeader);
-                if (!isQuotedKey(rawHeader) && header.contains(".")) {
-                    JsonObject child = ensureGenericPath(root, header);
-                    stack.clear();
-                    stack.push(new GenericFrame(-1, root, null));
-                    stack.push(new GenericFrame(indent, child, header.substring(header.lastIndexOf('.') + 1)));
-                    index++;
-                    continue;
-                }
-                while (stack.size() > 1 && stack.peek().indent >= indent) {
-                    stack.pop();
-                }
-                JsonObject parent = stack.peek().obj;
-                JsonObject child;
-                JsonElement existing = parent.get(header);
-                if (existing != null && existing.isJsonObject()) {
-                    child = existing.getAsJsonObject();
-                } else {
-                    child = new JsonObject();
-                    parent.add(header, child);
-                }
-                stack.push(new GenericFrame(indent, child, header));
-                index++;
-                continue;
-            }
-            if (isGenericRelationSection(stack.peek().name) && !content.contains("=")) {
-                String token = unquoteKey(content);
-                if (!token.isBlank()) {
-                    stack.peek().obj.add(token, new JsonObject());
-                }
-                index++;
-                continue;
-            }
-            int eq = content.indexOf('=');
-            if (eq < 0) {
-                index++;
-                continue;
-            }
-            String key = unquoteKey(content.substring(0, eq).trim());
-            String valueText = content.substring(eq + 1).trim();
-            ParseValue parsed = parseValue(lines, index, valueText);
-            index = parsed.nextIndex + 1;
-            if (!key.isBlank()) {
-                stack.peek().obj.add(key, parsed.value);
-            }
-        }
-        return root;
     }
 
     public static String writeGeneric(JsonObject obj) {
-        if (obj == null) {
-            return "";
-        }
-        StringBuilder out = new StringBuilder(512);
-        writeGenericRoot(out, obj);
-        return out.toString();
+        return obj == null ? "" : DcDocuments.writeText(DcDocuments.fromJson(obj));
     }
 
     public static boolean writeGeneric(Path path, JsonObject obj) {
-        if (path == null || obj == null) {
-            return false;
-        }
+        return writeDocument(path, obj, false);
+    }
+
+    private static boolean writeDocument(Path path, JsonObject value, boolean structured) {
+        if (path == null || value == null) return false;
         try {
-            if (path.getParent() != null) {
-                Files.createDirectories(path.getParent());
+            DcDocument document = Files.exists(path)
+                ? (structured ? readStructuredDocument(path) : DcDocuments.read(path)) : DcDocuments.create();
+            if (structured) {
+                updateNode(document.root(), value);
+            } else {
+                document.root().entrySet().clear();
+                for (var entry : value.entrySet()) document.root().add(entry.getKey(), entry.getValue().deepCopy());
             }
-            Files.writeString(path, writeGeneric(obj));
+            DcDocuments.write(path, document);
             return true;
-        } catch (IOException ignored) {
+        } catch (IOException | IllegalArgumentException | IllegalStateException ignored) {
             return false;
         }
     }
 
-    private static void writeGenericRoot(StringBuilder out, JsonObject obj) {
-        boolean wroteAny = false;
-        for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-            JsonElement value = entry.getValue();
-            if (value != null && value.isJsonObject()) {
-                continue;
-            }
-            out.append(formatGenericKey(entry.getKey()))
-                .append(" = ")
-                .append(formatGenericValue(entry.getKey(), value))
-                .append('\n');
-            wroteAny = true;
-        }
-        for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-            JsonElement value = entry.getValue();
-            if (value == null || !value.isJsonObject()) {
-                continue;
-            }
-            if (wroteAny) {
-                out.append('\n');
-            }
-            writeGenericSection(out, entry.getKey(), value.getAsJsonObject(), 0);
-            wroteAny = true;
-        }
-    }
-
-    private static void writeGenericSection(StringBuilder out, String name, JsonObject obj, int sectionIndent) {
-        indentLine(out, sectionIndent);
-        out.append('[').append(formatGenericKey(name)).append(']').append('\n');
-        boolean relationSection = isGenericRelationSection(name);
-        boolean hasNestedSections = hasNestedGenericSections(obj);
-        int bodyIndent = (sectionIndent > 0 || hasNestedSections) ? sectionIndent + 2 : 0;
-        boolean wroteAny = false;
-        for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-            JsonElement value = entry.getValue();
-            if (value != null && value.isJsonObject()) {
-                continue;
-            }
-            indentLine(out, bodyIndent);
-            if (relationSection && isGenericRelationEntry(entry.getKey(), value)) {
-                out.append(formatStringValue(entry.getKey())).append('\n');
-            } else {
-                out.append(formatGenericKey(entry.getKey()))
-                    .append(" = ")
-                    .append(formatGenericValue(entry.getKey(), value))
-                    .append('\n');
-            }
-            wroteAny = true;
-        }
-        for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-            JsonElement value = entry.getValue();
-            if (value == null || !value.isJsonObject()) {
-                continue;
-            }
-            if (relationSection && value.getAsJsonObject().entrySet().isEmpty()) {
-                indentLine(out, bodyIndent);
-                out.append(formatStringValue(entry.getKey())).append('\n');
-                wroteAny = true;
-                continue;
-            }
-            if (wroteAny) {
-                out.append('\n');
-            }
-            writeGenericSection(out, entry.getKey(), value.getAsJsonObject(), sectionIndent + 2);
-            wroteAny = true;
-        }
-    }
-
-    private static boolean hasNestedGenericSections(JsonObject obj) {
-        if (obj == null || obj.entrySet().isEmpty()) {
-            return false;
-        }
-        for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-            JsonElement value = entry.getValue();
-            if (value != null && value.isJsonObject()) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean isGenericRelationSection(String name) {
-        return "dependencies".equalsIgnoreCase(name) || "conflicts".equalsIgnoreCase(name);
-    }
-
-    private static boolean isGenericRelationEntry(String key, JsonElement value) {
-        if (key == null || key.isBlank() || value == null || value.isJsonNull() || !value.isJsonPrimitive()) {
-            return false;
-        }
-        JsonPrimitive primitive = value.getAsJsonPrimitive();
-        return primitive.isString() && primitive.getAsString().trim().equals(key.trim());
-    }
-
-    private static JsonObject ensureGenericPath(JsonObject root, String header) {
-        JsonObject current = root;
-        for (String rawPart : header.split("\\.")) {
-            String part = rawPart == null ? "" : rawPart.trim();
-            if (part.isBlank()) {
-                continue;
-            }
-            JsonElement existing = current.get(part);
-            if (existing != null && existing.isJsonObject()) {
-                current = existing.getAsJsonObject();
-            } else {
-                JsonObject child = new JsonObject();
-                current.add(part, child);
-                current = child;
-            }
-        }
-        return current;
-    }
-
-    private static boolean isQuotedKey(String text) {
-        if (text == null) {
-            return false;
-        }
-        String key = text.trim();
-        return key.length() >= 2
-            && ((key.startsWith("\"") && key.endsWith("\"")) || (key.startsWith("'") && key.endsWith("'")));
-    }
-
-    private static String formatGenericKey(String key) {
-        if (key == null) {
-            return "\"\"";
-        }
-        if (key.matches("[A-Za-z_][A-Za-z0-9_-]*")) {
-            return key;
-        }
-        return "\"" + escapeString(key) + "\"";
-    }
-
-    private static String formatGenericValue(String key, JsonElement value) {
-        if (value == null || value.isJsonNull()) {
-            return "null";
-        }
-        if (value.isJsonPrimitive()) {
-            JsonPrimitive primitive = value.getAsJsonPrimitive();
-            if (primitive.isBoolean()) {
-                return primitive.getAsBoolean() ? "true" : "false";
-            }
-            if (primitive.isNumber()) {
-                return primitive.getAsNumber().toString();
-            }
-            return formatStringValue(primitive.getAsString());
-        }
-        if (value.isJsonArray() && isVerticalArrayKey(key)) {
-            return formatValue(value);
-        }
-        return COMPACT_GSON.toJson(value);
-    }
-
-    private static boolean isVerticalArrayKey(String key) {
-        if (key == null) {
-            return false;
-        }
-        return "enable".equalsIgnoreCase(key)
-            || "conflicts".equalsIgnoreCase(key);
-    }
-
-    private static void writeNode(StringBuilder out, JsonObject node, int indent, boolean root) {
-        JsonElement depsElement = node.get("dependencies");
-        java.util.List<String> dependencyEntries = collectRelationEntries(depsElement);
-        boolean hasNestedDependencies = depsElement != null
-            && depsElement.isJsonObject()
-            && !depsElement.getAsJsonObject().entrySet().isEmpty();
-        java.util.List<String> conflictEntries = collectRelationEntries(node.get("conflicts"));
-        boolean hasConflicts = !conflictEntries.isEmpty();
-        boolean hasDownloadSection = hasDownloadSection(node);
-        if (hasDownloadSection) {
-            if (!root) {
-                indentLine(out, indent);
-                out.append("[download]\n");
-            } else {
-                out.append("[download]\n");
-            }
-            writeDownload(out, node, indent);
-        }
-
-        if (hasDownloadSection) {
-            indentLine(out, indent);
-            out.append("\n");
-        }
-        indentLine(out, indent);
-        out.append("[basic]\n");
-        writeBasic(out, node, indent);
-
-        if (!dependencyEntries.isEmpty() || hasNestedDependencies) {
-            indentLine(out, indent);
-            out.append("\n");
-            indentLine(out, indent);
-            out.append("[dependencies]\n");
-            for (String entry : dependencyEntries) {
-                indentLine(out, indent);
-                out.append(formatStringValue(entry)).append('\n');
-            }
-            if (depsElement != null && depsElement.isJsonObject()) {
-                for (Map.Entry<String, JsonElement> entry : depsElement.getAsJsonObject().entrySet()) {
-                    if (!entry.getValue().isJsonObject()) {
-                        continue;
-                    }
-                    indentLine(out, indent);
-                    out.append("[dependencies.").append(entry.getKey()).append("]\n");
-                    writeNode(out, entry.getValue().getAsJsonObject(), indent + 2, false);
-                }
-            }
-        }
-
-        if (hasConflicts) {
-            indentLine(out, indent);
-            out.append("\n");
-            indentLine(out, indent);
-            out.append("[conflicts]\n");
-            for (String entry : conflictEntries) {
-                indentLine(out, indent);
-                out.append(formatStringValue(entry)).append('\n');
-            }
-        }
-
-        indentLine(out, indent);
-        out.append("\n");
-        indentLine(out, indent);
-        out.append("[DisplayName]\n");
-        JsonObject display = asObject(node.get("DisplayName"));
-        for (Map.Entry<String, JsonElement> entry : display.entrySet()) {
-            out.append(formatKeyValue(entry.getKey(), entry.getValue())).append('\n');
-        }
-
-        indentLine(out, indent);
-        out.append("\n");
-        indentLine(out, indent);
-        out.append("[tip]\n");
-        JsonObject tip = asObject(node.get("tip"));
-        for (Map.Entry<String, JsonElement> entry : tip.entrySet()) {
-            out.append(formatKeyValue(entry.getKey(), entry.getValue())).append('\n');
-        }
-    }
-
-    private static void writeDownload(StringBuilder out, JsonObject node, int indent) {
-        String[] keys = new String[] {
-            "modrinth_projectid",
-            "modrinth_versionid",
-            "curseforge_projectid",
-            "curseforge_fileid",
-            "directUrl",
-            "priority"
-        };
-        for (String key : keys) {
-            JsonElement value = node.get(key);
-            if (value == null) {
-                continue;
-            }
-            indentLine(out, indent);
-            out.append(formatKeyValue(key, value)).append('\n');
-        }
-    }
-
-    private static boolean hasDownloadSection(JsonObject node) {
-        if (node == null) {
-            return false;
-        }
-        return hasMeaningfulDownloadValue(node.get("modrinth_projectid"))
-            || hasMeaningfulDownloadValue(node.get("modrinth_versionid"))
-            || hasMeaningfulDownloadValue(node.get("curseforge_projectid"))
-            || hasMeaningfulDownloadValue(node.get("curseforge_fileid"))
-            || hasMeaningfulDownloadValue(node.get("directUrl"))
-            || hasMeaningfulDownloadValue(node.get("priority"));
-    }
-
-    private static boolean hasMeaningfulDownloadValue(JsonElement value) {
-        if (value == null || value.isJsonNull()) {
-            return false;
-        }
-        if (value.isJsonPrimitive()) {
-            JsonPrimitive primitive = value.getAsJsonPrimitive();
-            if (primitive.isString()) {
-                String text = primitive.getAsString();
-                return text != null && !text.isBlank();
-            }
-            return true;
-        }
-        if (value.isJsonArray()) {
-            return !value.getAsJsonArray().isEmpty();
-        }
-        if (value.isJsonObject()) {
-            return !value.getAsJsonObject().entrySet().isEmpty();
-        }
-        return false;
-    }
-
-    private static void writeBasic(StringBuilder out, JsonObject node, int indent) {
-        String[] keys = new String[] {
-            "identifier",
-            "type",
-            "file_name",
-            "appliedTarget",
-            "isHidden",
-            "AllowEnableByAll",
-            "alarm"
-        };
-        for (String key : keys) {
-            if (!node.has(key)) {
-                continue;
-            }
-            indentLine(out, indent);
-            out.append(formatKeyValue(key, node.get(key))).append('\n');
-        }
-
-        for (Map.Entry<String, JsonElement> entry : node.entrySet()) {
-            String key = entry.getKey();
-            if (key == null || key.isBlank()) {
-                continue;
-            }
-            if ("dependencies".equals(key)
-                || "conflicts".equals(key)
-                || "DisplayName".equals(key)
-                || "tip".equals(key)
-                || isKnownBasicKey(key)
-                || isDownloadKey(key)) {
-                continue;
-            }
-            indentLine(out, indent);
-            out.append(formatKeyValue(key, entry.getValue())).append('\n');
-        }
-
-    }
-
-    private static boolean isKnownBasicKey(String key) {
-        return "identifier".equals(key)
-            || "type".equals(key)
-            || "file_name".equals(key)
-            || "appliedTarget".equals(key)
-            || "isHidden".equals(key)
-            || "AllowEnableByAll".equals(key)
-            || "alarm".equals(key);
-    }
-
-    private static boolean isDownloadKey(String key) {
-        return "modrinth_projectid".equals(key)
-            || "modrinth_versionid".equals(key)
-            || "curseforge_projectid".equals(key)
-            || "curseforge_fileid".equals(key)
-            || "directUrl".equals(key)
-            || "priority".equals(key);
-    }
-
-    private static java.util.List<String> collectRelationEntries(JsonElement element) {
-        java.util.LinkedHashSet<String> names = new java.util.LinkedHashSet<>();
-        collectRelationEntries(element, names);
-        return new java.util.ArrayList<>(names);
-    }
-
-    private static void collectRelationEntries(JsonElement element, java.util.Set<String> names) {
-        if (element == null || element.isJsonNull()) {
-            return;
-        }
-        if (element.isJsonPrimitive() || element.isJsonArray()) {
-            collectPrimitiveNames(element, names);
-            return;
-        }
-        if (!element.isJsonObject()) {
-            return;
-        }
-        for (Map.Entry<String, JsonElement> entry : element.getAsJsonObject().entrySet()) {
-            String key = entry.getKey();
-            JsonElement value = entry.getValue();
-            if (value == null || value.isJsonNull()) {
-                if (key != null && !key.isBlank()) {
-                    names.add(key.trim());
-                }
-                continue;
-            }
-            if (value.isJsonPrimitive() || value.isJsonArray()) {
-                collectPrimitiveNames(value, names);
-                continue;
-            }
-        }
-    }
-
-    private static void collectPrimitiveNames(JsonElement element, java.util.Set<String> names) {
-        if (element == null || names == null) {
-            return;
-        }
-        if (element.isJsonPrimitive()) {
-            String raw = element.getAsString();
-            if (raw == null) {
-                return;
-            }
-            for (String part : raw.split("[,\\n\\r]+")) {
-                String trimmed = part == null ? "" : part.trim();
-                if (!trimmed.isEmpty()) {
-                    names.add(trimmed);
-                }
-            }
-            return;
-        }
-        if (element.isJsonArray()) {
-            for (JsonElement child : element.getAsJsonArray()) {
-                collectPrimitiveNames(child, names);
-            }
-        }
-    }
-
-    private static String formatKeyValue(String key, JsonElement value) {
-        return key + " = " + formatValue(value);
-    }
-
-    private static String formatValue(JsonElement value) {
-        if (value == null || value.isJsonNull()) {
-            return "\"\"";
-        }
-        if (value.isJsonPrimitive()) {
-            JsonPrimitive primitive = value.getAsJsonPrimitive();
-            if (primitive.isBoolean()) {
-                return primitive.getAsBoolean() ? "true" : "false";
-            }
-            if (primitive.isNumber()) {
-                return primitive.getAsNumber().toString();
-            }
-            return formatStringValue(primitive.getAsString());
-        }
-        if (value.isJsonArray()) {
-            JsonArray array = value.getAsJsonArray();
-            if (array.isEmpty()) {
-                return "[]";
-            }
-            StringBuilder out = new StringBuilder();
-            out.append("[\n");
-            for (int i = 0; i < array.size(); i++) {
-                JsonElement element = array.get(i);
-                out.append("  ").append(formatValue(element));
-                if (i + 1 < array.size()) {
-                    out.append(',');
-                }
-                out.append('\n');
-            }
-            out.append("]");
-            return out.toString();
-        }
-        return "{}";
-    }
-
-    private static String formatStringValue(String value) {
-        if (value == null) {
-            return "\"\"";
-        }
-        if (value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0) {
-            String normalized = value.replace("\r\n", "\n").replace('\r', '\n');
-            String delimiter = "\"\"\"";
-            if (normalized.contains(delimiter)) {
-                if (!normalized.contains("'''")) {
-                    delimiter = "'''";
+    private static DcDocument readStructuredDocument(Path path) throws IOException {
+        String text = Files.readString(path);
+        List<DcCategoryHeader> headers = DcDocuments.categoryHeaders(text);
+        ArrayDeque<HeaderFrame> frames = new ArrayDeque<>();
+        Set<List<String>> branches = new HashSet<>();
+        StringBuilder rewritten = new StringBuilder(text.length());
+        int copied = 0;
+        for (int index = 0; index < headers.size(); index++) {
+            DcCategoryHeader header = headers.get(index);
+            while (!frames.isEmpty() && frames.peek().indentation() >= header.indentation()) frames.pop();
+            HeaderFrame parent = frames.peek();
+            List<String> node = parent == null ? List.of() : parent.node();
+            List<String> names = header.names();
+            String raw = text.substring(header.start(), header.end());
+            boolean dependency = names.size() > 1 && names.get(0).equalsIgnoreCase("dependencies");
+            boolean nestedHeader = index + 1 < headers.size()
+                && headers.get(index + 1).indentation() > header.indentation()
+                && headers.get(index + 1).names().size() == 1
+                && isSection(headers.get(index + 1).names().get(0));
+            boolean quotedPath = raw.indexOf('"') >= 0 || raw.indexOf('\'') >= 0;
+            boolean completePath = names.size() > 2 && (quotedPath
+                || names.subList(2, names.size()).stream().anyMatch(DlcDcFormatUtil::isSection)
+                || branches.stream().anyMatch(branch -> startsWith(names, branch) && names.size() > branch.size()));
+            boolean relationChild = parent != null && parent.relation() != null
+                && !isSection(names.get(0)) && !dependency;
+            String replacement = null;
+            String relation = null;
+            if (dependency && (names.size() == 2 || !completePath || nestedHeader && !quotedPath)) {
+                String identifier = String.join(".", names.subList(1, names.size()));
+                node = append(node, names.get(0), identifier);
+                branches.add(node);
+                replacement = formatHeader(node);
+            } else if (relationChild) {
+                node = append(node, parent.relation(), String.join(".", names));
+                branches.add(node);
+                if (header.bracketed()) replacement = formatHeader(node);
+            } else if (names.size() > 1) {
+                String last = names.get(names.size() - 1);
+                if (isSection(last)) {
+                    node = List.copyOf(names.subList(0, names.size() - 1));
+                    if (node.size() > 1 && node.get(0).equalsIgnoreCase("dependencies")) branches.add(node);
+                    if (last.equalsIgnoreCase("dependencies") || last.equalsIgnoreCase("conflicts")) relation = last;
+                } else if (names.get(names.size() - 2).equalsIgnoreCase("dependencies")) {
+                    node = names;
+                    branches.add(node);
                 } else {
-                    return "\"" + escapeString(value) + "\"";
+                    int depth = -1;
+                    for (List<String> branch : branches) {
+                        if (startsWith(names, branch) && branch.size() > depth) {
+                            node = branch;
+                            depth = branch.size();
+                        }
+                    }
                 }
+            } else if (names.get(0).equalsIgnoreCase("dependencies") || names.get(0).equalsIgnoreCase("conflicts")) {
+                relation = names.get(0);
             }
-            return delimiter + normalized + delimiter;
-        }
-        return "\"" + escapeString(value) + "\"";
-    }
-
-    private static String escapeString(String value) {
-        return value
-            .replace("\\", "\\\\")
-            .replace("\"", "\\\"")
-            .replace("\r", "\\r")
-            .replace("\n", "\\n");
-    }
-
-    private static void assignValue(ArrayDeque<Frame> stack, String key, JsonElement value) {
-        DlcNode node = findNearestNode(stack);
-        if (node == null || key == null || key.isBlank()) {
-            return;
-        }
-        Frame section = findNearestSection(stack);
-        String sectionName = section == null ? "basic" : section.section;
-        switch (sectionName) {
-            case "download" -> node.download.add(key, value);
-            case "DisplayName" -> node.displayName.add(key, value);
-            case "tip" -> node.tip.add(key, value);
-            case "dependencies" -> collectPrimitiveNames(value, node.dependencyEntries);
-            case "conflicts" -> collectPrimitiveNames(value, node.conflictEntries);
-            case "basic" -> node.basic.add(key, value);
-            default -> node.basic.add(key, value);
-        }
-    }
-
-    private static boolean isSectionHeader(String header) {
-        return "download".equals(header)
-            || "basic".equals(header)
-            || "DisplayName".equals(header)
-            || "tip".equals(header);
-    }
-
-    private static DlcNode findNearestNode(ArrayDeque<Frame> stack) {
-        for (Frame frame : stack) {
-            if (frame.type == FrameType.NODE || frame.type == FrameType.ROOT) {
-                return frame.node;
+            frames.push(new HeaderFrame(header.indentation(), node, relation));
+            if (replacement != null && !replacement.equals(raw)) {
+                rewritten.append(text, copied, header.start()).append(replacement);
+                copied = header.end();
             }
         }
-        return null;
+        return DcDocuments.readText(copied == 0 ? text : rewritten.append(text, copied, text.length()).toString());
     }
 
-    private static Frame findNearestSection(ArrayDeque<Frame> stack) {
-        for (Frame frame : stack) {
-            if (frame.type == FrameType.SECTION) {
-                return frame;
-            }
-        }
-        return null;
+    private static List<String> append(List<String> path, String category, String identifier) {
+        List<String> result = new ArrayList<>(path);
+        result.add(category);
+        result.add(identifier);
+        return List.copyOf(result);
     }
 
-    private static ParseValue parseValue(List<String> lines, int startIndex, String first) {
-        String value = first == null ? "" : first.trim();
-        int index = startIndex;
-        if (value.startsWith("\"\"\"") || value.startsWith("'''")) {
-            String delimiter = value.startsWith("\"\"\"") ? "\"\"\"" : "'''";
-            StringBuilder text = new StringBuilder();
-            String remaining = value.substring(3);
-            while (true) {
-                int end = remaining.indexOf(delimiter);
-                if (end >= 0) {
-                    text.append(remaining, 0, end);
-                    return new ParseValue(new JsonPrimitive(text.toString()), index);
-                }
-                text.append(remaining);
-                if (index + 1 >= lines.size()) {
-                    return new ParseValue(new JsonPrimitive(text.toString()), index);
-                }
-                text.append('\n');
-                index++;
-                remaining = lines.get(index);
-            }
-        }
-        if (value.startsWith("[") || value.startsWith("{")) {
-            StringBuilder raw = new StringBuilder(value);
-            int delta = containerDelta(value);
-            while (delta > 0 && index + 1 < lines.size()) {
-                index++;
-                String next = stripComment(lines.get(index)).trim();
-                if (next.isEmpty()) {
-                    continue;
-                }
-                raw.append('\n').append(next);
-                delta += containerDelta(next);
-            }
-            return new ParseValue(parseScalar(raw.toString().trim()), index);
-        }
-        return new ParseValue(parseScalar(value), index);
+    private static boolean startsWith(List<String> path, List<String> prefix) {
+        return path.size() >= prefix.size() && path.subList(0, prefix.size()).equals(prefix);
     }
 
-    private static int containerDelta(String text) {
-        int delta = 0;
-        boolean inString = false;
-        char quote = 0;
-        boolean escaping = false;
-        for (int i = 0; i < text.length(); i++) {
-            char c = text.charAt(i);
-            if (inString) {
-                if (escaping) {
-                    escaping = false;
-                    continue;
+    private static String formatHeader(List<String> path) {
+        List<String> names = new ArrayList<>();
+        for (String name : path) names.add(name.matches("[A-Za-z_][A-Za-z0-9_-]*") ? name : new JsonPrimitive(name).toString());
+        return "[" + String.join(".", names) + "]";
+    }
+
+    private record HeaderFrame(int indentation, List<String> node, String relation) {
+    }
+
+    private static JsonObject readNode(JsonObject document) {
+        JsonObject out = new JsonObject();
+        for (var entry : document.entrySet()) {
+            if (!isSection(entry.getKey())) out.add(entry.getKey(), entry.getValue().deepCopy());
+        }
+        for (String section : List.of("download", "basic")) {
+            JsonObject fields = object(document, section);
+            if (fields != null) {
+                for (var entry : fields.entrySet()) put(out, entry.getKey(), entry.getValue().deepCopy());
+            }
+        }
+        for (String relation : List.of("dependencies", "conflicts")) {
+            JsonObject entries = new JsonObject();
+            collectRelation(get(out, relation), entries);
+            collectRelation(get(document, relation), entries);
+            put(out, relation, entries.entrySet().isEmpty() ? new JsonPrimitive("") : entries);
+        }
+        for (String section : List.of("DisplayName", "tip")) {
+            JsonElement value = get(document, section);
+            if (value != null) put(out, section, value.deepCopy());
+            else if (get(out, section) == null) out.add(section, new JsonObject());
+        }
+        return out;
+    }
+
+    private static void collectRelation(JsonElement value, JsonObject entries) {
+        if (value == null || value.isJsonNull()) return;
+        if (value.isJsonPrimitive()) {
+            for (String name : value.getAsString().split("[,\\n\\r]+")) {
+                String trimmed = name.trim();
+                if (!trimmed.isEmpty()) entries.addProperty(trimmed, trimmed);
+            }
+        } else if (value.isJsonArray()) {
+            for (JsonElement child : value.getAsJsonArray()) collectRelation(child, entries);
+        } else {
+            for (var entry : value.getAsJsonObject().entrySet()) {
+                JsonElement child = entry.getValue();
+                if (child.isJsonObject()) {
+                    entries.add(entry.getKey(), child.getAsJsonObject().entrySet().isEmpty()
+                        ? new JsonPrimitive(entry.getKey()) : readNode(child.getAsJsonObject()));
+                } else if (child.isJsonNull()) {
+                    entries.addProperty(entry.getKey(), entry.getKey());
+                } else {
+                    collectRelation(child, entries);
                 }
-                if (c == '\\') {
-                    escaping = true;
-                    continue;
-                }
-                if (c == quote) {
-                    inString = false;
-                }
+            }
+        }
+    }
+
+    private static void updateNode(JsonObject document, JsonObject value) {
+        JsonObject previous = readNode(document);
+        for (var entry : previous.entrySet()) {
+            if (get(value, entry.getKey()) == null) removeField(document, entry.getKey());
+        }
+        for (var entry : value.entrySet()) {
+            String key = entry.getKey();
+            JsonElement current = entry.getValue();
+            JsonElement before = get(previous, key);
+            if (before != null && before.toString().equals(current.toString())) continue;
+            if (key.equalsIgnoreCase("dependencies") || key.equalsIgnoreCase("conflicts")) {
+                JsonObject relation = writeRelation(current, object(document, key));
+                String spelling = actualKey(document, key);
+                removeField(document, key);
+                if (!relation.entrySet().isEmpty()) document.add(spelling, relation);
                 continue;
             }
-            if (c == '"' || c == '\'') {
-                inString = true;
-                quote = c;
-                continue;
-            }
-            if (c == '[' || c == '{') {
-                delta++;
-            } else if (c == ']' || c == '}') {
-                delta--;
-            }
-        }
-        return delta;
-    }
-
-    private static JsonElement parseScalar(String raw) {
-        String value = raw == null ? "" : raw.trim();
-        if (value.isEmpty()) {
-            return new JsonPrimitive("");
-        }
-        if (value.startsWith("\"") && value.endsWith("\"") && value.length() >= 2) {
-            return new JsonPrimitive(unescapeQuoted(value.substring(1, value.length() - 1)));
-        }
-        if (value.startsWith("'") && value.endsWith("'") && value.length() >= 2) {
-            return new JsonPrimitive(value.substring(1, value.length() - 1));
-        }
-        if ("true".equalsIgnoreCase(value)) {
-            return new JsonPrimitive(true);
-        }
-        if ("false".equalsIgnoreCase(value)) {
-            return new JsonPrimitive(false);
-        }
-        if ("{}".equals(value)) {
-            return new JsonObject();
-        }
-        if ("[]".equals(value)) {
-            return new JsonArray();
-        }
-        if (value.startsWith("[") && value.endsWith("]")) {
-            return parseArray(value.substring(1, value.length() - 1));
-        }
-        if (value.startsWith("{") && value.endsWith("}")) {
-            try {
-                return COMPACT_GSON.fromJson(value, JsonObject.class);
-            } catch (Exception ignored) {
-            }
-        }
-        try {
-            if (value.contains(".")) {
-                return new JsonPrimitive(Double.parseDouble(value));
-            }
-            return new JsonPrimitive(Long.parseLong(value));
-        } catch (NumberFormatException ignored) {
-        }
-        return new JsonPrimitive(value);
-    }
-
-    private static JsonArray parseArray(String inner) {
-        JsonArray result = new JsonArray();
-        List<String> tokens = splitArrayTokens(inner);
-        for (String token : tokens) {
-            String trimmed = token.trim();
-            if (trimmed.isEmpty()) {
-                continue;
-            }
-            result.add(parseScalar(trimmed));
-        }
-        return result;
-    }
-
-    private static List<String> splitArrayTokens(String text) {
-        List<String> tokens = new ArrayList<>();
-        StringBuilder current = new StringBuilder();
-        boolean inString = false;
-        char quote = 0;
-        boolean escaping = false;
-        int bracketDepth = 0;
-        int braceDepth = 0;
-        for (int i = 0; i < text.length(); i++) {
-            char c = text.charAt(i);
-            if (inString) {
-                current.append(c);
-                if (escaping) {
-                    escaping = false;
-                    continue;
+            JsonObject container = fieldContainer(document, key);
+            if (container == null) {
+                if (current.isJsonObject() && !isSection(key)) {
+                    container = document;
+                } else if (key.equalsIgnoreCase("DisplayName") || key.equalsIgnoreCase("tip")) {
+                    if (current.isJsonObject() && current.getAsJsonObject().entrySet().isEmpty()) continue;
+                    container = document;
+                } else {
+                    String section = DOWNLOAD_KEYS.contains(key.toLowerCase(Locale.ROOT)) ? "download" : "basic";
+                    container = object(document, section);
+                    if (container == null) {
+                        container = new JsonObject();
+                        document.add(actualKey(document, section), container);
+                    }
                 }
-                if (c == '\\') {
-                    escaping = true;
-                    continue;
-                }
-                if (c == quote) {
-                    inString = false;
-                }
-                continue;
             }
-            if (c == '"' || c == '\'') {
-                inString = true;
-                quote = c;
-                current.append(c);
-                continue;
-            }
-            if (c == '[') {
-                bracketDepth++;
-                current.append(c);
-                continue;
-            }
-            if (c == ']') {
-                bracketDepth = Math.max(0, bracketDepth - 1);
-                current.append(c);
-                continue;
-            }
-            if (c == '{') {
-                braceDepth++;
-                current.append(c);
-                continue;
-            }
-            if (c == '}') {
-                braceDepth = Math.max(0, braceDepth - 1);
-                current.append(c);
-                continue;
-            }
-            if (bracketDepth == 0 && braceDepth == 0 && (c == ',' || c == '\n' || c == '\r')) {
-                String token = current.toString().trim();
-                if (!token.isEmpty()) {
-                    tokens.add(token);
-                }
-                current.setLength(0);
-                continue;
-            }
-            current.append(c);
-        }
-        String token = current.toString().trim();
-        if (!token.isEmpty()) {
-            tokens.add(token);
-        }
-        return tokens;
-    }
-
-    private static String unescapeQuoted(String text) {
-        return text
-            .replace("\\n", "\n")
-            .replace("\\r", "\r")
-            .replace("\\t", "\t")
-            .replace("\\\"", "\"")
-            .replace("\\\\", "\\");
-    }
-
-    private static String stripComment(String line) {
-        if (line == null || line.isEmpty()) {
-            return "";
-        }
-        StringBuilder out = new StringBuilder(line.length());
-        boolean inString = false;
-        char quote = 0;
-        boolean escaping = false;
-        for (int i = 0; i < line.length(); i++) {
-            char c = line.charAt(i);
-            if (inString) {
-                out.append(c);
-                if (escaping) {
-                    escaping = false;
-                    continue;
-                }
-                if (c == '\\') {
-                    escaping = true;
-                    continue;
-                }
-                if (c == quote) {
-                    inString = false;
-                }
-                continue;
-            }
-            if (c == '"' || c == '\'') {
-                inString = true;
-                quote = c;
-                out.append(c);
-                continue;
-            }
-            if (c == '#') {
-                break;
-            }
-            if (c == '/' && i + 1 < line.length() && line.charAt(i + 1) == '/') {
-                break;
-            }
-            out.append(c);
-        }
-        return out.toString();
-    }
-
-    private static int countLeadingSpaces(String text) {
-        int count = 0;
-        while (count < text.length() && text.charAt(count) == ' ') {
-            count++;
-        }
-        return count;
-    }
-
-    private static void indentLine(StringBuilder out, int indent) {
-        for (int i = 0; i < indent; i++) {
-            out.append(' ');
+            put(container, key, current.deepCopy());
         }
     }
 
-    private static JsonObject asObject(JsonElement element) {
-        if (element != null && element.isJsonObject()) {
-            return element.getAsJsonObject();
+    private static JsonObject writeRelation(JsonElement value, JsonObject original) {
+        JsonObject semantic = new JsonObject();
+        collectRelation(value, semantic);
+        JsonObject out = new JsonObject();
+        for (var entry : semantic.entrySet()) {
+            JsonElement child = entry.getValue();
+            JsonElement before = original == null ? null : original.get(entry.getKey());
+            if (child.isJsonObject()) {
+                JsonObject branch = before != null && before.isJsonObject() ? before.deepCopy().getAsJsonObject() : new JsonObject();
+                updateNode(branch, child.getAsJsonObject());
+                out.add(entry.getKey(), branch);
+            } else {
+                out.add(entry.getKey(), before != null && (!before.isJsonObject() || before.getAsJsonObject().entrySet().isEmpty())
+                    ? before.deepCopy() : new JsonObject());
+            }
         }
-        return new JsonObject();
+        return out;
     }
 
-    private static String unquoteKey(String text) {
-        if (text == null) {
-            return "";
+    private static JsonObject fieldContainer(JsonObject document, String key) {
+        for (String section : List.of("basic", "download")) {
+            JsonObject fields = object(document, section);
+            if (fields != null && get(fields, key) != null) return fields;
         }
-        String key = text.trim();
-        if (isQuotedKey(key)) {
-            return unescapeQuoted(key.substring(1, key.length() - 1));
+        return !key.equalsIgnoreCase("basic") && !key.equalsIgnoreCase("download") && get(document, key) != null ? document : null;
+    }
+
+    private static void removeField(JsonObject document, String key) {
+        for (String section : List.of("basic", "download")) {
+            JsonObject fields = object(document, section);
+            if (fields != null) fields.remove(actualKey(fields, key));
         }
+        if (!key.equalsIgnoreCase("basic") && !key.equalsIgnoreCase("download")) document.remove(actualKey(document, key));
+    }
+
+    private static boolean isSection(String key) {
+        return key.equalsIgnoreCase("basic") || key.equalsIgnoreCase("download")
+            || key.equalsIgnoreCase("dependencies") || key.equalsIgnoreCase("conflicts")
+            || key.equalsIgnoreCase("DisplayName") || key.equalsIgnoreCase("tip");
+    }
+
+    private static JsonObject object(JsonObject value, String key) {
+        JsonElement found = get(value, key);
+        return found != null && found.isJsonObject() ? found.getAsJsonObject() : null;
+    }
+
+    private static JsonElement get(JsonObject value, String key) {
+        return value.get(actualKey(value, key));
+    }
+
+    private static void put(JsonObject value, String key, JsonElement element) {
+        value.add(actualKey(value, key), element);
+    }
+
+    private static String actualKey(JsonObject value, String key) {
+        if (value.has(key)) return key;
+        for (String candidate : value.keySet()) if (candidate.equalsIgnoreCase(key)) return candidate;
         return key;
-    }
-
-    private static final class ParseValue {
-        final JsonElement value;
-        final int nextIndex;
-
-        private ParseValue(JsonElement value, int nextIndex) {
-            this.value = value;
-            this.nextIndex = nextIndex;
-        }
-    }
-
-    private static final class GenericFrame {
-        final int indent;
-        final JsonObject obj;
-        final String name;
-
-        private GenericFrame(int indent, JsonObject obj, String name) {
-            this.indent = indent;
-            this.obj = obj;
-            this.name = name;
-        }
-    }
-
-    private enum FrameType {
-        ROOT,
-        NODE,
-        RELATION_CONTAINER,
-        SECTION
-    }
-
-    private static final class Frame {
-        final int indent;
-        final FrameType type;
-        final DlcNode node;
-        final String section;
-
-        private Frame(int indent, FrameType type, DlcNode node, String section) {
-            this.indent = indent;
-            this.type = type;
-            this.node = node;
-            this.section = section;
-        }
-
-        static Frame root(DlcNode node) {
-            return new Frame(-1, FrameType.ROOT, node, null);
-        }
-
-        static Frame node(int indent, DlcNode node) {
-            return new Frame(indent, FrameType.NODE, node, null);
-        }
-
-        static Frame relationContainer(int indent, DlcNode node, String section) {
-            return new Frame(indent, FrameType.RELATION_CONTAINER, node, section);
-        }
-
-        static Frame section(int indent, DlcNode node, String section) {
-            return new Frame(indent, FrameType.SECTION, node, section);
-        }
-    }
-
-    private static final class DlcNode {
-        final JsonObject download = new JsonObject();
-        final JsonObject basic = new JsonObject();
-        final JsonObject displayName = new JsonObject();
-        final JsonObject tip = new JsonObject();
-        final Set<String> dependencyEntries = new java.util.LinkedHashSet<>();
-        final Set<String> conflictEntries = new java.util.LinkedHashSet<>();
-        final Map<String, DlcNode> dependencies = new LinkedHashMap<>();
-
-        JsonObject toJsonObject() {
-            JsonObject out = new JsonObject();
-            for (Map.Entry<String, JsonElement> entry : download.entrySet()) {
-                out.add(entry.getKey(), entry.getValue());
-            }
-            for (Map.Entry<String, JsonElement> entry : basic.entrySet()) {
-                out.add(entry.getKey(), entry.getValue());
-            }
-            JsonElement basicDeps = out.get("dependencies");
-            if (basicDeps != null && !basicDeps.isJsonNull()) {
-                collectPrimitiveNames(basicDeps, dependencyEntries);
-                out.remove("dependencies");
-            }
-            JsonElement basicConflicts = out.get("conflicts");
-            if (basicConflicts != null && !basicConflicts.isJsonNull()) {
-                collectPrimitiveNames(basicConflicts, conflictEntries);
-                out.remove("conflicts");
-            }
-            if (!dependencyEntries.isEmpty() || !dependencies.isEmpty()) {
-                JsonObject deps = new JsonObject();
-                for (String name : dependencyEntries) {
-                    if (name != null && !name.isBlank()) {
-                        deps.add(name, new JsonPrimitive(name));
-                    }
-                }
-                for (Map.Entry<String, DlcNode> entry : dependencies.entrySet()) {
-                    deps.add(entry.getKey(), entry.getValue().toJsonObject());
-                }
-                out.add("dependencies", deps);
-            } else if (!out.has("dependencies")) {
-                out.addProperty("dependencies", "");
-            }
-            if (!conflictEntries.isEmpty()) {
-                JsonObject conflicts = new JsonObject();
-                for (String name : conflictEntries) {
-                    if (name != null && !name.isBlank()) {
-                        conflicts.add(name, new JsonPrimitive(name));
-                    }
-                }
-                out.add("conflicts", conflicts);
-            } else if (!out.has("conflicts")) {
-                out.addProperty("conflicts", "");
-            }
-            if (!displayName.entrySet().isEmpty()) {
-                out.add("DisplayName", displayName);
-            } else if (!out.has("DisplayName")) {
-                out.add("DisplayName", new JsonObject());
-            }
-            if (!tip.entrySet().isEmpty()) {
-                out.add("tip", tip);
-            } else if (!out.has("tip")) {
-                out.add("tip", new JsonObject());
-            }
-            return out;
-        }
     }
 }

@@ -36,7 +36,7 @@ object DlcRuntimeState {
             return
         }
         for (item in items) {
-            item?.getId()?.let(pendingRestart::add)
+            item.getId()?.let(pendingRestart::add)
         }
     }
 
@@ -46,7 +46,7 @@ object DlcRuntimeState {
             return
         }
         for (item in items) {
-            item?.getId()?.let(pendingReload::add)
+            item.getId()?.let(pendingReload::add)
         }
     }
 
@@ -290,7 +290,7 @@ object DlcRuntimeState {
         val targetIdentifiers = HashSet<String>()
         val queue = ArrayDeque<DlcItem>()
         for (item in targets) {
-            val identifier = item?.getIdentifier()
+            val identifier = item.getIdentifier()
             if (identifier != null) {
                 targetIdentifiers.add(identifier)
                 queue.add(item)
@@ -300,7 +300,7 @@ object DlcRuntimeState {
         val processed = HashSet<String>()
         while (!queue.isEmpty()) {
             val item = queue.poll()
-            val identifier = item?.getIdentifier()
+            val identifier = item.getIdentifier()
             if (identifier == null) {
                 continue
             }
@@ -345,7 +345,7 @@ object DlcRuntimeState {
         val plannedById = LinkedHashMap<String, DlcItem>()
         val queue = ArrayDeque<DlcItem>()
         for (item in targets) {
-            val identifier = item?.getIdentifier()
+            val identifier = item.getIdentifier()
             if (identifier.isNullOrBlank()) {
                 continue
             }

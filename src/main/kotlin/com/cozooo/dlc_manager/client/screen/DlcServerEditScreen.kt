@@ -1,134 +1,38 @@
 package com.cozooo.dlc_manager.client.screen
 
-import com.cozooo.dlc_manager.client.server.DlcServerEntry
-import com.cozooo.dlc_manager.core.DlcConfig
-import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.GuiGraphics
-import net.minecraft.client.gui.components.Button
-import net.minecraft.client.gui.components.EditBox
+import com.cozooo.dlc_manager.platform.DlcTextCompat
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
+import com.cozooo.dlc_manager.client.server.DlcServerEntry
+import com.cozooo.dlc_manager.core.DlcConfig
 import java.util.function.Consumer
-
-class DlcServerEditScreen(
-    private val parent: Screen?,
-    private val editing: DlcServerEntry?,
-    private val onSave: Consumer<DlcServerEntry>?,
-) : Screen(Component.translatable("dlc_manager.server.edit_title")) {
-    private var nameField: EditBox? = null
-    private var hostField: EditBox? = null
-    private var portField: EditBox? = null
-    private var passwordField: EditBox? = null
-    private var saveButton: Button? = null
-    private var cancelButton: Button? = null
-
-    override fun init() {
-        val fieldWidth = minOf(260, width - 40)
-        val fieldHeight = 18
-        val centerX = width / 2
-        val startY = height / 2 - 60
-        val gap = 22
-
-        nameField = EditBox(font, centerX - fieldWidth / 2, startY, fieldWidth, fieldHeight, Component.empty())
-        hostField = EditBox(font, centerX - fieldWidth / 2, startY + gap, fieldWidth, fieldHeight, Component.empty())
-        portField = EditBox(font, centerX - fieldWidth / 2, startY + gap * 2, fieldWidth, fieldHeight, Component.empty())
-        passwordField = EditBox(font, centerX - fieldWidth / 2, startY + gap * 3, fieldWidth, fieldHeight, Component.empty())
-        hostField!!.setMaxLength(255)
-
-        if (editing != null) {
-            editing.name?.let { nameField!!.value = it }
-            editing.host?.let { hostField!!.value = it }
-            if (editing.port > 0) {
-                portField!!.value = editing.port.toString()
-            }
-            editing.password?.let { passwordField!!.value = it }
-        } else {
-            portField!!.value = DlcConfig.getServerPort().toString()
-        }
-
-        addRenderableWidget(nameField!!)
-        addRenderableWidget(hostField!!)
-        addRenderableWidget(portField!!)
-        addRenderableWidget(passwordField!!)
-
-        val buttonWidth = 90
-        val buttonHeight = 20
-        val buttonY = height / 2 + 40
-        val save = Button.builder(Component.translatable("dlc_manager.server.save")) { handleSave() }
-            .bounds(centerX - buttonWidth - 6, buttonY, buttonWidth, buttonHeight)
-            .build()
-        val cancel = Button.builder(Component.translatable("gui.cancel")) { Minecraft.getInstance().setScreen(parent) }
-            .bounds(centerX + 6, buttonY, buttonWidth, buttonHeight)
-            .build()
-        saveButton = save
-        cancelButton = cancel
-        addRenderableWidget(save)
-        addRenderableWidget(cancel)
-        updateSaveButtonState()
+class DlcServerEditScreen(parent: Screen?, private val editing: DlcServerEntry?, private val onSave: Consumer<DlcServerEntry>?) : DlcPageScreen(DlcUiPage.SERVER_EDIT, parent, DlcTextCompat.translatable("dlc_manager.server.edit_title")) {
+    private var name = editing?.name.orEmpty()
+    private var host = editing?.host.orEmpty()
+    private var port = (editing?.port?.takeIf { it > 0 } ?: DlcConfig.getServerPort()).toString()
+    private var password = editing?.password.orEmpty()
+    private var saveButton: DlcUiButton? = null
+    override fun buildPage() {
+        val form = node(content, "div", "page-dialog")
+        input(form, tr("dlc_manager.server.name"), name, "text") { name = it }
+        input(form, tr("dlc_manager.server.host"), host, "text") { host = it; updatePage() }
+        input(form, tr("dlc_manager.server.port"), port, "text") { port = it; updatePage() }
+        input(form, tr("dlc_manager.server.password"), password, "password") { password = it }
+        action(footer, tr("gui.cancel")) { onClose() }
+        saveButton = primary(tr("dlc_manager.server.save")) { save() }
+        updatePage()
     }
-
-    override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick)
-        val centerX = width / 2
-        guiGraphics.drawCenteredString(font, title, centerX, height / 2 - 90, 0xFFFFFF)
-        drawFieldLabel(guiGraphics, "dlc_manager.server.name", nameField)
-        drawFieldLabel(guiGraphics, "dlc_manager.server.host", hostField)
-        drawFieldLabel(guiGraphics, "dlc_manager.server.port", portField)
-        drawFieldLabel(guiGraphics, "dlc_manager.server.password", passwordField)
-        updateSaveButtonState()
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
+    private fun portNumber(): Int = port.trim().toIntOrNull() ?: -1
+    override fun updatePage() {
+        val valid = portNumber() in 1..65535
+        saveButton?.setEnabled(host.isNotBlank() && valid)
+        status(if (valid) "" else tr("dlc_manager.ui.invalid_port"))
     }
-
-    override fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int): Boolean {
-        if (nameField!!.keyPressed(keyCode, scanCode, modifiers)) return true
-        if (hostField!!.keyPressed(keyCode, scanCode, modifiers)) return true
-        if (portField!!.keyPressed(keyCode, scanCode, modifiers)) return true
-        if (passwordField!!.keyPressed(keyCode, scanCode, modifiers)) return true
-        return super.keyPressed(keyCode, scanCode, modifiers)
-    }
-
-    override fun charTyped(codePoint: Char, modifiers: Int): Boolean {
-        if (nameField!!.charTyped(codePoint, modifiers)) return true
-        if (hostField!!.charTyped(codePoint, modifiers)) return true
-        if (portField!!.charTyped(codePoint, modifiers)) return true
-        if (passwordField!!.charTyped(codePoint, modifiers)) return true
-        return super.charTyped(codePoint, modifiers)
-    }
-
-    private fun drawFieldLabel(guiGraphics: GuiGraphics, key: String, field: EditBox?) {
-        if (field == null) {
-            return
-        }
-        val labelWidth = font.width(Component.translatable(key))
-        var x = field.x - labelWidth - 8
-        if (x < 8) {
-            x = 8
-        }
-        val y = field.y + (field.height - font.lineHeight) / 2
-        guiGraphics.drawString(font, Component.translatable(key), x, y, 0xC8C8C8, false)
-    }
-
-    private fun updateSaveButtonState() {
-        val host = hostField
-        val button = saveButton
-        if (button != null) {
-            button.active = host != null && host.value.isNotBlank()
-        }
-    }
-
-    private fun handleSave() {
+    private fun save() {
+        if (host.isBlank() || portNumber() !in 1..65535) return
         val entry = editing ?: DlcServerEntry()
-        entry.name = nameField!!.value.trim()
-        entry.host = hostField!!.value.trim()
-        entry.password = passwordField!!.value.trim()
-        entry.useTcp = true
-        var port = DlcConfig.getServerPort()
-        try {
-            port = portField!!.value.trim().toInt()
-        } catch (_: NumberFormatException) {
-        }
-        entry.port = port
+        entry.name = name.trim(); entry.host = host.trim(); entry.port = portNumber(); entry.password = password.trim(); entry.useTcp = true
         onSave?.accept(entry)
-        Minecraft.getInstance().setScreen(parent)
+        onClose()
     }
 }

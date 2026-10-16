@@ -3,6 +3,7 @@ import QuickLookUI
 
 final class PreviewViewController: NSViewController, QLPreviewingController {
     private var textView = NSTextView()
+    private var request = UUID()
 
     override func loadView() {
         let scrollView = NSTextView.scrollableTextView()
@@ -10,71 +11,64 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
         scrollView.hasHorizontalScroller = true
         scrollView.autohidesScrollers = true
         scrollView.borderType = .noBorder
-
-        if let tv = scrollView.documentView as? NSTextView {
-            textView = tv
+        if let textView = scrollView.documentView as? NSTextView {
+            self.textView = textView
         } else {
-            textView = NSTextView(frame: .zero)
             scrollView.documentView = textView
         }
-
         textView.isEditable = false
         textView.isSelectable = true
         textView.isRichText = true
         textView.drawsBackground = true
-        textView.backgroundColor = NSColor.textBackgroundColor
+        textView.backgroundColor = .textBackgroundColor
         textView.textContainerInset = NSSize(width: 14, height: 14)
-        textView.isAutomaticLinkDetectionEnabled = true
-        textView.string = ""
-
+        textView.isAutomaticLinkDetectionEnabled = false
+        textView.isAutomaticSpellingCorrectionEnabled = false
+        textView.isContinuousSpellCheckingEnabled = false
+        textView.isGrammarCheckingEnabled = false
+        textView.isHorizontallyResizable = true
+        textView.textContainer?.widthTracksTextView = false
+        textView.textContainer?.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         self.view = scrollView
     }
 
     func preparePreviewOfFile(at url: URL, completionHandler handler: @escaping (Error?) -> Void) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                let content = try self.loadText(from: url)
-                let rendered = DCHighlighter.highlight(content)
-                DispatchQueue.main.async {
-                    self.textView.textStorage?.setAttributedString(rendered)
-                    handler(nil)
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    self.renderError("Failed to preview:\n\(error.localizedDescription)")
-                    handler(nil)
+        DispatchQueue.main.async {
+            _ = self.view
+            let request = UUID()
+            self.request = request
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let content = try DCTextLoader.read(url)
+                    let tokenizer = try DCTokenizer(definition: DCLanguageDefinition.load())
+                    let tokens = tokenizer.tokenize(content.text)
+                    DispatchQueue.main.async {
+                        if self.request == request {
+                            let rendered = NSMutableAttributedString(attributedString: DCHighlighter.highlight(content.text, tokens: tokens))
+                            if content.truncated {
+                                rendered.append(NSAttributedString(string: "\n\nPreview limited to the first 2 MiB. Open the file in an editor to view the rest.", attributes: [
+                                    .font: DCTheme.font,
+                                    .foregroundColor: NSColor.secondaryLabelColor
+                                ]))
+                            }
+                            self.textView.textStorage?.setAttributedString(rendered)
+                        }
+                        handler(nil)
+                    }
+                } catch {
+                    DispatchQueue.main.async {
+                        if self.request == request { self.renderError("Failed to preview:\n\(error.localizedDescription)") }
+                        handler(nil)
+                    }
                 }
             }
         }
-    }
-
-    private func loadText(from url: URL) throws -> String {
-        let data = try Data(contentsOf: url, options: [.mappedIfSafe])
-        let encodings: [String.Encoding] = [
-            .utf8,
-            .utf16,
-            .utf16LittleEndian,
-            .utf16BigEndian,
-            .utf32,
-            .unicode,
-            .ascii,
-            .isoLatin1
-        ]
-        for encoding in encodings {
-            if let text = String(data: data, encoding: encoding) {
-                return text
-            }
-        }
-        throw NSError(domain: "DCQuickLook", code: 1001, userInfo: [
-            NSLocalizedDescriptionKey: "Unsupported text encoding"
-        ])
     }
 
     private func renderError(_ message: String) {
-        let text = NSMutableAttributedString(string: message, attributes: [
-            .font: NSFont.monospacedSystemFont(ofSize: 12, weight: .regular),
+        textView.textStorage?.setAttributedString(NSAttributedString(string: message, attributes: [
+            .font: DCTheme.font,
             .foregroundColor: NSColor.systemRed
-        ])
-        textView.textStorage?.setAttributedString(text)
+        ]))
     }
 }

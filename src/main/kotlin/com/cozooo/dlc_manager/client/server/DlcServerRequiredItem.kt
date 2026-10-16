@@ -8,7 +8,6 @@ class DlcServerRequiredItem {
     @JvmField var tips: MutableMap<String, String> = HashMap()
     @JvmField var dependencies: MutableList<String> = ArrayList()
     @JvmField var hidden: Boolean = false
-    @JvmField var userRemoved: Boolean = false
     @JvmField var hasFile: Boolean = false
     @JvmField var needsApply: Boolean = false
     @JvmField var applied: Boolean = false

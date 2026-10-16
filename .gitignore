@@ -29,6 +29,7 @@ bin/
 .gradle
 **/build/
 !src/**/build/
+**/.fabric/
 
 # Ignore Gradle GUI config
 gradle-app.setting
@@ -56,9 +57,6 @@ build/
 !.idea/vcs.xml
 output/
 /test/
-/tools/obf/jar-obf-lib/
-/tools/obf/obf-lib/
-/tools/obf/jar-obfuscator-temp/
 tools/editor/dc-quicklook/Derived/
 tools/dc-editor/node_modules/
 tools/dc-editor/dist/
@@ -74,7 +72,22 @@ tools/dc-editor/tsconfig.node.tsbuildinfo
 tools/dc-editor/OPERATION_TRACKING.txt
 debug.log
 
-AGENT.md
 PLAN.md
 samples/
 .idea/gradle.xml
+
+# Local IDE state and release credentials
+**/xcuserdata/
+*.xcuserstate
+.env
+.env.*
+!.env.example
+*.p8
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.mobileprovision
+
+# Local maintenance note
+/RESOURCE_STORAGE.md

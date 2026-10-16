@@ -14,8 +14,7 @@ import {
 } from "../models/editor";
 import {
   configurableDocumentTypes,
-  documentSchemas,
-  internalDocumentTypes
+  documentSchemas
 } from "../schemas/documentSchemas";
 import { EditorBackend } from "../services/backend/EditorBackend";
 import { LocalBackend } from "../services/backend/LocalBackend";
@@ -228,7 +227,7 @@ function validateDocumentFileName(name: string): ValidationIssue[] {
 }
 
 function isConfigurableType(type: DocumentType): boolean {
-  return !internalDocumentTypes.has(type);
+  return configurableDocumentTypes.includes(type);
 }
 
 function schemaHasField(schema: DocumentSchema, sectionKey: string, fieldKey: string): boolean {
@@ -694,7 +693,7 @@ export function App() {
     if (!editingDocument) {
       return;
     }
-    const nextRaw = editingDocument.type === "update"
+    const nextRaw = (editingDocument.type === "update" || editingDocument.type === "required")
       ? serializeStructuredDocumentWithPreservedRaw(editingDocument.rawText, model, documentSchemas[editingDocument.type], { applyImplicitDefaultLocale: true })
       : await backend.serializeForSave(editingDocument.type, model);
     preserveStructuredDraftRef.current = editingDocument.id;
@@ -722,7 +721,7 @@ export function App() {
     }
     try {
       const textToSave = editingDocument.structuredEnabled && editingDocument.structuredModel
-        ? editingDocument.type === "update"
+        ? (editingDocument.type === "update" || editingDocument.type === "required")
           ? serializeStructuredDocumentWithPreservedRaw(editingDocument.rawText, editingDocument.structuredModel, documentSchemas[editingDocument.type], { applyImplicitDefaultLocale: true })
           : await backend.serializeForSave(editingDocument.type, editingDocument.structuredModel)
         : editingDocument.rawText;
@@ -781,7 +780,7 @@ export function App() {
       const zip = new JSZip();
       for (const doc of documents) {
         const textToSave = doc.structuredEnabled && doc.structuredModel
-          ? doc.type === "update"
+          ? (doc.type === "update" || doc.type === "required")
             ? serializeStructuredDocumentWithPreservedRaw(doc.rawText, doc.structuredModel, documentSchemas[doc.type], { applyImplicitDefaultLocale: true })
             : await backend.serializeForSave(doc.type, doc.structuredModel)
           : doc.rawText;

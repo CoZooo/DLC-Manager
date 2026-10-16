@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.world
 
+import com.cozooo.dlc_manager.bootstrap.DlcStartupRequirements
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import com.cozooo.dlc_manager.core.DlcItem
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcScanner
@@ -35,7 +37,7 @@ object DlcWorldSync {
                 DlcServerService.updateServerStatus(server)
                 DlcServerApi.start(server)
                 DlcServerService.start()
-                startServerRequiredDownload(server)
+                if (!DlcStartupRequirements.usesEarlyInstallation()) startServerRequiredDownload(server)
             }
         }
         LifecycleEvent.SERVER_STOPPING.register {
@@ -47,8 +49,17 @@ object DlcWorldSync {
 
     private fun startServerRequiredDownload(server: MinecraftServer) {
         Thread({
-            val result = DlcServerDownloadService.downloadAndApplyRequired(DlcConfig.getDlcRoot())
-            if (result != null && result.didWork()) {
+            var didWork = false
+            for (root in DlcConfig.getDlcRoots()) {
+                val result = DlcServerDownloadService.downloadAndApplyRequired(root)
+                if (result?.success != true) {
+                    LOGGER.error("[dlc-manager] required resources could not be installed; stopping server: {}", result?.error ?: "no result")
+                    server.halt(false)
+                    return@Thread
+                }
+                didWork = didWork || result.didWork()
+            }
+            if (didWork) {
                 LOGGER.info("[dlc-manager] server required download applied, restarting server")
                 server.halt(false)
             }
@@ -88,6 +99,9 @@ object DlcWorldSync {
     }
 
     private fun updateLevelDat(worldRoot: Path, dataPacks: List<DlcItem?>) {
+        //? if >=26.1 {
+        //return
+        //?} else {
         val levelDat = worldRoot.resolve("level.dat")
         if (!Files.exists(levelDat)) {
             return
@@ -139,6 +153,7 @@ object DlcWorldSync {
             DlcNbtCompat.writeCompressed(root, levelDat)
         } catch (_: IOException) {
         }
+        //?}
     }
 
     @Throws(IOException::class)

@@ -5,7 +5,7 @@
 ### DLC Manager
 
 #### Changed
-- MaLiLib/MaFgLib library is now embedded (UNMODIFIED, through GNU LGPL).
+- In-game interfaces now use ApricityUI as an external dependency.
 
 ### DLC External Manager
 

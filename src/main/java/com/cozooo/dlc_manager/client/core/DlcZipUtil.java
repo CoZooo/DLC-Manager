@@ -6,6 +6,7 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.function.Predicate;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.stream.Stream;
@@ -34,6 +35,10 @@ public final class DlcZipUtil {
     }
 
     public static void extractZip(Path zipPath, Path targetRoot) throws IOException {
+        extractZip(zipPath, targetRoot, name -> true);
+    }
+
+    public static void extractZip(Path zipPath, Path targetRoot, Predicate<String> include) throws IOException {
         if (zipPath == null || !Files.isRegularFile(zipPath)) {
             throw new IOException("Archive is not a file");
         }
@@ -43,7 +48,8 @@ public final class DlcZipUtil {
         Path normalizedRoot = targetRoot.toAbsolutePath().normalize();
         Files.createDirectories(normalizedRoot);
         try (ZipFile zip = new ZipFile(zipPath.toFile(), StandardCharsets.UTF_8)) {
-            for (ZipEntry entry : zip.stream().sorted(Comparator.comparing(ZipEntry::getName)).toList()) {
+            for (ZipEntry entry : zip.stream().filter(entry -> include.test(entry.getName().replace('\\', '/')))
+                .sorted(Comparator.comparing(ZipEntry::getName)).toList()) {
                 extractEntry(zip, entry, normalizedRoot);
             }
         }

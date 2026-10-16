@@ -108,14 +108,6 @@ export function detectDocumentType(path?: string, text?: string): DocumentType {
     return "pack";
   }
 
-  if (
-    (name === "notice.dc" && (lowerPath.includes("/required/") || lowerPath.includes("\\required\\"))) ||
-    body.includes("[download_desc]") ||
-    body.includes("[manage_desc]")
-  ) {
-    return "required_notice";
-  }
-
   if (name === "notice.dc") {
     return "notice";
   }

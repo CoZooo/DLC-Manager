@@ -1,0 +1,19 @@
+{
+  "items": {
+    "mod:DLC|folder/example.jar": {
+      "enabled": true,
+      "root": "DLC",
+      "appliedTargets": [
+        "mods/example.jar"
+      ]
+    },
+    "config:../shared/DLC|settings/a.b.toml": {
+      "enabled": false,
+      "root": "../shared/DLC",
+      "appliedTargets": []
+    }
+  },
+  "category.with.literal.dots": {
+    "key.with.dots": "literal"
+  }
+}

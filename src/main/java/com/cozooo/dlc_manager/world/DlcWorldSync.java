@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.world;
 
+import com.cozooo.dlc_manager.bootstrap.DlcStartupRequirements;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcScanner;
@@ -39,7 +41,7 @@ public final class DlcWorldSync {
                 DlcServerService.updateServerStatus(server);
                 DlcServerApi.start(server);
                 DlcServerService.start();
-                startServerRequiredDownload(server);
+                if (!DlcStartupRequirements.usesEarlyInstallation()) startServerRequiredDownload(server);
             }
         });
         LifecycleEvent.SERVER_STOPPING.register(server -> {
@@ -51,8 +53,17 @@ public final class DlcWorldSync {
 
     private static void startServerRequiredDownload(MinecraftServer server) {
         new Thread(() -> {
-            DlcServerDownloadService.DownloadResult result = DlcServerDownloadService.downloadAndApplyRequired(DlcConfig.getDlcRoot());
-            if (result != null && result.didWork()) {
+            boolean didWork = false;
+            for (Path root : DlcConfig.getDlcRoots()) {
+                DlcServerDownloadService.DownloadResult result = DlcServerDownloadService.downloadAndApplyRequired(root);
+                if (result == null || !result.success) {
+                    LOGGER.error("[dlc-manager] required resources could not be installed; stopping server: {}", result == null ? "no result" : result.error);
+                    server.halt(false);
+                    return;
+                }
+                didWork |= result.didWork();
+            }
+            if (didWork) {
                 LOGGER.info("[dlc-manager] server required download applied, restarting server");
                 server.halt(false);
             }
@@ -90,6 +101,9 @@ public final class DlcWorldSync {
     }
 
     private static void updateLevelDat(Path worldRoot, List<DlcItem> dataPacks) {
+        //? if >=26.1 {
+        //if (DlcPlatformServices.mcVersion().startsWith("26.1")) return;
+        //?} else {
         Path levelDat = worldRoot.resolve("level.dat");
         if (!Files.exists(levelDat)) {
             return;
@@ -139,6 +153,7 @@ public final class DlcWorldSync {
             DlcNbtCompat.writeCompressed(root, levelDat);
         } catch (IOException ignored) {
         }
+        //?}
     }
 
     private static void copyRecursive(Path source, Path target) throws IOException {

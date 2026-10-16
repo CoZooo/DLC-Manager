@@ -9,8 +9,6 @@ import me.modmuss50.mpp.ModPublishExtension
 import me.modmuss50.mpp.ReleaseType
 import org.gradle.api.Project
 import org.gradle.api.JavaVersion
-import org.gradle.api.artifacts.Dependency
-import org.gradle.api.artifacts.ModuleDependency
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.file.FileCollection
 import org.gradle.api.tasks.Copy
@@ -18,7 +16,6 @@ import org.gradle.api.tasks.Delete
 import org.gradle.api.tasks.GradleBuild
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.SourceSetContainer
-import org.gradle.api.tasks.Sync
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.api.tasks.compile.JavaCompile
@@ -26,7 +23,7 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.gradle.language.jvm.tasks.ProcessResources
 import java.io.File
-import java.util.zip.ZipFile
+import java.util.Properties
 
 val DLC_MOD_ID = "dlc_manager"
 val DLC_MOD_NAME = "DLC Manager"
@@ -81,7 +78,6 @@ dlcFixedModProperties.forEach { (key, value) ->
     extensions.extraProperties[key] = value
 }
 
-// StoneCraft also applies Architectury Loom and mod-publish-plugin to each version project.
 apply(plugin = "gg.meza.stonecraft")
 
 fun stoneNodeLoader(nodeName: String): String =
@@ -206,51 +202,6 @@ fun Project.configureLocalDevMods(loaderName: String, minecraftVersion: String) 
     }
 }
 
-fun Project.runYGuardObfuscation(inputJar: File, outputJar: File, libDir: File) {
-    require(inputJar.exists()) { "Input jar not found: $inputJar" }
-    require(libDir.exists()) { "Library directory not found: $libDir" }
-
-    outputJar.parentFile.mkdirs()
-    val renameLogDir = outputJar.parentFile.resolve("log")
-    renameLogDir.mkdirs()
-    val renameLog = renameLogDir.resolve("${outputJar.name}.yguard-map.xml")
-    val keptScreenClasses = ZipFile(inputJar).use { zip ->
-        zip.entries().asSequence()
-            .filter { it.name.startsWith("com/cozooo/dlc_manager/client/screen/") && it.name.endsWith(".class") }
-            .map { it.name.removeSuffix(".class").replace('/', '.') }
-            .toList()
-    }
-
-    ant.withGroovyBuilder {
-        "taskdef"(
-            "name" to "yguard",
-            "classname" to "com.yworks.yguard.YGuardTask",
-            "classpath" to configurations.getByName("yguardTool").asPath,
-        )
-        "yguard" {
-            "inoutpair"("in" to inputJar.absolutePath, "out" to outputJar.absolutePath)
-            "externalclasses" {
-                "fileset"("dir" to libDir.absolutePath) {
-                    "include"("name" to "*.jar")
-                }
-            }
-            "rename"("logfile" to renameLog.absolutePath, "replaceClassNameStrings" to true) {
-                "adjust"("replaceContent" to true, "replaceContentSeparator" to ".", "replaceName" to false) {
-                    "include"("name" to "fabric.mod.json")
-                    "include"("name" to "*.mixins.json")
-                    "include"("name" to "**/*.mixins.json")
-                }
-                "keep" {
-                    keptScreenClasses.forEach { className ->
-                        "class"("name" to className, "methods" to "private", "fields" to "private")
-                    }
-                    "class"("methods" to "private", "fields" to "private")
-                }
-            }
-        }
-    }
-}
-
 repositories {
     mavenCentral()
 }
@@ -258,12 +209,6 @@ repositories {
 if (!rootProject.extensions.extraProperties.has("dlcRootBuildTasksConfigured")) {
     rootProject.extensions.extraProperties.set("dlcRootBuildTasksConfigured", true)
     rootProject.run {
-    configurations.maybeCreate("yguardTool")
-
-    dependencies {
-        "yguardTool"("com.yworks:yguard:4.1.1")
-    }
-
     tasks.withType<GradleBuild>().configureEach {
         startParameter.projectProperties.putAll(gradle.startParameter.projectProperties)
     }
@@ -288,56 +233,8 @@ if (!rootProject.extensions.extraProperties.has("dlcRootBuildTasksConfigured")) 
         }
     }
 
-    tasks.register("exportObfClasspathAll") {
-        group = "build"
-        description = "Export obfuscation classpath jars for all targets."
-        dependsOn(stoneNodes.map { ":$it:exportObfClasspath" })
-    }
-
-    tasks.register("obfuscateJarYguard") {
-        group = "build"
-        description = "Obfuscate one jar with yGuard. Use -PobfInput=... -PobfOutput=... -PobfLibDir=..."
-        doLast {
-            val inputValue = findProperty("obfInput")?.toString()
-            val outputValue = findProperty("obfOutput")?.toString()
-            val libValue = findProperty("obfLibDir")?.toString()
-            require(!inputValue.isNullOrBlank() && !outputValue.isNullOrBlank() && !libValue.isNullOrBlank()) {
-                "Missing required properties: -PobfInput=... -PobfOutput=... -PobfLibDir=..."
-            }
-            runYGuardObfuscation(file(inputValue), file(outputValue), file(libValue))
-        }
-    }
-
-    fun nodeTaskSuffix(nodeName: String): String =
-        stoneNodeLoader(nodeName).replaceFirstChar { it.uppercase() } +
-            stoneNodeMinecraftVersion(nodeName).filter(Char::isDigit)
-
-    fun registerObfuscationTask(nodeName: String): String {
-        val loaderName = stoneNodeLoader(nodeName)
-        val minecraftVersion = stoneNodeMinecraftVersion(nodeName)
-        val modVersion = prop("mod_version")
-        val taskName = "obfuscate${nodeTaskSuffix(nodeName)}Yguard"
-        tasks.register(taskName) {
-            group = "build"
-            description = "Obfuscate $loaderName $minecraftVersion output jar with yGuard."
-            dependsOn(":$nodeName:exportObfClasspath", ":$nodeName:remapJar")
-            doLast {
-                runYGuardObfuscation(
-                    file("output/$modVersion/DLC-Manager-$loaderName-$minecraftVersion-$modVersion.jar"),
-                    file("output/$modVersion/yGuard/DLC-Manager-$loaderName-$minecraftVersion-$modVersion.jar"),
-                    file("obf-lib/$loaderName-$minecraftVersion"),
-                )
-            }
-        }
-        return taskName
-    }
-
-    val obfuscationTasks = stoneNodes.map(::registerObfuscationTask)
-
-    tasks.register("obfuscateAllYguard") {
-        group = "build"
-        description = "Obfuscate all target jars with yGuard."
-        dependsOn(obfuscationTasks)
+    tasks.named("test") {
+        dependsOn(gradle.includedBuild("dlcBootstrap").task(":test"))
     }
 
     fun registerIncludedBuildTask(name: String, groupName: String, descriptionText: String, buildName: String, taskPath: String) {
@@ -423,6 +320,13 @@ if (stoneNodes.contains(project.name)) {
     version = prop("mod_version")
 
     repositories {
+        maven {
+            name = "ApricityUI"
+            url = uri("https://maven.sighs.cc/repository/maven-public/")
+            content {
+                includeGroup("com.sighs")
+            }
+        }
         maven {
             name = "Minecraft Libraries"
             url = uri("https://libraries.minecraft.net")
@@ -569,15 +473,40 @@ if (stoneNodes.contains(project.name)) {
     tasks.withType<KotlinCompile>().configureEach {
         compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(javaVersion.toString()))
     }
-    tasks.withType<Jar>().configureEach {
+    tasks.withType<org.gradle.jvm.tasks.Jar>().configureEach {
         exclude("rebel.xml")
+        if (name == "sourcesJar") {
+            from(rootProject.layout.projectDirectory.file("LICENSE")) { into("META-INF/dlc-manager") }
+        }
     }
     tasks.withType<ProcessResources>().configureEach {
         notCompatibleWithConfigurationCache("StoneCraft processResources actions capture Project.")
+        if (name == "processResources") {
+            from(rootProject.layout.projectDirectory.file("LICENSE")) { into("META-INF/dlc-manager") }
+            val updateDefinition = rootProject.layout.projectDirectory.file("src/main/resources/META-INF/dlc-manager/dlc-definition.json")
+            inputs.file(updateDefinition)
+            doLast {
+                val target = destinationDir.resolve("META-INF/dlc-manager/dlc-definition.json")
+                target.parentFile.mkdirs()
+                updateDefinition.asFile.copyTo(target, overwrite = true)
+            }
+        }
+    }
+
+    val stonecutterBuild = extensions.getByType<StonecutterBuildExtension>()
+    extensions.configure<SourceSetContainer> {
+        named("test") {
+            val sharedJava = if (stonecutterBuild.current.isActive) {
+                files(rootProject.layout.projectDirectory.dir("src/test/java"))
+            } else {
+                files(stonecutterBuild.tasks.generatedSourcesDir.dir("test/java"))
+                    .builtBy("stonecutterGenerateTest")
+            }
+            java.setSrcDirs(listOf(layout.projectDirectory.dir("src/test/java"), sharedJava))
+        }
     }
 
     if (kotlinEnabled) {
-        val stonecutterBuild = extensions.getByType<StonecutterBuildExtension>()
         extensions.configure<KotlinJvmProjectExtension> {
             sourceSets.named("main") {
                 kotlin.setSrcDirs(
@@ -626,7 +555,6 @@ if (stoneNodes.contains(project.name)) {
         ""
     }
     configure<ModSettingsExtension> {
-        // StoneCraft uses this directory for the normal client and its client-options task.
         runDirectory = rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/client")
         testClientRunDirectory = rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/client")
         testServerRunDirectory = rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/server")
@@ -653,9 +581,7 @@ if (stoneNodes.contains(project.name)) {
                 "neoforge_version_range" to optionalProp("neoforge_version_range").orEmpty(),
                 "neoforge_minecraft_version_range" to optionalProp("neoforge_minecraft_version_range").orEmpty(),
                 "kotlin_for_forge_dependency" to kffDependencyText,
-                "mafglib_version_range" to optionalProp("mafglib_version_range").orEmpty(),
-                "malilib_version_range" to optionalProp("malilib_version_range").orEmpty(),
-                "malilib_version" to optionalProp("malilib_version").orEmpty(),
+                "apricity_ui_version" to prop("apricity_ui_version"),
                 "pack_format" to prop("pack_format"),
             )
         )
@@ -682,7 +608,6 @@ if (stoneNodes.contains(project.name)) {
         }
     }
 
-    // StoneCraft configures client and GameTest runs. Only the normal server needs a separate directory.
     extensions.configure<LoomGradleExtensionAPI> {
         runs.named("server") {
             runDirectory.set(rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/server"))
@@ -691,23 +616,20 @@ if (stoneNodes.contains(project.name)) {
 
     configurations {
         maybeCreate("embedded")
-        if (loaderName == "fabric") {
-            maybeCreate("obfLib")
-            named("modApi") {
-                dependencies.removeIf {
-                    it.group == "net.fabricmc.fabric-api" &&
-                        it.name == "fabric-gametest-api-v1" &&
-                        it.version == prop("fabric_version")
-                }
-            }
-        }
-        if ((loaderName == "forge" || loaderName == "neoforge") && kotlinEnabled) {
+        if (loaderName == "neoforge" && kotlinEnabled) {
             maybeCreate("kotlinForForgeModDiscovery")
         }
         if (loaderName == "neoforge") {
             named("testRuntimeClasspath") {
                 exclude(group = "net.neoforged", module = "neoforge")
             }
+        }
+    }
+    if (loaderName == "fabric") {
+        configurations.findByName("modApi")?.dependencies?.removeIf {
+            it.group == "net.fabricmc.fabric-api" &&
+                it.name == "fabric-gametest-api-v1" &&
+                it.version == prop("fabric_version")
         }
     }
     configureLocalDevMods(loaderName, minecraftVersion)
@@ -717,85 +639,58 @@ if (stoneNodes.contains(project.name)) {
         dependencies.add("include", notation)
     }
 
-    fun addNestedMod(notation: String) {
-        val dependency = dependencies.create(notation)
-        if (dependency is ModuleDependency) {
-            dependency.isTransitive = false
-        }
-        dependencies.add("include", dependency)
-    }
-
-    fun forgeDeobfDependency(notation: String): Dependency {
-        val obfuscatedConfiguration = configurations.maybeCreate("__obfuscated")
-        val deobfuscator = net.minecraftforge.gradle.userdev.util.Deobfuscator(
-            project,
-            File(gradle.gradleUserHomeDir, "caches/forge_gradle/deobf_dependencies"),
-        )
-        val deobfuscatingRepo = net.minecraftforge.gradle.userdev.util.DeobfuscatingRepo(project, obfuscatedConfiguration, deobfuscator)
-        val remapper = net.minecraftforge.gradle.userdev.util.DependencyRemapper(project, deobfuscator)
-        val dependency = net.minecraftforge.gradle.userdev.DependencyManagementExtension(project, remapper, deobfuscatingRepo)
-            .deobf(notation)
-        remapper.attachMappings("official_$minecraftVersion")
-        return dependency
-    }
-
+    listOf("modImplementation", "implementation", "include", "forgeRuntimeLibrary", "testImplementation", "testRuntimeOnly").forEach { configurations.maybeCreate(it) }
     dependencies {
+        val modDependencyConfiguration = if (minecraftVersion == "26.1") "implementation" else "modImplementation"
         val architecturyDependency = when (loaderName) {
             "fabric" -> "dev.architectury:architectury-fabric:${prop("architectury_api_version")}"
             "forge" -> "dev.architectury:architectury-forge:${prop("architectury_api_version")}"
             "neoforge" -> "dev.architectury:architectury-neoforge:${prop("architectury_api_version")}"
             else -> error("Unsupported loader: $loaderName")
         }
-        add("modImplementation", architecturyDependency)
+        add(modDependencyConfiguration, architecturyDependency)
+
+        val apricityDependency = "com.sighs:ApricityUI-$loaderName-$minecraftVersion:${prop("apricity_ui_version")}"
+        add(modDependencyConfiguration, apricityDependency)
 
         if (loaderName == "fabric") {
-            val malilibDependency = "maven.modrinth:malilib:${prop("malilib_version")}"
-            add("modImplementation", malilibDependency)
-            addNestedMod(malilibDependency)
             if (kotlinEnabled) {
-                add("modImplementation", "net.fabricmc:fabric-language-kotlin:${prop("fabric_language_kotlin_version")}")
+                add(modDependencyConfiguration, "net.fabricmc:fabric-language-kotlin:${prop("fabric_language_kotlin_version")}")
             }
-            add("obfLib", "net.fabricmc:intermediary:${prop("minecraft_version")}:v2")
         }
 
         if (loaderName == "forge") {
-            val mafglibNotation = "curse.maven:mafglib-910766:${prop("mafglib_curse_file")}"
-            val mafglibDependency = forgeDeobfDependency(mafglibNotation)
-            add("compileOnly", mafglibDependency)
-            addNestedMod(mafglibNotation)
             if (kotlinEnabled) {
-                add("modImplementation", "thedarkcolour:kotlinforforge:${prop("kotlin_for_forge_version")}")
-                add("kotlinForForgeModDiscovery", "thedarkcolour:kotlinforforge:${prop("kotlin_for_forge_version")}:all") {
-                    isTransitive = false
-                }
+                add("implementation", "thedarkcolour:kotlinforforge:${prop("kotlin_for_forge_version")}")
             }
-            add("modRuntimeOnly", mafglibDependency)
         }
 
         if (loaderName == "neoforge") {
-            val mafglibNotation = "curse.maven:mafglib-910766:${prop("mafglib_curse_file")}"
-            val mafglibDependency = forgeDeobfDependency(mafglibNotation)
-            add("compileOnly", mafglibDependency)
-            addNestedMod(mafglibNotation)
             if (kotlinEnabled) {
                 add("kotlinForForgeModDiscovery", "thedarkcolour:kotlinforforge-neoforge:${prop("kotlin_for_forge_version")}") {
                     isTransitive = false
                 }
-                add("modImplementation", "thedarkcolour:kfflang-neoforge:${prop("kotlin_for_forge_version")}") {
+                if (minecraftVersion == "26.1") {
+                    val kotlinRuntimeVersion = optionalProp("kotlin_runtime_version")
+                        ?: error("Missing Kotlin runtime version for ${nodeName}")
+                    add(modDependencyConfiguration, "org.jetbrains.kotlin:kotlin-reflect:$kotlinRuntimeVersion")
+                }
+                add(modDependencyConfiguration, "thedarkcolour:kfflang-neoforge:${prop("kotlin_for_forge_version")}") {
                     isTransitive = false
                 }
-                add("modImplementation", "thedarkcolour:kffmod-neoforge:${prop("kotlin_for_forge_version")}") {
+                add(modDependencyConfiguration, "thedarkcolour:kffmod-neoforge:${prop("kotlin_for_forge_version")}") {
                     isTransitive = false
                 }
             }
-            add("modRuntimeOnly", mafglibDependency)
         }
 
+        addEmbedded("com.cozooo:dclanguage:0.1.1")
         addEmbedded("com.cozooo.dlc_manager:dlc_fileops_helper:${prop("file_ops_helper_version")}")
         addEmbedded("org.commonmark:commonmark:0.21.0")
         addEmbedded("org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0")
 
         if (loaderName == "forge" || loaderName == "neoforge") {
+            add("forgeRuntimeLibrary", "com.cozooo:dclanguage:0.1.1")
             add("forgeRuntimeLibrary", "com.cozooo.dlc_manager:dlc_fileops_helper:${prop("file_ops_helper_version")}")
             add("forgeRuntimeLibrary", "org.commonmark:commonmark:0.21.0")
             add("forgeRuntimeLibrary", "org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0")
@@ -804,10 +699,65 @@ if (stoneNodes.contains(project.name)) {
         add("testImplementation", "org.junit.jupiter:junit-jupiter:${rootProject.prop("junit_jupiter_version")}")
         add("testRuntimeOnly", "org.junit.jupiter:junit-jupiter-engine:${rootProject.prop("junit_jupiter_version")}")
         add("testRuntimeOnly", "org.junit.platform:junit-platform-launcher")
+        if (loaderName == "forge" && (minecraftVersion == "1.18.2" || minecraftVersion == "1.19.2")) {
+            addEmbedded("org.joml:joml:1.10.5")
+            add("forgeRuntimeLibrary", "org.joml:joml:1.10.5")
+        }
     }
 
-    if ((loaderName == "forge" || loaderName == "neoforge") && kotlinEnabled) {
-        val discoveryJarName = if (loaderName == "forge") "kotlinforforge-all.jar" else "kotlinforforge-neoforge.jar"
+    if (loaderName == "forge" || loaderName == "neoforge") {
+        val distributionJar = rootProject.layout.projectDirectory.file(
+            "output/${rootProject.prop("mod_version")}/DLC-Manager-$loaderName-$minecraftVersion-${rootProject.prop("mod_version")}.jar"
+        )
+        val serviceBuild = if (kotlinEnabled) "build/dlc-bootstrap" else "build/java-only/dlc-bootstrap"
+        val bootstrapJar = rootProject.layout.projectDirectory.file(
+            "$serviceBuild/services/$loaderName/DLC-Manager-bootstrap-$loaderName-$minecraftVersion-${rootProject.prop("mod_version")}.jar"
+        )
+        val payloadTaskName = if (tasks.findByName("remapJar") != null) "remapJar" else "jar"
+        val devPayload = if (payloadTaskName == "remapJar") {
+            rootProject.layout.projectDirectory.file(
+                "build/$nodeName/distribution/payload/DLC-Manager-$loaderName-$minecraftVersion-${rootProject.prop("mod_version")}.jar"
+            )
+        } else distributionJar
+        listOf("client", "server").forEach { side ->
+            val sideName = side.replaceFirstChar { it.uppercase() }
+            val prepareDistribution = tasks.register<Copy>("prepare${sideName}DlcDistribution") {
+                dependsOn(payloadTaskName, gradle.includedBuild("dlcBootstrap").task(":${loaderName}BootstrapJar"))
+                from(bootstrapJar)
+                into(rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/$side/mods"))
+                doFirst {
+                    destinationDir.listFiles()?.filter {
+                        (it.name.startsWith("DLC-Manager-bootstrap-$loaderName-$minecraftVersion-") ||
+                            it.name.startsWith("DLC-Manager-$loaderName-$minecraftVersion-")) &&
+                            it.name.endsWith(".jar")
+                    }?.forEach(File::delete)
+                }
+            }
+            tasks.matching { it.name == "run$sideName" || it.name == "configureMinecraft$sideName" }.configureEach {
+                dependsOn(prepareDistribution)
+            }
+        }
+        tasks.matching { it.name == "runClient" || it.name == "runServer" }.configureEach {
+            if (this is JavaExec) {
+                jvmArgs("-Ddlc_manager.dev.mod.path=${devPayload.asFile.absolutePath}")
+                jvmArgs("-Ddlc_manager.distribution.path=${devPayload.asFile.absolutePath}")
+            }
+        }
+        val mainSourceSet = extensions.getByType<SourceSetContainer>().named("main").get()
+        extensions.configure<LoomGradleExtensionAPI> {
+            runs.configureEach {
+                mods {
+                    maybeCreate(prop("mod_id")).apply {
+                        modFiles.setFrom(mainSourceSet.output)
+                        mainSourceSet.output.resourcesDir?.let { mainResourceDirectory.set(it) }
+                    }
+                }
+            }
+        }
+    }
+
+    if (loaderName == "neoforge" && kotlinEnabled) {
+        val discoveryJarName = "kotlinforforge-neoforge.jar"
         val discoveryJar = layout.buildDirectory.file("kotlinForForgeModDiscovery/$discoveryJarName")
         val prepareKotlinForForgeModDiscovery = tasks.register<Copy>("prepareKotlinForForgeModDiscovery") {
             from(configurations.getByName("kotlinForForgeModDiscovery"))
@@ -820,9 +770,10 @@ if (stoneNodes.contains(project.name)) {
             dependsOn(prepareKotlinForForgeModDiscovery)
         }
         extensions.configure<LoomGradleExtensionAPI> {
-            mods {
-                maybeCreate("dlc_manager").sourceSet(extensions.getByType<SourceSetContainer>().named("main").get())
-                maybeCreate("kotlinforforge").modFiles.from(files(discoveryJar).builtBy(prepareKotlinForForgeModDiscovery))
+            runs.configureEach {
+                mods {
+                    maybeCreate("kotlinforforge").modFiles.from(files(discoveryJar).builtBy(prepareKotlinForForgeModDiscovery))
+                }
             }
         }
     }
@@ -835,20 +786,59 @@ if (stoneNodes.contains(project.name)) {
         archiveClassifier.set("dev-shadow")
     }
 
-    tasks.named<RemapJarTask>("remapJar") {
-        archiveFileName.set("DLC-Manager-$loaderName-$minecraftVersion-${rootProject.prop("mod_version")}.jar")
-        destinationDirectory.set(rootProject.layout.projectDirectory.dir("output/${rootProject.prop("mod_version")}"))
+    val distributionJar = rootProject.layout.projectDirectory.file(
+        "output/${rootProject.prop("mod_version")}/DLC-Manager-$loaderName-$minecraftVersion-${rootProject.prop("mod_version")}.jar"
+    )
+    val earlyLoading = loaderName == "forge" || loaderName == "neoforge"
+    val remappedJar: org.gradle.api.tasks.TaskProvider<out AbstractArchiveTask> = if (tasks.findByName("remapJar") != null) {
+        tasks.named<RemapJarTask>("remapJar") {
+            archiveFileName.set(distributionJar.asFile.name)
+            if (earlyLoading) destinationDirectory.set(layout.buildDirectory.dir("distribution/payload"))
+            else destinationDirectory.set(rootProject.layout.projectDirectory.dir("output/${rootProject.prop("mod_version")}"))
+        }
+    } else {
+        tasks.named<Jar>("jar") {
+            archiveFileName.set(distributionJar.asFile.name)
+            destinationDirectory.set(rootProject.layout.projectDirectory.dir("output/${rootProject.prop("mod_version")}"))
+        }
+    }
+    if (earlyLoading) {
+        val serviceBuild = if (kotlinEnabled) "build/dlc-bootstrap" else "build/java-only/dlc-bootstrap"
+        val serviceJar = rootProject.layout.projectDirectory.file(
+            "$serviceBuild/services/$loaderName/DLC-Manager-bootstrap-$loaderName-$minecraftVersion-${rootProject.prop("mod_version")}.jar"
+        )
+        val packageDistribution = tasks.register<JavaExec>("packageDistribution") {
+            group = "build"
+            description = "Package the early service and main mod into one distributable JAR."
+            dependsOn(remappedJar, gradle.includedBuild("dlcBootstrap").task(":${loaderName}BootstrapJar"))
+            inputs.files(serviceJar, remappedJar.flatMap { it.archiveFile })
+            outputs.file(distributionJar)
+            classpath = files(serviceJar)
+            javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
+            mainClass.set("com.cozooo.dlc_bootstrap.launch.DlcDistributionAssembler")
+            doFirst {
+                setArgs(listOf(serviceJar.asFile.absolutePath, remappedJar.get().archiveFile.get().asFile.absolutePath,
+                    distributionJar.asFile.absolutePath))
+            }
+            doLast {
+                distributionJar.asFile.parentFile.listFiles()?.filter {
+                    it.name.startsWith("DLC-Manager-bootstrap-$loaderName-$minecraftVersion-") && it.name.endsWith(".jar")
+                }?.forEach(File::delete)
+            }
+        }
+        remappedJar.configure { finalizedBy(packageDistribution) }
     }
     tasks.named("publishMods") {
-        dependsOn("remapJar")
+        dependsOn(if (earlyLoading) "packageDistribution" else remappedJar)
     }
 
     configure<ModPublishExtension> {
         dryRun.set(publishDryRun)
-        file.set(tasks.named<RemapJarTask>("remapJar").flatMap { it.archiveFile })
+        if (earlyLoading) file.set(tasks.named("packageDistribution").map { distributionJar })
+        else file.set(remappedJar.flatMap { it.archiveFile })
         version.set("${rootProject.prop("mod_version")}-$loaderName-$minecraftVersion")
         displayName.set(rootProject.modPublishDisplayName(loaderName, minecraftVersion))
-        changelog.set(rootProject.modPublishChangelog())
+        changelog.set(rootProject.providers.provider { rootProject.modPublishChangelog() })
         type.set(rootProject.modPublishReleaseType())
         modLoaders.add(modPublishLoaderName(loaderName))
 
@@ -862,15 +852,15 @@ if (stoneNodes.contains(project.name)) {
                 when (loaderName) {
                     "fabric" -> {
                         requires("architectury-api", "fabric-language-kotlin")
-                        embeds("malilib")
+                        requires("apricityui")
                     }
                     "forge" -> {
                         requires("architectury-api", "kotlin-for-forge")
-                        embeds("mafglib")
+                        requires("apricityui")
                     }
                     "neoforge" -> {
                         requires("architectury-api", "kotlin-for-forge")
-                        embeds("mafglib")
+                        requires("apricityui")
                     }
                 }
             }
@@ -887,35 +877,19 @@ if (stoneNodes.contains(project.name)) {
                 when (loaderName) {
                     "fabric" -> {
                         requires("architectury-api", "fabric-language-kotlin")
-                        embeds("malilib")
+                        requires("apricityui")
                     }
                     "forge" -> {
                         requires("architectury-api", "kotlin-for-forge")
-                        embeds("mafglib")
+                        requires("apricityui")
                     }
                     "neoforge" -> {
                         requires("architectury-api", "kotlin-for-forge")
-                        embeds("mafglib")
+                        requires("apricityui")
                     }
                 }
             }
         }
-    }
-
-    tasks.register<Sync>("exportObfClasspath") {
-        group = "build"
-        description = "Export obfuscation classpath jars for $loaderName $minecraftVersion."
-        from({
-            val jars = linkedSetOf<File>()
-            listOf(configurations.getByName("compileClasspath"), configurations.getByName("runtimeClasspath")).forEach { configuration ->
-                jars += configuration.resolve().filter { it.name.endsWith(".jar") }
-            }
-            if (loaderName == "fabric") {
-                jars += configurations.getByName("obfLib").resolve().filter { it.name.endsWith(".jar") }
-            }
-            jars
-        })
-        into(rootProject.layout.projectDirectory.dir("obf-lib/$loaderName-$minecraftVersion"))
     }
 
     publishing {

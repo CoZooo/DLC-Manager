@@ -12,6 +12,7 @@ import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
 import com.google.gson.JsonPrimitive
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.ArrayDeque
@@ -26,21 +27,8 @@ object DlcRequiredRuntime {
     private var promptedThisSession = false
 
     @JvmStatic
-    fun markSkipped() {
-        if (hasForceMarker()) {
-            return
-        }
-        val requiredDir = getRequiredDir() ?: return
-        try {
-            Files.createDirectories(requiredDir)
-            Files.writeString(requiredDir.resolve("SKIP"), "")
-        } catch (_: Exception) {
-        }
-    }
-
-    @JvmStatic
     fun pollMissingDownloadsForTitlePrompt(): List<DlcRequiredEntry> {
-        if (promptedThisSession || hasSkipMarker()) {
+        if (promptedThisSession) {
             return emptyList()
         }
         val missing = collectMissingDownloadsForPrompt()
@@ -56,37 +44,8 @@ object DlcRequiredRuntime {
     }
 
     @JvmStatic
-    fun hasSkipMarker(): Boolean {
-        if (hasForceMarker()) {
-            return false
-        }
-        val requiredDir = getRequiredDir() ?: return false
-        return Files.exists(requiredDir.resolve("SKIP"))
-    }
-
-    @JvmStatic
-    fun hasForceMarker(): Boolean {
-        val requiredDir = getRequiredDir() ?: return false
-        return Files.exists(requiredDir.resolve("FORCE"))
-    }
-
-    @JvmStatic
-    fun hasForceRestartMarker(): Boolean {
-        val requiredDir = getRequiredDir() ?: return false
-        val marker = requiredDir.resolve("FORCE")
-        if (!Files.exists(marker)) {
-            return false
-        }
-        return try {
-            Files.readString(marker)?.lowercase(Locale.ROOT)?.contains("forcerestart") == true
-        } catch (_: Exception) {
-            false
-        }
-    }
-
-    @JvmStatic
     fun loadEntries(): List<DlcRequiredEntry> {
-        return DlcRequiredLoader.load(getDlcRoot())
+        return DlcConfig.getDlcRoots().flatMap { DlcRequiredLoader.load(it) }
     }
 
     @JvmStatic
@@ -107,7 +66,7 @@ object DlcRequiredRuntime {
         while (!queue.isEmpty()) {
             val entry = queue.poll() ?: continue
             for (dep in entry.getDependencies()) {
-                val id = dep?.getIdentifier()
+                val id = dep.getIdentifier()
                 if (id.isNullOrBlank() || index.containsKey(id)) {
                     continue
                 }
@@ -123,16 +82,6 @@ object DlcRequiredRuntime {
         return entries
     }
 
-    private fun getDlcRoot(): Path? {
-        val roots = DlcConfig.getDlcRoots()
-        return if (roots.isEmpty()) null else roots[0]
-    }
-
-    private fun getRequiredDir(): Path? {
-        val dlcRoot = getDlcRoot() ?: return null
-        return dlcRoot.resolve("required")
-    }
-
     @JvmStatic
     fun buildIndex(entries: List<DlcRequiredEntry>?): Map<String, DlcRequiredEntry> {
         val map = HashMap<String, DlcRequiredEntry>()
@@ -140,7 +89,7 @@ object DlcRequiredRuntime {
             return map
         }
         for (entry in entries) {
-            val id = entry?.getIdentifier()
+            val id = entry.getIdentifier()
             if (!id.isNullOrBlank()) {
                 map.putIfAbsent(id, entry)
             }
@@ -156,12 +105,12 @@ object DlcRequiredRuntime {
         }
         val index = HashMap(buildIndex(entries))
         for (entry in entries) {
-            val id = entry?.getIdentifier()
+            val id = entry.getIdentifier()
             if (id.isNullOrBlank()) {
                 continue
             }
             for (dep in entry.getDependencies()) {
-                val depId = dep?.getIdentifier()
+                val depId = dep.getIdentifier()
                 if (depId.isNullOrBlank()) {
                     continue
                 }
@@ -194,7 +143,7 @@ object DlcRequiredRuntime {
             val resolved = index[id] ?: entry
             result.add(resolved)
             for (dep in resolved.getDependencies()) {
-                val depId = dep?.getIdentifier()
+                val depId = dep.getIdentifier()
                 if (depId.isNullOrBlank()) {
                     continue
                 }
@@ -241,7 +190,7 @@ object DlcRequiredRuntime {
     @JvmStatic
     fun hasMissingDownloadsForPrompt(): Boolean {
         for (entry in loadAllEntriesInternal()) {
-            if (entry == null || entry.isUserRemoved()) {
+            if (entry == null) {
                 continue
             }
             var fileName = normalizeFileName(entry.getRequiredFileName())
@@ -329,7 +278,7 @@ object DlcRequiredRuntime {
     fun collectMissingDownloadsForPrompt(): List<DlcRequiredEntry> {
         val missing = ArrayList<DlcRequiredEntry>()
         for (entry in loadAllEntriesInternal()) {
-            if (entry == null || entry.isUserRemoved()) {
+            if (entry == null) {
                 continue
             }
             var fileName = normalizeFileName(entry.getRequiredFileName())
@@ -398,28 +347,8 @@ object DlcRequiredRuntime {
 
     @JvmStatic
     fun entryNeedsApply(entry: DlcRequiredEntry?): Boolean {
-        if (entry == null) {
-            return false
-        }
-        var fileName = normalizeFileName(entry.getResolvedFileName())
-        if (fileName.isNullOrBlank()) {
-            fileName = normalizeFileName(resolveFileName(entry))
-            entry.setResolvedFileName(fileName)
-        }
-        if (isTempFileName(fileName)) {
-            entry.setResolvedFileName(null)
-            return true
-        }
-        if (fileName == null) {
-            return true
-        }
-        for (target in entry.resolveAppliedTargets()) {
-            val targetFile = resolveTarget(target, fileName)
-            if (targetFile == null || !Files.exists(targetFile)) {
-                return true
-            }
-        }
-        return false
+        if (entry == null) return false
+        return try { !DlcRequiredInstaller.isInstalled(entry) } catch (exception: IOException) { true }
     }
 
     @JvmStatic
@@ -491,8 +420,8 @@ object DlcRequiredRuntime {
     }
 
     private fun resolveFileNameLocal(entry: DlcRequiredEntry?): String? {
-        val fileName = guessFileName(entry)
-        return if (!fileName.isNullOrBlank()) fileName else null
+        val guessed = guessFileName(entry)
+        return if (!guessed.isNullOrBlank()) guessed else DlcRequiredService.resolveExistingFileName(entry)
     }
 
     private fun resolveExistingRequiredFile(entry: DlcRequiredEntry?): String? {
@@ -559,30 +488,6 @@ object DlcRequiredRuntime {
         }
     }
 
-    @JvmStatic
-    fun updateUserRemoved(entry: DlcRequiredEntry?, userRemoved: Boolean) {
-        if (entry == null) {
-            return
-        }
-        val config = entry.getConfigPath()
-        if (config == null || !Files.exists(config)) {
-            return
-        }
-        try {
-            val obj = DlcDcConfigIO.read(config, DlcDcConfigIO.Layout.DLC_STRUCTURED) ?: return
-            if (userRemoved) {
-                obj.addProperty("UserRemoved", true)
-            } else {
-                obj.remove("UserRemoved")
-                obj.remove("userRemoved")
-            }
-            val reordered = reorderRequiredJson(obj, entry.getRequiredFileName())
-            writeRequiredConfig(config, reordered)
-            entry.setUserRemoved(userRemoved)
-        } catch (_: Exception) {
-        }
-    }
-
     private fun writeRequiredConfig(config: Path?, ordered: JsonObject?): Path? {
         if (config == null || ordered == null) {
             return null
@@ -631,42 +536,11 @@ object DlcRequiredRuntime {
         val applied = getString(obj, "appliedTarget")
         ordered.addProperty("appliedTarget", if (applied.isEmpty()) "" else applied)
 
-        ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false))
-        val userRemoved = getBoolean(obj, "UserRemoved", false) || getBoolean(obj, "userRemoved", false)
-        if (userRemoved) {
-            ordered.addProperty("UserRemoved", true)
-        }
-
         val deps = obj.get("dependencies")
         ordered.add("dependencies", deps ?: JsonPrimitive(""))
 
-        var display: JsonObject? = null
-        if (obj.has("DisplayName") && obj.get("DisplayName").isJsonObject) {
-            display = obj.getAsJsonObject("DisplayName")
-        } else if (obj.has("displayName") && obj.get("displayName").isJsonObject) {
-            display = obj.getAsJsonObject("displayName")
-        }
-        if (display == null) {
-            display = JsonObject()
-            display.addProperty("en_us", "")
-        }
-        ordered.add("DisplayName", display)
-
-        val tip = if (obj.has("tip") && obj.get("tip").isJsonObject) {
-            obj.getAsJsonObject("tip")
-        } else {
-            JsonObject()
-        }
-        ordered.add("tip", tip)
-
         for ((key, value) in obj.entrySet()) {
             if (key == null || ordered.has(key)) {
-                continue
-            }
-            if (key == "displayName") {
-                continue
-            }
-            if (key == "UserRemoved" || key == "userRemoved") {
                 continue
             }
             ordered.add(key, value)
@@ -679,28 +553,6 @@ object DlcRequiredRuntime {
             return ""
         }
         return obj.get(key).asString
-    }
-
-    private fun getBoolean(obj: JsonObject?, key: String?, fallback: Boolean): Boolean {
-        if (obj == null || key == null || !obj.has(key) || !obj.get(key).isJsonPrimitive) {
-            return fallback
-        }
-        return try {
-            obj.get(key).asBoolean
-        } catch (_: Exception) {
-            fallback
-        }
-    }
-
-    private fun resolveTarget(targetDir: Path?, fileName: String?): Path? {
-        if (targetDir == null || fileName.isNullOrBlank()) {
-            return null
-        }
-        val name = targetDir.fileName?.toString() ?: ""
-        if (name.endsWith(".jar") || name.endsWith(".zip")) {
-            return targetDir
-        }
-        return targetDir.resolve(fileName)
     }
 
     private fun normalizeFileName(fileName: String?): String? {

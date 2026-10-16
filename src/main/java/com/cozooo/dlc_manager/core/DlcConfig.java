@@ -152,6 +152,10 @@ public class DlcConfig {
         migrateKnownConfigsToDc();
     }
 
+    public static void reloadFromDisk(boolean server) {
+        if (server) loadServerFromDisk(); else loadClientFromDisk();
+    }
+
     public static void save() {
         saveClient();
     }

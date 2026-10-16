@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.required;
 
+import com.cozooo.dlc_manager.bootstrap.DlcStartupRequirements;
 import com.cozooo.dlc_manager.client.screen.DlcRequiredDownloadScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
@@ -12,6 +13,7 @@ public final class DlcRequiredManager {
     }
 
     public static boolean tryShowFromTitle(Screen parent) {
+        if (DlcStartupRequirements.usesEarlyInstallation()) return false;
         List<DlcRequiredEntry> missing = DlcRequiredRuntime.pollMissingDownloadsForTitlePrompt();
         if (missing.isEmpty()) {
             return false;
@@ -22,22 +24,6 @@ public final class DlcRequiredManager {
 
     public static void markPrompted() {
         DlcRequiredRuntime.markPrompted();
-    }
-
-    public static void markSkipped() {
-        DlcRequiredRuntime.markSkipped();
-    }
-
-    public static boolean hasSkipMarker() {
-        return DlcRequiredRuntime.hasSkipMarker();
-    }
-
-    public static boolean hasForceMarker() {
-        return DlcRequiredRuntime.hasForceMarker();
-    }
-
-    public static boolean hasForceRestartMarker() {
-        return DlcRequiredRuntime.hasForceRestartMarker();
     }
 
     public static List<DlcRequiredEntry> loadEntries() {
@@ -65,7 +51,7 @@ public final class DlcRequiredManager {
     }
 
     public static boolean hasMissingDownloadsForPrompt() {
-        return DlcRequiredRuntime.hasMissingDownloadsForPrompt();
+        return !DlcStartupRequirements.usesEarlyInstallation() && DlcRequiredRuntime.hasMissingDownloadsForPrompt();
     }
 
     public static boolean hasMissingOrApply() {
@@ -77,7 +63,7 @@ public final class DlcRequiredManager {
     }
 
     public static List<DlcRequiredEntry> collectMissingDownloadsForPrompt() {
-        return DlcRequiredRuntime.collectMissingDownloadsForPrompt();
+        return DlcStartupRequirements.usesEarlyInstallation() ? List.of() : DlcRequiredRuntime.collectMissingDownloadsForPrompt();
     }
 
     public static List<DlcRequiredEntry> collectMissingOrApply() {
@@ -104,7 +90,4 @@ public final class DlcRequiredManager {
         DlcRequiredRuntime.updateFileNameKey(entry, fileName);
     }
 
-    public static void updateUserRemoved(DlcRequiredEntry entry, boolean userRemoved) {
-        DlcRequiredRuntime.updateUserRemoved(entry, userRemoved);
-    }
 }

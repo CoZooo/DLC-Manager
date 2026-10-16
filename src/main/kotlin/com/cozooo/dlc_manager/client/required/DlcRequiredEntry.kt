@@ -1,10 +1,7 @@
 package com.cozooo.dlc_manager.client.required
 
-import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.cozooo.dlc_manager.core.DlcPaths
-import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import java.nio.file.Path
-import java.util.Collections
 import java.util.Locale
 
 class DlcRequiredEntry(
@@ -12,9 +9,8 @@ class DlcRequiredEntry(
     private val requiredDir: Path?,
 ) {
     private val baseName: String
+    private var matchMode: String = "hash"
     private var identifier: String
-    private val displayNames: MutableMap<String, String> = HashMap()
-    private val tips: MutableMap<String, String> = HashMap()
     private var requiredFileName: String? = null
     private var directUrl: String? = null
     private var directUrls: MutableList<String> = ArrayList()
@@ -23,10 +19,8 @@ class DlcRequiredEntry(
     private var modrinthVersionId: String? = null
     private var curseforgeProjectId: String? = null
     private var curseforgeFileId: String? = null
-    private var hidden = false
-    private var userRemoved = false
     private var appliedTargetRaw: String? = null
-    private var redirectUrl: String? = null
+    private var unzip = false
     private var resolvedFileName: String? = null
     private val dependencies: MutableList<DlcRequiredDependency> = ArrayList()
 
@@ -35,6 +29,40 @@ class DlcRequiredEntry(
         name = stripConfigExtension(name)
         baseName = name
         identifier = name
+    }
+
+    fun isUnzip(): Boolean = unzip
+    fun setUnzip(value: Boolean) { unzip = value }
+    fun shouldUnzip(fileName: String?): Boolean = unzip && fileName?.endsWith(".zip", true) == true
+
+    fun resolveInstallationTargets(fileName: String?): List<Path> {
+        if (fileName.isNullOrBlank()) return emptyList()
+        val result = mutableListOf<Path>()
+        for (part in appliedTargetRaw.orEmpty().split(',')) {
+            val value = part.trim().replace('\\', '/')
+            if (value.isEmpty()) continue
+            var path = Path.of(value)
+            if (!path.isAbsolute) path = DlcPaths.gameDir().resolve(path)
+            path = path.normalize()
+            val name = path.fileName?.toString().orEmpty()
+            val directory = value.endsWith('/') || value == "." || value == ".." || value.endsWith("/.") || value.endsWith("/..") ||
+                !java.nio.file.Files.isRegularFile(path) && !name.contains('.')
+            result.add(if (shouldUnzip(fileName) || !directory) path else path.resolve(fileName))
+        }
+        return result
+    }
+
+    fun getMatchMode(): String = matchMode
+    fun setMatchMode(value: String?) { matchMode = com.cozooo.dlc_manager.core.DlcFileMatch.mode(value) }
+    fun getDlcRoot(): Path? = requiredDir?.parent
+    fun getDownloadDir(): Path? = getDlcRoot()?.resolve("downloaded/required")
+    fun getHistoryKey(): String = com.cozooo.dlc_manager.core.DlcResourceHistory.key(configPath?.let(com.cozooo.dlc_manager.core.DlcResourceHistory::relativePath) ?: "", identifier)
+
+    fun resolveDownloadPath(fileName: String?): Path? {
+        val directory = getDownloadDir() ?: return null
+        if (fileName.isNullOrBlank()) return null
+        val path = directory.resolve(fileName).normalize()
+        return if (path.startsWith(directory.normalize())) path else null
     }
 
     fun getConfigPath(): Path? = configPath
@@ -49,24 +77,6 @@ class DlcRequiredEntry(
         if (!identifier.isNullOrBlank()) {
             this.identifier = identifier
         }
-    }
-
-    fun getDisplayNames(): Map<String, String> = Collections.unmodifiableMap(displayNames)
-
-    fun putDisplayName(lang: String?, value: String?) {
-        if (lang.isNullOrBlank() || value == null) {
-            return
-        }
-        displayNames[lang] = value
-    }
-
-    fun getTips(): Map<String, String> = Collections.unmodifiableMap(tips)
-
-    fun putTip(lang: String?, value: String?) {
-        if (lang.isNullOrBlank() || value == null) {
-            return
-        }
-        tips[lang] = value
     }
 
     fun getDirectUrl(): String? {
@@ -162,18 +172,6 @@ class DlcRequiredEntry(
         return parsePriority(downloadPriority)
     }
 
-    fun isHidden(): Boolean = hidden
-
-    fun setHidden(hidden: Boolean) {
-        this.hidden = hidden
-    }
-
-    fun isUserRemoved(): Boolean = userRemoved
-
-    fun setUserRemoved(userRemoved: Boolean) {
-        this.userRemoved = userRemoved
-    }
-
     fun getDependencies(): MutableList<DlcRequiredDependency> = dependencies
 
     fun addDependency(dependency: DlcRequiredDependency?) {
@@ -188,12 +186,6 @@ class DlcRequiredEntry(
 
     fun getAppliedTargetRaw(): String? = appliedTargetRaw
 
-    fun setRedirectUrl(redirectUrl: String?) {
-        this.redirectUrl = redirectUrl
-    }
-
-    fun getRedirectUrl(): String? = redirectUrl
-
     fun setResolvedFileName(resolvedFileName: String?) {
         this.resolvedFileName = resolvedFileName
     }
@@ -204,7 +196,10 @@ class DlcRequiredEntry(
         if (requiredDir == null || fileName.isNullOrBlank()) {
             return null
         }
-        return requiredDir.resolve(fileName)
+        val downloaded = resolveDownloadPath(fileName)
+        if (downloaded != null && java.nio.file.Files.exists(downloaded)) return downloaded
+        val local = requiredDir.resolve(fileName).normalize()
+        return if (local.startsWith(requiredDir.normalize())) local else null
     }
 
     fun resolveAppliedTargets(): List<Path> {
@@ -235,17 +230,7 @@ class DlcRequiredEntry(
         if (fallback.isBlank()) {
             fallback = "required"
         }
-        if (displayNames.isEmpty()) {
-            return fallback
-        }
-        val lang = DlcDcConfigIO.normalizeLangKey(DlcPlatformServices.languageCode())
-        if (displayNames.containsKey(lang)) {
-            return displayNames[lang] ?: fallback
-        }
-        if (displayNames.containsKey("en_us")) {
-            return displayNames["en_us"] ?: fallback
-        }
-        return displayNames.values.firstOrNull() ?: fallback
+        return fallback
     }
 
     companion object {

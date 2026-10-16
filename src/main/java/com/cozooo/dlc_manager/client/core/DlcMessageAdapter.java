@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.client.core;
 
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.DlcUpdateMessage;
@@ -11,12 +13,12 @@ public final class DlcMessageAdapter {
 
     public static Component toComponent(DlcUpdateMessage message) {
         if (message == null) {
-            return Component.empty();
+            return DlcTextCompat.empty();
         }
         return switch (message.type()) {
-            case EMPTY -> Component.empty();
-            case LITERAL -> Component.literal(message.value());
-            case TRANSLATABLE -> Component.translatable(message.value(), convertArgs(message.args()));
+            case EMPTY -> DlcTextCompat.empty();
+            case LITERAL -> DlcTextCompat.literal(message.value());
+            case TRANSLATABLE -> DlcTextCompat.translatable(message.value(), convertArgs(message.args()));
         };
     }
 
@@ -34,6 +36,11 @@ public final class DlcMessageAdapter {
 
     public static Component toDownloadFailureComponent(String error) {
         return toComponent(DlcPackReleaseUpdateService.toDownloadFailureUpdateMessage(error));
+    }
+
+    public static String toProgressText(String status) {
+        if (status == null) return "";
+        return status.startsWith("dlc_manager.") ? DlcTextCompat.translatable(status).getString() : status;
     }
 
     private static Object[] convertArgs(Object[] args) {

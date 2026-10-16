@@ -1,0 +1,13 @@
+<idea-plugin>
+  <id>com.cozooo.dclanguage.mps</id>
+  <name>DC Language</name>
+  <version>0.1.1</version>
+  <vendor>cozooo</vendor>
+  <description>Defines the DC language, generates its shared syntax and schema toolchain, and provides structured .dc configuration editing.</description>
+  <idea-version since-build="261" until-build="261.*" />
+  <depends>jetbrains.mps.core</depends>
+  <extensions defaultExtensionNs="com.intellij">
+    <mps.ModelFactoryProvider implementationClass="com.cozooo.dclanguage.mps.persistence.DcModelFactory" />
+    <mps.LanguageLibrary dir="languages" />
+  </extensions>
+</idea-plugin>

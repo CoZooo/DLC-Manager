@@ -1304,7 +1304,7 @@ public final class DlcDownloadService {
                     if (attempts > maxRetries) {
                         throw new SegmentDownloadException("segment retry exceeded", lastError);
                     }
-                    if (cancelChecker != null && cancelChecker.isCanceled()) {
+                    if (Thread.currentThread().isInterrupted() || (cancelChecker != null && cancelChecker.isCanceled())) {
                         throw new DownloadCanceledException("canceled");
                     }
                     HttpURLConnection connection = null;
@@ -1328,7 +1328,7 @@ public final class DlcDownloadService {
                             SegmentSpeedTracker speedTracker = new SegmentSpeedTracker();
                             int len;
                             while ((len = in.read(buffer)) >= 0) {
-                                if (cancelChecker != null && cancelChecker.isCanceled()) {
+                                if (Thread.currentThread().isInterrupted() || (cancelChecker != null && cancelChecker.isCanceled())) {
                                     throw new DownloadCanceledException("canceled");
                                 }
                                 raf.write(buffer, 0, len);
@@ -1343,6 +1343,8 @@ public final class DlcDownloadService {
                                 }
                             }
                         }
+                    } catch (DownloadCanceledException ex) {
+                        throw ex;
                     } catch (IOException ex) {
                         lastError = ex;
                         continue;
@@ -1354,22 +1356,41 @@ public final class DlcDownloadService {
             }));
         }
         executor.shutdown();
-        for (Future<?> future : futures) {
-            try {
-                future.get();
-            } catch (Exception ex) {
-                for (Future<?> pending : futures) {
-                    pending.cancel(true);
-                }
-                Throwable cause = ex.getCause();
-                if (cause instanceof DownloadCanceledException canceled) {
+        try {
+            for (Future<?> future : futures) {
+                try {
+                    future.get();
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    for (Future<?> pending : futures) pending.cancel(true);
+                    DownloadCanceledException canceled = new DownloadCanceledException("download interrupted");
+                    canceled.initCause(ex);
                     throw canceled;
+                } catch (Exception ex) {
+                    for (Future<?> pending : futures) {
+                        pending.cancel(true);
+                    }
+                    Throwable cause = ex.getCause();
+                    if (cause instanceof DownloadCanceledException canceled) {
+                        throw canceled;
+                    }
+                    if (cause instanceof SegmentDownloadException segment) {
+                        throw segment;
+                    }
+                    throw new SegmentDownloadException("segment failed", ex);
                 }
-                if (cause instanceof SegmentDownloadException segment) {
-                    throw segment;
-                }
-                throw new SegmentDownloadException("segment failed", ex);
             }
+        } finally {
+            executor.shutdownNow();
+            boolean interrupted = false;
+            while (!executor.isTerminated()) {
+                try {
+                    executor.awaitTermination(50, TimeUnit.MILLISECONDS);
+                } catch (InterruptedException ex) {
+                    interrupted = true;
+                }
+            }
+            if (interrupted) Thread.currentThread().interrupt();
         }
     }
 

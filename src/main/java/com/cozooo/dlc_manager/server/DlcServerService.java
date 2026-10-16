@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.server;
 
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.server.DlcServerItem;
 import com.cozooo.dlc_manager.client.server.DlcServerPackApplyStatus;
 import com.cozooo.dlc_manager.client.server.DlcServerPackInfo;
@@ -152,7 +154,7 @@ public class DlcServerService {
         } else {
             combined = motd + "\n" + label;
         }
-        DlcServerCompat.setStatusDescription(server, Component.literal(combined));
+        DlcServerCompat.setStatusDescription(server, DlcTextCompat.literal(combined));
     }
 
     public static String getServerVersionLabel() {
@@ -396,7 +398,29 @@ public class DlcServerService {
         if (player == null) {
             return false;
         }
-        return server.getPlayerList().isOp(player.getGameProfile()) || player.hasPermissions(4);
+        return invokeOperatorCheck(server, player);
+    }
+
+
+    private static boolean invokeOperatorCheck(Object server, Object player) {
+        try {
+            Object list = server.getClass().getMethod("getPlayerList").invoke(server);
+            Object profile = player.getClass().getMethod("getGameProfile").invoke(player);
+            for (var method : list.getClass().getMethods()) {
+                if (method.getName().equals("isOp") && method.getParameterCount() == 1) {
+                    Object result = method.invoke(list, profile);
+                    if (result instanceof Boolean && (Boolean) result) return true;
+                }
+            }
+            for (var method : player.getClass().getMethods()) {
+                if (method.getName().equals("hasPermissions") && method.getParameterCount() == 1) {
+                    Object result = method.invoke(player, 4);
+                    return result instanceof Boolean && (Boolean) result;
+                }
+            }
+        } catch (ReflectiveOperationException ignored) {
+        }
+        return false;
     }
 
     private static void writeList(BufferedWriter writer, String lang) throws IOException {
@@ -736,9 +760,6 @@ public class DlcServerService {
         response.addProperty("type", "apply");
         response.addProperty("ok", true);
         response.addProperty("requiresRestart", result.requiresRestart());
-        // Surface the applier's per-item message lines so remote clients can
-        // report what changed (enabled/disabled/conflicts).  Older clients that
-        // only read requiresRestart ignore the extra field.
         JsonArray messages = new JsonArray();
         for (String msg : result.messages()) {
             if (msg != null && !msg.isBlank()) {
@@ -1088,12 +1109,9 @@ public class DlcServerService {
             Files.createDirectories(packRoot);
         } catch (IOException ignored) {
         }
-        if (!Files.isDirectory(packRoot)) {
-            return List.of();
-        }
         Map<String, DlcPackMeta> installed = loadInstalledPacks();
         List<DlcServerPackInfo> out = new ArrayList<>();
-        try (var stream = Files.list(packRoot)) {
+        try (var stream = DlcPackArchive.findArchives(DlcConfig.getDlcRoot()).stream()) {
             stream.filter(Files::isRegularFile)
                 .filter(path -> path.getFileName().toString().toLowerCase(java.util.Locale.ROOT).endsWith(".zip"))
                 .sorted(java.util.Comparator.comparing(path -> path.getFileName().toString().toLowerCase(java.util.Locale.ROOT)))
@@ -1267,15 +1285,13 @@ public class DlcServerService {
     }
 
     private static Path resolvePackArchive(String archivePath) {
-        if (archivePath == null || archivePath.isBlank()) {
-            return null;
-        }
-        Path root = packArchiveRoot();
-        Path target = safeResolve(root, archivePath);
-        if (target == null) {
-            return null;
-        }
-        return target.toAbsolutePath().normalize().startsWith(root) ? target : null;
+        if (archivePath == null || archivePath.isBlank()) return null;
+        try {
+            Path local = packArchiveRoot();
+            Path downloaded = DlcConfig.getDlcRoot().resolve("downloaded/DLCs").toAbsolutePath().normalize();
+            Path target = local.resolve(archivePath).toAbsolutePath().normalize();
+            return target.startsWith(local) || target.startsWith(downloaded) ? target : null;
+        } catch (java.nio.file.InvalidPathException exception) { return null; }
     }
 
     private static String describePackPrecheck(DlcPackInstaller.PrecheckResult precheck) {

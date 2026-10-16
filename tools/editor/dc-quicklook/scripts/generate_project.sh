@@ -11,5 +11,6 @@ if ! command -v xcodegen >/dev/null 2>&1; then
 fi
 
 cd "$ROOT_DIR"
+python3 scripts/sync_language.py
 xcodegen generate
 echo "Generated: ${ROOT_DIR}/DCQuickLook.xcodeproj"

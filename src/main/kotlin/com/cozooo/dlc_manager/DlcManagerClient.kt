@@ -21,6 +21,8 @@ object DlcManagerClient {
     }
 
     private fun registerConfigScreen() {
+        //? if <26.1 {
         Platform.getMod(DlcManager.MOD_ID).registerConfigurationScreen(::DlcConfigScreen)
+        //?}
     }
 }

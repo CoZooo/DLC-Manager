@@ -1,0 +1,105 @@
+package com.cozooo.dlc_manager.bootstrap;
+
+import cpw.mods.modlauncher.api.IEnvironment;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Properties;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
+
+public final class DlcBootstrapService implements com.cozooo.dlc_bootstrap.launch.DlcBootstrapEntrypoint {
+    private Consumer<Map<String, Object>> progress = ignored -> {};
+    private BooleanSupplier cancelled = () -> false;
+
+    public DlcBootstrapService() { this(ignored -> {}, () -> false); }
+
+    public DlcBootstrapService(Consumer<Map<String, Object>> progress, BooleanSupplier cancelled) {
+        configure(progress::accept, cancelled);
+    }
+
+    @Override public void configure(ProgressSink progress, BooleanSupplier cancelled) {
+        this.progress = Objects.requireNonNull(progress)::accept;
+        this.cancelled = Objects.requireNonNull(cancelled);
+    }
+
+    @Override public void initialize(IEnvironment environment) {
+        System.clearProperty(DlcStartupRequirements.READY_PROPERTY);
+        Properties profile = new Properties();
+        boolean complete = false;
+        try (var input = getClass().getResourceAsStream("/dlc-bootstrap.properties")) {
+            checkCancelled();
+            if (input == null) throw new IOException("Missing DLC bootstrap profile");
+            profile.load(input);
+            String loader = profile.getProperty("loader");
+            String minecraft = profile.getProperty("minecraft");
+            if (loader == null || minecraft == null) throw new IOException("Invalid DLC bootstrap profile");
+            Path game = environment.getProperty(IEnvironment.Keys.GAMEDIR.get())
+                .orElseThrow(() -> new IOException("Game directory is unavailable before mod discovery"));
+            String target = environment.getProperty(IEnvironment.Keys.LAUNCHTARGET.get())
+                .orElseThrow(() -> new IOException("Launch target is unavailable before mod discovery"));
+            boolean server = target.toLowerCase(Locale.ROOT).contains("server");
+            complete = install(game, loader, minecraft, server, target.toLowerCase(Locale.ROOT).contains("dev"));
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(DlcStartupRequirements.FAILURE_MESSAGE + ": installation interrupted; startup stopped", ex);
+        } catch (IOException | RuntimeException ex) {
+            throw new IllegalStateException(DlcStartupRequirements.FAILURE_MESSAGE + ": startup stopped. Check the bootstrap log and retry launching.", ex);
+        } finally {
+            if (!complete || isCancelled()) System.clearProperty(DlcStartupRequirements.READY_PROPERTY);
+        }
+    }
+
+    public void initialize(Path game, String loader, String minecraft, boolean server) {
+        initialize(game, loader, minecraft, server, false);
+    }
+
+    public void initialize(Path game, String loader, String minecraft, boolean server, boolean development) {
+        System.clearProperty(DlcStartupRequirements.READY_PROPERTY);
+        boolean complete = false;
+        try {
+            checkCancelled();
+            complete = install(game, loader, minecraft, server, development);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(DlcStartupRequirements.FAILURE_MESSAGE + ": installation interrupted; startup stopped", ex);
+        } catch (IOException | RuntimeException ex) {
+            throw new IllegalStateException(DlcStartupRequirements.FAILURE_MESSAGE + ": startup stopped. Check the bootstrap log and retry launching.", ex);
+        } finally {
+            if (!complete || isCancelled()) System.clearProperty(DlcStartupRequirements.READY_PROPERTY);
+        }
+    }
+
+    @Override public Path modFile() { return DlcModPayload.getModFile(); }
+
+    @Override public boolean development() { return DlcModPayload.isDevelopment(); }
+
+    private boolean install(Path game, String loader, String minecraft, boolean server, boolean development) throws IOException, InterruptedException {
+        DlcModPayload.prepare(game, development);
+        DlcEarlyInstaller.install(game, game.resolve("config"), loader, minecraft, server,
+            message -> System.out.println("[dlc-manager-bootstrap] " + message), this::publish, this::isCancelled);
+        checkCancelled();
+        DlcStartupRequirements.markComplete(game);
+        checkCancelled();
+        return true;
+    }
+
+    private void publish(DlcEarlyInstaller.Progress value) {
+        progress.accept(Map.of(
+            "stage", value.getStage().name(),
+            "completed", value.getCompletedCount(),
+            "total", value.getTotalCount(),
+            "resource", Objects.requireNonNullElse(value.getResourceName(), ""),
+            "bytes", value.getDownloadedBytes(),
+            "totalBytes", value.getTotalBytes()
+        ));
+    }
+
+    private boolean isCancelled() { return cancelled.getAsBoolean() || Thread.currentThread().isInterrupted(); }
+
+    private void checkCancelled() throws InterruptedException {
+        if (isCancelled()) throw new InterruptedException("Required resource installation interrupted");
+    }
+}

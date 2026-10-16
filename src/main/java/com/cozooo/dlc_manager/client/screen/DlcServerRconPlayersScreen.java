@@ -1,9 +1,12 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.server.DlcRconClient;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -11,8 +14,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public class DlcServerRconPlayersScreen extends DlcScreenCompat.MouseScroll {
-    private static final int ROW_HEIGHT = 18;
+public class DlcServerRconPlayersScreen extends DlcPageScreen {
+
 
     private final Screen parent;
     private final DlcServerEntry entry;
@@ -38,15 +41,14 @@ public class DlcServerRconPlayersScreen extends DlcScreenCompat.MouseScroll {
     private boolean draggingScrollbar;
 
     public DlcServerRconPlayersScreen(Screen parent, DlcServerEntry entry, int port, String password) {
-        super(Component.translatable("dlc_manager.server.rcon_players"));
+        super(DlcUiPage.SERVER_RCON_PLAYERS, parent, DlcTextCompat.translatable("dlc_manager.server.rcon_players"));
         this.parent = parent;
         this.entry = entry;
         this.port = port;
         this.password = password == null ? "" : password;
     }
 
-    @Override
-    protected void init() {
+    private void initControls() {
         int margin = 20;
         listLeft = margin;
         listRight = this.width - margin;
@@ -54,22 +56,22 @@ public class DlcServerRconPlayersScreen extends DlcScreenCompat.MouseScroll {
         listBottom = this.height - 60;
 
         int buttonY = 32;
-        refreshButton = Button.builder(Component.translatable("dlc_manager.server.rcon_refresh"), btn -> refreshPlayers())
+        refreshButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.rcon_refresh"), btn -> refreshPlayers())
             .bounds(margin, buttonY, 80, 20)
             .build();
-        opButton = Button.builder(Component.translatable("dlc_manager.server.rcon_op"), btn -> opSelected())
+        opButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.rcon_op"), btn -> opSelected())
             .bounds(margin + 86, buttonY, 60, 20)
             .build();
-        deopButton = Button.builder(Component.translatable("dlc_manager.server.rcon_deop"), btn -> deopSelected())
+        deopButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.rcon_deop"), btn -> deopSelected())
             .bounds(margin + 150, buttonY, 60, 20)
             .build();
-        kickButton = Button.builder(Component.translatable("dlc_manager.server.rcon_kick"), btn -> kickSelected())
+        kickButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.rcon_kick"), btn -> kickSelected())
             .bounds(margin + 214, buttonY, 60, 20)
             .build();
-        banButton = Button.builder(Component.translatable("dlc_manager.server.rcon_ban"), btn -> banSelected())
+        banButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.rcon_ban"), btn -> banSelected())
             .bounds(margin + 278, buttonY, 60, 20)
             .build();
-        backButton = Button.builder(Component.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
+        backButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
             .bounds(this.width - margin - 80, this.height - 30, 80, 20)
             .build();
 
@@ -84,150 +86,15 @@ public class DlcServerRconPlayersScreen extends DlcScreenCompat.MouseScroll {
         updateButtonStates();
     }
 
-    @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
-        guiGraphics.drawCenteredString(this.font, getTitle(), this.width / 2, 12, 0xFFFFFF);
-        if (!statusText.isBlank()) {
-            guiGraphics.drawString(this.font, statusText, listLeft, 48, 0xC8C8C8, false);
-        }
-        drawList(guiGraphics);
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
-    }
-
-    private void drawList(GuiGraphics guiGraphics) {
-        int height = listBottom - listTop;
-        if (height <= 0) {
-            return;
-        }
-        guiGraphics.fill(listLeft, listTop, listRight, listBottom, 0x22000000);
-        int maxVisible = Math.max(1, height / ROW_HEIGHT);
-        int maxScroll = Math.max(0, players.size() - maxVisible);
-        if (scroll > maxScroll) {
-            scroll = maxScroll;
-        }
-        int rowY = listTop + 2;
-        for (int i = 0; i < players.size(); i++) {
-            if (i < scroll || i >= scroll + maxVisible) {
-                continue;
-            }
-            boolean isSelected = i == selected;
-            if (isSelected) {
-                guiGraphics.fill(listLeft + 2, rowY - 1, listRight - 2, rowY + ROW_HEIGHT - 1, 0x33222222);
-                guiGraphics.fill(listLeft + 2, rowY - 1, listRight - 2, rowY, 0xFFFFFFFF);
-                guiGraphics.fill(listLeft + 2, rowY + ROW_HEIGHT - 2, listRight - 2, rowY + ROW_HEIGHT - 1, 0xFFFFFFFF);
-                int leftX = listLeft + 2;
-                int rightX = listRight - 3;
-                guiGraphics.fill(leftX, rowY - 1, leftX + 1, rowY + ROW_HEIGHT - 1, 0xFFFFFFFF);
-                guiGraphics.fill(rightX, rowY - 1, rightX + 1, rowY + ROW_HEIGHT - 1, 0xFFFFFFFF);
-            }
-            guiGraphics.drawString(this.font, players.get(i), listLeft + 6, rowY + 4, 0xE6E6E6, false);
-            rowY += ROW_HEIGHT;
-        }
-        drawScrollbar(guiGraphics, maxVisible, maxScroll);
-    }
-
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (isOnScrollbar(mouseX, mouseY)) {
-            draggingScrollbar = true;
-            updateScrollFromMouse(mouseY);
-            return true;
-        }
-        if (mouseX >= listLeft && mouseX <= listRight && mouseY >= listTop && mouseY <= listBottom) {
-            int index = (int) ((mouseY - listTop) / ROW_HEIGHT) + scroll;
-            if (index >= 0 && index < players.size()) {
-                selected = index;
-                updateButtonStates();
-                return true;
-            }
-        }
-        return super.mouseClicked(mouseX, mouseY, button);
-    }
-
-    @Override
-    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
-        return handleMouseScrolled(mouseX, mouseY, deltaY);
-    }
-
-    private boolean handleMouseScrolled(double mouseX, double mouseY, double vertical) {
-        if (mouseX >= listLeft && mouseX <= listRight && mouseY >= listTop && mouseY <= listBottom) {
-            int height = listBottom - listTop;
-            int maxVisible = Math.max(1, height / ROW_HEIGHT);
-            int maxScroll = Math.max(0, players.size() - maxVisible);
-            if (maxScroll > 0) {
-                scroll = Math.max(0, Math.min(maxScroll, scroll + (vertical > 0 ? -1 : 1)));
-                return true;
-            }
-        }
-        return false;
-    }
-
-    @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (draggingScrollbar) {
-            updateScrollFromMouse(mouseY);
-            return true;
-        }
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
-    }
-
-    @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        draggingScrollbar = false;
-        return super.mouseReleased(mouseX, mouseY, button);
-    }
-
-    private void drawScrollbar(GuiGraphics guiGraphics, int maxVisible, int maxScroll) {
-        int totalLines = players.size();
-        if (totalLines <= maxVisible) {
-            return;
-        }
-        int barWidth = 6;
-        int barX = listRight - barWidth - 2;
-        int trackTop = listTop + 1;
-        int trackBottom = listBottom - 1;
-        int trackHeight = trackBottom - trackTop;
-        int barHeight = Math.max(20, trackHeight * maxVisible / Math.max(1, totalLines));
-        int maxTrack = Math.max(1, trackHeight - barHeight);
-        int barY = trackTop + maxTrack * scroll / Math.max(1, maxScroll);
-        guiGraphics.fill(barX, trackTop, barX + barWidth, trackBottom, 0xFF3B3B3B);
-        guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFF9B9B9B);
-    }
-
-    private boolean isOnScrollbar(double mouseX, double mouseY) {
-        int barWidth = 8;
-        int barX = listRight - barWidth - 2;
-        return mouseX >= barX && mouseX <= barX + barWidth && mouseY >= listTop && mouseY <= listBottom;
-    }
-
-    private void updateScrollFromMouse(double mouseY) {
-        int height = listBottom - listTop;
-        int maxVisible = Math.max(1, height / ROW_HEIGHT);
-        int maxScroll = Math.max(0, players.size() - maxVisible);
-        if (maxScroll <= 0) {
-            scroll = 0;
-            return;
-        }
-        int trackTop = listTop + 1;
-        int trackBottom = listBottom - 1;
-        int trackHeight = trackBottom - trackTop;
-        int barHeight = Math.max(20, trackHeight * maxVisible / Math.max(1, players.size()));
-        int maxTrack = Math.max(1, trackHeight - barHeight);
-        int target = (int) (mouseY - trackTop - barHeight / 2.0);
-        target = Math.max(0, Math.min(maxTrack, target));
-        scroll = Math.max(0, Math.min(maxScroll, target * maxScroll / Math.max(1, maxTrack)));
-    }
-
     private void refreshPlayers() {
         String host = entry == null ? "" : entry.host;
         CompletableFuture
             .supplyAsync(() -> DlcRconClient.execute(host, port, password, "list", 8000))
             .whenComplete((response, throwable) -> Minecraft.getInstance().execute(() -> {
                 if (response == null) {
-                    statusText = Component.translatable("dlc_manager.server.rcon_connect_failed").getString();
-                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
-                        Component.translatable("dlc_manager.server.rcon_connect_failed"), Component.empty());
+                    statusText = DlcTextCompat.translatable("dlc_manager.server.rcon_connect_failed").getString();
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                        DlcTextCompat.translatable("dlc_manager.server.rcon_connect_failed"), DlcTextCompat.empty());
                 } else {
                     statusText = "";
                     updatePlayersFromList(response);
@@ -294,8 +161,8 @@ public class DlcServerRconPlayersScreen extends DlcScreenCompat.MouseScroll {
             .supplyAsync(() -> DlcRconClient.execute(host, port, password, command, 15000))
             .whenComplete((response, throwable) -> Minecraft.getInstance().execute(() -> {
                 if (response == null) {
-                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
-                        Component.translatable("dlc_manager.server.rcon_exec_failed"), Component.empty());
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                        DlcTextCompat.translatable("dlc_manager.server.rcon_exec_failed"), DlcTextCompat.empty());
                 } else if (refreshAfter) {
                     refreshPlayers();
                 }
@@ -324,4 +191,32 @@ public class DlcServerRconPlayersScreen extends DlcScreenCompat.MouseScroll {
             deopButton.active = hasPlayer;
         }
     }
+
+    private java.util.List<String> renderedPlayers = java.util.List.of();
+    private int renderedSelection = -2;
+    @Override protected void buildPage() {
+        initControls();
+        mount(toolbar, refreshButton);
+        mount(footer, opButton); mount(footer, deopButton);
+        mount(footer, kickButton).getElement().setAttribute("class", "button danger");
+        mount(footer, banButton).getElement().setAttribute("class", "button danger");
+
+        renderPlayers();
+    }
+    private void renderPlayers() {
+        content.setInnerHTML(""); renderedPlayers = java.util.List.copyOf(players); renderedSelection = selected;
+        for (int i = 0; i < players.size(); i++) {
+            int index = i;
+            var row = row(content, players.get(i), "");
+            row.setAttribute("class", "page-row server-row" + (index == selected ? " selected" : ""));
+            row.setAttribute("role", "option"); row.setAttribute("aria-selected", String.valueOf(index == selected));
+            row.addEventListener("click", event -> { selected = index; updateButtonStates(); });
+        }
+        if (players.isEmpty()) text(content, tr("dlc_manager.ui.no_players"), "empty-state");
+    }
+    @Override protected void updatePage() {
+        if (!renderedPlayers.equals(players) || renderedSelection != selected) renderPlayers();
+        updateButtonStates(); status(statusText);
+    }
+
 }

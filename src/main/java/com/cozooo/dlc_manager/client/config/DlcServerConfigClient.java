@@ -4,77 +4,73 @@ import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import fi.dy.masa.malilib.config.IConfigBase;
-import fi.dy.masa.malilib.config.options.ConfigBoolean;
-import fi.dy.masa.malilib.config.options.ConfigInteger;
-import fi.dy.masa.malilib.config.options.ConfigString;
 import java.util.List;
 
 public final class DlcServerConfigClient {
-    private static final ConfigBoolean SERVER_SUPPORT = new DlcConfigBoolean("serverSupport", true,
+    private static final DlcConfigValue.BooleanValue SERVER_SUPPORT = new DlcConfigValue.BooleanValue("serverSupport", true,
         "dlc_manager.config.comment.ui.serverSupport", "dlc_manager.config.ui.serverSupport");
-    private static final ConfigInteger SERVER_PORT = new DlcConfigInteger("serverPort", DlcConfig.DEFAULT_SERVER_PORT, 1, 65535,
+    private static final DlcConfigValue.IntegerValue SERVER_PORT = new DlcConfigValue.IntegerValue("serverPort", DlcConfig.DEFAULT_SERVER_PORT, 1, 65535,
         "dlc_manager.config.comment.ui.serverPort", "dlc_manager.config.ui.serverPort");
-    private static final ConfigString SERVER_PASSWORD = new DlcConfigString("serverPassword", "",
+    private static final DlcConfigValue.StringValue SERVER_PASSWORD = new DlcConfigValue.StringValue("serverPassword", "",
         "dlc_manager.config.comment.ui.serverPassword", "dlc_manager.config.ui.serverPassword");
-    private static final ConfigString RCON_HOST = new DlcConfigString("rconHost", DlcConfig.DEFAULT_RCON_HOST,
+    private static final DlcConfigValue.StringValue RCON_HOST = new DlcConfigValue.StringValue("rconHost", DlcConfig.DEFAULT_RCON_HOST,
         "dlc_manager.config.comment.ui.rconHost", "dlc_manager.config.ui.rconHost");
-    private static final ConfigInteger RCON_PORT = new DlcConfigInteger("rconPort", DlcConfig.DEFAULT_RCON_PORT, 1, 65535,
+    private static final DlcConfigValue.IntegerValue RCON_PORT = new DlcConfigValue.IntegerValue("rconPort", DlcConfig.DEFAULT_RCON_PORT, 1, 65535,
         "dlc_manager.config.comment.ui.rconPort", "dlc_manager.config.ui.rconPort");
-    private static final ConfigString RCON_PASSWORD = new DlcConfigString("rconPassword", DlcConfig.DEFAULT_RCON_PASSWORD,
+    private static final DlcConfigValue.StringValue RCON_PASSWORD = new DlcConfigValue.StringValue("rconPassword", DlcConfig.DEFAULT_RCON_PASSWORD,
         "dlc_manager.config.comment.ui.rconPassword", "dlc_manager.config.ui.rconPassword");
-    private static final ConfigBoolean API_ENABLED = new DlcConfigBoolean("apiEnabled", DlcConfig.DEFAULT_API_ENABLED,
+    private static final DlcConfigValue.BooleanValue API_ENABLED = new DlcConfigValue.BooleanValue("apiEnabled", DlcConfig.DEFAULT_API_ENABLED,
         "dlc_manager.config.comment.ui.apiEnabled", "dlc_manager.config.ui.apiEnabled");
-    private static final ConfigInteger API_PORT = new DlcConfigInteger("apiPort", DlcConfig.DEFAULT_API_PORT, 0, 65535,
+    private static final DlcConfigValue.IntegerValue API_PORT = new DlcConfigValue.IntegerValue("apiPort", DlcConfig.DEFAULT_API_PORT, 0, 65535,
         "dlc_manager.config.comment.ui.apiPort", "dlc_manager.config.ui.apiPort");
-    private static final ConfigString API_TOKEN = new DlcConfigString("apiToken", "",
+    private static final DlcConfigValue.StringValue API_TOKEN = new DlcConfigValue.StringValue("apiToken", "",
         "dlc_manager.config.comment.ui.apiToken", "dlc_manager.config.ui.apiToken");
-    private static final ConfigBoolean UI_ENABLE_ALL = new DlcConfigBoolean("isEnableAllButtonShown", DlcConfig.DEFAULT_ENABLE_ALL_SHOWN,
+    private static final DlcConfigValue.BooleanValue UI_ENABLE_ALL = new DlcConfigValue.BooleanValue("isEnableAllButtonShown", DlcConfig.DEFAULT_ENABLE_ALL_SHOWN,
         "dlc_manager.config.comment.ui.isEnableAllButtonShown", "dlc_manager.config.ui.isEnableAllButtonShown");
-    private static final ConfigBoolean UI_UPDATE_MANAGER = new DlcConfigBoolean("isUpdateManagerOn", DlcConfig.DEFAULT_UPDATE_MANAGER_ON,
+    private static final DlcConfigValue.BooleanValue UI_UPDATE_MANAGER = new DlcConfigValue.BooleanValue("isUpdateManagerOn", DlcConfig.DEFAULT_UPDATE_MANAGER_ON,
         "dlc_manager.config.comment.ui.isUpdateManagerOn", "dlc_manager.config.ui.isUpdateManagerOn");
-    private static final ConfigBoolean UI_SELF_UPDATE = new DlcConfigBoolean("isSelfUpdateAutoCheckOn", DlcConfig.DEFAULT_SELF_UPDATE_AUTO_CHECK_ON,
+    private static final DlcConfigValue.BooleanValue UI_SELF_UPDATE = new DlcConfigValue.BooleanValue("isSelfUpdateAutoCheckOn", DlcConfig.DEFAULT_SELF_UPDATE_AUTO_CHECK_ON,
         "dlc_manager.config.comment.ui.isSelfUpdateAutoCheckOn", "dlc_manager.config.ui.isSelfUpdateAutoCheckOn");
-    private static final ConfigBoolean UI_PRESET = new DlcConfigBoolean("isPresetFuncOn", DlcConfig.DEFAULT_PRESET_FUNC_ON,
+    private static final DlcConfigValue.BooleanValue UI_PRESET = new DlcConfigValue.BooleanValue("isPresetFuncOn", DlcConfig.DEFAULT_PRESET_FUNC_ON,
         "dlc_manager.config.comment.ui.isPresetFuncOn", "dlc_manager.config.ui.isPresetFuncOn");
-    private static final ConfigInteger UI_WAITING_TIME = new DlcConfigInteger("WaitingTime", DlcConfig.DEFAULT_ALARM_WAITING_TIME, 0, 10,
+    private static final DlcConfigValue.IntegerValue UI_WAITING_TIME = new DlcConfigValue.IntegerValue("WaitingTime", DlcConfig.DEFAULT_ALARM_WAITING_TIME, 0, 10,
         "dlc_manager.config.comment.ui.WaitingTime", "dlc_manager.config.ui.WaitingTime");
-    private static final ConfigString MODPACK = new DlcConfigString("modpack", DlcConfig.DEFAULT_MODPACK,
+    private static final DlcConfigValue.StringValue MODPACK = new DlcConfigValue.StringValue("modpack", DlcConfig.DEFAULT_MODPACK,
         "dlc_manager.config.comment.modpack.modpack", "dlc_manager.config.modpack.modpack");
-    private static final ConfigString MODPACK_URL = new DlcConfigString("modpackUrl", DlcConfig.DEFAULT_MODPACK_URL,
+    private static final DlcConfigValue.StringValue MODPACK_URL = new DlcConfigValue.StringValue("modpackUrl", DlcConfig.DEFAULT_MODPACK_URL,
         "dlc_manager.config.comment.modpack.modpackUrl", "dlc_manager.config.modpack.modpackUrl");
-    private static final ConfigString UPDATE_GIT_REPO = new DlcConfigString("updateGitRepo", DlcConfig.DEFAULT_UPDATE_GIT_REPO_URL,
+    private static final DlcConfigValue.StringValue UPDATE_GIT_REPO = new DlcConfigValue.StringValue("updateGitRepo", DlcConfig.DEFAULT_UPDATE_GIT_REPO_URL,
         "dlc_manager.config.comment.modpack.updateGitRepo", "dlc_manager.config.modpack.updateGitRepo");
 
-    private static final ConfigString DLC_ROOT = new DlcConfigString("dlcRoot", DlcConfig.DEFAULT_DLC_ROOT,
+    private static final DlcConfigValue.StringValue DLC_ROOT = new DlcConfigValue.StringValue("dlcRoot", DlcConfig.DEFAULT_DLC_ROOT,
         "dlc_manager.config.comment.paths.dlcRoot", "dlc_manager.config.paths.dlcRoot");
-    private static final ConfigString TACZ_ROOT = new DlcConfigString("taczRoot", DlcConfig.DEFAULT_TACZ_DLC_ROOT,
+    private static final DlcConfigValue.StringValue TACZ_ROOT = new DlcConfigValue.StringValue("taczRoot", DlcConfig.DEFAULT_TACZ_DLC_ROOT,
         "dlc_manager.config.comment.paths.taczRoot", "dlc_manager.config.paths.taczRoot");
-    private static final ConfigString RESOURCEPACK_ROOT = new DlcConfigString("resourcepackRoot", DlcConfig.DEFAULT_RESOURCEPACK_ROOT,
+    private static final DlcConfigValue.StringValue RESOURCEPACK_ROOT = new DlcConfigValue.StringValue("resourcepackRoot", DlcConfig.DEFAULT_RESOURCEPACK_ROOT,
         "dlc_manager.config.comment.paths.resourcepackRoot", "dlc_manager.config.paths.resourcepackRoot");
-    private static final ConfigString DATAPACK_ROOT = new DlcConfigString("datapackRoot", DlcConfig.DEFAULT_DATAPACK_ROOT,
+    private static final DlcConfigValue.StringValue DATAPACK_ROOT = new DlcConfigValue.StringValue("datapackRoot", DlcConfig.DEFAULT_DATAPACK_ROOT,
         "dlc_manager.config.comment.paths.datapackRoot", "dlc_manager.config.paths.datapackRoot");
 
-    private static final ConfigInteger MAX_CONCURRENT = new DlcConfigInteger("maxConcurrentDownloads", DlcConfig.DEFAULT_MAX_CONCURRENT_DOWNLOADS, 1, 64,
+    private static final DlcConfigValue.IntegerValue MAX_CONCURRENT = new DlcConfigValue.IntegerValue("maxConcurrentDownloads", DlcConfig.DEFAULT_MAX_CONCURRENT_DOWNLOADS, 1, 64,
         "dlc_manager.config.comment.download.maxConcurrentDownloads", "dlc_manager.config.download.maxConcurrentDownloads");
-    private static final ConfigInteger MAX_SEGMENTS = new DlcConfigInteger("maxSegmentsPerFile", DlcConfig.DEFAULT_MAX_SEGMENTS_PER_FILE, 1, 64,
+    private static final DlcConfigValue.IntegerValue MAX_SEGMENTS = new DlcConfigValue.IntegerValue("maxSegmentsPerFile", DlcConfig.DEFAULT_MAX_SEGMENTS_PER_FILE, 1, 64,
         "dlc_manager.config.comment.download.maxSegmentsPerFile", "dlc_manager.config.download.maxSegmentsPerFile");
-    private static final ConfigInteger MIN_SEGMENT_MB = new DlcConfigInteger("minSegmentMB", DlcConfig.DEFAULT_MIN_SEGMENT_MB, 1, Integer.MAX_VALUE,
+    private static final DlcConfigValue.IntegerValue MIN_SEGMENT_MB = new DlcConfigValue.IntegerValue("minSegmentMB", DlcConfig.DEFAULT_MIN_SEGMENT_MB, 1, Integer.MAX_VALUE,
         "dlc_manager.config.comment.download.minSegmentMB", "dlc_manager.config.download.minSegmentMB");
-    private static final ConfigInteger MAX_RETRY = new DlcConfigInteger("maxRetryCount", DlcConfig.DEFAULT_MAX_RETRY, 1, 100,
+    private static final DlcConfigValue.IntegerValue MAX_RETRY = new DlcConfigValue.IntegerValue("maxRetryCount", DlcConfig.DEFAULT_MAX_RETRY, 1, 100,
         "dlc_manager.config.comment.download.maxRetryCount", "dlc_manager.config.download.maxRetryCount");
-    private static final ConfigInteger CONNECT_TIMEOUT = new DlcConfigInteger("connectTimeoutSeconds", DlcConfig.DEFAULT_CONNECT_TIMEOUT_SECONDS, 1, 36000,
+    private static final DlcConfigValue.IntegerValue CONNECT_TIMEOUT = new DlcConfigValue.IntegerValue("connectTimeoutSeconds", DlcConfig.DEFAULT_CONNECT_TIMEOUT_SECONDS, 1, 36000,
         "dlc_manager.config.comment.download.connectTimeoutSeconds", "dlc_manager.config.download.connectTimeoutSeconds");
-    private static final ConfigInteger TASK_TIMEOUT = new DlcConfigInteger("taskTimeoutSeconds", DlcConfig.DEFAULT_TASK_TIMEOUT_SECONDS, 1, 36000,
+    private static final DlcConfigValue.IntegerValue TASK_TIMEOUT = new DlcConfigValue.IntegerValue("taskTimeoutSeconds", DlcConfig.DEFAULT_TASK_TIMEOUT_SECONDS, 1, 36000,
         "dlc_manager.config.comment.download.taskTimeoutSeconds", "dlc_manager.config.download.taskTimeoutSeconds");
-    private static final ConfigString DOWNLOAD_MIRROR_MODE = new DlcConfigString("downloadMirrorMode", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_MODE,
+    private static final DlcConfigValue.StringValue DOWNLOAD_MIRROR_MODE = new DlcConfigValue.StringValue("downloadMirrorMode", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_MODE,
         "dlc_manager.config.comment.download.downloadMirrorMode", "dlc_manager.config.download.downloadMirrorMode");
-    private static final ConfigInteger DOWNLOAD_MIRROR_PROBE_COUNT = new DlcConfigInteger("downloadMirrorProbeCount", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT, 1, 10,
+    private static final DlcConfigValue.IntegerValue DOWNLOAD_MIRROR_PROBE_COUNT = new DlcConfigValue.IntegerValue("downloadMirrorProbeCount", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT, 1, 10,
         "dlc_manager.config.comment.download.downloadMirrorProbeCount", "dlc_manager.config.download.downloadMirrorProbeCount");
-    private static final ConfigString DOWNLOAD_MIRROR_PROBE_STRATEGY = new DlcConfigString("downloadMirrorProbeStrategy", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY,
+    private static final DlcConfigValue.StringValue DOWNLOAD_MIRROR_PROBE_STRATEGY = new DlcConfigValue.StringValue("downloadMirrorProbeStrategy", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY,
         "dlc_manager.config.comment.download.downloadMirrorProbeStrategy", "dlc_manager.config.download.downloadMirrorProbeStrategy");
 
-    private static final List<IConfigBase> SERVER_CONFIGS = List.of(
+    private static final List<DlcConfigValue> SERVER_CONFIGS = List.of(
         SERVER_SUPPORT,
         SERVER_PORT,
         SERVER_PASSWORD,
@@ -86,13 +82,13 @@ public final class DlcServerConfigClient {
         API_TOKEN
     );
 
-    private static final List<IConfigBase> MODPACK_CONFIGS = List.of(
+    private static final List<DlcConfigValue> MODPACK_CONFIGS = List.of(
         MODPACK,
         MODPACK_URL,
         UPDATE_GIT_REPO
     );
 
-    private static final List<IConfigBase> UI_CONFIGS = List.of(
+    private static final List<DlcConfigValue> UI_CONFIGS = List.of(
         UI_ENABLE_ALL,
         UI_UPDATE_MANAGER,
         UI_SELF_UPDATE,
@@ -100,14 +96,14 @@ public final class DlcServerConfigClient {
         UI_WAITING_TIME
     );
 
-    private static final List<IConfigBase> PATH_CONFIGS = List.of(
+    private static final List<DlcConfigValue> PATH_CONFIGS = List.of(
         DLC_ROOT,
         TACZ_ROOT,
         RESOURCEPACK_ROOT,
         DATAPACK_ROOT
     );
 
-    private static final List<IConfigBase> DOWNLOAD_CONFIGS = List.of(
+    private static final List<DlcConfigValue> DOWNLOAD_CONFIGS = List.of(
         MAX_CONCURRENT,
         MAX_SEGMENTS,
         MIN_SEGMENT_MB,
@@ -122,23 +118,23 @@ public final class DlcServerConfigClient {
     private DlcServerConfigClient() {
     }
 
-    public static List<IConfigBase> getServerConfigs() {
+    public static List<DlcConfigValue> getServerConfigs() {
         return SERVER_CONFIGS;
     }
 
-    public static List<IConfigBase> getUiConfigs() {
+    public static List<DlcConfigValue> getUiConfigs() {
         return UI_CONFIGS;
     }
 
-    public static List<IConfigBase> getModpackConfigs() {
+    public static List<DlcConfigValue> getModpackConfigs() {
         return MODPACK_CONFIGS;
     }
 
-    public static List<IConfigBase> getPathConfigs() {
+    public static List<DlcConfigValue> getPathConfigs() {
         return PATH_CONFIGS;
     }
 
-    public static List<IConfigBase> getDownloadConfigs() {
+    public static List<DlcConfigValue> getDownloadConfigs() {
         return DOWNLOAD_CONFIGS;
     }
 
@@ -289,75 +285,4 @@ public final class DlcServerConfigClient {
         return fallback;
     }
 
-    private static class DlcConfigString extends ConfigString {
-        private final String translationKey;
-        private final String commentKey;
-
-        private DlcConfigString(String name, String defaultValue, String commentKey, String translationKey) {
-            super(name, defaultValue, "");
-            this.translationKey = translationKey;
-            this.commentKey = commentKey;
-        }
-
-        @Override
-        public String getConfigGuiDisplayName() {
-            return fi.dy.masa.malilib.util.StringUtils.translate(this.translationKey);
-        }
-
-        @Override
-        public String getComment() {
-            if (commentKey == null || commentKey.isBlank()) {
-                return "";
-            }
-            return fi.dy.masa.malilib.util.StringUtils.translate(commentKey);
-        }
-    }
-
-    private static class DlcConfigBoolean extends ConfigBoolean {
-        private final String translationKey;
-        private final String commentKey;
-
-        private DlcConfigBoolean(String name, boolean defaultValue, String commentKey, String translationKey) {
-            super(name, defaultValue, "", name);
-            this.translationKey = translationKey;
-            this.commentKey = commentKey;
-        }
-
-        @Override
-        public String getConfigGuiDisplayName() {
-            return fi.dy.masa.malilib.util.StringUtils.translate(this.translationKey);
-        }
-
-        @Override
-        public String getComment() {
-            if (commentKey == null || commentKey.isBlank()) {
-                return "";
-            }
-            return fi.dy.masa.malilib.util.StringUtils.translate(commentKey);
-        }
-    }
-
-    private static class DlcConfigInteger extends ConfigInteger {
-        private final String translationKey;
-        private final String commentKey;
-
-        private DlcConfigInteger(String name, int defaultValue, int min, int max, String commentKey, String translationKey) {
-            super(name, defaultValue, min, max, "");
-            this.translationKey = translationKey;
-            this.commentKey = commentKey;
-        }
-
-        @Override
-        public String getConfigGuiDisplayName() {
-            return fi.dy.masa.malilib.util.StringUtils.translate(this.translationKey);
-        }
-
-        @Override
-        public String getComment() {
-            if (commentKey == null || commentKey.isBlank()) {
-                return "";
-            }
-            return fi.dy.masa.malilib.util.StringUtils.translate(commentKey);
-        }
-    }
 }

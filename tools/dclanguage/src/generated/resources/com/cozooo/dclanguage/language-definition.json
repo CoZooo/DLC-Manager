@@ -1,0 +1,93 @@
+{
+  "formatVersion": 1,
+  "language": "dc",
+  "syntax": {
+    "tokens": {
+      "assignment": "=",
+      "categoryOpen": "[",
+      "categoryClose": "]",
+      "categorySeparator": ".",
+      "block": ":",
+      "arrayOpen": "[",
+      "arrayClose": "]",
+      "objectOpen": "{",
+      "objectClose": "}",
+      "itemSeparator": ",",
+      "objectSeparator": ":",
+      "escape": "\\",
+      "comment": "#",
+      "lineComment": "//",
+      "unicodeEscape": "u"
+    },
+    "stringRules": [
+      {
+        "name": "multilineBasic",
+        "delimiter": "\"\"\"",
+        "multiline": true,
+        "escaped": false
+      },
+      {
+        "name": "multilineLiteral",
+        "delimiter": "'''",
+        "multiline": true,
+        "escaped": false
+      },
+      {
+        "name": "basic",
+        "delimiter": "\"",
+        "multiline": false,
+        "escaped": true
+      },
+      {
+        "name": "literal",
+        "delimiter": "'",
+        "multiline": false,
+        "escaped": false
+      }
+    ],
+    "escapes": {
+      "n": "\n",
+      "r": "\r",
+      "t": "\t",
+      "b": "\b",
+      "f": "\f",
+      "\"": "\"",
+      "\\": "\\",
+      "/": "/"
+    },
+    "valueTypes": [
+      "string",
+      "boolean",
+      "number",
+      "integer",
+      "null",
+      "object",
+      "array",
+      "any"
+    ],
+    "literals": {
+      "true": "true",
+      "false": "false",
+      "null": "null"
+    },
+    "numberPattern": "[+-]?(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?",
+    "bareKeyPattern": "[A-Za-z_][A-Za-z0-9_-]*"
+  },
+  "policies": {
+    "allowBareValues": true,
+    "allowEmptyAssignment": true,
+    "allowTrailingComma": true,
+    "allowNewlineSeparator": true,
+    "caseInsensitiveBooleans": true,
+    "allowDottedCategories": true,
+    "allowColonCategories": true,
+    "allowBareEntries": true,
+    "maxDepth": 256,
+    "preserveUnknownEscapes": true,
+    "allowBom": true,
+    "indentWidth": 2
+  },
+  "profiles": [],
+  "contentHash": "ba012e769ed31fa4324bbed78fd770bed0b3fad906b03c2a20ae303b8f95419b",
+  "definitionHash": "90a939cadc269682500fa81f029c715d4eb5eef8938dd802ea70792df4d16788"
+}

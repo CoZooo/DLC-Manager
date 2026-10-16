@@ -151,6 +151,39 @@ class DlcPresetLoaderTest {
     }
 
     @Test
+    void migrationRetainsUnknownDataAndCommentsAndIsIdempotent() throws Exception {
+        Path preset = tempDir.resolve("preset").resolve("custom.dc");
+        Files.createDirectories(preset.getParent());
+        Files.writeString(preset, """
+            # custom preset
+            identifier = "custom" # selected identifier
+            enable = [
+              "main", # required choice
+              "optional"
+            ]
+            future = {"version": 123456789012345678901234567890}
+
+            [extension.provider]
+            value = 'unchanged' # preserved format
+            """);
+
+        assertEquals(1, DlcPresetLoader.loadAll(List.of(tempDir)).size());
+        String migrated = Files.readString(preset);
+        assertTrue(migrated.contains("[basic]"));
+        assertTrue(migrated.contains("[dependencies]"));
+        assertTrue(migrated.contains("# selected identifier"));
+        assertTrue(migrated.contains("# required choice"));
+        assertTrue(migrated.contains("future = {\"version\": 123456789012345678901234567890}"));
+        assertTrue(migrated.contains("[extension.provider]\nvalue = 'unchanged' # preserved format\n"));
+        var parsed = com.cozooo.dclanguage.DcDocuments.read(preset).toJson();
+        assertFalse(parsed.has("identifier"));
+        assertFalse(parsed.has("enable"));
+        assertEquals("custom", parsed.getAsJsonObject("basic").get("identifier").getAsString());
+        DlcPresetLoader.loadAll(List.of(tempDir));
+        assertEquals(migrated, Files.readString(preset));
+    }
+
+    @Test
     void ensurePresetRootCreatesPresetDirectory() {
         Path root = tempDir.resolve("DLC");
 

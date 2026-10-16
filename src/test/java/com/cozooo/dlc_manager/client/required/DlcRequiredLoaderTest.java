@@ -34,6 +34,7 @@ class DlcRequiredLoaderTest {
             file_name = "main.jar"
             appliedTarget = "mods/main.jar"
             RedirectUrl = "https://example.com"
+            isInList = false
             isHidden = true
             UserRemoved = true
             dependencies = ["dep-a", "dep-b"]
@@ -59,12 +60,77 @@ class DlcRequiredLoaderTest {
         assertEquals("cf-project", entry.getCurseforgeProjectId());
         assertEquals("cf-file", entry.getCurseforgeFileId());
         assertEquals("mods/main.jar", entry.getAppliedTargetRaw());
-        assertEquals("https://example.com", entry.getRedirectUrl());
-        assertTrue(entry.isHidden());
-        assertTrue(entry.isUserRemoved());
-        assertEquals("Main", entry.getDisplayNames().get("en_us"));
-        assertEquals("Tip", entry.getTips().get("en_us"));
+        assertEquals("main", entry.resolveDisplayName());
+        assertTrue(com.cozooo.dlc_manager.core.DlcDcFormatUtil.read(required.resolve("main.dc")).get("UserRemoved").getAsBoolean());
         assertEquals(List.of("dep-a", "dep-b"), entry.getDependencies().stream().map(DlcRequiredDependency::getIdentifier).toList());
+    }
+
+    @Test
+    void removedFieldsAreIgnoredWithoutRewritingExistingConfigurations() throws Exception {
+        Path required = tempDir.resolve("required");
+        Files.createDirectories(required);
+        Path config = required.resolve("legacy-fields.dc");
+        String contents = """
+            identifier = "owner"
+            file_name = "owner.jar"
+            appliedTarget = "mods/owner.jar"
+            isInList = false
+            isHidden = true
+            RedirectUrl = "https://example.com"
+
+            [DisplayName]
+            en_us = "Ignored name"
+
+            [Tip]
+            en_us = "Ignored tip"
+
+            [dependencies.child]
+            identifier = "child"
+            file_name = "child.jar"
+            isHidden = true
+            isInList = false
+            RedirectUrl = "https://example.com/child"
+              [DisplayName]
+              en_us = "Ignored child name"
+              [Tip]
+              en_us = "Ignored child tip"
+            """;
+        Files.writeString(config, contents);
+
+        DlcRequiredEntry entry = DlcRequiredLoader.loadSingle(config, tempDir);
+        assertNotNull(entry);
+        assertEquals("legacy-fields", entry.resolveDisplayName());
+        assertEquals("mods/owner.jar", entry.getAppliedTargetRaw());
+        assertEquals("child", entry.getDependencies().get(0).getEntry().resolveDisplayName());
+        assertEquals("child.jar", entry.getDependencies().get(0).getEntry().getRequiredFileName());
+        assertEquals(contents, Files.readString(config));
+    }
+
+    @Test
+    void loadIgnoresLegacyStateWithoutRewritingRootOrNestedDependencies() throws Exception {
+        Path required = tempDir.resolve("required");
+        Files.createDirectories(required);
+        Path config = required.resolve("legacy.dc");
+        JsonObject object = new JsonObject();
+        object.addProperty("identifier", "owner");
+        object.addProperty("userRemoved", true);
+        object.addProperty("custom", "preserved");
+        JsonObject dependencies = new JsonObject();
+        JsonObject child = new JsonObject();
+        child.addProperty("identifier", "child");
+        child.addProperty("USERREMOVED", true);
+        dependencies.add("child", child);
+        object.add("dependencies", dependencies);
+        assertTrue(com.cozooo.dlc_manager.core.DlcDcFormatUtil.write(config, object));
+
+        String contents = Files.readString(config);
+        assertEquals(1, DlcRequiredLoader.load(tempDir).size());
+        assertEquals(contents, Files.readString(config));
+        JsonObject cleaned = com.cozooo.dlc_manager.core.DlcDcFormatUtil.read(config);
+        assertNotNull(cleaned);
+        assertTrue(cleaned.get("userRemoved").getAsBoolean());
+        assertTrue(cleaned.getAsJsonObject("dependencies").getAsJsonObject("child").get("USERREMOVED").getAsBoolean());
+        assertEquals("preserved", cleaned.get("custom").getAsString());
     }
 
     @Test

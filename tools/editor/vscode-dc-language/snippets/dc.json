@@ -1,36 +1,11 @@
 {
-  "DC DLC Template": {
-    "prefix": "dc-dlc",
+  "DC Section": {
+    "prefix": "dc-section",
     "body": [
-      "[download]",
-      "modrinth_projectid = \"\"",
-      "modrinth_versionid = \"\"",
-      "curseforge_projectid = \"\"",
-      "curseforge_fileid = \"\"",
-      "directUrl = \"\"",
-      "priority = \"modrinth\"",
-      "",
-      "[basic]",
-      "identifier = \"${1:example}\"",
-      "type = \"mod\"",
-      "file_name = \"${2:example.jar}\"",
-      "isHidden = false",
-      "AllowEnableByAll = true",
-      "alarm = false",
-      "",
-      "[dependencies]",
-      "\"${5:identifier_or_path}\"",
-      "",
-      "[conflicts]",
-      "\"${6:identifier_or_path}\"",
-      "",
-      "[DisplayName]",
-      "en_us = \"${3:Example}\"",
-      "",
-      "[tip]",
-      "en_us = \"${4:Description}\""
+      "[${1:section}]",
+      "${2:key} = \"${3:value}\""
     ],
-    "description": "DLC .dc template"
+    "description": "A section from the shared DC syntax"
   },
   "DC Multiline String": {
     "prefix": "dc-ml",
@@ -39,6 +14,6 @@
       "${2:next line}",
       "\"\"\""
     ],
-    "description": "Triple-quoted multiline string"
+    "description": "A multiline string from the shared DC syntax"
   }
 }

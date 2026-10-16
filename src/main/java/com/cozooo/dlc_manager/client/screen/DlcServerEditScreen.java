@@ -1,161 +1,48 @@
 package com.cozooo.dlc_manager.client.screen;
 
-import com.cozooo.dlc_manager.client.server.DlcServerEntry;
-import com.cozooo.dlc_manager.core.DlcConfig;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-
-public class DlcServerEditScreen extends Screen {
-    private final Screen parent;
+import com.cozooo.dlc_manager.client.server.DlcServerEntry;
+import com.cozooo.dlc_manager.core.DlcConfig;
+import java.util.function.Consumer;
+public class DlcServerEditScreen extends DlcPageScreen {
     private final DlcServerEntry editing;
-    private final java.util.function.Consumer<DlcServerEntry> onSave;
-
-    private EditBox nameField;
-    private EditBox hostField;
-    private EditBox portField;
-    private EditBox passwordField;
-    private Button saveButton;
-    private Button cancelButton;
-
-    public DlcServerEditScreen(Screen parent, DlcServerEntry editing, java.util.function.Consumer<DlcServerEntry> onSave) {
-        super(Component.translatable("dlc_manager.server.edit_title"));
-        this.parent = parent;
-        this.editing = editing;
-        this.onSave = onSave;
+    private final Consumer<DlcServerEntry> onSave;
+    private String name;
+    private String host;
+    private String port;
+    private String password;
+    private DlcUiButton saveButton;
+    public DlcServerEditScreen(Screen parent, DlcServerEntry editing, Consumer<DlcServerEntry> onSave) {
+        super(DlcUiPage.SERVER_EDIT, parent, DlcTextCompat.translatable("dlc_manager.server.edit_title")); this.editing = editing; this.onSave = onSave;
+        name = editing == null || editing.name == null ? "" : editing.name;
+        host = editing == null || editing.host == null ? "" : editing.host;
+        port = String.valueOf(editing == null || editing.port <= 0 ? DlcConfig.getServerPort() : editing.port);
+        password = editing == null || editing.password == null ? "" : editing.password;
     }
-
-    @Override
-    protected void init() {
-        int fieldWidth = Math.min(260, this.width - 40);
-        int fieldHeight = 18;
-        int centerX = this.width / 2;
-        int startY = this.height / 2 - 60;
-        int gap = 22;
-
-        nameField = new EditBox(this.font, centerX - fieldWidth / 2, startY, fieldWidth, fieldHeight, Component.empty());
-        hostField = new EditBox(this.font, centerX - fieldWidth / 2, startY + gap, fieldWidth, fieldHeight, Component.empty());
-        portField = new EditBox(this.font, centerX - fieldWidth / 2, startY + gap * 2, fieldWidth, fieldHeight, Component.empty());
-        passwordField = new EditBox(this.font, centerX - fieldWidth / 2, startY + gap * 3, fieldWidth, fieldHeight, Component.empty());
-        hostField.setMaxLength(255);
-
-        if (editing != null) {
-            if (editing.name != null) {
-                nameField.setValue(editing.name);
-            }
-            if (editing.host != null) {
-                hostField.setValue(editing.host);
-            }
-            if (editing.port > 0) {
-                portField.setValue(String.valueOf(editing.port));
-            }
-            if (editing.password != null) {
-                passwordField.setValue(editing.password);
-            }
-        } else {
-            portField.setValue(String.valueOf(DlcConfig.getServerPort()));
-        }
-
-        addRenderableWidget(nameField);
-        addRenderableWidget(hostField);
-        addRenderableWidget(portField);
-        addRenderableWidget(passwordField);
-
-        int buttonWidth = 90;
-        int buttonHeight = 20;
-        int buttonY = this.height / 2 + 40;
-        saveButton = Button.builder(Component.translatable("dlc_manager.server.save"), btn -> handleSave())
-            .bounds(centerX - buttonWidth - 6, buttonY, buttonWidth, buttonHeight)
-            .build();
-        cancelButton = Button.builder(Component.translatable("gui.cancel"), btn -> Minecraft.getInstance().setScreen(parent))
-            .bounds(centerX + 6, buttonY, buttonWidth, buttonHeight)
-            .build();
-        addRenderableWidget(saveButton);
-        addRenderableWidget(cancelButton);
-        updateSaveButtonState();
+    @Override protected void buildPage() {
+        var form = node(content, "div", "page-dialog");
+        input(form, tr("dlc_manager.server.name"), name, "text", value -> name = value);
+        input(form, tr("dlc_manager.server.host"), host, "text", value -> { host = value; updatePage(); });
+        input(form, tr("dlc_manager.server.port"), port, "text", value -> { port = value; updatePage(); });
+        input(form, tr("dlc_manager.server.password"), password, "password", value -> password = value);
+        action(footer, tr("gui.cancel"), this::onClose);
+        saveButton = primary(tr("dlc_manager.server.save"), this::save);
+        updatePage();
     }
-
-    @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
-        int centerX = this.width / 2;
-        guiGraphics.drawCenteredString(this.font, getTitle(), centerX, this.height / 2 - 90, 0xFFFFFF);
-        drawFieldLabel(guiGraphics, "dlc_manager.server.name", nameField);
-        drawFieldLabel(guiGraphics, "dlc_manager.server.host", hostField);
-        drawFieldLabel(guiGraphics, "dlc_manager.server.port", portField);
-        drawFieldLabel(guiGraphics, "dlc_manager.server.password", passwordField);
-        updateSaveButtonState();
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
+    private int portNumber() { try { return Integer.parseInt(port.trim()); } catch (NumberFormatException ignored) { return -1; } }
+    @Override protected void updatePage() {
+        if (saveButton == null) return;
+        boolean valid = portNumber() > 0 && portNumber() <= 65535;
+        saveButton.setEnabled(!host.isBlank() && valid);
+        status(valid ? "" : tr("dlc_manager.ui.invalid_port"));
     }
-
-    @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (nameField.keyPressed(keyCode, scanCode, modifiers)) {
-            return true;
-        }
-        if (hostField.keyPressed(keyCode, scanCode, modifiers)) {
-            return true;
-        }
-        if (portField.keyPressed(keyCode, scanCode, modifiers)) {
-            return true;
-        }
-        if (passwordField.keyPressed(keyCode, scanCode, modifiers)) {
-            return true;
-        }
-        return super.keyPressed(keyCode, scanCode, modifiers);
-    }
-
-    @Override
-    public boolean charTyped(char codePoint, int modifiers) {
-        if (nameField.charTyped(codePoint, modifiers)) {
-            return true;
-        }
-        if (hostField.charTyped(codePoint, modifiers)) {
-            return true;
-        }
-        if (portField.charTyped(codePoint, modifiers)) {
-            return true;
-        }
-        if (passwordField.charTyped(codePoint, modifiers)) {
-            return true;
-        }
-        return super.charTyped(codePoint, modifiers);
-    }
-
-    private void drawFieldLabel(GuiGraphics guiGraphics, String key, EditBox field) {
-        int labelWidth = this.font.width(Component.translatable(key));
-        int x = field.getX() - labelWidth - 8;
-        if (x < 8) {
-            x = 8;
-        }
-        int y = field.getY() + (field.getHeight() - this.font.lineHeight) / 2;
-        guiGraphics.drawString(this.font, Component.translatable(key), x, y, 0xC8C8C8, false);
-    }
-
-    private void updateSaveButtonState() {
-        if (saveButton != null) {
-            saveButton.active = hostField != null && !hostField.getValue().isBlank();
-        }
-    }
-
-    private void handleSave() {
+    private void save() {
+        if (host.isBlank() || portNumber() <= 0 || portNumber() > 65535) return;
         DlcServerEntry entry = editing == null ? new DlcServerEntry() : editing;
-        entry.name = nameField.getValue().trim();
-        entry.host = hostField.getValue().trim();
-        entry.password = passwordField.getValue().trim();
-        entry.useTcp = true;
-        int port = DlcConfig.getServerPort();
-        try {
-            port = Integer.parseInt(portField.getValue().trim());
-        } catch (NumberFormatException ignored) {
-        }
-        entry.port = port;
-        if (onSave != null) {
-            onSave.accept(entry);
-        }
-        Minecraft.getInstance().setScreen(parent);
+        entry.name = name.trim(); entry.host = host.trim(); entry.port = portNumber(); entry.password = password.trim(); entry.useTcp = true;
+        if (onSave != null) onSave.accept(entry);
+        onClose();
     }
 }

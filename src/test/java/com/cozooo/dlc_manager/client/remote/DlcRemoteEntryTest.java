@@ -35,20 +35,20 @@ class DlcRemoteEntryTest {
 
     @Test
     void resolvesTargetPathWithSanitizedFileNameAndStripsQuery() {
-        DlcRemoteEntry entry = new DlcRemoteEntry(null, null, Path.of("mods"), "bad:name.jar?download=1");
+        DlcRemoteEntry entry = new DlcRemoteEntry(null, Path.of("DLC"), Path.of("DLC", "mods"), "bad:name.jar?download=1");
 
-        assertEquals(Path.of("mods", "bad_name.jar"), entry.getTargetPath());
-        assertEquals(Path.of("mods", "a_b.jar"), entry.resolveTargetPath("a:b.jar?x=1"));
+        assertEquals(Path.of("DLC/downloaded/DLCs/mods/bad_name.jar").toAbsolutePath().normalize(), entry.getTargetPath());
+        assertEquals(Path.of("DLC/downloaded/DLCs/mods/a_b.jar").toAbsolutePath().normalize(), entry.resolveTargetPath("a:b.jar?x=1"));
         assertNull(entry.resolveTargetPath(" "));
     }
 
     @Test
-    void dlcPackTargetsPackDirectoryUnderDlcRoot() {
-        DlcRemoteEntry entry = new DlcRemoteEntry(null, Path.of("DLC"), Path.of("mods"), "pack:one.zip?download=1");
+    void dlcPackDownloadsUseTheNewCacheDirectory() {
+        DlcRemoteEntry entry = new DlcRemoteEntry(null, Path.of("DLC"), Path.of("DLC"), "pack:one.zip?download=1");
         entry.setType(DlcType.DLC_PACK);
 
-        assertEquals(Path.of("DLC", "pack", "pack_one.zip"), entry.getTargetPath());
-        assertEquals(Path.of("DLC", "pack", "pack_two.zip"), entry.resolveTargetPath("pack:two.zip"));
+        assertEquals(Path.of("DLC/downloaded/DLCs/pack_one.zip").toAbsolutePath().normalize(), entry.getTargetPath());
+        assertEquals(Path.of("DLC/downloaded/DLCs/pack_two.zip").toAbsolutePath().normalize(), entry.resolveTargetPath("pack:two.zip"));
     }
 
     @Test
@@ -75,5 +75,11 @@ class DlcRemoteEntryTest {
         entry.setRemoteDependencies(List.of(dependency));
 
         assertEquals(List.of("dep", "explicit"), entry.getResolvedDependencyNames());
+    }
+    @Test
+    void missingFileNamesCannotResolveToTheLegacyRootDirectory() {
+        DlcRemoteEntry entry = new DlcRemoteEntry(null, Path.of("."), Path.of("."), null);
+        assertNull(entry.resolveExistingTargetPath(null));
+        assertNull(entry.resolveExistingTargetPath(" "));
     }
 }

@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client.preset
 
 import com.cozooo.dlc_manager.core.DlcDcConfigIO
+import com.cozooo.dclanguage.DcDocuments
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
@@ -202,7 +203,16 @@ object DlcPresetLoader {
             }
             migrated.add(key, value)
         }
-        DlcDcConfigIO.write(path, migrated, DlcDcConfigIO.Layout.GENERIC)
+        try {
+            val document = DcDocuments.read(path)
+            document.root().entrySet().clear()
+            for ((key, value) in migrated.entrySet()) document.root().add(key, value.deepCopy())
+            document.asSection("basic").asSection("dependencies").asSection("conflicts")
+            DcDocuments.write(path, document)
+        } catch (_: IOException) {
+        } catch (_: IllegalArgumentException) {
+        } catch (_: IllegalStateException) {
+        }
     }
 
     private fun relationObject(values: List<String>): JsonObject {

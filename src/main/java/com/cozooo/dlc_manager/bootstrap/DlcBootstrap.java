@@ -16,6 +16,11 @@ public final class DlcBootstrap {
         } else {
             DlcConfig.loadClient();
         }
+        DlcStartupRequirements.verifyBeforeGameLoad();
         DlcStateConfig.load();
+        if (!DlcStartupRequirements.usesEarlyInstallation() && DlcPlatformServices.isDedicatedServer()) {
+            try { com.cozooo.dlc_manager.client.update.DlcPendingUpdate.process(System.out::println, true); }
+            catch (java.io.IOException exception) { throw new IllegalStateException("Pending update recovery failed", exception); }
+        }
     }
 }

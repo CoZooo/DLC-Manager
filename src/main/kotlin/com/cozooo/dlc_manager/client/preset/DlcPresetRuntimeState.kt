@@ -22,7 +22,7 @@ object DlcPresetRuntimeState {
         val entries = DlcPresetLoader.loadAll()
         PRESETS_BY_ID.clear()
         for (entry in entries) {
-            val id = entry?.getId()
+            val id = entry.getId()
             if (!id.isNullOrBlank()) {
                 PRESETS_BY_ID[id] = entry
             }
@@ -709,7 +709,7 @@ object DlcPresetRuntimeState {
         if (rawPath == null || rawPath.isAbsolute) {
             return null
         }
-        val gameDir = DlcPaths.gameDir() ?: return null
+        val gameDir = DlcPaths.gameDir()
         val resolved = DlcPaths.resolveAgainstGameDir(value) ?: return null
         val normalizedGameDir = gameDir.toAbsolutePath().normalize()
         if (!resolved.startsWith(normalizedGameDir)) {

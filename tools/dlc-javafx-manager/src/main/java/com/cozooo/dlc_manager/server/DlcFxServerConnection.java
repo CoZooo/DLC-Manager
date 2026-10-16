@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.server;
 
 import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
+import com.cozooo.dlc_manager.ui.required.DlcFxRequiredInstallation;
 
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerInfo;
@@ -138,6 +139,13 @@ public final class DlcFxServerConnection {
         connectionState.set(ConnectionState.DISCONNECTED);
         statusText.set(DlcFxI18n.tr("dlc_manager.status.disconnected"));
         serverInfoText.set("");
+    }
+
+    public void installRequiredResources() throws Exception {
+        DlcServerSession current = session;
+        if (current == null) throw new IllegalStateException(DlcFxI18n.tr("dlc_manager.server.not_connected"));
+        DlcFxRequiredInstallation.installRemote(current);
+        if (session != current) throw new IllegalStateException(DlcFxI18n.tr("dlc_manager.server.not_connected"));
     }
 
     public void refreshLanguage() {

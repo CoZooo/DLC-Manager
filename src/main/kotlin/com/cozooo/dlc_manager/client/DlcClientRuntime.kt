@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager
 import com.cozooo.dlc_manager.client.pack.DlcPackRecovery
@@ -7,11 +11,10 @@ import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager
-import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen
+import com.cozooo.dlc_manager.client.screen.DlcManagerScreen
 import com.cozooo.dlc_manager.client.screen.DlcPackManagerScreen
 import com.cozooo.dlc_manager.client.screen.DlcModpackUpdateScreen
 import com.cozooo.dlc_manager.client.screen.DlcRequiredDownloadScreen
-import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
 import com.cozooo.dlc_manager.client.screen.DlcSelfUpdateScreen
 import com.cozooo.dlc_manager.client.screen.DlcServerListScreen
 import com.cozooo.dlc_manager.client.screen.DlcServerManagerScreen
@@ -40,9 +43,7 @@ import com.cozooo.dlc_manager.core.DlcType
 import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import com.cozooo.dlc_manager.server.DlcServerApi
 import com.mojang.logging.LogUtils
-import net.minecraft.Util
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.AbstractWidget
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.gui.screens.TitleScreen
@@ -50,7 +51,6 @@ import net.minecraft.client.multiplayer.ServerData
 import net.minecraft.network.chat.ClickEvent
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.Style
-import net.minecraft.network.chat.contents.TranslatableContents
 import net.minecraft.server.packs.repository.PackRepository
 import net.minecraft.util.FormattedCharSequence
 import org.slf4j.Logger
@@ -91,8 +91,7 @@ object DlcClientRuntime {
     fun findButtonByKey(screen: Screen, key: String?): AbstractWidget? {
         for (child in screen.children()) {
             if (child is AbstractWidget) {
-                val contents = child.message.contents
-                if (contents is TranslatableContents && key == contents.key) {
+                if (key == DlcScreenCompat.translationKey(child.message)) {
                     return child
                 }
             }
@@ -129,7 +128,7 @@ object DlcClientRuntime {
         if (firstRunManagerHandled) return
         firstRunManagerHandled = true
         if (parent == null || !DlcConfig.isShowOnFirstRun()) return
-        val dlcRoot = DlcConfig.getDlcRoot() ?: return
+        val dlcRoot = DlcConfig.getDlcRoot()
         val markerPath = dlcRoot.resolve(FIRST_RUN_MARKER_NAME)
         if (Files.exists(markerPath)) return
         if (DlcRequiredManager.tryShowFromTitle(parent)) return
@@ -140,7 +139,7 @@ object DlcClientRuntime {
         } catch (_: IOException) {
             return
         }
-        val managerScreen: Screen = DlcMaLiLibScreen(parent)
+        val managerScreen: Screen = DlcManagerScreen(parent)
         if (DlcRemoteManager.tryShowFromManager(managerScreen)) return
         Minecraft.getInstance().setScreen(managerScreen)
     }
@@ -149,7 +148,7 @@ object DlcClientRuntime {
     fun tryContinueFirstRun(parent: Screen?): Boolean {
         if (parent == null || parent !is TitleScreen) return false
         if (!DlcConfig.isShowOnFirstRun()) return false
-        val dlcRoot = DlcConfig.getDlcRoot() ?: return false
+        val dlcRoot = DlcConfig.getDlcRoot()
         val markerPath = dlcRoot.resolve(FIRST_RUN_MARKER_NAME)
         if (Files.exists(markerPath)) return false
         try {
@@ -159,19 +158,19 @@ object DlcClientRuntime {
         } catch (_: IOException) {
             return false
         }
-        val managerScreen: Screen = DlcMaLiLibScreen(parent)
+        val managerScreen: Screen = DlcManagerScreen(parent)
         if (DlcRemoteManager.tryShowFromManager(managerScreen)) return true
         Minecraft.getInstance().setScreen(managerScreen)
         return true
     }
 
     @JvmStatic
-    fun renderTitleNoticePanel(screen: Screen?, guiGraphics: GuiGraphics?) {
+    fun renderTitleNoticePanel(screen: Screen?, guiGraphics: Any?) {
         renderTitleNoticePanel(screen, guiGraphics, Int.MIN_VALUE, Int.MIN_VALUE)
     }
 
     @JvmStatic
-    fun renderTitleNoticePanel(screen: Screen?, guiGraphics: GuiGraphics?, mouseX: Int, mouseY: Int) {
+    fun renderTitleNoticePanel(screen: Screen?, guiGraphics: Any?, mouseX: Int, mouseY: Int) {
         if (!shouldShowMainMenuNoticePanel() || screen == null || guiGraphics == null) {
             titleNoticeDraggingScrollbar = false
             return
@@ -194,15 +193,15 @@ object DlcClientRuntime {
             titleNoticeScrollOffset = max(0, min(layout.maxScroll, next))
         }
 
-        guiGraphics.fill(layout.x, layout.y, layout.right, layout.bottom, 0xCC101215.toInt())
-        guiGraphics.fill(layout.x, layout.y, layout.right, layout.y + 1, 0xFF2A2F36.toInt())
-        guiGraphics.fill(layout.x, layout.bottom - 1, layout.right, layout.bottom, 0xFF2A2F36.toInt())
-        guiGraphics.fill(layout.x, layout.y, layout.x + 1, layout.bottom, 0xFF2A2F36.toInt())
-        guiGraphics.fill(layout.right - 1, layout.y, layout.right, layout.bottom, 0xFF2A2F36.toInt())
+        DlcScreenCompat.fill(guiGraphics, layout.x, layout.y, layout.right, layout.bottom, 0xCC101215.toInt())
+        DlcScreenCompat.fill(guiGraphics, layout.x, layout.y, layout.right, layout.y + 1, 0xFF2A2F36.toInt())
+        DlcScreenCompat.fill(guiGraphics, layout.x, layout.bottom - 1, layout.right, layout.bottom, 0xFF2A2F36.toInt())
+        DlcScreenCompat.fill(guiGraphics, layout.x, layout.y, layout.x + 1, layout.bottom, 0xFF2A2F36.toInt())
+        DlcScreenCompat.fill(guiGraphics, layout.right - 1, layout.y, layout.right, layout.bottom, 0xFF2A2F36.toInt())
 
         val font = Minecraft.getInstance().font
         val titleY = layout.y + layout.padding
-        guiGraphics.drawCenteredString(
+        DlcScreenCompat.drawCenteredString(guiGraphics,
             font,
             DlcTextFormatter.parse(layout.title),
             layout.x + (layout.right - layout.x) / 2,
@@ -217,19 +216,19 @@ object DlcClientRuntime {
                 if (subheadX < layout.textX) {
                     subheadX = layout.textX
                 }
-                guiGraphics.drawString(font, subheadLine, subheadX, subheadY, 0xBFC7D5, false)
+                DlcScreenCompat.drawString(guiGraphics, font, subheadLine, subheadX, subheadY, 0xBFC7D5, false)
                 subheadY += layout.lineStep
             }
         }
 
         var drawY = layout.textTop - titleNoticeScrollOffset
-        guiGraphics.enableScissor(layout.x + 1, layout.textTop, layout.right - 1, layout.textBottom)
+        DlcScreenCompat.enableScissor(guiGraphics, layout.x + 1, layout.textTop, layout.right - 1, layout.textBottom)
         try {
             for (line in layout.bodyLines) {
                 if (DlcMarkdownRenderer.isHrLine(line)) {
                     val hrY = drawY + layout.lineStep / 2
                     if (hrY >= layout.textTop && hrY <= layout.textBottom - 1) {
-                        guiGraphics.fill(layout.textX, hrY, layout.textRight, hrY + 1, 0xFF5A5A5A.toInt())
+                        DlcScreenCompat.fill(guiGraphics, layout.textX, hrY, layout.textRight, hrY + 1, 0xFF5A5A5A.toInt())
                     }
                     drawY += layout.lineStep
                     continue
@@ -242,9 +241,9 @@ object DlcClientRuntime {
                     continue
                 }
                 if (scale > 1.0f) {
-                    guiGraphics.pose().pushPose()
-                    guiGraphics.pose().scale(scale, scale, 1.0f)
-                    guiGraphics.drawString(
+                    DlcScreenCompat.pushPose(guiGraphics)
+                    DlcScreenCompat.scale(guiGraphics, scale, scale, 1.0f)
+                    DlcScreenCompat.drawString(guiGraphics,
                         font,
                         line,
                         (layout.textX / scale).toInt(),
@@ -252,14 +251,14 @@ object DlcClientRuntime {
                         0xFFFFFF,
                         false,
                     )
-                    guiGraphics.pose().popPose()
+                    DlcScreenCompat.popPose(guiGraphics)
                 } else {
-                    guiGraphics.drawString(font, line, layout.textX, drawY, 0xE6E6E6, false)
+                    DlcScreenCompat.drawString(guiGraphics, font, line, layout.textX, drawY, 0xE6E6E6, false)
                 }
                 drawY += lineHeight
             }
         } finally {
-            guiGraphics.disableScissor()
+            DlcScreenCompat.disableScissor(guiGraphics)
         }
         drawTitleNoticeScrollbar(guiGraphics, layout)
     }
@@ -296,13 +295,7 @@ object DlcClientRuntime {
                     if (relX >= 0 && relX <= maxWidth) {
                         val styleX = if (scale > 1.0f) (relX / scale).toInt() else relX
                         val style = findStyleAt(line, styleX)
-                        val click = style?.clickEvent
-                        if (click != null &&
-                            click.action == ClickEvent.Action.OPEN_URL &&
-                            !click.value.isNullOrBlank()
-                        ) {
-                            Util.getPlatform().openUri(click.value)
-                        }
+                        DlcScreenCompat.openClickEvent(style?.clickEvent)
                     }
                     return true
                 }
@@ -362,12 +355,12 @@ object DlcClientRuntime {
         updateTitleNoticeText(config, lang)
         var title = titleNoticeTitle
         if (title.isBlank()) {
-            title = Component.translatable("dlc_manager.notice_title").string
+            title = DlcTextCompat.translatable("dlc_manager.notice_title").string
         }
         var body = titleNoticeText
         if (body.isBlank()) {
             body = if (titleNoticeLoading) {
-                Component.translatable("dlc_manager.notice.loading").string
+                DlcTextCompat.translatable("dlc_manager.notice.loading").string
             } else {
                 config.getContents().resolve(lang)
             }
@@ -447,11 +440,11 @@ object DlcClientRuntime {
         )
     }
 
-    private fun drawTitleNoticeScrollbar(guiGraphics: GuiGraphics, layout: TitleNoticePanelLayout) {
+    private fun drawTitleNoticeScrollbar(guiGraphics: Any, layout: TitleNoticePanelLayout) {
         if (layout.maxScroll <= 0 || layout.visibleHeight <= 0) return
         val barY = layout.scrollbarYForScroll(titleNoticeScrollOffset)
-        guiGraphics.fill(layout.scrollbarX, layout.scrollbarTop, layout.scrollbarX + layout.scrollbarWidth, layout.scrollbarBottom, 0xFF2B2B2B.toInt())
-        guiGraphics.fill(layout.scrollbarX, barY, layout.scrollbarX + layout.scrollbarWidth, barY + layout.scrollbarHeight, 0xFF6B6B6B.toInt())
+        DlcScreenCompat.fill(guiGraphics, layout.scrollbarX, layout.scrollbarTop, layout.scrollbarX + layout.scrollbarWidth, layout.scrollbarBottom, 0xFF2B2B2B.toInt())
+        DlcScreenCompat.fill(guiGraphics, layout.scrollbarX, barY, layout.scrollbarX + layout.scrollbarWidth, barY + layout.scrollbarHeight, 0xFF6B6B6B.toInt())
     }
 
     private fun updateTitleNoticeScrollFromTrack(layout: TitleNoticePanelLayout, mouseY: Double) {
@@ -559,14 +552,14 @@ object DlcClientRuntime {
         val minecraft = Minecraft.getInstance()
         if (minecraft.player == null) return false
         if (minecraft.hasSingleplayerServer()) return false
-        return minecraft.player!!.hasPermissions(2)
+        return DlcScreenCompat.hasCommandPermission(minecraft.player, 2)
     }
 
     @JvmStatic
     fun openManagerFromCommand() {
         val minecraft = Minecraft.getInstance()
         val parent = minecraft.screen
-        val managerScreen: Screen = DlcMaLiLibScreen(parent)
+        val managerScreen: Screen = DlcManagerScreen(parent)
         if (DlcRemoteManager.tryShowFromManager(managerScreen)) return
         minecraft.setScreen(managerScreen)
     }
@@ -589,9 +582,9 @@ object DlcClientRuntime {
         val result = DlcUpdateService.checkForUpdates()
         if (!result.hasUpdates()) {
             DlcScreenCompat.addOrUpdatePeriodicNotification(
-                minecraft.toasts,
-                Component.translatable("dlc_manager.update.no_updates"),
-                Component.empty(),
+                DlcScreenCompat.toastManager(minecraft),
+                DlcTextCompat.translatable("dlc_manager.update.no_updates"),
+                DlcTextCompat.empty(),
             )
             return
         }
@@ -645,8 +638,9 @@ object DlcClientRuntime {
     @JvmStatic
     fun runStartupChecksAsync(screen: Screen?) {
         if (startupCheckRunning || startupChecksCompleted) return
+        if (DlcUpdateClient.startPendingFromTitle(screen) || DlcUpdateClient.showPendingResult(screen)) return
         DlcServerApi.start(null)
-        DlcServerApi.setClientStateChangedListener { Minecraft.getInstance().execute(DlcMaLiLibScreen::refreshCurrentOpenScreen) }
+        DlcServerApi.setClientStateChangedListener { Minecraft.getInstance().execute(DlcManagerScreen::refreshCurrentOpenScreen) }
         ensurePackArchiveRoot(DlcPaths.dlcRoot())
         DlcPackRecovery.recover(DlcPaths.gameDir(), DlcPaths.dlcRoot())
         uninstallIncompatiblePacksForCurrentVersion()
@@ -732,7 +726,7 @@ object DlcClientRuntime {
                 val promptSkipped = updateResult.hasUpdates() &&
                     DlcUpdateService.isPromptSkippedForUpdate(updateResult)
                 hasUpdate = updateResult.hasUpdates() && !promptSkipped
-                val updateCount = updateResult.updates?.size ?: 0
+                val updateCount = updateResult.updates.size
                 LOGGER.info(
                     "[dlc-manager] update check done: hasUpdate={}, count={}, promptSkipped={}, took={}ms",
                     hasUpdate,
@@ -754,19 +748,13 @@ object DlcClientRuntime {
                     System.currentTimeMillis() - selfAt,
                 )
             }
-            if (!hasUpdate && !DlcRequiredManager.hasSkipMarker()) {
-                val requiredAt = System.currentTimeMillis()
-                hasRequired = DlcRequiredManager.hasMissingDownloadsForPrompt()
-                if (hasRequired) {
-                    missing = DlcRequiredManager.collectMissingDownloadsForPrompt()
-                }
-                LOGGER.info(
-                    "[dlc-manager] required check done: hasRequired={}, missingCount={}, took={}ms",
-                    hasRequired,
-                    missing.size,
-                    System.currentTimeMillis() - requiredAt,
-                )
-            }
+            val requiredAt = System.currentTimeMillis()
+            missing = DlcRequiredManager.collectMissingDownloadsForPrompt()
+            hasRequired = missing.isNotEmpty()
+            LOGGER.info(
+                "[dlc-manager] required check done: hasRequired={}, missingCount={}, took={}ms",
+                hasRequired, missing.size, System.currentTimeMillis() - requiredAt,
+            )
 
             val finalHasUpdate = hasUpdate
             val finalUpdateResult = updateResult
@@ -782,6 +770,7 @@ object DlcClientRuntime {
                 startupCheckRunning = false
                 LOGGER.info("[dlc-manager] startup check finished in {}ms", System.currentTimeMillis() - startAt)
                 if (Minecraft.getInstance().screen !is TitleScreen) return@execute
+                if (com.cozooo.dlc_manager.client.update.DlcUpdateClient.showPendingResult(screen)) return@execute
                 var flow = Runnable {
                     DlcNoticeManager.showFromTitle(screen)
                 }
@@ -872,7 +861,7 @@ object DlcClientRuntime {
     }
 
     private fun createContinuationScreen(fallback: Screen?, next: Runnable): Screen {
-        return object : Screen(Component.empty()) {
+        return object : Screen(DlcTextCompat.empty()) {
             private var started = false
 
             override fun init() {
@@ -1052,7 +1041,7 @@ object DlcClientRuntime {
                 val fileName = sourcePath.fileName.toString()
                 var packId = resolvePackId(repo, fileName)
                 if (packId == null) {
-                    val target = minecraft.resourcePackDirectory.resolve(fileName)
+                    val target = java.nio.file.Path.of(minecraft.resourcePackDirectory.toString(), fileName)
                     copyRecursive(sourcePath, target)
                     repo.reload()
                     packId = resolvePackId(repo, fileName)
@@ -1077,7 +1066,12 @@ object DlcClientRuntime {
     private fun createEntryFromServer(data: ServerData): DlcServerEntry? {
         val entry = DlcServerEntry()
         entry.name = data.name
+        //? if >=26.1 {
+        //val ip = data.ip
+        //?}
+        //? if <26.1 {
         val ip = data.ip ?: ""
+        //?}
         var host = ip
         val port = DlcConfig.getServerPort()
         if (ip.startsWith("[") && ip.contains("]")) {

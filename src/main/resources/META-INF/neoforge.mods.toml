@@ -1,6 +1,6 @@
 modLoader="javafml"
 loaderVersion="${neoforge_loader_version_range}"
-license="All Rights Reserved"
+license="LicenseRef-DLC-Manager-Source-1.0"
 
 [[mods]]
 modId="${mod_id}"
@@ -40,8 +40,8 @@ side="BOTH"
 ${kotlin_for_forge_dependency}
 
 [[dependencies.${mod_id}]]
-modId="mafglib"
-mandatory=true
-versionRange="${mafglib_version_range}"
-ordering="NONE"
+modId="apricityui"
+type="required"
+versionRange="[${apricity_ui_version},)"
+ordering="AFTER"
 side="CLIENT"

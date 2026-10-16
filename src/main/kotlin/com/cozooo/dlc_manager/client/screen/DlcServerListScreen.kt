@@ -1,24 +1,21 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.server.DlcServerCache
 import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.client.server.DlcServerInfo
 import com.cozooo.dlc_manager.client.server.DlcServerList
-import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
-import net.minecraft.client.gui.screens.ConfirmScreen
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import java.util.concurrent.CompletableFuture
-import kotlin.math.abs
-import kotlin.math.max
-import kotlin.math.min
 
-class DlcServerListScreen(private val parent: Screen?) :
-    DlcScreenCompat.MouseScroll(Component.translatable("dlc_manager.server.list_title")) {
+class DlcServerListScreen(private val parent: Screen?) : DlcPageScreen(DlcUiPage.SERVER_LIST, parent, DlcTextCompat.translatable("dlc_manager.server.list_title")) {
     private var servers: MutableList<DlcServerEntry> = ArrayList()
     private var scrollIndex = 0
     private var selectedIndex = -1
@@ -32,7 +29,7 @@ class DlcServerListScreen(private val parent: Screen?) :
     @Volatile
     private var connecting = false
 
-    override fun init() {
+    private fun initControls() {
         DlcServerList.load()
         servers = ArrayList(DlcServerList.getEntries())
         val lastKey = DlcServerList.getLastSelectedKey()
@@ -55,24 +52,24 @@ class DlcServerListScreen(private val parent: Screen?) :
         val row2Total = buttonWidth * 2 + gap
         val row1X = centerX - row1Total / 2
         val row2X = centerX - row2Total / 2
-        val delete = Button.builder(Component.translatable("selectServer.delete")) { deleteSelected() }
+        val delete = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("selectServer.delete")) { deleteSelected() }
             .bounds(row1X, row1Y, buttonWidth, buttonHeight)
             .build()
-        val edit = Button.builder(Component.translatable("selectServer.edit")) { editSelected() }
+        val edit = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("selectServer.edit")) { editSelected() }
             .bounds(row1X + buttonWidth + gap, row1Y, buttonWidth, buttonHeight)
             .build()
-        val add = Button.builder(Component.translatable("selectServer.add")) { openAdd() }
+        val add = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("selectServer.add")) { openAdd() }
             .bounds(row1X + (buttonWidth + gap) * 2, row1Y, buttonWidth, buttonHeight)
             .build()
-        val connect = Button.builder(Component.translatable("dlc_manager.server.connect")) { connectSelected() }
+        val connect = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.connect")) { connectSelected() }
             .bounds(row2X, row2Y, buttonWidth, buttonHeight)
             .build()
-        val back = Button.builder(Component.translatable("gui.back")) {
+        val back = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("gui.back")) {
             if (parent != null) {
                 Minecraft.getInstance().setScreen(parent)
-                return@builder
+                return@buttonBuilder
             }
-            Minecraft.getInstance().setScreen(DlcMaLiLibScreen(null))
+            Minecraft.getInstance().setScreen(DlcManagerScreen(null))
         }
             .bounds(row2X + buttonWidth + gap, row2Y, buttonWidth, buttonHeight)
             .build()
@@ -87,110 +84,6 @@ class DlcServerListScreen(private val parent: Screen?) :
         addRenderableWidget(connect)
         addRenderableWidget(back)
         updateButtonStates()
-    }
-
-    override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick)
-        val centerX = width / 2
-        guiGraphics.drawCenteredString(font, title, centerX, 20, 0xFFFFFF)
-        val listTop = 50
-        val listBottom = height - 70
-        val maxVisible = max(1, (listBottom - listTop) / ROW_HEIGHT)
-        val totalLines = servers.size
-        val maxScroll = max(0, totalLines - maxVisible)
-        if (scrollIndex > maxScroll) {
-            scrollIndex = maxScroll
-        }
-        var rowY = listTop
-        for (i in servers.indices) {
-            val entry = servers[i]
-            val visible = i >= scrollIndex && i < scrollIndex + maxVisible
-            if (!visible) {
-                continue
-            }
-            val selected = i == selectedIndex
-            if (selected) {
-                val left = 28
-                val right = width - 28
-                val top = rowY + 2
-                val bottom = rowY + ROW_HEIGHT
-                guiGraphics.fill(left, top, right, bottom, 0x33222222)
-                guiGraphics.fill(left, top, right, top + 1, 0xFFFFFFFF.toInt())
-                guiGraphics.fill(left, bottom - 1, right, bottom, 0xFFFFFFFF.toInt())
-                guiGraphics.fill(left, top, left + 1, bottom, 0xFFFFFFFF.toInt())
-                guiGraphics.fill(right - 1, top, right, bottom, 0xFFFFFFFF.toInt())
-            }
-            val label = entry.getDisplayName()
-            val host = entry.getKey()
-            guiGraphics.drawString(font, DlcTextFormatter.parse(label), 36, rowY + 4, 0xE6E6E6, false)
-            guiGraphics.drawString(font, host, 36, rowY + 13, 0x9A9A9A, false)
-            rowY += ROW_HEIGHT
-        }
-        drawScrollBar(guiGraphics, listTop, listBottom, totalLines, maxVisible, maxScroll)
-        if (connecting) {
-            guiGraphics.drawCenteredString(
-                font,
-                Component.translatable("dlc_manager.server.connecting"),
-                centerX,
-                listBottom + 4,
-                0xC8C8C8,
-            )
-        }
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
-    }
-
-    override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
-        val listTop = 50
-        val listBottom = height - 70
-        if (mouseY >= listTop && mouseY <= listBottom) {
-            val index = ((mouseY - listTop) / ROW_HEIGHT).toInt() + scrollIndex
-            if (index >= 0 && index < servers.size) {
-                selectedIndex = index
-                val key = servers[index].getKey()
-                DlcServerList.setLastSelectedKey(key)
-                DlcServerList.save()
-                updateButtonStates()
-                if (button == 0) {
-                    val now = System.currentTimeMillis()
-                    if (lastClickIndex == index && now - lastClickTime < 250) {
-                        connectSelected()
-                        lastClickIndex = -1
-                        lastClickTime = 0L
-                        return true
-                    }
-                    lastClickIndex = index
-                    lastClickTime = now
-                }
-                return true
-            }
-        }
-        return super.mouseClicked(mouseX, mouseY, button)
-    }
-
-    override fun handleCompatibleMouseScrolled(mouseX: Double, mouseY: Double, deltaY: Double): Boolean {
-        return handleMouseScrolled(mouseX, mouseY, deltaY)
-    }
-
-    private fun handleMouseScrolled(mouseX: Double, mouseY: Double, deltaY: Double): Boolean {
-        val listTop = 50
-        val listBottom = height - 70
-        if (mouseY < listTop || mouseY > listBottom) {
-            return false
-        }
-        val maxVisible = max(1, (listBottom - listTop) / ROW_HEIGHT)
-        val maxScroll = max(0, servers.size - maxVisible)
-        if (maxScroll > 0) {
-            val step = if (deltaY > 0) -1 else 1
-            scrollIndex = max(0, min(maxScroll, scrollIndex + step))
-            return true
-        }
-        return false
-    }
-
-    override fun resize(minecraft: Minecraft, width: Int, height: Int) {
-        super.resize(minecraft, width, height)
-        clearWidgets()
-        init()
     }
 
     private fun openAdd() {
@@ -221,10 +114,10 @@ class DlcServerListScreen(private val parent: Screen?) :
 
     private fun deleteSelected() {
         val entry = selectedEntry ?: return
-        val title = Component.translatable("selectServer.deleteQuestion")
-        val message = Component.translatable("selectServer.deleteWarning", entry.getDisplayName())
+        val title = DlcTextCompat.translatable("selectServer.deleteQuestion")
+        val message = DlcTextCompat.translatable("selectServer.deleteWarning", entry.getDisplayName())
         Minecraft.getInstance().setScreen(
-            ConfirmScreen({ result ->
+            DlcConfirmScreen({ result ->
                 if (result && selectedIndex >= 0 && selectedIndex < servers.size) {
                     servers.removeAt(selectedIndex)
                     if (selectedIndex >= servers.size) {
@@ -246,9 +139,9 @@ class DlcServerListScreen(private val parent: Screen?) :
         val entry = selectedEntry
         if (entry == null) {
             DlcScreenCompat.addOrUpdatePeriodicNotification(
-                Minecraft.getInstance().toasts,
-                Component.translatable("dlc_manager.server.select_required"),
-                Component.empty(),
+                DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                DlcTextCompat.translatable("dlc_manager.server.select_required"),
+                DlcTextCompat.empty(),
             )
             return
         }
@@ -262,14 +155,14 @@ class DlcServerListScreen(private val parent: Screen?) :
                     updateButtonStates()
                     if (info == null) {
                         DlcScreenCompat.addOrUpdatePeriodicNotification(
-                            Minecraft.getInstance().toasts,
-                            Component.translatable("dlc_manager.server.connect_failed"),
-                            Component.empty(),
+                            DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                            DlcTextCompat.translatable("dlc_manager.server.connect_failed"),
+                            DlcTextCompat.empty(),
                         )
                         return@execute
                     }
                     DlcServerCache.put(entry.getKey(), info)
-                    Minecraft.getInstance().setScreen(DlcServerMaLiLibScreen(this, entry, info))
+                    Minecraft.getInstance().setScreen(DlcServerScreen(this, entry, info))
                 }
             }
     }
@@ -284,28 +177,55 @@ class DlcServerListScreen(private val parent: Screen?) :
 
     private fun updateButtonStates() {
         val hasSelection = selectedEntry != null
-        deleteButton?.active = hasSelection
-        editButton?.active = hasSelection
+        deleteButton?.active = hasSelection && !connecting
+        editButton?.active = hasSelection && !connecting
         connectButton?.active = hasSelection && !connecting
+        addButton?.active = !connecting
+        backButton?.active = !connecting
     }
 
     private val selectedEntry: DlcServerEntry?
         get() = if (selectedIndex >= 0 && selectedIndex < servers.size) servers[selectedIndex] else null
 
-    private fun drawScrollBar(guiGraphics: GuiGraphics, top: Int, bottom: Int, totalLines: Int, maxVisible: Int, maxScroll: Int) {
-        if (totalLines <= maxVisible) {
-            return
-        }
-        val barX = width - 20
-        val barWidth = 6
-        val barHeight = max(20, (bottom - top) * maxVisible / max(1, totalLines))
-        val trackHeight = bottom - top
-        val barY = top + (trackHeight - barHeight) * scrollIndex / max(1, maxScroll)
-        guiGraphics.fill(barX, top, barX + barWidth, bottom, 0xFF3B3B3B.toInt())
-        guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFF9B9B9B.toInt())
-    }
 
-    companion object {
-        private const val ROW_HEIGHT = 22
+    private var query = ""
+    private var matchedServers = emptySet<String>()
+    private val serverRows = linkedMapOf<Int, com.sighs.apricityui.init.Element>()
+    override fun buildPage() {
+        initControls()
+        input(toolbar, tr("dlc_manager.ui.search_servers"), query, "search") { query = it; searchServers() }
+        addButton?.let { mount(toolbar, it) }
+        searchServers()
+        deleteButton?.let { mount(footer, it).getElement().setAttribute("class", "button danger") }
+        editButton?.let { mount(footer, it) }
+        connectButton?.let { mount(footer, it).getElement().setAttribute("class", "button primary") }
     }
+    private fun searchServers() {
+        val entries = servers.mapIndexed { index, entry -> DlcUiAsyncSearch.Entry(index.toString(), entry.getDisplayName(), entry.getKey()) }
+        content.setAttribute("style", "pointer-events:none"); content.setAttribute("aria-busy", "true")
+        filterAsync(query, entries) { matches ->
+            matchedServers = matches; renderServers(); content.removeAttribute("style"); content.removeAttribute("aria-busy")
+        }
+    }
+    private fun renderServers() {
+        content.setInnerHTML(""); serverRows.clear()
+        for ((index, entry) in servers.withIndex()) {
+            if (index.toString() !in matchedServers) continue
+            val row = row(content, entry.getDisplayName(), entry.getKey())
+            row.setAttribute("class", "page-row server-row" + if (index == selectedIndex) " selected" else "")
+            row.setAttribute("tabindex", "0"); row.setAttribute("role", "option"); row.setAttribute("aria-selected", (index == selectedIndex).toString())
+            row.addEventListener("click") {
+                if (connecting) return@addEventListener
+                selectedIndex = index; DlcServerList.setLastSelectedKey(entry.getKey()); DlcServerList.save(); updateButtonStates()
+                serverRows.forEach { (key, item) -> item.setAttribute("class", "page-row server-row" + if (key == selectedIndex) " selected" else ""); item.setAttribute("aria-selected", (key == selectedIndex).toString()) }
+            }
+            row.addEventListener("dblclick") { connectSelected() }
+            serverRows[index] = row
+        }
+        if (serverRows.isEmpty()) text(content, tr(if (query.isBlank()) "dlc_manager.ui.empty_servers" else "dlc_manager.ui.no_results"), "empty-state")
+    }
+    override fun updatePage() { updateButtonStates(); status(if (connecting) tr("dlc_manager.server.connecting") else "") }
+    override fun shouldCloseOnEsc() = !connecting
+    override fun onClose() { if (connecting) return; if (pageParent == null) Minecraft.getInstance().setScreen(DlcManagerScreen(null)) else super.onClose() }
+
 }

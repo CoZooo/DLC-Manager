@@ -1341,7 +1341,7 @@ object DlcDownloadService {
                     if (attempts > maxRetries) {
                         throw SegmentDownloadException("segment retry exceeded", lastError)
                     }
-                    if (cancelChecker?.isCanceled() == true) {
+                    if (Thread.currentThread().isInterrupted || cancelChecker?.isCanceled() == true) {
                         throw DownloadCanceledException("canceled")
                     }
                     var connection: HttpURLConnection? = null
@@ -1368,7 +1368,7 @@ object DlcDownloadService {
                                     if (len < 0) {
                                         break
                                     }
-                                    if (cancelChecker?.isCanceled() == true) {
+                                    if (Thread.currentThread().isInterrupted || cancelChecker?.isCanceled() == true) {
                                         throw DownloadCanceledException("canceled")
                                     }
                                     raf.write(buffer, 0, len)
@@ -1381,6 +1381,8 @@ object DlcDownloadService {
                                 }
                             }
                         }
+                    } catch (ex: DownloadCanceledException) {
+                        throw ex
                     } catch (ex: IOException) {
                         lastError = ex
                         continue
@@ -1391,22 +1393,39 @@ object DlcDownloadService {
             })
         }
         executor.shutdown()
-        for (future in futures) {
-            try {
-                future.get()
-            } catch (ex: Exception) {
-                for (pending in futures) {
-                    pending.cancel(true)
+        try {
+            for (future in futures) {
+                try {
+                    future.get()
+                } catch (ex: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    for (pending in futures) pending.cancel(true)
+                    throw DownloadCanceledException("download interrupted").also { it.initCause(ex) }
+                } catch (ex: Exception) {
+                    for (pending in futures) {
+                        pending.cancel(true)
+                    }
+                    val cause = ex.cause
+                    if (cause is DownloadCanceledException) {
+                        throw cause
+                    }
+                    if (cause is SegmentDownloadException) {
+                        throw cause
+                    }
+                    throw SegmentDownloadException("segment failed", ex)
                 }
-                val cause = ex.cause
-                if (cause is DownloadCanceledException) {
-                    throw cause
-                }
-                if (cause is SegmentDownloadException) {
-                    throw cause
-                }
-                throw SegmentDownloadException("segment failed", ex)
             }
+        } finally {
+            executor.shutdownNow()
+            var interrupted = false
+            while (!executor.isTerminated) {
+                try {
+                    executor.awaitTermination(50, TimeUnit.MILLISECONDS)
+                } catch (_: InterruptedException) {
+                    interrupted = true
+                }
+            }
+            if (interrupted) Thread.currentThread().interrupt()
         }
     }
 

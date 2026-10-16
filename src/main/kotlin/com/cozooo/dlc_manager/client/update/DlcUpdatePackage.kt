@@ -2,7 +2,6 @@ package com.cozooo.dlc_manager.client.update
 
 import com.cozooo.dlc_manager.client.core.DlcZipUtil
 import com.cozooo.dlc_manager.core.DlcTmpPaths
-import com.cozooo.dlc_manager.core.DlcDcFormatUtil
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
@@ -18,6 +17,20 @@ class DlcUpdatePackage private constructor(
     private val manifest: DlcUpdateManifest,
     private val contentRoot: String?,
 ) {
+    enum class CompatibilityAction { ASK, IGNORE, UPDATE_MANAGER, RESUME }
+    private var compatibilityAction = CompatibilityAction.ASK
+    private var backupWorlds: List<String> = emptyList()
+    private var restoreWorldsAfterReapply = false
+    fun getBackupWorlds(): List<String> = backupWorlds
+    fun setBackupWorlds(value: List<String>) { backupWorlds = value.toList() }
+    fun isRestoreWorldsAfterReapply(): Boolean = restoreWorldsAfterReapply
+    fun setRestoreWorldsAfterReapply(value: Boolean) { restoreWorldsAfterReapply = value }
+    private var allowUninstallPacks = false
+    fun getCompatibilityAction(): CompatibilityAction = compatibilityAction
+    fun setCompatibilityAction(value: CompatibilityAction) { compatibilityAction = value }
+    fun isAllowUninstallPacks(): Boolean = allowUninstallPacks
+    fun setAllowUninstallPacks(value: Boolean) { allowUninstallPacks = value }
+
     private var extractionRoot: Path? = null
     private var stagingRoot: Path? = null
 
@@ -124,7 +137,7 @@ class DlcUpdatePackage private constructor(
                     if (entry == null) {
                         return null
                     }
-                    var entryName = entry!!.name?.replace('\\', '/') ?: ""
+                    var entryName = entry.name?.replace('\\', '/') ?: ""
                     if (entryName.startsWith("./")) {
                         entryName = entryName.substring(2)
                     }
@@ -142,8 +155,6 @@ class DlcUpdatePackage private constructor(
                                 GSON.fromJson(trimmed, JsonObject::class.java)
                             } else {
                                 DlcUpdateDcParser.parse(text)
-                                    ?.takeIf { it.entrySet().isNotEmpty() }
-                                    ?: readGenericText(text)
                             }
                         }
                         if (obj == null) {
@@ -159,12 +170,6 @@ class DlcUpdatePackage private constructor(
             }
         }
 
-        private fun readGenericText(text: String?): JsonObject? {
-            if (text == null) {
-                return null
-            }
-            return DlcDcFormatUtil.readGenericText(text)
-        }
 
     }
 }

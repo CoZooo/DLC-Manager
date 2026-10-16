@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.server
 
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.download.DlcDownloadService
 import com.cozooo.dlc_manager.client.pack.DlcPackArchive
 import com.cozooo.dlc_manager.client.pack.DlcPackInstaller
@@ -61,7 +63,9 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.locks.ReentrantLock
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
@@ -145,7 +149,7 @@ object DlcServerService {
         } else {
             "$motd\n$label"
         }
-        DlcServerCompat.setStatusDescription(server, Component.literal(combined))
+        DlcServerCompat.setStatusDescription(server, DlcTextCompat.literal(combined))
     }
 
     @JvmStatic
@@ -154,7 +158,7 @@ object DlcServerService {
             return ""
         }
         val dlcRoot = DlcConfig.getDlcRoot()
-        val version = DlcUpdateVersion.load(dlcRoot) ?: return ""
+        val version = DlcUpdateVersion.load(dlcRoot)
         val base = version.getBase()
         val dlc = version.getDlc()
         if (base.isNullOrBlank() || dlc.isNullOrBlank()) {
@@ -347,7 +351,11 @@ object DlcServerService {
         if (player == null) {
             return false
         }
+        //? if >=26.1 {
+        //return false
+        //?} else {
         return server.playerList.isOp(player.gameProfile) || player.hasPermissions(4)
+        //?}
     }
 
     @Throws(IOException::class)
@@ -744,7 +752,7 @@ object DlcServerService {
         ) {
             DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true)
         } else {
-            DlcUpdateService.checkForUpdates().updates ?: mutableListOf()
+            DlcUpdateService.checkForUpdates().updates
         }
         val apply = DlcUpdateService.applyUpdates(updates, false)
         val response = JsonObject()
@@ -1010,13 +1018,10 @@ object DlcServerService {
             Files.createDirectories(packRoot)
         } catch (_: IOException) {
         }
-        if (!Files.isDirectory(packRoot)) {
-            return emptyList()
-        }
         val installed = loadInstalledPacks()
         val out = ArrayList<DlcServerPackInfo>()
         try {
-            Files.list(packRoot).use { stream ->
+            DlcPackArchive.findArchives(DlcConfig.getDlcRoot()).stream().use { stream ->
                 stream.filter(Files::isRegularFile)
                     .filter { it.fileName.toString().lowercase(Locale.ROOT).endsWith(".zip") }
                     .sorted(Comparator.comparing { it.fileName.toString().lowercase(Locale.ROOT) })
@@ -1186,12 +1191,13 @@ object DlcServerService {
     }
 
     private fun resolvePackArchive(archivePath: String?): Path? {
-        if (archivePath.isNullOrBlank()) {
-            return null
-        }
-        val root = packArchiveRoot()
-        val target = safeResolve(root, archivePath)?.toAbsolutePath()?.normalize() ?: return null
-        return if (target.startsWith(root)) target else null
+        if (archivePath.isNullOrBlank()) return null
+        return try {
+            val local = packArchiveRoot()
+            val downloaded = DlcConfig.getDlcRoot().resolve("downloaded/DLCs").toAbsolutePath().normalize()
+            val target = local.resolve(archivePath).toAbsolutePath().normalize()
+            if (target.startsWith(local) || target.startsWith(downloaded)) target else null
+        } catch (_: java.nio.file.InvalidPathException) { null }
     }
 
     private fun describePackPrecheck(precheck: DlcPackInstaller.PrecheckResult): String {
@@ -1777,7 +1783,8 @@ object DlcServerService {
     ) {
         private val cancelRequested = AtomicBoolean(false)
         private val pauseRequested = AtomicBoolean(false)
-        private val pauseLock = Object()
+        private val pauseLock = ReentrantLock()
+        private val pauseChanged = pauseLock.newCondition()
         @Volatile private var running = true
         @Volatile private var finished = false
         @Volatile private var success = false
@@ -1796,8 +1803,11 @@ object DlcServerService {
             cancelRequested.set(true)
             message = "dlc_manager.pack.canceling"
             detail = null
-            synchronized(pauseLock) {
-                pauseLock.notifyAll()
+            pauseLock.lock()
+            try {
+                pauseChanged.signalAll()
+            } finally {
+                pauseLock.unlock()
             }
         }
 
@@ -1812,8 +1822,11 @@ object DlcServerService {
         fun resume() {
             pauseRequested.set(false)
             paused = false
-            synchronized(pauseLock) {
-                pauseLock.notifyAll()
+            pauseLock.lock()
+            try {
+                pauseChanged.signalAll()
+            } finally {
+                pauseLock.unlock()
             }
         }
 
@@ -1922,11 +1935,14 @@ object DlcServerService {
                 paused = true
                 message = "dlc_manager.pack.paused"
                 detail = null
-                synchronized(pauseLock) {
+                pauseLock.lock()
+                try {
                     try {
-                        pauseLock.wait(200L)
+                        pauseChanged.await(200L, TimeUnit.MILLISECONDS)
                     } catch (_: InterruptedException) {
                     }
+                } finally {
+                    pauseLock.unlock()
                 }
             }
             paused = false

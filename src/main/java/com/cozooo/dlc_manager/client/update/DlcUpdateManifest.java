@@ -24,6 +24,7 @@ public class DlcUpdateManifest {
     private static final Gson GSON = new GsonBuilder().create();
     private static final Pattern LAST_JSON_PAIR = Pattern.compile("\".*?\"\\s*:\\s*\".*?\"");
 
+    private final List<String> unknownParameters = new ArrayList<>();
     private VersionInfo version;
     private FileOps fileOps;
     private boolean hidden;
@@ -47,9 +48,10 @@ public class DlcUpdateManifest {
                 } else {
                     obj = DlcUpdateDcParser.parse(text);
                 }
-            } catch (IOException ignored) {
+            } catch (IOException | com.google.gson.JsonParseException ignored) {
                 return null;
             }
+            return fromJsonObject(obj);
         }
         if (obj == null) {
             try (Reader reader = Files.newBufferedReader(updateJson)) {
@@ -68,6 +70,7 @@ public class DlcUpdateManifest {
             return null;
         }
         DlcUpdateManifest manifest = new DlcUpdateManifest();
+        obj = DlcUpdateCompatibility.knownFields(obj, manifest.unknownParameters);
         manifest.version = parseVersion(DlcDcConfigIO.getObjectIgnoreCase(obj, "version"));
         manifest.hidden = getBoolean(obj, "isHidden", false);
         UpdateDLCMConfig updateDLCMConfig = parseUpdateDLCM(DlcDcConfigIO.getIgnoreCase(obj, "UpdateDLCM"));
@@ -82,6 +85,8 @@ public class DlcUpdateManifest {
         }
         return manifest;
     }
+
+    public List<String> getUnknownParameters() { return List.copyOf(unknownParameters); }
 
     public VersionInfo getVersion() {
         return version;
@@ -203,7 +208,18 @@ public class DlcUpdateManifest {
             return ops;
         }
         if (DlcDcConfigIO.hasIgnoreCase(obj, "del")) {
-            ops.del.addAll(readStringArray(DlcDcConfigIO.getIgnoreCase(obj, "del")));
+            JsonElement deletes = DlcDcConfigIO.getIgnoreCase(obj, "del");
+            if (deletes != null && deletes.isJsonObject()) {
+                for (var entry : deletes.getAsJsonObject().entrySet()) {
+                    ops.del.add(entry.getKey());
+                    if (entry.getValue().isJsonObject()) {
+                        String hash = DlcDcConfigIO.getStringIgnoreCase(entry.getValue().getAsJsonObject(), "hash");
+                        if (hash != null) ops.deleteHashes.put(entry.getKey(), hash);
+                    }
+                }
+            } else {
+                ops.del.addAll(readStringArray(deletes));
+            }
         }
         if (DlcDcConfigIO.hasIgnoreCase(obj, "add")) {
             JsonElement addEl = DlcDcConfigIO.getIgnoreCase(obj, "add");
@@ -637,12 +653,17 @@ public class DlcUpdateManifest {
 
     public static class FileOps {
         private final List<String> del = new ArrayList<>();
+        private final Map<String, String> deleteHashes = new LinkedHashMap<>();
         private final Map<String, AddEntry> add = new LinkedHashMap<>();
         private final Map<String, String> move = new LinkedHashMap<>();
         private final List<ModifyEntry> modify = new ArrayList<>();
 
         public List<String> getDel() {
             return del;
+        }
+
+        public Map<String, String> getDeleteHashes() {
+            return deleteHashes;
         }
 
         public Map<String, AddEntry> getAdd() {

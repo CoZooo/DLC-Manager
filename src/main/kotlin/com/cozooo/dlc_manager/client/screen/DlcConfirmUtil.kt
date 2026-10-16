@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.client.pack.DlcPackInstaller
@@ -14,16 +16,16 @@ import net.minecraft.network.chat.MutableComponent
 object DlcConfirmUtil {
     @JvmStatic
     fun buildConflictLine(left: String, right: String): Component {
-        return Component.translatable(
+        return DlcTextCompat.translatable(
             "dlc_manager.batch.conflicts_line_prefix",
             DlcTextFormatter.parse(left),
             DlcTextFormatter.parse(right),
-        ).append(Component.translatable("dlc_manager.conflict.word").withStyle(ChatFormatting.DARK_RED))
+        ).append(DlcTextCompat.translatable("dlc_manager.conflict.word").withStyle(ChatFormatting.DARK_RED))
     }
 
     @JvmStatic
     fun buildDependencyLine(item: String, dependency: String): Component {
-        return Component.translatable(
+        return DlcTextCompat.translatable(
             "dlc_manager.batch.dependencies_line",
             DlcTextFormatter.parse(item),
             DlcTextFormatter.parse(dependency),
@@ -32,8 +34,8 @@ object DlcConfirmUtil {
 
     @JvmStatic
     fun buildConflictPromptMessage(list: String): Component {
-        return Component.translatable("dlc_manager.conflict.prompt_prefix", DlcTextFormatter.parse(list))
-            .append(Component.translatable("dlc_manager.conflict.word").withStyle(ChatFormatting.DARK_RED))
+        return DlcTextCompat.translatable("dlc_manager.conflict.prompt_prefix", DlcTextFormatter.parse(list))
+            .append(DlcTextCompat.translatable("dlc_manager.conflict.word").withStyle(ChatFormatting.DARK_RED))
     }
 
     @JvmStatic
@@ -43,7 +45,7 @@ object DlcConfirmUtil {
 
     @JvmStatic
     fun buildDependencyPromptMessage(list: String): Component {
-        return Component.translatable("dlc_manager.dependency.prompt", DlcTextFormatter.parse(list))
+        return DlcTextCompat.translatable("dlc_manager.dependency.prompt", DlcTextFormatter.parse(list))
     }
 
     @JvmStatic
@@ -91,29 +93,29 @@ object DlcConfirmUtil {
                 lines.add(status.identifier() + reason)
             }
         }
-        return Component.translatable("dlc_manager.pack.update_incompatible_confirm", lines.joinToString("\n"))
+        return DlcTextCompat.translatable("dlc_manager.pack.update_incompatible_confirm", lines.joinToString("\n"))
     }
 
     @JvmStatic
     fun describePackBlockingPrecheck(precheck: DlcPackInstaller.PrecheckResult): String {
         val messages = ArrayList<String>()
         if (precheck.incompatibleVersions.isNotEmpty()) {
-            messages.add(Component.translatable("dlc_manager.pack.incompatible_versions", joinLimited(precheck.incompatibleVersions)).string)
+            messages.add(DlcTextCompat.translatable("dlc_manager.pack.incompatible_versions", joinLimited(precheck.incompatibleVersions)).string)
         }
         if (precheck.missingDependencies.isNotEmpty()) {
-            messages.add(Component.translatable("dlc_manager.pack.missing_dependencies", joinLimited(precheck.missingDependencies)).string)
+            messages.add(DlcTextCompat.translatable("dlc_manager.pack.missing_dependencies", joinLimited(precheck.missingDependencies)).string)
         }
         if (precheck.dlcToEnable.isNotEmpty()) {
-            messages.add(Component.translatable("dlc_manager.pack.enable_dlc", joinLimited(precheck.dlcToEnable)).string)
+            messages.add(DlcTextCompat.translatable("dlc_manager.pack.enable_dlc", joinLimited(precheck.dlcToEnable)).string)
         }
         if (precheck.presetsToEnable.isNotEmpty()) {
-            messages.add(Component.translatable("dlc_manager.pack.enable_presets", joinLimited(precheck.presetsToEnable)).string)
+            messages.add(DlcTextCompat.translatable("dlc_manager.pack.enable_presets", joinLimited(precheck.presetsToEnable)).string)
         }
         if (precheck.dlcToDisable.isNotEmpty()) {
-            messages.add(Component.translatable("dlc_manager.pack.disable_dlc", joinLimited(precheck.dlcToDisable)).string)
+            messages.add(DlcTextCompat.translatable("dlc_manager.pack.disable_dlc", joinLimited(precheck.dlcToDisable)).string)
         }
         if (precheck.presetsToDisable.isNotEmpty()) {
-            messages.add(Component.translatable("dlc_manager.pack.disable_presets", joinLimited(precheck.presetsToDisable)).string)
+            messages.add(DlcTextCompat.translatable("dlc_manager.pack.disable_presets", joinLimited(precheck.presetsToDisable)).string)
         }
         if (messages.isNotEmpty()) {
             return messages.joinToString("\n")
@@ -123,33 +125,33 @@ object DlcConfirmUtil {
 
     @JvmStatic
     fun confirmYes(): Component {
-        return Component.translatable("dlc_manager.confirm_yes")
+        return DlcTextCompat.translatable("dlc_manager.confirm_yes")
     }
 
     @JvmStatic
     fun confirmNo(): Component {
-        return Component.translatable("dlc_manager.confirm_no")
+        return DlcTextCompat.translatable("dlc_manager.confirm_no")
     }
 
     @JvmStatic
     fun buildUpdateManagerTitle(): Component {
-        return Component.translatable("dlc_manager.update.manager_title")
+        return DlcTextCompat.translatable("dlc_manager.update.manager_title")
     }
 
     @JvmStatic
     fun buildUpdateConfirmApplyMessage(): Component {
-        return Component.translatable("dlc_manager.update.confirm_apply")
+        return DlcTextCompat.translatable("dlc_manager.update.confirm_apply")
     }
 
     @JvmStatic
     fun buildUpdateConfirmRollbackMessage(targetVersion: String?): Component {
-        return Component.translatable("dlc_manager.update.confirm_rollback", targetVersion)
+        return DlcTextCompat.translatable("dlc_manager.update.confirm_rollback", targetVersion)
     }
 
     @JvmStatic
     fun buildUpdateConfirmReapplyMessage(baseOld: String?, dlcOld: String?, baseNew: String?, dlcNew: String?): Component {
         val compact = compactTransition(baseOld, dlcOld, baseNew, dlcNew)
-        return Component.translatable("dlc_manager.update.confirm_reapply", compact[0], compact[1])
+        return DlcTextCompat.translatable("dlc_manager.update.confirm_reapply", compact[0], compact[1])
     }
 
     @JvmStatic
@@ -164,10 +166,10 @@ object DlcConfirmUtil {
         if (changelog.isNullOrBlank()) {
             return base
         }
-        return Component.empty()
+        return DlcTextCompat.empty()
             .append(base)
             .append("\n\n")
-            .append(Component.translatable("dlc_manager.update.changelog_tooltip_title"))
+            .append(DlcTextCompat.translatable("dlc_manager.update.changelog_tooltip_title"))
             .append("\n")
             .append(DlcMarkdownRenderer.renderMarkdownComponent(changelog))
     }
@@ -176,10 +178,10 @@ object DlcConfirmUtil {
     fun buildHeaderConfirmMessage(enable: Boolean, activeFilterLabel: Component?): Component {
         if (activeFilterLabel == null) {
             val key = if (enable) "dlc_manager.confirm.enable_all" else "dlc_manager.confirm.disable_all"
-            return Component.translatable(key)
+            return DlcTextCompat.translatable(key)
         }
         val key = if (enable) "dlc_manager.confirm.enable_all_type" else "dlc_manager.confirm.disable_all_type"
-        return Component.translatable(key, activeFilterLabel)
+        return DlcTextCompat.translatable(key, activeFilterLabel)
     }
 
     @JvmStatic
@@ -204,10 +206,10 @@ object DlcConfirmUtil {
 
     @JvmStatic
     fun joinLines(lines: List<Component>): MutableComponent {
-        var result: MutableComponent = Component.empty()
+        var result: MutableComponent = DlcTextCompat.empty()
         for (i in lines.indices) {
             if (i > 0) {
-                result = result.append(Component.literal("\n"))
+                result = result.append(DlcTextCompat.literal("\n"))
             }
             result = result.append(lines[i])
         }

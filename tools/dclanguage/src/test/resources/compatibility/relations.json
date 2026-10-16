@@ -1,0 +1,46 @@
+{
+  "basic": {
+    "identifier": "main",
+    "dependencies": [
+      "legacy_dep"
+    ]
+  },
+  "dependencies": {
+    "base-library": {},
+    "mods/path-dep.jar": {},
+    "extra": {
+      "download": {
+        "directUrl": "https://example.invalid/extra.jar"
+      },
+      "basic": {
+        "identifier": "extra",
+        "file_name": "extra.jar"
+      },
+      "dependencies": {
+        "library.with.dots": {
+          "basic": {
+            "identifier": "nested-library"
+          },
+          "tip": {
+            "en_us": "Nested dependency"
+          }
+        }
+      },
+      "conflicts": {
+        "old-library": {}
+      }
+    },
+    "optional": {
+      "basic": {
+        "identifier": "optional"
+      },
+      "DisplayName": {
+        "en_us": "Optional companion"
+      }
+    }
+  },
+  "conflicts": {
+    "incompatible": {},
+    "mods/old.jar": {}
+  }
+}

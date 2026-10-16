@@ -1,14 +1,16 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.DlcClientRuntime
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry
 import com.cozooo.dlc_manager.client.required.DlcRequiredService
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager
-import com.cozooo.dlc_manager.client.required.DlcRequiredNotice
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState
-import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.client.core.DlcMessageAdapter
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult
@@ -17,9 +19,7 @@ import com.cozooo.dlc_manager.core.DlcDcFormatUtil
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcPaths
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
-import net.minecraft.client.gui.screens.ConfirmScreen
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import java.io.IOException
@@ -29,19 +29,16 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.roundToInt
 
 class DlcRequiredDownloadScreen @JvmOverloads constructor(
     private val parent: Screen?,
     entries: List<DlcRequiredEntry>?,
     private val postUpdateResult: UpdateApplyResult? = null,
-) : DlcScreenCompat.MouseScroll(Component.translatable("dlc_manager.required.title")) {
+) : DlcPageScreen(DlcUiPage.REQUIRED_DOWNLOAD, parent, DlcTextCompat.translatable("dlc_manager.required.title")) {
     private val entries: List<DlcRequiredEntry> = entries ?: emptyList()
     private val displayList: MutableList<DlcRequiredEntry> = ArrayList()
     private val downloadQueue: MutableList<DlcRequiredEntry> = ArrayList()
     private val applyQueue: MutableList<DlcRequiredEntry> = ArrayList()
-    private val forceRequired = DlcRequiredManager.hasForceMarker()
-    private val forceRestartRequired = DlcRequiredManager.hasForceRestartMarker()
     private var updatePackageRequired = false
     private val maxConcurrentDownloads = max(1, DlcConfig.getMaxConcurrentDownloads())
     private val progressByKey: MutableMap<String, Float> = ConcurrentHashMap()
@@ -54,7 +51,6 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
     private var activeDownloadEntry: DlcRequiredEntry? = null
 
     private var downloadButton: Button? = null
-    private var skipButton: Button? = null
 
     @Volatile
     private var detecting = true
@@ -76,9 +72,8 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
     private var downloadedAny = false
 
     private var scrollIndex = 0
-    private var noticeLines: List<String> = emptyList()
 
-    override fun init() {
+    private fun initControls() {
         if (entries.isEmpty()) {
             if (postUpdateResult != null) {
                 if (!tryShowPostUpdateDownloads(postUpdateResult)) {
@@ -92,161 +87,21 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
         val buttonWidth = 140
         val buttonHeight = 20
         val y = height - 40
-        val downloadX = if (forceRequired) width / 2 - buttonWidth / 2 else width / 2 - buttonWidth - 6
-        val download = Button.builder(Component.translatable("dlc_manager.required.download")) { handleDownloadButton() }
+        val downloadX = width / 2 - buttonWidth / 2
+        val download = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.required.download")) { handleDownloadButton() }
             .bounds(downloadX, y, buttonWidth, buttonHeight)
             .build()
         download.active = false
         download.visible = false
-        val skip = Button.builder(Component.translatable("dlc_manager.required.skip")) {
-            DlcRequiredManager.markPrompted()
-            DlcRequiredManager.markSkipped()
-            if (postUpdateResult != null) {
-                if (!tryShowPostUpdateDownloads(postUpdateResult)) {
-                    Minecraft.getInstance().setScreen(createPostUpdateResultScreen(postUpdateResult))
-                }
-            } else if (!DlcClientRuntime.tryContinueFirstRun(parent)) {
-                Minecraft.getInstance().setScreen(parent)
-            }
-        }.bounds(width / 2 + 6, y, buttonWidth, buttonHeight).build()
-        skip.visible = !forceRequired
-        skip.active = !forceRequired
         downloadButton = download
-        skipButton = skip
         addRenderableWidget(download)
-        addRenderableWidget(skip)
-        noticeLines = splitLines(DlcRequiredNotice.load().resolveDownloadDesc())
         detecting = true
-        statusText = Component.translatable("dlc_manager.required.preparing").string
+        statusText = DlcTextCompat.translatable("dlc_manager.required.preparing").string
         Thread({ detectEntries() }, "dlc-required-detect").start()
     }
 
-    override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick)
-        val centerX = width / 2
-        var y = 20
-        guiGraphics.drawCenteredString(font, title, centerX, y, 0xFFFFFF)
-        y += 18
-        for (line in getDescLines()) {
-            guiGraphics.drawCenteredString(font, line, centerX, y, 0xC8C8C8)
-            y += font.lineHeight + 2
-        }
-        if (forceRequired) {
-            guiGraphics.drawCenteredString(font, Component.translatable("dlc_manager.required.force_notice"), centerX, y, 0xFFAA55)
-            y += font.lineHeight + 2
-        }
-        y += 6
-        if (detecting && !downloading) {
-            guiGraphics.drawCenteredString(font, Component.translatable("dlc_manager.required.detecting"), centerX, y, 0xE6E6E6)
-            y += 12
-        }
-
-        val listTop = y
-        val listBottom = height - 70
-        val maxVisible = max(1, (listBottom - listTop) / LINE_HEIGHT)
-        val totalLines = displayList.size
-        val maxScroll = max(0, totalLines - maxVisible)
-        if (scrollIndex > maxScroll) {
-            scrollIndex = maxScroll
-        }
-        val visibleEnd = min(totalLines, scrollIndex + maxVisible)
-        for (i in scrollIndex until visibleEnd) {
-            val entry = displayList[i]
-            val name = entry.resolveDisplayName()
-            guiGraphics.drawString(font, DlcTextFormatter.parse("- $name"), 24, y, 0xE6E6E6, false)
-            if (!downloading || maxConcurrentDownloads > 1) {
-                val key = progressKey(entry)
-                var progress = if (downloading) progressByKey[key] else null
-                if (progress == null) {
-                    progress = getCompletedProgress(entry)
-                }
-                if (progress != null) {
-                    val percent = (max(0f, min(1f, progress)) * 100f).roundToInt()
-                    val progressText = "$percent%"
-                    val textWidth = font.width(progressText)
-                    val percentBoxWidth = font.width("100%")
-                    val barWidth = 36
-                    val barHeight = 6
-                    val percentRight = width - 18
-                    val percentLeft = percentRight - percentBoxWidth
-                    val barRight = percentLeft - 6
-                    val barLeft = barRight - barWidth
-                    val barY = y + 2
-                    drawProgressBar(guiGraphics, barLeft, barY, barWidth, barHeight, progress)
-                    if (shouldShowSwitch(key, entry, progress)) {
-                        val switchRight = barLeft - SWITCH_BUTTON_PAD
-                        val switchLeft = switchRight - SWITCH_BUTTON_SIZE
-                        val switchTop = barY - 1
-                        drawSwitchButton(guiGraphics, switchLeft, switchTop)
-                    }
-                    guiGraphics.drawString(font, progressText, percentRight - textWidth, y, 0xC8C8C8, false)
-                }
-            }
-            y += LINE_HEIGHT
-        }
-        drawScrollBar(guiGraphics, listTop, listBottom, totalLines, maxVisible, maxScroll)
-
-        if (downloading) {
-            y = height - 70
-            if (maxConcurrentDownloads <= 1) {
-                val status = statusText ?: ""
-                guiGraphics.drawCenteredString(font, DlcTextFormatter.parse(status), centerX, y, 0xE6E6E6)
-                y += 12
-                val activeEntry = activeDownloadEntry
-                val activeKey = if (activeEntry == null) null else progressKey(activeEntry)
-                if (activeKey != null && shouldShowSwitch(activeKey, activeEntry, currentProgress)) {
-                    val barLeft = centerX - 120
-                    val switchLeft = barLeft - SWITCH_BUTTON_PAD - SWITCH_BUTTON_SIZE
-                    val switchTop = y - 1
-                    drawSwitchButton(guiGraphics, switchLeft, switchTop)
-                }
-                drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, currentProgress)
-                val percent = (max(0f, min(1f, currentProgress)) * 100f).roundToInt()
-                guiGraphics.drawCenteredString(font, "$percent%", centerX, y + 10, 0xC8C8C8)
-            } else {
-                val status = Component.translatable("dlc_manager.required.downloading_multi").string
-                guiGraphics.drawCenteredString(font, status, centerX, y, 0xE6E6E6)
-                y += 12
-                val totalProgress = getTotalProgress()
-                drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, totalProgress)
-                val percent = (max(0f, min(1f, totalProgress)) * 100f).roundToInt()
-                guiGraphics.drawCenteredString(font, "$percent%", centerX, y + 10, 0xC8C8C8)
-            }
-        } else if (!errorText.isNullOrBlank()) {
-            y = height - 70
-            guiGraphics.drawCenteredString(font, DlcTextFormatter.parse(errorText), centerX, y, 0xFF6B6B)
-        }
-
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
-    }
-
-    override fun handleCompatibleMouseScrolled(mouseX: Double, mouseY: Double, deltaY: Double): Boolean {
-        return handleMouseScrolled(deltaY)
-    }
-
-    override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
-        if (downloading && handleSwitchClick(mouseX, mouseY)) {
-            return true
-        }
-        return super.mouseClicked(mouseX, mouseY, button)
-    }
-
-    private fun handleMouseScrolled(deltaY: Double): Boolean {
-        val listTop = getListTop()
-        val listBottom = height - 70
-        val maxVisible = max(1, (listBottom - listTop) / LINE_HEIGHT)
-        val totalLines = displayList.size
-        val maxScroll = max(0, totalLines - maxVisible)
-        if (maxScroll > 0) {
-            val step = if (deltaY > 0) -1 else 1
-            scrollIndex = max(0, min(maxScroll, scrollIndex + step))
-            return true
-        }
-        return false
-    }
-
     override fun shouldCloseOnEsc(): Boolean {
-        return !forceRequired
+        return false
     }
 
     private fun detectEntries() {
@@ -270,7 +125,7 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
         applyQueue.addAll(applyCandidates)
         updatePackageRequired = hasUpdatePackageTargets(applyQueue)
         detecting = false
-        statusText = Component.translatable("dlc_manager.required.ready").string
+        statusText = DlcTextCompat.translatable("dlc_manager.required.ready").string
         scrollIndex = 0
         Minecraft.getInstance().execute {
             if (downloadQueue.isEmpty() && applyQueue.isEmpty()) {
@@ -282,43 +137,6 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
             downloadButton?.visible = true
             downloadButton?.active = true
         }
-    }
-
-    private fun getListTop(): Int {
-        var y = 20 + 18
-        y += getDescLines().size * (font.lineHeight + 2)
-        y += 6
-        if (detecting && !downloading) {
-            y += 12
-        }
-        return y
-    }
-
-    private fun getDescLines(): List<String> {
-        val lines: MutableList<String> = ArrayList()
-        lines.addAll(splitLines(Component.translatable("dlc_manager.required.desc").string))
-        if (noticeLines.isNotEmpty()) {
-            lines.addAll(noticeLines)
-        }
-        return lines
-    }
-
-    private fun splitLines(text: String?): List<String> {
-        if (text.isNullOrBlank()) {
-            return ArrayList()
-        }
-        if (text.contains("\n")) {
-            val lines: MutableList<String> = ArrayList()
-            for (part in text.split("\\n".toRegex()).dropLastWhile { it.isEmpty() }) {
-                if (part.isNotEmpty()) {
-                    lines.add(part)
-                }
-            }
-            if (lines.isNotEmpty()) {
-                return lines
-            }
-        }
-        return ArrayList(listOf(text))
     }
 
     private fun handleDownloadButton() {
@@ -334,15 +152,12 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
             return
         }
         cancelRequested = true
-        statusText = Component.translatable("dlc_manager.required.canceling").string
+        statusText = DlcTextCompat.translatable("dlc_manager.required.canceling").string
         downloadButton?.active = false
-        if (!forceRequired) {
-            skipButton?.active = false
-        }
     }
 
     private fun updateDownloadButtonLabel(isDownloading: Boolean) {
-        downloadButton?.message = Component.translatable(
+        downloadButton?.message = DlcTextCompat.translatable(
             if (isDownloading) "dlc_manager.required.cancel" else "dlc_manager.required.download",
         )
     }
@@ -357,9 +172,6 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
         downloadedAny = false
         updateDownloadButtonLabel(true)
         downloadButton?.active = true
-        if (!forceRequired) {
-            skipButton?.active = false
-        }
         initProgressMap(downloadQueue)
         if (downloadQueue.isEmpty()) {
             Thread({
@@ -370,13 +182,10 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
                     }
                     applyAll()
                 } catch (e: Exception) {
-                    errorText = Component.translatable("dlc_manager.required.error", e.message).string
+                    errorText = DlcTextCompat.translatable("dlc_manager.required.error", e.message).string
                     Minecraft.getInstance().execute {
                         updateDownloadButtonLabel(false)
                         downloadButton?.active = true
-                        if (!forceRequired) {
-                            skipButton?.active = true
-                        }
                     }
                 } finally {
                     downloading = false
@@ -398,14 +207,14 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
                     override fun onEntryStart(entry: DlcRequiredEntry?, index: Int, total: Int) {
                         if (maxConcurrentDownloads <= 1 && entry != null) {
                             activeDownloadEntry = entry
-                            statusText = Component.translatable(
+                            statusText = DlcTextCompat.translatable(
                                 "dlc_manager.required.downloading",
                                 entry.resolveDisplayName(),
                                 completedCount + 1,
                                 totalCount,
                             ).string
                         } else {
-                            statusText = Component.translatable("dlc_manager.required.downloading_multi").string
+                            statusText = DlcTextCompat.translatable("dlc_manager.required.downloading_multi").string
                         }
                     }
 
@@ -428,11 +237,11 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
 
                     override fun onEntryStatus(entry: DlcRequiredEntry?, statusKey: String?, completed: Int, total: Int) {
                         statusText = if (statusKey == "selecting_source") {
-                            Component.translatable("dlc_manager.required.selecting_source").string
+                            DlcTextCompat.translatable("dlc_manager.required.selecting_source").string
                         } else if (maxConcurrentDownloads <= 1 && entry != null) {
-                            Component.translatable("dlc_manager.required.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).string
+                            DlcTextCompat.translatable("dlc_manager.required.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).string
                         } else {
-                            Component.translatable("dlc_manager.required.downloading_multi").string
+                            DlcTextCompat.translatable("dlc_manager.required.downloading_multi").string
                         }
                     }
 
@@ -446,7 +255,7 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
 
                     override fun onEntryFailure(entry: DlcRequiredEntry?, error: Throwable?, completed: Int, total: Int) {
                         completedCount = completed
-                        errorText = Component.translatable("dlc_manager.required.error", error?.message ?: "").string
+                        errorText = DlcTextCompat.translatable("dlc_manager.required.error", error?.message ?: "").string
                     }
 
                     override fun onEntryComplete(entry: DlcRequiredEntry?) {
@@ -482,13 +291,10 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
         }
         if (cancelRequested) {
             downloading = false
-            statusText = Component.translatable("dlc_manager.required.canceled").string
+            statusText = DlcTextCompat.translatable("dlc_manager.required.canceled").string
             Minecraft.getInstance().execute {
                 updateDownloadButtonLabel(false)
                 downloadButton?.active = true
-                if (!forceRequired) {
-                    skipButton?.active = true
-                }
             }
             return
         }
@@ -497,9 +303,6 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
             Minecraft.getInstance().execute {
                 updateDownloadButtonLabel(false)
                 downloadButton?.active = true
-                if (!forceRequired) {
-                    skipButton?.active = true
-                }
             }
             return
         }
@@ -518,14 +321,11 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
             }
             applyAll()
         } catch (e: Exception) {
-            errorText = Component.translatable("dlc_manager.required.error", e.message).string
+            errorText = DlcTextCompat.translatable("dlc_manager.required.error", e.message).string
             downloading = false
             Minecraft.getInstance().execute {
                 updateDownloadButtonLabel(false)
                 downloadButton?.active = true
-                if (!forceRequired) {
-                    skipButton?.active = true
-                }
             }
             return
         }
@@ -535,7 +335,6 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
     private fun applyAll() {
         val minecraft = Minecraft.getInstance()
         var didApply = downloadedAny
-        var updateApplied = false
         if (!ensureAllRequiredReady()) {
             throw IOException("download incomplete")
         }
@@ -553,26 +352,14 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
                 didApply = true
             }
         }
+        if (DlcRequiredService.collectNeedsApply(applyQueue).isNotEmpty()) {
+            throw IOException("required installation incomplete")
+        }
         if (updatePackageRequired) {
             val updateCheck: UpdateCheckResult = DlcUpdateService.checkForUpdates(true)
             if (updateCheck.updates.isNotEmpty()) {
-                val updateResult = DlcUpdateService.applyUpdates(updateCheck.updates, false)
-                if (updateResult?.isMissing == true) {
-                    Minecraft.getInstance().execute {
-                        minecraft.setScreen(DlcUpdateMissingScreen(parent, updateCheck, updateResult.missingPaths))
-                    }
-                    return
-                }
-                if (updateResult?.isSuccess != true) {
-                    Minecraft.getInstance().execute {
-                        minecraft.setScreen(DlcUpdateResultScreen(parent, false, DlcMessageAdapter.toFailureComponent(updateResult)))
-                    }
-                    return
-                }
-                updateApplied = true
-                if (tryShowPostUpdateDownloads(updateResult)) {
-                    return
-                }
+                Minecraft.getInstance().execute { minecraft.setScreen(DlcUpdatePromptScreen(parent, updateCheck)) }
+                return
             }
         }
         if (postUpdateResult != null) {
@@ -582,7 +369,7 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
             Minecraft.getInstance().execute { minecraft.setScreen(createPostUpdateResultScreen(postUpdateResult)) }
             return
         }
-        if (!didApply && !updateApplied) {
+        if (!didApply) {
             Minecraft.getInstance().execute {
                 if (!DlcClientRuntime.tryContinueFirstRun(parent)) {
                     minecraft.setScreen(parent)
@@ -590,13 +377,9 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
             }
             return
         }
-        if (forceRestartRequired) {
-            Minecraft.getInstance().execute { minecraft.setScreen(RestartRequiredScreen()) }
-            return
-        }
         Minecraft.getInstance().execute {
             minecraft.setScreen(
-                ConfirmScreen(
+                DlcConfirmScreen(
                     { accepted ->
                         if (accepted) {
                             minecraft.stop()
@@ -604,40 +387,12 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
                             minecraft.setScreen(parent)
                         }
                     },
-                    Component.translatable("dlc_manager.title"),
-                    Component.translatable("dlc_manager.required.restart_prompt"),
-                    Component.translatable("dlc_manager.restart_now"),
-                    Component.translatable("dlc_manager.restart_later"),
+                    DlcTextCompat.translatable("dlc_manager.title"),
+                    DlcTextCompat.translatable("dlc_manager.required.restart_prompt"),
+                    DlcTextCompat.translatable("dlc_manager.restart_now"),
+                    DlcTextCompat.translatable("dlc_manager.restart_later"),
                 ),
             )
-        }
-    }
-
-    private inner class RestartRequiredScreen : Screen(Component.translatable("dlc_manager.title")) {
-        override fun init() {
-            val buttonWidth = 140
-            val buttonHeight = 20
-            val y = height - 40
-            addRenderableWidget(
-                Button.builder(Component.translatable("dlc_manager.restart_now")) { Minecraft.getInstance().stop() }
-                    .bounds(width / 2 - buttonWidth / 2, y, buttonWidth, buttonHeight)
-                    .build(),
-            )
-        }
-
-        override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-            DlcScreenCompat.renderBackground(this, guiGraphics, mouseX, mouseY, partialTick)
-            val centerX = width / 2
-            var y = 40
-            val titleX = (width - font.width(title)) / 2
-            guiGraphics.drawString(font, title, titleX, y, 0xFFFFFF, false)
-            y += 20
-            guiGraphics.drawCenteredString(font, Component.translatable("dlc_manager.required.restart_prompt"), centerX, y, 0xC8C8C8)
-            DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
-        }
-
-        override fun shouldCloseOnEsc(): Boolean {
-            return false
         }
     }
 
@@ -683,9 +438,9 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
 
     private fun createPostUpdateResultScreen(result: UpdateApplyResult?): Screen {
         val message = if (result != null && result.isHelperScheduled) {
-            Component.translatable("dlc_manager.update.deferred_restart")
+            DlcTextCompat.translatable("dlc_manager.update.deferred_restart")
         } else {
-            Component.translatable("dlc_manager.update.success")
+            DlcTextCompat.translatable("dlc_manager.update.success")
         }
         return DlcUpdateResultScreen(parent, true, message)
     }
@@ -694,7 +449,7 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
         if (entries.isNullOrEmpty()) {
             return false
         }
-        val dlcRoot = DlcPaths.dlcRoot() ?: return false
+        val dlcRoot = DlcPaths.dlcRoot()
         val updateRoot = dlcRoot.resolve("update").normalize()
         for (entry in entries) {
             for (target in entry.resolveAppliedTargets()) {
@@ -707,38 +462,9 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
         return false
     }
 
-    private fun resolveTargetPath(targetDir: Path?, fileName: String?): Path? {
-        if (targetDir == null) {
-            return null
-        }
-        val name = targetDir.fileName?.toString() ?: ""
-        if (name.endsWith(".jar") || name.endsWith(".zip")) {
-            return targetDir
-        }
-        return targetDir.resolve(fileName)
-    }
-
     private fun isApplied(entry: DlcRequiredEntry?): Boolean {
-        if (entry == null) {
-            return false
-        }
-        val targets = entry.resolveAppliedTargets()
-        if (targets.isEmpty()) {
-            return true
-        }
-        val fileName = resolveAppliedFileName(entry, targets)
-        for (target in targets) {
-            val name = target.fileName?.toString() ?: ""
-            val targetFile = if (name.endsWith(".jar") || name.endsWith(".zip")) {
-                target
-            } else {
-                resolveTargetPath(target, fileName)
-            }
-            if (targetFile == null || !Files.exists(targetFile)) {
-                return false
-            }
-        }
-        return true
+        if (entry == null) return false
+        return try { com.cozooo.dlc_manager.client.required.DlcRequiredInstaller.isInstalled(entry) } catch (exception: IOException) { false }
     }
 
     private fun isConfigFileName(fileName: String?): Boolean {
@@ -755,21 +481,6 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
         return fileName.lowercase().endsWith(".part")
     }
 
-    private fun getCompletedProgress(entry: DlcRequiredEntry?): Float? {
-        if (entry == null) {
-            return null
-        }
-        val fileName = resolveExistingFileName(entry)
-        if (fileName == null || isTempFileName(fileName)) {
-            return null
-        }
-        val required = entry.resolveRequiredPath(fileName)
-        if (required != null && Files.exists(required)) {
-            return 1f
-        }
-        return null
-    }
-
     private fun isConfigFile(entry: DlcRequiredEntry?, path: Path?): Boolean {
         if (entry == null || path == null) {
             return false
@@ -782,98 +493,8 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
         return isConfigFileName(name)
     }
 
-    private fun resolveAppliedFileName(entry: DlcRequiredEntry?, targets: List<Path>?): String? {
-        if (entry == null) {
-            return null
-        }
-        val fileName = entry.getResolvedFileName()
-        if (!fileName.isNullOrBlank()) {
-            return fileName
-        }
-        if (targets != null) {
-            for (target in targets) {
-                val name = target.fileName?.toString() ?: ""
-                if (name.endsWith(".jar") || name.endsWith(".zip")) {
-                    return name
-                }
-            }
-        }
-        val base = entry.getBaseName()
-        if (base.isBlank() || targets == null) {
-            return null
-        }
-        for (target in targets) {
-            if (Files.isDirectory(target)) {
-                try {
-                    Files.newDirectoryStream(target, "$base.*").use { stream ->
-                        for (path in stream) {
-                            val name = path.fileName?.toString() ?: ""
-                            if (!DlcDcFormatUtil.isDcName(name)) {
-                                return name
-                            }
-                        }
-                    }
-                } catch (_: IOException) {
-                }
-            }
-        }
-        return null
-    }
-
     private fun resolveExistingFileName(entry: DlcRequiredEntry): String? {
-        var fileName = entry.getResolvedFileName()
-        if (isConfigFileName(fileName) || isTempFileName(fileName)) {
-            fileName = null
-        }
-        if (!fileName.isNullOrBlank()) {
-            val target = entry.resolveRequiredPath(fileName)
-            if (target != null && Files.exists(target) && !isConfigFile(entry, target)) {
-                return fileName
-            }
-        }
-        val base = entry.getBaseName()
-        val requiredDir = entry.getRequiredDir()
-        if (requiredDir == null || base.isBlank()) {
-            return fileName
-        }
-        try {
-            Files.newDirectoryStream(requiredDir, "$base.*").use { stream ->
-                for (path in stream) {
-                    if (isConfigFile(entry, path)) {
-                        continue
-                    }
-                    val name = path.fileName?.toString() ?: ""
-                    if (isTempFileName(name)) {
-                        continue
-                    }
-                    return name
-                }
-            }
-        } catch (_: IOException) {
-        }
-        return fileName
-    }
-
-    private fun drawScrollBar(guiGraphics: GuiGraphics, top: Int, bottom: Int, totalLines: Int, maxVisible: Int, maxScroll: Int) {
-        if (maxScroll <= 0 || totalLines <= maxVisible) {
-            return
-        }
-        val barX = width - 12
-        val barWidth = 4
-        val barHeight = max(12, (bottom - top) * maxVisible / totalLines)
-        val trackHeight = bottom - top
-        val maxTrack = max(1, trackHeight - barHeight)
-        val barY = top + ((scrollIndex / maxScroll.toFloat()) * maxTrack).toInt()
-        guiGraphics.fill(barX, top, barX + barWidth, bottom, 0xFF2B2B2B.toInt())
-        guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFF6B6B6B.toInt())
-    }
-
-    private fun drawProgressBar(guiGraphics: GuiGraphics, x: Int, y: Int, width: Int, height: Int, progress: Float) {
-        val bg = 0xFF2B2B2B.toInt()
-        val fg = 0xFF4CAF50.toInt()
-        guiGraphics.fill(x, y, x + width, y + height, bg)
-        val filled = (width * max(0f, min(1f, progress))).toInt()
-        guiGraphics.fill(x, y, x + filled, y + height, fg)
+        return DlcRequiredService.resolveExistingFileName(entry)
     }
 
     private fun markDownloadStart(key: String?) {
@@ -909,82 +530,6 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
             count += directCount
         }
         return count > 1
-    }
-
-    private fun shouldShowSwitch(key: String?, entry: DlcRequiredEntry?, progress: Float): Boolean {
-        if (!downloading || key == null || entry == null) {
-            return false
-        }
-        if (progress >= 1f) {
-            return false
-        }
-        val start = downloadStartByKey[key] ?: return false
-        if (System.currentTimeMillis() - start < SWITCH_DELAY_MS) {
-            return false
-        }
-        return hasMultipleSources(entry)
-    }
-
-    private fun drawSwitchButton(guiGraphics: GuiGraphics, x: Int, y: Int) {
-        val right = x + SWITCH_BUTTON_SIZE
-        val bottom = y + SWITCH_BUTTON_SIZE
-        guiGraphics.fill(x, y, right, bottom, 0xFF4B4B4B.toInt())
-        guiGraphics.drawString(font, ">", x + 2, y + 1, 0xE6E6E6, false)
-    }
-
-    private fun handleSwitchClick(mouseX: Double, mouseY: Double): Boolean {
-        if (!downloading) {
-            return false
-        }
-        if (maxConcurrentDownloads <= 1) {
-            val activeEntry = activeDownloadEntry
-            val key = if (activeEntry == null) null else progressKey(activeEntry)
-            if (key != null && shouldShowSwitch(key, activeEntry, currentProgress)) {
-                val centerX = width / 2
-                val barLeft = centerX - 120
-                val switchLeft = barLeft - SWITCH_BUTTON_PAD - SWITCH_BUTTON_SIZE
-                val switchTop = (height - 70) + 12 - 1
-                if (mouseX >= switchLeft && mouseX <= switchLeft + SWITCH_BUTTON_SIZE &&
-                    mouseY >= switchTop && mouseY <= switchTop + SWITCH_BUTTON_SIZE
-                ) {
-                    switchRequested.add(key)
-                    return true
-                }
-            }
-            return false
-        }
-        val listTop = getListTop()
-        val listBottom = height - 70
-        val maxVisible = max(1, (listBottom - listTop) / LINE_HEIGHT)
-        val totalLines = displayList.size
-        val visibleEnd = min(totalLines, scrollIndex + maxVisible)
-        for (i in scrollIndex until visibleEnd) {
-            val entry = displayList[i]
-            val key = progressKey(entry)
-            val progress = progressByKey[key]
-            if (progress == null || !shouldShowSwitch(key, entry, progress)) {
-                continue
-            }
-            val row = i - scrollIndex
-            val rowY = listTop + row * LINE_HEIGHT
-            val barWidth = 36
-            val percentBoxWidth = font.width("100%")
-            val percentRight = width - 18
-            val percentLeft = percentRight - percentBoxWidth
-            val barRight = percentLeft - 6
-            val barLeft = barRight - barWidth
-            val barY = rowY + 2
-            val switchRight = barLeft - SWITCH_BUTTON_PAD
-            val switchLeft = switchRight - SWITCH_BUTTON_SIZE
-            val switchTop = barY - 1
-            if (mouseX >= switchLeft && mouseX <= switchLeft + SWITCH_BUTTON_SIZE &&
-                mouseY >= switchTop && mouseY <= switchTop + SWITCH_BUTTON_SIZE
-            ) {
-                switchRequested.add(key)
-                return true
-            }
-        }
-        return false
     }
 
     private fun initProgressMap(pending: List<DlcRequiredEntry>?) {
@@ -1039,9 +584,27 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
     }
 
     companion object {
-        private const val SWITCH_DELAY_MS = 20_000L
-        private const val SWITCH_BUTTON_SIZE = 8
-        private const val SWITCH_BUTTON_PAD = 4
-        private const val LINE_HEIGHT = 10
+
     }
+
+    private var controlsReady = false
+    private var pageRevision = 0
+    override fun buildPage() {
+        if (!controlsReady) { controlsReady = true; initControls() }
+        pageRevision = 31 * displayList.hashCode() + downloading.hashCode()
+        val list = section(null, tr("dlc_manager.required.desc"))
+        for (entry in displayList) { val line = row(list, entry.resolveDisplayName(), null); val controls = node(line, "div", "row-controls")
+            progress(controls) { (progressByKey[progressKey(entry)] ?: 0f).toDouble() }
+            action(controls, tr("dlc_manager.remote.switch_source")) { switchRequested.add(progressKey(entry)) }.setEnabled(hasMultipleSources(entry))
+        }
+        live(content, { statusText }, "page-description"); live(content, { errorText }, "page-error"); progress(content) { if (detecting) -1.0 else if (downloading) getTotalProgress().toDouble() else 0.0 }; downloadButton?.let { mount(footer, it).getElement().setAttribute("class", "button primary") }
+
+    }
+    override fun updatePage() {
+
+        if (pageRevision != 31 * displayList.hashCode() + downloading.hashCode()) refreshPage()
+    }
+
+    override fun showHeaderBackButton() = false
+    override fun onClose() {}
 }

@@ -105,7 +105,7 @@ class DlcRemoteLoaderTest {
     }
 
     @Test
-    void dlcPackRemoteIsHiddenAndTargetsPackDirectory() throws Exception {
+    void dlcPackRemoteIsHiddenAndTargetsDownloadCache() throws Exception {
         Path remote = tempDir.resolve("remote");
         Files.createDirectories(remote);
         Files.writeString(remote.resolve("pack.dc"), """
@@ -123,6 +123,6 @@ class DlcRemoteLoaderTest {
         assertNotNull(entry);
         assertEquals(DlcType.DLC_PACK, entry.getType());
         assertTrue(entry.isHidden());
-        assertEquals(Path.of("pack", "pack.zip"), tempDir.relativize(entry.getTargetPath()));
+        assertEquals(Path.of("downloaded", "DLCs", "pack.zip"), tempDir.relativize(entry.getTargetPath()));
     }
 }

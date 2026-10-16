@@ -25,6 +25,10 @@ import com.cozooo.dlc_manager.core.DlcApplyMode;
 import com.cozooo.dlc_manager.core.DlcApplier;
 import com.cozooo.dlc_manager.core.DlcStateConfig;
 import com.cozooo.dlc_manager.core.DlcItem;
+import com.cozooo.dlc_manager.core.DlcItemFiles;
+import com.cozooo.dlc_manager.core.DlcFileMatch;
+import com.cozooo.dlc_manager.core.DlcResourceHistory;
+import com.cozooo.dlc_manager.client.required.DlcRequiredService;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
@@ -61,6 +65,7 @@ public final class DlcUpdateService {
     private static final String PLATFORM_CLIENT = "client";
     private static final String PLATFORM_SERVER = "server";
     private static final String PLATFORM_UNIVERSAL = "universal";
+    private static final ThreadLocal<Boolean> RESUMING = new ThreadLocal<>();
     private static final ThreadLocal<UpdateContext> CURRENT_UPDATE_CONTEXT = new ThreadLocal<>();
     private static final ThreadLocal<ApplyProgressListener> CURRENT_PROGRESS_LISTENER = new ThreadLocal<>();
 
@@ -249,6 +254,27 @@ public final class DlcUpdateService {
         }
     }
 
+    public static UpdateApplyResult resumeUpdates(List<DlcUpdatePackage> packages, boolean forceMissing, ApplyProgressListener listener) {
+        RESUMING.set(true);
+        try { return applyUpdates(packages, forceMissing, listener); }
+        finally { RESUMING.remove(); }
+    }
+
+    public static boolean willDefer(List<DlcUpdatePackage> packages) {
+        return !Boolean.TRUE.equals(RESUMING.get()) && packages != null && packages.stream().anyMatch(pkg -> pkg != null
+            && (pkg.getManifest().isUpdateDLCM() || pkg.getCompatibilityAction() == DlcUpdatePackage.CompatibilityAction.UPDATE_MANAGER));
+    }
+
+    public static List<String> unknownParameters(List<DlcUpdatePackage> packages) {
+        if (packages == null) return List.of();
+        List<String> unknown = new ArrayList<>();
+        for (DlcUpdatePackage pkg : packages) {
+            if (pkg == null || pkg.getManifest() == null || pkg.getCompatibilityAction() != DlcUpdatePackage.CompatibilityAction.ASK) continue;
+            for (String parameter : pkg.getManifest().getUnknownParameters()) unknown.add(pkg.getName() + ": " + parameter);
+        }
+        return List.copyOf(unknown);
+    }
+
     public static String toFailureMessage(UpdateApplyResult result) {
         return toFailureUpdateMessage(result).asPlainString();
     }
@@ -285,6 +311,9 @@ public final class DlcUpdateService {
         if (packages == null || packages.isEmpty()) {
             return UpdateApplyResult.empty();
         }
+        if (packages.stream().anyMatch(pkg -> pkg == null || pkg.getManifest() == null)) return UpdateApplyResult.failed("Missing update manifest");
+        List<String> unknown = unknownParameters(packages);
+        if (!unknown.isEmpty()) return UpdateApplyResult.compatibility(unknown);
         notifyApplyProgress("Applying update...", -1f);
         Path dlcRoot = getDlcRoot();
         DlcUpdateVersion current = DlcUpdateVersion.load(dlcRoot);
@@ -292,13 +321,13 @@ public final class DlcUpdateService {
         boolean addedRemote = false;
         boolean helperScheduled = false;
         boolean dlcManagerUpdated = false;
-        boolean requiresDlcManagerUpdate = packages.stream().anyMatch(pkg ->
-            pkg != null && pkg.getManifest() != null && pkg.getManifest().isUpdateDLCM());
+        boolean latestManager = packages.stream().anyMatch(pkg -> pkg != null && pkg.getCompatibilityAction() == DlcUpdatePackage.CompatibilityAction.UPDATE_MANAGER);
+        boolean requiresDlcManagerUpdate = willDefer(packages);
         LinkedHashSet<String> requestedDlcManagerVersions = collectRequestedDlcManagerVersions(packages);
-        if (requestedDlcManagerVersions.size() > 1) {
+        if (requiresDlcManagerUpdate && !latestManager && requestedDlcManagerVersions.size() > 1) {
             return UpdateApplyResult.failed("Conflicting UpdateDLCM versions in update chain");
         }
-        String requiredDlcManagerVersion = requestedDlcManagerVersions.stream().findFirst().orElse(null);
+        String requiredDlcManagerVersion = latestManager ? null : requestedDlcManagerVersions.stream().findFirst().orElse(null);
         if (requiresDlcManagerUpdate) {
             String progressMessage = requiredDlcManagerVersion == null
                 ? "Downloading DLC Manager update..."
@@ -310,6 +339,12 @@ public final class DlcUpdateService {
             }
             helperScheduled = helperScheduled || managerResult.helperScheduled;
             dlcManagerUpdated = managerResult.dlcManagerUpdated;
+            try {
+                DlcPendingUpdate.schedule(packages, forceMissing);
+                return UpdateApplyResult.pending(managerResult.dlcManagerUpdated);
+            } catch (IOException exception) {
+                return UpdateApplyResult.failed(exception.getMessage());
+            }
         }
         for (DlcUpdatePackage pkg : packages) {
             UpdateApplyResult result = applyUpdate(pkg, current, forceMissing);
@@ -330,6 +365,7 @@ public final class DlcUpdateService {
         if (check == null) {
             return UpdateApplyResult.failed("Failed to check DLC Manager update");
         }
+        if (check.checkFailed) return UpdateApplyResult.failed("Failed to check DLC Manager update");
         if (check.missingRequestedVersion) {
             return UpdateApplyResult.failed("Failed to find DLC Manager version: " + targetVersion);
         }
@@ -370,6 +406,11 @@ public final class DlcUpdateService {
         if (pkg == null || pkg.getManifest() == null) {
             return UpdateApplyResult.failed("Missing update manifest");
         }
+        if (pkg.getCompatibilityAction() == DlcUpdatePackage.CompatibilityAction.ASK && !pkg.getManifest().getUnknownParameters().isEmpty()) {
+            return UpdateApplyResult.compatibility(pkg.getManifest().getUnknownParameters());
+        }
+        if (willDefer(List.of(pkg))) return applyUpdates(List.of(pkg), forceMissing);
+        forceMissing = forceMissing || pkg.getCompatibilityAction() == DlcUpdatePackage.CompatibilityAction.IGNORE;
         DlcUpdateManifest manifest = pkg.getManifest();
         DlcUpdateManifest.VersionInfo info = manifest.getVersion();
         if (info == null) {
@@ -383,7 +424,15 @@ public final class DlcUpdateService {
             return UpdateApplyResult.failed("Version mismatch");
         }
 
-        List<String> missingTargets = findMissingUpdateTargets(manifest, DlcPaths.gameDir());
+        DlcUpdateHashIndex hashIndex;
+        try {
+            notifyApplyProgress("dlc_manager.update.organizing_resources", -1f);
+            hashIndex = DlcUpdateHashIndex.prepare(DlcPaths.gameDir(), dlcRoot);
+            notifyApplyProgress("Applying update...", -1f);
+        } catch (IOException exception) {
+            return UpdateApplyResult.failed(exception.getMessage());
+        }
+        List<String> missingTargets = findMissingUpdateTargets(manifest, DlcPaths.gameDir(), hashIndex);
         if (!missingTargets.isEmpty() && !forceMissing) {
             return UpdateApplyResult.missing(missingTargets);
         }
@@ -412,9 +461,20 @@ public final class DlcUpdateService {
         UpdateContext context = new UpdateContext(dlcRoot, staging, backupRoot, meta);
         PresetUpdateSession presetSession = preparePresetUpdateSession(manifest.getUpdateOps(), dlcRoot);
 
+        String worldBefore = null;
+        String worldAfter = null;
+        boolean worldsRestored = false;
         CURRENT_UPDATE_CONTEXT.set(context);
         try {
-            applyDeleteOps(manifest.getFileOps(), context);
+            worldAfter = pkg.isRestoreWorldsAfterReapply() ? DlcUpdateWorldBackup.pointer(backupRoot, "after") : null;
+            Set<String> worlds = new LinkedHashSet<>(pkg.getBackupWorlds());
+            if (worldAfter != null) {
+                worlds.addAll(DlcUpdateWorldBackup.worldNames(backupRoot, worldAfter));
+            }
+            notifyApplyProgress("dlc_manager.update.world_backing_up", -1f);
+            worldBefore = DlcUpdateWorldBackup.capture(DlcPaths.gameDir(), backupRoot, worlds, "update");
+            notifyApplyProgress("Applying update...", -1f);
+            applyDeleteOps(manifest.getFileOps(), context, hashIndex);
             applyMoveOps(manifest.getFileOps(), context);
             applyAddOps(manifest.getFileOps(), context);
             applyModifyOps(manifest.getFileOps(), context, forceMissing);
@@ -423,6 +483,18 @@ public final class DlcUpdateService {
             if (!context.failureMessages.isEmpty()) {
                 throw new IllegalStateException(String.join("\n", context.failureMessages));
             }
+            if (context.helperScheduled) {
+                List<String> changed = new ArrayList<>(meta.getRestorePaths());
+                changed.addAll(meta.getCreatedPaths());
+                DlcUpdateHashIndex.invalidate(DlcPaths.gameDir(), dlcRoot, changed);
+            } else {
+                DlcUpdateHashIndex.prepare(DlcPaths.gameDir(), dlcRoot);
+            }
+            if (worldAfter != null) {
+                worldsRestored = true;
+                DlcUpdateWorldBackup.restore(DlcPaths.gameDir(), backupRoot, worldAfter, null);
+            }
+            DlcUpdateWorldBackup.point(backupRoot, "before", worldBefore);
             meta.save(metaPath);
 
             DlcUpdateVersion updated = new DlcUpdateVersion();
@@ -440,6 +512,10 @@ public final class DlcUpdateService {
             pkg.cleanupStaging();
             return UpdateApplyResult.success("OK", context.addedRequired, context.addedRemote, context.helperScheduled, false);
         } catch (Exception ex) {
+            if (worldsRestored && worldBefore != null) {
+                try { DlcUpdateWorldBackup.restore(DlcPaths.gameDir(), backupRoot, worldBefore, null); }
+                catch (Exception restoreError) { ex.addSuppressed(restoreError); }
+            }
             rollbackUpdate(context);
             restorePresetUpdatesAfterRollback(presetSession);
             pkg.cleanupStaging();
@@ -503,6 +579,8 @@ public final class DlcUpdateService {
             }
             Path backupRoot = resolveMetaRootByPair(dlcRoot, metaTargetBase, metaTargetDlc);
             UpdateContext context = new UpdateContext(dlcRoot, null, backupRoot, meta);
+            try { DlcUpdateWorldBackup.rollback(DlcPaths.gameDir(), backupRoot); }
+            catch (Exception exception) { return UpdateRollbackResult.failed(exception.getMessage()); }
             rollbackUpdate(context);
             working = sourceDlcVersion(meta);
             workingBase = sourceBaseVersion(meta);
@@ -675,18 +753,6 @@ public final class DlcUpdateService {
         } catch (IOException ignored) {
             return false;
         }
-    }
-
-    public static void removeSkipMarker(List<Path> addedRequiredFiles) {
-        if (addedRequiredFiles == null || addedRequiredFiles.isEmpty()) {
-            return;
-        }
-        Path dlcRoot = getDlcRoot();
-        if (dlcRoot == null) {
-            return;
-        }
-        Path skip = dlcRoot.resolve("required").resolve("SKIP");
-        deleteWithHelperFallback(skip);
     }
 
     public static void skipPromptForUpdate(UpdateCheckResult result) {
@@ -1063,7 +1129,7 @@ public final class DlcUpdateService {
             && dlc.equals(sourceDlcVersion(info));
     }
 
-    private static List<String> findMissingUpdateTargets(DlcUpdateManifest manifest, Path gameDir) {
+    private static List<String> findMissingUpdateTargets(DlcUpdateManifest manifest, Path gameDir, DlcUpdateHashIndex hashIndex) {
         if (manifest == null || manifest.getFileOps() == null) {
             return List.of();
         }
@@ -1081,7 +1147,7 @@ public final class DlcUpdateService {
             if (raw == null || raw.isBlank()) {
                 continue;
             }
-            if (DlcPathUtil.findMatches(gameDir, raw).isEmpty()) {
+            if (hashIndex.findDeleteMatches(gameDir, raw, manifest.getFileOps().getDeleteHashes().get(raw)).isEmpty()) {
                 addMissingPath(missing, raw);
             }
         }
@@ -1104,7 +1170,7 @@ public final class DlcUpdateService {
         missing.add(path);
     }
 
-    private static void applyDeleteOps(DlcUpdateManifest.FileOps ops, UpdateContext context) {
+    private static void applyDeleteOps(DlcUpdateManifest.FileOps ops, UpdateContext context, DlcUpdateHashIndex hashIndex) {
         if (ops == null) {
             return;
         }
@@ -1113,7 +1179,8 @@ public final class DlcUpdateService {
             if (raw == null || raw.isBlank()) {
                 continue;
             }
-            for (Path target : DlcPathUtil.findMatches(gameDir, raw)) {
+            for (Path target : hashIndex.findDeleteMatches(gameDir, raw, ops.getDeleteHashes().get(raw))) {
+                DlcUpdateJournal.beforeOperation(target);
                 String actualRelative = DlcPathUtil.toGameRelativePath(target);
                 backupPath(actualRelative, target, context);
                 handleSpecialDelete(target, raw, context);
@@ -1155,6 +1222,7 @@ public final class DlcUpdateService {
             if (target == null) {
                 continue;
             }
+            DlcUpdateJournal.beforeOperation(target);
             boolean sourceIsDir = add.isSourceDir() || Files.isDirectory(source);
             boolean targetIsDir = add.getAppliedTarget() != null && add.getAppliedTarget().endsWith("/");
             if (sourceIsDir) {
@@ -1170,7 +1238,6 @@ public final class DlcUpdateService {
             }
         }
         applyImplicitRemoteAndRequired(context, addedRequiredFiles, hasRemoteAdd, hasRequiredAdd);
-        removeSkipMarker(addedRequiredFiles);
         if (!addedRequiredFiles.isEmpty()) {
             context.addedRequired = true;
         }
@@ -1202,6 +1269,8 @@ public final class DlcUpdateService {
             if (toIsDirHint || Files.isDirectory(to)) {
                 to = to.resolve(from.getFileName().toString());
             }
+            DlcUpdateJournal.beforeOperation(from);
+            DlcUpdateJournal.beforeOperation(to);
             boolean destExisted = Files.exists(to);
             backupPath(DlcPathUtil.toGameRelativePath(from), from, context);
             if (destExisted) {
@@ -1307,6 +1376,7 @@ public final class DlcUpdateService {
                 }
                 throw new IllegalStateException("Missing modify target");
             }
+            DlcUpdateJournal.beforeOperation(target);
             backupPath(entry.getTargetPath(), target, context);
             String content = readString(target);
             if (content == null) {
@@ -1410,12 +1480,15 @@ public final class DlcUpdateService {
                 context.addedRemote = true;
             }
             boolean wasEnabled = isRemoteEnabled(entry);
+            if (shouldRedownload && wasEnabled) prepareRemoteUpdateBackups(entry, context);
             Path oldTarget = entry.getTargetPath();
+            String oldHistoryKey = oldTarget == null ? null : DlcResourceHistory.key(buildConfigKey(entry.getDlcRoot(), oldTarget, entry.getType()), "dlc");
             if (shouldRedownload && wasEnabled && oldTarget != null) {
                 uninstallDlcPath(oldTarget, context.dlcRoot, context);
             }
             if (shouldRedownload && oldTarget != null && Files.exists(oldTarget)) {
-                backupAndDelete(oldTarget, context);
+                if (oldTarget.toAbsolutePath().normalize().startsWith(entry.getDlcRoot().toAbsolutePath().normalize().resolve("downloaded/DLCs"))) backupAndDelete(oldTarget, context);
+                else backupPath(DlcPathUtil.toGameRelativePath(oldTarget), oldTarget, context);
             }
             DlcUpdateManifest.UpdateEntry updateEntry = update.getValue();
             Path configPath = entry.getConfigPath();
@@ -1444,6 +1517,11 @@ public final class DlcUpdateService {
                 updateRemoteFileName(configPath, downloaded.fileName);
             }
             if (wasEnabled) {
+                if (oldHistoryKey != null) {
+                    String newHistoryKey = DlcResourceHistory.key(buildConfigKey(entry.getDlcRoot(), downloaded.path, entry.getType()), "dlc");
+                    DlcResourceHistory.rekey(entry.getDlcRoot(), "dlc", oldHistoryKey, newHistoryKey);
+                    context.resourceRekeys.put(oldHistoryKey, newHistoryKey);
+                }
                 List<Path> applied = applyRemoteTargets(entry, downloaded.path, context);
                 updateConfigState(entry, downloaded.path, applied, context);
             }
@@ -1471,18 +1549,8 @@ public final class DlcUpdateService {
             String oldFileName = resolveRequiredFileName(entry, context.dlcRoot);
             List<AppliedTarget> appliedTargets = collectExistingRequiredTargets(entry, oldFileName);
             boolean wasApplied = !appliedTargets.isEmpty();
-            if (shouldRedownload && wasApplied) {
-                for (AppliedTarget target : appliedTargets) {
-                    Path resolved = target.directory
-                        ? (oldFileName == null ? null : target.path.resolve(oldFileName))
-                        : target.path;
-                    if (resolved != null) {
-                        backupAndDelete(resolved, context);
-                    }
-                }
-            }
             if (shouldRedownload && oldFileName != null) {
-                Path oldDownload = entry.resolveRequiredPath(oldFileName);
+                Path oldDownload = entry.resolveDownloadPath(oldFileName);
                 if (oldDownload != null && Files.exists(oldDownload)) {
                     backupAndDelete(oldDownload, context);
                 }
@@ -1516,7 +1584,7 @@ public final class DlcUpdateService {
                 rewriteInfoFileWithNewFileName(infoPath, downloaded.fileName, context);
             }
             if (wasApplied) {
-                applyRequiredTargets(downloaded.path, downloaded.fileName, appliedTargets, context);
+                applyRequiredTargets(entry, oldFileName, downloaded.path, downloaded.fileName, appliedTargets, context);
             }
         }
     }
@@ -1649,89 +1717,50 @@ public final class DlcUpdateService {
         return map;
     }
 
-    private static boolean isRemoteEnabled(DlcRemoteEntry entry) {
-        if (entry == null) {
-            return false;
-        }
-        String fileName = entry.getFileNameHint();
-        if (fileName == null || fileName.isBlank()) {
-            Path target = entry.getTargetPath();
-            if (target == null) {
-                return false;
-            }
-            fileName = target.getFileName().toString();
-        }
+    private static DlcItem remoteItem(DlcRemoteEntry entry, Path source) {
+        if (entry == null || source == null) return null;
         DlcType type = entry.getType() == null ? DlcType.UNKNOWN : entry.getType();
-        if (type == DlcType.UNKNOWN) {
-            Path target = DlcPaths.resolveAppliedTarget(entry.getAppliedTargetRaw());
-            if (target == null) {
-                return false;
-            }
-            boolean dirTarget = DlcPaths.isAppliedTargetDirectory(entry.getAppliedTargetRaw(), target, entry.getTargetPath());
-            if (dirTarget) {
-                return Files.exists(target.resolve(fileName));
-            }
-            return Files.exists(target);
+        String identifier = entry.getDlcIdentifier();
+        if (identifier == null || identifier.isBlank()) identifier = source.getFileName().toString();
+        DlcItem item = new DlcItem(buildConfigKey(entry.getDlcRoot(), source, type), identifier, identifier, type, source, entry.getAppliedTargetRaw(), false, null, null, List.of(), List.of(), true, false, entry.isConfigType(), false);
+        item.setDlcRoot(entry.getDlcRoot());
+        item.setMatchMode(entry.getMatchMode());
+        return item;
+    }
+
+    private static void prepareRemoteUpdateBackups(DlcRemoteEntry entry, UpdateContext context) throws IOException {
+        DlcItem item = remoteItem(entry, entry.getTargetPath());
+        if (item == null) return;
+        String key = DlcResourceHistory.key(item.getId(), "dlc");
+        for (Path target : DlcItemFiles.installed(item)) {
+            DlcResourceHistory.prepare(item.getDlcRoot(), "dlc", key, item.getIdentifier(), null, item.getSourcePath(), target, true, item.getMatchMode());
+            backupAndDelete(target, context);
         }
-        List<Path> targets = switch (type) {
-            case MOD -> List.of(DlcPaths.modsDir());
-            case RESOURCE_PACK -> DlcConfig.getResourcepackRoots();
-            case DATA_PACK -> DlcConfig.getDatapackRoots();
-            case TACZ_PACK -> List.of(DlcPaths.taczDir());
-            default -> List.of();
-        };
-        if (targets.isEmpty()) {
-            return false;
-        }
-        for (Path dir : targets) {
-            if (!Files.exists(dir.resolve(fileName))) {
-                return false;
-            }
-        }
-        return true;
+    }
+
+    private static boolean isRemoteEnabled(DlcRemoteEntry entry) {
+        DlcItem item = remoteItem(entry, entry == null ? null : entry.getTargetPath());
+        if (item == null) return false;
+        try { return !DlcItemFiles.installed(item).isEmpty(); }
+        catch (IOException exception) { return false; }
     }
 
     private static boolean isRequiredApplied(DlcRequiredEntry entry, Path dlcRoot) {
-        if (entry == null || dlcRoot == null) {
-            return false;
-        }
-        String fileName = resolveRequiredFileName(entry, dlcRoot);
-        if (fileName == null || fileName.isBlank()) {
-            return false;
-        }
-        for (Path target : entry.resolveAppliedTargets()) {
-            Path resolved = resolveTarget(target, fileName);
-            if (resolved != null && Files.exists(resolved)) {
-                return true;
-            }
-        }
-        return false;
+        if (entry == null || dlcRoot == null) return false;
+        try { return com.cozooo.dlc_manager.client.required.DlcRequiredInstaller.isInstalled(entry); }
+        catch (IOException exception) { return false; }
     }
 
     private static List<AppliedTarget> collectExistingRequiredTargets(DlcRequiredEntry entry, String fileName) {
-        if (entry == null) {
-            return List.of();
-        }
-        List<AppliedTarget> targets = new ArrayList<>();
-        for (Path target : entry.resolveAppliedTargets()) {
-            if (target == null) {
-                continue;
+        if (entry == null) return List.of();
+        try {
+            List<AppliedTarget> result = new ArrayList<>();
+            for (Path path : com.cozooo.dlc_manager.client.required.DlcRequiredInstaller.paths(entry)) if (Files.exists(path)) {
+                boolean directory = !entry.shouldUnzip(fileName) && !entry.resolveAppliedTargets().contains(path);
+                result.add(new AppliedTarget(directory ? path.getParent() : path, directory));
             }
-            boolean dirTarget = Files.isDirectory(target)
-                || target.toString().endsWith("/")
-                || target.toString().endsWith("\\");
-            if (dirTarget) {
-                if (fileName != null && !fileName.isBlank()) {
-                    Path resolved = target.resolve(fileName).normalize();
-                    if (Files.exists(resolved)) {
-                        targets.add(new AppliedTarget(target, true));
-                    }
-                }
-            } else if (Files.exists(target)) {
-                targets.add(new AppliedTarget(target, false));
-            }
-        }
-        return targets;
+            return result;
+        } catch (IOException exception) { throw new java.io.UncheckedIOException("Required resource target resolution failed", exception); }
     }
 
     private static void updateRemoteConfigFields(Path configPath, DlcUpdateManifest.UpdateEntry update) {
@@ -2143,11 +2172,13 @@ public final class DlcUpdateService {
         if (path == null || obj == null) {
             return;
         }
+        DlcUpdateJournal.beforeWrite(path);
         if (DlcDcConfigIO.write(path, obj, layoutForPath(path))) {
             return;
         }
         Path target = DlcDcConfigIO.toDcPath(path);
         String serialized = serializeJsonForPath(target, obj);
+        if (DlcUpdateJournal.isActive()) throw new IllegalStateException("Pending update file operation failed: " + target);
         DlcFileOpsHelperClient.FileOpResult result = DlcFileOpsHelperClient.scheduleWriteText(target, serialized);
         if (result.ok()) {
             markHelperScheduled();
@@ -2258,7 +2289,7 @@ public final class DlcUpdateService {
         if (entry instanceof DlcRemoteEntry remote) {
             target = remote.resolveTargetPath(fileName);
         } else if (entry instanceof DlcRequiredEntry required) {
-            target = required.resolveRequiredPath(fileName);
+            target = required.resolveDownloadPath(fileName);
         } else {
             target = null;
         }
@@ -2272,6 +2303,7 @@ public final class DlcUpdateService {
         if (!moveWithHelperFallback(tempFile, target, true)) {
             throw new IOException(latestFailureMessage("failed to move downloaded file"));
         }
+        if (entry instanceof DlcRequiredEntry required) DlcResourceHistory.downloaded(required.getDlcRoot(), required.getHistoryKey(), required.getIdentifier(), required.getConfigPath(), target);
         return new DownloadedFile(target, fileName);
     }
 
@@ -2321,79 +2353,46 @@ public final class DlcUpdateService {
 
     private static List<Path> applyRemoteTargets(DlcRemoteEntry entry, Path source, UpdateContext context) {
         List<Path> targets = new ArrayList<>();
-        if (entry == null || source == null) {
-            return targets;
-        }
-        DlcType type = entry.getType() == null ? DlcType.UNKNOWN : entry.getType();
-        String fileName = source.getFileName().toString();
+        DlcItem item = remoteItem(entry, source);
+        if (item == null) return targets;
+        String key = DlcResourceHistory.key(item.getId(), "dlc");
         try {
-            if (type == DlcType.UNKNOWN) {
-                Path target = DlcPaths.resolveAppliedTarget(entry.getAppliedTargetRaw());
-                if (target == null) {
-                    return targets;
-                }
-                boolean dirTarget = DlcPaths.isAppliedTargetDirectory(entry.getAppliedTargetRaw(), target, source);
-                if (dirTarget) {
-                Files.createDirectories(target);
-                Path resolved = target.resolve(fileName);
-                backupOrCreate(resolved, context);
-                if (!copyWithHelperFallback(source, resolved, true)) {
-                    return targets;
-                }
-                targets.add(resolved);
-            } else {
-                if (target.getParent() != null) {
-                    Files.createDirectories(target.getParent());
-                }
+            for (DlcItemFiles.Target pair : DlcItemFiles.expected(item)) {
+                Path target = pair.target();
                 backupOrCreate(target, context);
-                if (!copyWithHelperFallback(source, target, true)) {
-                    return targets;
-                }
+                boolean replace = !DlcFileMatch.matches(source, target, "hash");
+                DlcResourceHistory.prepare(item.getDlcRoot(), "dlc", key, item.getIdentifier(), null, source, target, replace, item.getMatchMode());
+                if (replace && !copyWithHelperFallback(source, target, true)) return targets;
                 targets.add(target);
             }
-                return targets;
-            }
-            List<Path> targetDirs = switch (type) {
-                case MOD -> List.of(DlcPaths.modsDir());
-                case RESOURCE_PACK -> DlcConfig.getResourcepackRoots();
-                case DATA_PACK -> DlcConfig.getDatapackRoots();
-                case TACZ_PACK -> List.of(DlcPaths.taczDir());
-                default -> List.of();
-            };
-            for (Path targetDir : targetDirs) {
-                Files.createDirectories(targetDir);
-                Path target = targetDir.resolve(fileName);
-                backupOrCreate(target, context);
-                if (!copyWithHelperFallback(source, target, true)) {
-                    return targets;
-                }
-                targets.add(target);
-            }
-        } catch (IOException ignored) {
-        }
+            if (!targets.isEmpty()) DlcResourceHistory.complete(item.getDlcRoot(), "dlc", key);
+        } catch (IOException exception) { throw new java.io.UncheckedIOException("Remote update installation failed", exception); }
         return targets;
     }
 
-    private static void applyRequiredTargets(Path source, String fileName, List<AppliedTarget> targets, UpdateContext context) {
-        if (source == null || fileName == null || fileName.isBlank() || targets == null || targets.isEmpty()) {
+    private static void applyRequiredTargets(DlcRequiredEntry entry, String oldFileName, Path source, String fileName, List<AppliedTarget> targets, UpdateContext context) throws IOException {
+        if (source == null || fileName == null || fileName.isBlank() || targets == null || targets.isEmpty()) return;
+        entry.setResolvedFileName(fileName);
+        if (entry.shouldUnzip(fileName)) {
+            java.util.Set<Path> currentPaths = new java.util.HashSet<>(com.cozooo.dlc_manager.client.required.DlcRequiredInstaller.paths(entry));
+            for (AppliedTarget previous : targets) if (!currentPaths.contains(previous.path) && Files.isRegularFile(previous.path)) backupAndDelete(previous.path, context);
+            com.cozooo.dlc_manager.client.required.DlcRequiredInstaller.install(entry, target -> backupOrCreate(target, context));
             return;
         }
         for (AppliedTarget applied : targets) {
-            if (applied == null || applied.path == null) {
-                continue;
-            }
+            if (applied == null || applied.path == null) continue;
             Path target = applied.directory ? applied.path.resolve(fileName) : applied.path;
-            try {
-                if (target.getParent() != null) {
-                    Files.createDirectories(target.getParent());
-                }
-                backupOrCreate(target, context);
-                if (!copyWithHelperFallback(source, target, true)) {
-                    continue;
-                }
-            } catch (IOException ignored) {
+            Path oldTarget = applied.directory && oldFileName != null ? applied.path.resolve(oldFileName) : applied.path;
+            if (!oldTarget.equals(target) && Files.exists(oldTarget)) {
+                DlcResourceHistory.prepare(entry.getDlcRoot(), "required", entry.getHistoryKey(), entry.getIdentifier(), entry.getConfigPath(), source, oldTarget, true, entry.getMatchMode());
+                backupAndDelete(oldTarget, context);
             }
+            backupOrCreate(target, context);
+            boolean replace = !DlcFileMatch.matches(source, target, "hash");
+            DlcResourceHistory.prepare(entry.getDlcRoot(), "required", entry.getHistoryKey(), entry.getIdentifier(), entry.getConfigPath(), source, target, replace, entry.getMatchMode());
+            if (replace && !copyWithHelperFallback(source, target, true)) throw new IOException(latestFailureMessage("required update installation failed"));
         }
+        DlcResourceHistory.complete(entry.getDlcRoot(), "required", entry.getHistoryKey());
     }
 
     private static void backupOrCreate(Path target, UpdateContext context) {
@@ -2420,6 +2419,8 @@ public final class DlcUpdateService {
         if (state == null) {
             state = new DlcStateConfig.DlcState();
         }
+        state.root = DlcPathUtil.toGameRelativePath(entry.getDlcRoot());
+        state.mode = entry.getMatchMode();
         state.enabled = true;
         state.appliedTargets = applied.stream()
             .map(DlcPathUtil::toGameRelativePath)
@@ -2434,17 +2435,8 @@ public final class DlcUpdateService {
         }
         String rootId = DlcPathUtil.toGameRelativePath(dlcRoot).replace('\\', '/');
         String relative = dlcRoot.relativize(source).toString().replace('\\', '/');
+        if (relative.startsWith("downloaded/DLCs/")) relative = relative.substring("downloaded/DLCs/".length());
         return type.name().toLowerCase(java.util.Locale.ROOT) + ":" + rootId + "|" + relative;
-    }
-
-    private static Path resolveTarget(Path targetDir, String fileName) {
-        if (targetDir == null || fileName == null || fileName.isBlank()) {
-            return null;
-        }
-        if (Files.isDirectory(targetDir) || targetDir.toString().endsWith("/") || targetDir.toString().endsWith("\\")) {
-            return targetDir.resolve(fileName).normalize();
-        }
-        return targetDir.normalize();
     }
 
     private static String sanitizeFileName(String name) {
@@ -2535,31 +2527,19 @@ public final class DlcUpdateService {
     }
 
     private static void uninstallRequiredConfig(Path configPath, Path dlcRoot, UpdateContext context) {
-        if (configPath == null || dlcRoot == null || !Files.exists(configPath)) {
-            return;
-        }
+        if (configPath == null || dlcRoot == null || !Files.exists(configPath)) return;
         DlcRequiredEntry entry = DlcRequiredLoader.loadSingle(configPath, dlcRoot);
-        if (entry == null) {
-            return;
-        }
-        String requiredFileName = resolveRequiredFileName(entry, dlcRoot);
-        deleteRequiredDownload(entry, dlcRoot, requiredFileName, context);
-        for (Path target : entry.resolveAppliedTargets()) {
-            if (target == null) {
-                continue;
+        if (entry == null) return;
+        try {
+            List<Path> recorded = DlcResourceHistory.installedPaths(dlcRoot, "required", entry.getHistoryKey());
+            List<Path> targets = new ArrayList<>(recorded);
+            for (Path target : com.cozooo.dlc_manager.client.required.DlcRequiredInstaller.paths(entry)) if (!targets.contains(target)) targets.add(target);
+            for (Path target : targets) if (Files.exists(target)) backupPath(DlcPathUtil.toGameRelativePath(target), target, context);
+            if (!DlcResourceHistory.restore(dlcRoot, "required", entry.getHistoryKey(), true)) {
+                for (Path target : targets) if (Files.isRegularFile(target)) backupAndDelete(target, context);
             }
-            if (Files.isDirectory(target)) {
-                if (requiredFileName == null || requiredFileName.isBlank()) {
-                    continue;
-                }
-                Path file = target.resolve(requiredFileName);
-                if (Files.exists(file)) {
-                    backupAndDelete(file, context);
-                }
-                continue;
-            }
-            backupAndDelete(target, context);
-        }
+            deleteRequiredDownload(entry, dlcRoot, resolveRequiredFileName(entry, dlcRoot), context);
+        } catch (IOException exception) { throw new java.io.UncheckedIOException("Required resource recovery failed", exception); }
     }
 
     private static void uninstallRemoteConfig(Path configPath, Path dlcRoot, UpdateContext context) {
@@ -2635,6 +2615,7 @@ public final class DlcUpdateService {
         }
         String rootId = DlcPathUtil.toGameRelativePath(dlcRoot).replace('\\', '/');
         String relative = dlcRoot.relativize(target).toString().replace('\\', '/');
+        if (relative.startsWith("downloaded/DLCs/")) relative = relative.substring("downloaded/DLCs/".length());
         String suffix = ":" + rootId + "|" + relative;
         for (Map.Entry<String, DlcStateConfig.DlcState> entry : DlcStateConfig.getAllStates().entrySet()) {
             String key = entry.getKey();
@@ -2659,47 +2640,13 @@ public final class DlcUpdateService {
     }
 
     private static void deleteRequiredDownload(DlcRequiredEntry entry, Path dlcRoot, String requiredFileName, UpdateContext context) {
-        if (entry == null || dlcRoot == null) {
-            return;
-        }
-        Path requiredDir = dlcRoot.resolve("required");
-        if (!Files.isDirectory(requiredDir)) {
-            return;
-        }
-        if (requiredFileName == null || requiredFileName.isBlank()) {
-            return;
-        }
-        Path downloaded = requiredDir.resolve(requiredFileName);
-        if (Files.exists(downloaded)) {
-            backupAndDelete(downloaded, context);
-        }
+        if (entry == null || requiredFileName == null) return;
+        Path downloaded = entry.resolveDownloadPath(requiredFileName);
+        if (downloaded != null && Files.exists(downloaded)) backupAndDelete(downloaded, context);
     }
 
     private static String resolveRequiredFileName(DlcRequiredEntry entry, Path dlcRoot) {
-        if (entry == null || dlcRoot == null) {
-            return null;
-        }
-        String fileName = entry.getRequiredFileName();
-        if (fileName != null && !fileName.isBlank()) {
-            return fileName;
-        }
-        Path requiredDir = dlcRoot.resolve("required");
-        if (!Files.isDirectory(requiredDir)) {
-            return null;
-        }
-        String base = entry.getBaseName();
-        if (base == null || base.isBlank()) {
-            return null;
-        }
-        try (var stream = Files.newDirectoryStream(requiredDir, base + ".*")) {
-            for (Path file : stream) {
-                if (file != null && !DlcDcFormatUtil.isDcName(file.getFileName().toString())) {
-                    return file.getFileName().toString();
-                }
-            }
-        } catch (IOException ignored) {
-        }
-        return null;
+        return DlcRequiredService.resolveExistingFileName(entry);
     }
 
     private static void backupAndDelete(Path target, UpdateContext context) {
@@ -2715,6 +2662,17 @@ public final class DlcUpdateService {
     private static void rollbackUpdate(UpdateContext context) {
         if (context == null || context.backupRoot == null || context.meta == null) {
             return;
+        }
+        try {
+            List<String> changed = new ArrayList<>(context.meta.getRestorePaths());
+            changed.addAll(context.meta.getCreatedPaths());
+            DlcUpdateHashIndex.invalidate(DlcPaths.gameDir(), context.dlcRoot, changed);
+        } catch (IOException exception) {
+            recordFileOpFailure(context, "invalidate update hashes", context.dlcRoot);
+        }
+        for (var keys : context.resourceRekeys.entrySet()) {
+            try { DlcResourceHistory.rekey(context.dlcRoot, "dlc", keys.getValue(), keys.getKey()); }
+            catch (IOException exception) { recordFileOpFailure(context, "restore DLC history", context.dlcRoot); }
         }
         for (String created : context.meta.getCreatedPaths()) {
             Path target = resolveGamePath(DlcPaths.gameDir(), created);
@@ -2800,6 +2758,11 @@ public final class DlcUpdateService {
     private static void backupPath(String rawRelative, Path target, UpdateContext context) {
         if (context == null || target == null || rawRelative == null || rawRelative.isBlank()) {
             return;
+        }
+        try {
+            DlcUpdateHashIndex.invalidate(DlcPaths.gameDir(), context.dlcRoot, List.of(rawRelative));
+        } catch (IOException exception) {
+            throw new IllegalStateException("Failed to invalidate update hashes", exception);
         }
         String normalized = normalizePath(rawRelative, target);
         if (!context.meta.getRestorePaths().contains(normalized)) {
@@ -3058,6 +3021,7 @@ public final class DlcUpdateService {
     }
 
     public static void deleteRecursive(Path path) {
+        DlcUpdateJournal.beforeWrite(path);
         if (path == null || !Files.exists(path)) {
             return;
         }
@@ -3113,12 +3077,17 @@ public final class DlcUpdateService {
     }
 
     private static boolean deleteWithHelperFallback(Path path) {
+        DlcUpdateJournal.beforeWrite(path);
         if (path == null) {
             return false;
         }
         try {
             return Files.deleteIfExists(path) || !Files.exists(path);
         } catch (IOException ignored) {
+            if (DlcUpdateJournal.isActive()) {
+                recordFileOpFailure(CURRENT_UPDATE_CONTEXT.get(), "Pending update file operation failed", path, "delete");
+                return false;
+            }
             DlcFileOpsHelperClient.FileOpResult result = DlcFileOpsHelperClient.scheduleDelete(path);
             if (result.ok()) {
                 markHelperScheduled();
@@ -3130,6 +3099,7 @@ public final class DlcUpdateService {
     }
 
     private static boolean copyWithHelperFallback(Path source, Path target, boolean replaceExisting) {
+        DlcUpdateJournal.beforeWrite(target);
         if (source == null || target == null) {
             return false;
         }
@@ -3144,6 +3114,10 @@ public final class DlcUpdateService {
             }
             return true;
         } catch (IOException ignored) {
+            if (DlcUpdateJournal.isActive()) {
+                recordFileOpFailure(CURRENT_UPDATE_CONTEXT.get(), "Pending update file operation failed", target, "copy");
+                return false;
+            }
             DlcFileOpsHelperClient.FileOpResult result = DlcFileOpsHelperClient.scheduleCopy(source, target, replaceExisting);
             if (result.ok()) {
                 markHelperScheduled();
@@ -3155,6 +3129,8 @@ public final class DlcUpdateService {
     }
 
     private static boolean moveWithHelperFallback(Path source, Path target, boolean replaceExisting) {
+        DlcUpdateJournal.beforeWrite(source);
+        DlcUpdateJournal.beforeWrite(target);
         if (source == null || target == null) {
             return false;
         }
@@ -3169,6 +3145,10 @@ public final class DlcUpdateService {
             }
             return true;
         } catch (IOException ignored) {
+            if (DlcUpdateJournal.isActive()) {
+                recordFileOpFailure(CURRENT_UPDATE_CONTEXT.get(), "Pending update file operation failed", target, "move");
+                return false;
+            }
             DlcFileOpsHelperClient.FileOpResult result = DlcFileOpsHelperClient.scheduleMove(source, target, replaceExisting);
             if (result.ok()) {
                 markHelperScheduled();
@@ -3180,6 +3160,7 @@ public final class DlcUpdateService {
     }
 
     private static void copyRecursive(Path source, Path target) {
+        DlcUpdateJournal.beforeWrite(target);
         if (source == null || target == null) {
             return;
         }
@@ -3266,6 +3247,7 @@ public final class DlcUpdateService {
     }
 
     private static void copyDirectory(Path source, Path target, boolean override) {
+        DlcUpdateJournal.beforeWrite(target);
         if (source == null || target == null) {
             return;
         }
@@ -3326,6 +3308,7 @@ public final class DlcUpdateService {
     }
 
     private static void writeString(Path path, String content) {
+        DlcUpdateJournal.beforeWrite(path);
         try {
             if (path.getParent() != null) {
                 Files.createDirectories(path.getParent());
@@ -3435,7 +3418,7 @@ public final class DlcUpdateService {
         return safeVersion(baseVersion) + "+" + safeVersion(dlcVersion);
     }
 
-    private static Path resolveMetaRootByPair(Path dlcRoot, String baseVersion, String dlcVersion) {
+    public static Path resolveMetaRootByPair(Path dlcRoot, String baseVersion, String dlcVersion) {
         return DlcTmpPaths.resolve(dlcRoot, metaPairKey(baseVersion, dlcVersion));
     }
 
@@ -3891,6 +3874,7 @@ public final class DlcUpdateService {
         private boolean addedRemote;
         private boolean helperScheduled;
         private final List<String> failureMessages = new ArrayList<>();
+        private final Map<String, String> resourceRekeys = new LinkedHashMap<>();
 
         UpdateContext(Path dlcRoot, Path stagingRoot, Path backupRoot, DlcUpdateMeta meta) {
             this.dlcRoot = dlcRoot;
@@ -4016,6 +4000,7 @@ public final class DlcUpdateService {
             if (path == null || obj == null) {
                 return;
             }
+            DlcUpdateJournal.beforeWrite(path);
             DlcDcConfigIO.write(path, obj, layoutForPath(path));
         }
     }
@@ -4043,6 +4028,12 @@ public final class DlcUpdateService {
     }
 
     public static class UpdateApplyResult {
+        private boolean pendingUpdate;
+        private List<String> compatibilityParameters = List.of();
+        public boolean isPendingUpdate() { return pendingUpdate; }
+        public boolean isCompatibilityRequired() { return !compatibilityParameters.isEmpty(); }
+        public List<String> getCompatibilityParameters() { return compatibilityParameters; }
+
         private final boolean success;
         private final boolean missing;
         private final String message;
@@ -4074,6 +4065,18 @@ public final class DlcUpdateService {
 
         static UpdateApplyResult missing(List<String> missingPaths) {
             return new UpdateApplyResult(false, true, "missing", missingPaths, false, false, false, false);
+        }
+
+        static UpdateApplyResult pending(boolean managerUpdated) {
+            UpdateApplyResult result = success("pending", false, false, false, managerUpdated);
+            result.pendingUpdate = true;
+            return result;
+        }
+
+        static UpdateApplyResult compatibility(List<String> unknown) {
+            UpdateApplyResult result = failed("Unknown update parameters: " + String.join(", ", unknown));
+            result.compatibilityParameters = List.copyOf(unknown);
+            return result;
         }
 
         static UpdateApplyResult empty() {

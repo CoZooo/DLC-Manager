@@ -133,4 +133,25 @@ class DlcUpdateManifestTest {
         assertFalse(manifest.isUpdateDLCM());
         assertEquals(null, manifest.getUpdateDLCMVersion());
     }
+    @Test
+    void invalidDcFileDoesNotFallBackToJsonParsing(@org.junit.jupiter.api.io.TempDir java.nio.file.Path directory) throws Exception {
+        java.nio.file.Path file = directory.resolve("update.dc");
+        java.nio.file.Files.writeString(file, "[update]\nname = \"unterminated\n");
+        org.junit.jupiter.api.Assertions.assertNull(DlcUpdateManifest.load(file));
+    }
+    @Test
+    void deleteRulesAllowOptionalHashesAlongsideLegacyPaths() throws Exception {
+        var document = DlcUpdateDcParser.parse("""
+            [file]
+              [del]
+                "mods/a.jar":
+                  hash = "abc"
+                "config/legacy.txt"
+                "mods/plain.jar"
+            """);
+        var ops = DlcUpdateManifest.fromJsonObject(document).getFileOps();
+        assertEquals(java.util.List.of("mods/a.jar", "config/legacy.txt", "mods/plain.jar"), ops.getDel());
+        assertEquals(java.util.Map.of("mods/a.jar", "abc"), ops.getDeleteHashes());
+    }
+
 }

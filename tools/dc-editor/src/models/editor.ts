@@ -2,7 +2,6 @@ export type DocumentType =
   | "info"
   | "remote"
   | "required"
-  | "required_notice"
   | "preset"
   | "notice"
   | "redirect"

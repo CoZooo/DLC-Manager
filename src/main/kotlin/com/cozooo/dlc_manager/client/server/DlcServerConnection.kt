@@ -1084,9 +1084,9 @@ object DlcServerConnection {
         val hasTargets = !targets.isNullOrEmpty()
         val hasFiles = !files.isNullOrEmpty()
         if (!hasTargets && !hasFiles) return null
-        val includeAll = hasTargets && targets!!.any { it.equals("all", ignoreCase = true) }
-        val includeDlc = includeAll || (hasTargets && targets!!.any { it.equals("dlc", ignoreCase = true) })
-        val includeConfig = includeAll || (hasTargets && targets!!.any { it.equals("config", ignoreCase = true) })
+        val includeAll = hasTargets && targets.any { it.equals("all", ignoreCase = true) }
+        val includeDlc = includeAll || (hasTargets && targets.any { it.equals("dlc", ignoreCase = true) })
+        val includeConfig = includeAll || (hasTargets && targets.any { it.equals("config", ignoreCase = true) })
         val dlcRoot = DlcConfig.getDlcRoot()
         val configDir = DlcPlatformServices.configDir().resolve("dlc_manager")
         val gameDir = DlcPaths.gameDir()

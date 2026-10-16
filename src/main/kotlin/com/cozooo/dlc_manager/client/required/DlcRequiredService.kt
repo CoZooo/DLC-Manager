@@ -4,6 +4,8 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil
 import com.cozooo.dlc_manager.client.download.DlcSharedService
 import com.cozooo.dlc_manager.core.DlcConfig
+import com.cozooo.dlc_manager.core.DlcFileMatch
+import com.cozooo.dlc_manager.core.DlcResourceHistory
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil
 import java.io.IOException
 import java.nio.file.Files
@@ -114,7 +116,7 @@ object DlcRequiredService {
         if (entry == null) {
             throw IOException("missing required entry")
         }
-        val requiredDir = entry.getRequiredDir() ?: throw IOException("missing required directory")
+        val requiredDir = entry.getDownloadDir() ?: throw IOException("missing required directory")
         val effectiveName = resolveDownloadFileName(entry)
         val target = if (effectiveName == null) null else entry.resolveRequiredPath(effectiveName)
         if (target != null && Files.exists(target)) {
@@ -157,7 +159,7 @@ object DlcRequiredService {
                             fileName = DlcDownloadUtil.stripQuery(entry.getBaseName())
                         }
                         val finalFileName = fileName ?: throw IOException("missing file name")
-                        val resolvedTarget = entry.resolveRequiredPath(finalFileName) ?: throw IOException("invalid target path")
+                        val resolvedTarget = entry.resolveDownloadPath(finalFileName) ?: throw IOException("invalid target path")
                         Files.createDirectories(resolvedTarget.parent)
                         if (Files.exists(resolvedTarget)) {
                             entry.setResolvedFileName(finalFileName)
@@ -169,6 +171,7 @@ object DlcRequiredService {
                         DlcSharedService.verifyDownloadedFile(resolved, candidate, downloadInfo, cancelChecker)
                         entry.setResolvedFileName(finalFileName)
                         DlcRequiredRuntime.updateFileNameKey(entry, finalFileName)
+                        DlcResourceHistory.downloaded(entry.getDlcRoot()!!, entry.getHistoryKey(), entry.getIdentifier(), entry.getConfigPath(), resolved)
                         return finalFileName
                     } catch (ex: com.cozooo.dlc_manager.client.download.DlcDownloadService.DownloadCanceledException) {
                         if (DlcSharedService.isSwitchRequested(switchChecker, entry)) {
@@ -233,40 +236,28 @@ object DlcRequiredService {
     @JvmStatic
     @Throws(IOException::class)
     fun installOne(entry: DlcRequiredEntry?): Boolean {
-        if (entry == null) {
-            return false
-        }
-        val fileName = resolveExistingFileName(entry)
-        if (fileName.isNullOrBlank()) {
-            throw IOException("missing file name")
-        }
-        entry.setResolvedFileName(fileName)
-        val source = entry.resolveRequiredPath(fileName)
-        if (source == null || !Files.exists(source)) {
-            throw IOException("missing required source")
-        }
-        var applied = false
-        val appliedTargets = entry.resolveAppliedTargets()
-        if (appliedTargets.isEmpty()) {
-            applied = true
-        }
-        for (targetDir in appliedTargets) {
-            val target = resolveTarget(targetDir, fileName) ?: continue
-            try {
-                Files.createDirectories(target.parent)
-                if (!Files.exists(target)) {
-                    Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
-                    applied = true
-                }
-            } catch (_: IOException) {
-            }
-        }
+        if (entry == null) return false
+        val applied = DlcRequiredInstaller.install(entry) { }
         val id = entry.getIdentifier()
-        if (!id.isNullOrBlank()) {
-            DlcRequiredRuntime.updateUserRemoved(entry, false)
-            DlcRequiredRuntimeState.setOverride(id, true)
-        }
+        if (id.isNotBlank()) DlcRequiredRuntimeState.setOverride(id, true)
         return applied
+    }
+
+    @JvmStatic @Throws(IOException::class)
+    fun reconcileEntries(entries: List<DlcRequiredEntry>) {
+        for (root in DlcConfig.getDlcRoots()) reconcileRoot(root, entries)
+    }
+
+    @JvmStatic @Throws(IOException::class)
+    fun reconcileRoot(root: Path, entries: List<DlcRequiredEntry>) {
+        val keys = HashSet<String>()
+        val downloads = HashSet<String>()
+        for (entry in entries) {
+            if (entry.getDlcRoot()?.toAbsolutePath()?.normalize() != root.toAbsolutePath().normalize()) continue
+            keys.add(entry.getHistoryKey())
+            entry.resolveDownloadPath(resolveExistingFileName(entry))?.let { downloads.add(DlcResourceHistory.relativePath(it)) }
+        }
+        DlcResourceHistory.reconcileRequired(root, keys, downloads)
     }
 
     @JvmStatic
@@ -289,20 +280,16 @@ object DlcRequiredService {
         if (requiredDir == null || base.isNullOrBlank()) {
             return fileName
         }
-        try {
-            Files.newDirectoryStream(requiredDir, "$base.*").use { stream ->
-                for (path in stream) {
-                    if (isConfigFile(entry, path)) {
-                        continue
+        for (directory in listOfNotNull(entry.getDownloadDir(), requiredDir)) {
+            if (!Files.isDirectory(directory)) continue
+            try {
+                Files.newDirectoryStream(directory, "$base.*").use { stream ->
+                    for (path in stream) {
+                        val name = path.fileName?.toString() ?: continue
+                        if (!isConfigFile(entry, path) && !isTempFileName(name) && Files.isRegularFile(path)) return name
                     }
-                    val name = path.fileName?.toString() ?: ""
-                    if (isTempFileName(name)) {
-                        continue
-                    }
-                    return name
                 }
-            }
-        } catch (_: IOException) {
+            } catch (_: IOException) {}
         }
         return fileName
     }
@@ -370,29 +357,7 @@ object DlcRequiredService {
     }
 
     private fun resolveExistingRequiredFile(entry: DlcRequiredEntry?): String? {
-        if (entry == null) {
-            return null
-        }
-        val base = entry.getBaseName()
-        val requiredDir = entry.getRequiredDir()
-        if (requiredDir == null || base.isNullOrBlank()) {
-            return null
-        }
-        try {
-            Files.newDirectoryStream(requiredDir, "$base.*").use { stream ->
-                for (path in stream) {
-                    if (isConfigFile(entry, path)) {
-                        continue
-                    }
-                    val name = path.fileName?.toString() ?: ""
-                    if (!DlcDcFormatUtil.isDcName(name) && !isTempFileName(name)) {
-                        return name
-                    }
-                }
-            }
-        } catch (_: IOException) {
-        }
-        return null
+        return resolveExistingFileName(entry)
     }
 
     private fun chooseFileNameOriginal(entry: DlcRequiredEntry, candidate: DlcDownloadCandidate): String? {
@@ -416,14 +381,6 @@ object DlcRequiredService {
         }
         val name = path.fileName?.toString() ?: ""
         return isConfigFileName(name)
-    }
-
-    private fun resolveTarget(targetDir: Path?, fileName: String?): Path? {
-        if (targetDir == null || fileName.isNullOrBlank()) {
-            return null
-        }
-        val lower = targetDir.fileName?.toString()?.lowercase(Locale.ROOT) ?: ""
-        return if (lower.endsWith(".jar") || lower.endsWith(".zip")) targetDir else targetDir.resolve(fileName)
     }
 
     private fun normalizeFileName(fileName: String?): String? {

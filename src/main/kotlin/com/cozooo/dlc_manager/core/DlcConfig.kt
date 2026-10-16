@@ -139,6 +139,9 @@ object DlcConfig {
         ensureServerConfigFile()
         migrateKnownConfigsToDc()
     }
+    @JvmStatic fun reloadFromDisk(server: Boolean) {
+        if (server) loadServerFromDisk() else loadClientFromDisk()
+    }
     @JvmStatic fun save() = saveClient()
     @JvmStatic fun saveClient() = saveClientToDisk()
     @JvmStatic fun saveServer() = saveServerToDisk()
@@ -943,7 +946,7 @@ object DlcConfig {
         if (identifier.isNullOrBlank()) {
             identifier = fileName
             DlcDcConfigIO.removeIgnoreCase(out, "identifier")
-            out.addProperty("identifier", identifier ?: "")
+            out.addProperty("identifier", identifier)
         }
         if (!DlcDcConfigIO.hasIgnoreCase(out, "type")) out.addProperty("type", "others")
         if (!DlcDcConfigIO.hasIgnoreCase(out, "isHidden")) out.addProperty("isHidden", false)

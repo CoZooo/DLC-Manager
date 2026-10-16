@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.local;
 
+import com.cozooo.dlc_manager.app.DlcFxManagerApp;
+
 import com.cozooo.dlc_manager.client.pack.DlcPackArchive;
 import com.cozooo.dlc_manager.client.pack.DlcPackCFResolver;
 import com.cozooo.dlc_manager.client.pack.DlcPackInstaller;
@@ -333,10 +335,7 @@ public final class DlcFxLocalPackTab {
 
     private List<PackArchiveGroup> scanPackArchives(Path packRoot) {
         List<PackArchiveEntry> found = new ArrayList<>();
-        if (!Files.isDirectory(packRoot)) {
-            return List.of();
-        }
-        try (var stream = Files.list(packRoot)) {
+        try (var stream = DlcPackArchive.findArchives(DlcPaths.dlcRoot()).stream()) {
             stream.filter(Files::isRegularFile)
                 .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".zip"))
                 .sorted(Comparator.comparing(path -> path.getFileName().toString().toLowerCase(Locale.ROOT)))
@@ -1191,6 +1190,7 @@ public final class DlcFxLocalPackTab {
 
     private void finishBusy(String message, boolean refreshAfter) {
         Platform.runLater(() -> {
+            boolean requiredMayHaveChanged = busyOperation == BusyOperation.APPLY || busyOperation == BusyOperation.DELETE;
             busy = false;
             cancelRequested = false;
             cancelApplyRequested = false;
@@ -1212,6 +1212,9 @@ public final class DlcFxLocalPackTab {
                 refreshAsync(false);
             } else {
                 updateActionButtons();
+            }
+            if (requiredMayHaveChanged && DlcFxManagerApp.instance() != null) {
+                DlcFxManagerApp.instance().ensureLocalRequiredResources();
             }
         });
     }

@@ -13,10 +13,6 @@ final class HostAppDelegate: NSObject, NSApplicationDelegate {
 
     private func registerQuickLookExtension() {
         let fileManager = FileManager.default
-        let appURL = Bundle.main.bundleURL
-
-        run("/usr/bin/xattr", ["-dr", "com.apple.quarantine", appURL.path])
-
         guard
             let pluginsURL = Bundle.main.builtInPlugInsURL,
             let appexURL = try? fileManager.contentsOfDirectory(at: pluginsURL, includingPropertiesForKeys: nil)

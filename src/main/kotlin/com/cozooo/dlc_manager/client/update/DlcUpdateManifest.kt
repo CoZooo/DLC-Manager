@@ -14,6 +14,7 @@ import java.util.Locale
 import java.util.regex.Pattern
 
 class DlcUpdateManifest {
+    private val unknownParameters = mutableListOf<String>()
     private var version: VersionInfo? = null
     private var fileOps: FileOps? = null
     private var hidden = false
@@ -21,6 +22,8 @@ class DlcUpdateManifest {
     private var updateDLCMVersion: String? = null
     private var changelog: Map<String, String>? = LinkedHashMap()
     private var updateOps: UpdateOps = UpdateOps()
+
+    fun getUnknownParameters(): List<String> = unknownParameters.toList()
 
     fun getVersion(): VersionInfo? {
         return version
@@ -115,6 +118,7 @@ class DlcUpdateManifest {
 
     class FileOps {
         private val del: MutableList<String> = ArrayList()
+        private val deleteHashes: MutableMap<String, String> = LinkedHashMap()
         private val add: MutableMap<String, AddEntry> = LinkedHashMap()
         private val move: MutableMap<String, String> = LinkedHashMap()
         private val modify: MutableList<ModifyEntry> = ArrayList()
@@ -122,6 +126,8 @@ class DlcUpdateManifest {
         fun getDel(): MutableList<String> {
             return del
         }
+
+        fun getDeleteHashes(): MutableMap<String, String> = deleteHashes
 
         fun getAdd(): MutableMap<String, AddEntry> {
             return add
@@ -324,6 +330,7 @@ class DlcUpdateManifest {
         private val LAST_JSON_PAIR: Pattern = Pattern.compile("\".*?\"\\s*:\\s*\".*?\"")
 
         @JvmStatic
+        @Suppress("DEPRECATION")
         fun load(updateJson: Path?): DlcUpdateManifest? {
             if (updateJson == null || !Files.exists(updateJson)) {
                 return null
@@ -341,7 +348,10 @@ class DlcUpdateManifest {
                     }
                 } catch (_: IOException) {
                     return null
+                } catch (_: com.google.gson.JsonParseException) {
+                    return null
                 }
+                return fromJsonObject(obj)
             }
             if (obj == null) {
                 try {
@@ -358,11 +368,12 @@ class DlcUpdateManifest {
         }
 
         @JvmStatic
-        fun fromJsonObject(obj: JsonObject?): DlcUpdateManifest? {
-            if (obj == null) {
+        fun fromJsonObject(source: JsonObject?): DlcUpdateManifest? {
+            if (source == null) {
                 return null
             }
             val manifest = DlcUpdateManifest()
+            val obj = DlcUpdateCompatibility.knownFields(source, manifest.unknownParameters)
             manifest.version = parseVersion(DlcDcConfigIO.getObjectIgnoreCase(obj, "version"))
             manifest.hidden = getBoolean(obj, "isHidden", false)
             val updateDLCMConfig = parseUpdateDLCM(DlcDcConfigIO.getIgnoreCase(obj, "UpdateDLCM"))
@@ -451,7 +462,19 @@ class DlcUpdateManifest {
                 return ops
             }
             if (DlcDcConfigIO.hasIgnoreCase(obj, "del")) {
-                ops.getDel().addAll(readStringArray(DlcDcConfigIO.getIgnoreCase(obj, "del")))
+                val deletes = DlcDcConfigIO.getIgnoreCase(obj, "del")
+                if (deletes != null && deletes.isJsonObject) {
+                    for ((path, value) in deletes.asJsonObject.entrySet()) {
+                        ops.getDel().add(path)
+                        if (value.isJsonObject) {
+                            DlcDcConfigIO.getStringIgnoreCase(value.asJsonObject, "hash")?.let {
+                                ops.getDeleteHashes()[path] = it
+                            }
+                        }
+                    }
+                } else {
+                    ops.getDel().addAll(readStringArray(deletes))
+                }
             }
             if (DlcDcConfigIO.hasIgnoreCase(obj, "add")) {
                 val addEl = DlcDcConfigIO.getIgnoreCase(obj, "add")
@@ -681,7 +704,7 @@ class DlcUpdateManifest {
                 last = matcher.group()
             }
             if (!last.isNullOrBlank()) {
-                return last!!.trim()
+                return last.trim()
             }
             return find.trim()
         }

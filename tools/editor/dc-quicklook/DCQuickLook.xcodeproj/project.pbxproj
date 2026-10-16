@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 63;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -12,8 +12,12 @@
 		322D9B51CA5C89A2066AAE9F /* PreviewViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C5395D3CEBD82FFAA7B8830 /* PreviewViewController.swift */; };
 		43C465BF704A773B247FEAC1 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A195322A1703A40DE63F82D /* AppKit.framework */; };
 		57A9CABF11FD60103964988E /* DCHighlighter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5728118D3F3B1CAE02F6608 /* DCHighlighter.swift */; };
+		84FBC1AD8E6D3A1FB1886C2B /* language-definition.json in Resources */ = {isa = PBXBuildFile; fileRef = EA21D38149B085EEF80DC262 /* language-definition.json */; };
 		87D4C9A026AC93F6DB04116E /* DCQuickLookExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F63E7B6749819CBF6B19046D /* DCQuickLookExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		8AB3E5E84FCA1C600253376F /* DCTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68325F79C34BA8AE8404AA59 /* DCTheme.swift */; };
+		A6CC394E30A6ADED21DDCB4F /* DCLanguageDefinition.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C071A84C153CB8E2C80ED88 /* DCLanguageDefinition.swift */; };
+		E23AB26D9977B42DA5AA95F0 /* DCTokenizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F5BDFBD4FCFD4BDFFCB3AE4 /* DCTokenizer.swift */; };
+		ECAE5E422B6422EA93E15CDC /* DCTextLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2ED4B4B10DE10F9CC2555F3 /* DCTextLoader.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -41,13 +45,17 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		2F5BDFBD4FCFD4BDFFCB3AE4 /* DCTokenizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DCTokenizer.swift; sourceTree = "<group>"; };
 		40E4719184BFBE0AEAF3289F /* QuickLookUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = QuickLookUI.framework; sourceTree = "<group>"; };
+		5C071A84C153CB8E2C80ED88 /* DCLanguageDefinition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DCLanguageDefinition.swift; sourceTree = "<group>"; };
 		68325F79C34BA8AE8404AA59 /* DCTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DCTheme.swift; sourceTree = "<group>"; };
 		6A94BD3654C35C8C12643A63 /* DCQuickLookHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DCQuickLookHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8A195322A1703A40DE63F82D /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = AppKit.framework; sourceTree = "<group>"; };
 		8C5395D3CEBD82FFAA7B8830 /* PreviewViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewViewController.swift; sourceTree = "<group>"; };
 		B7E0EBAFD268D95A1736392B /* DCQuickLookHostApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DCQuickLookHostApp.swift; sourceTree = "<group>"; };
 		C5728118D3F3B1CAE02F6608 /* DCHighlighter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DCHighlighter.swift; sourceTree = "<group>"; };
+		D2ED4B4B10DE10F9CC2555F3 /* DCTextLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DCTextLoader.swift; sourceTree = "<group>"; };
+		EA21D38149B085EEF80DC262 /* language-definition.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "language-definition.json"; sourceTree = "<group>"; };
 		F63E7B6749819CBF6B19046D /* DCQuickLookExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DCQuickLookExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -64,6 +72,15 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		058DAA60DD560C43EB7E7056 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				EA21D38149B085EEF80DC262 /* language-definition.json */,
+			);
+			name = Resources;
+			path = Shared/Resources;
+			sourceTree = "<group>";
+		};
 		2189B8833F9F1B4790EC6AE6 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
@@ -95,7 +112,10 @@
 			isa = PBXGroup;
 			children = (
 				C5728118D3F3B1CAE02F6608 /* DCHighlighter.swift */,
+				5C071A84C153CB8E2C80ED88 /* DCLanguageDefinition.swift */,
+				D2ED4B4B10DE10F9CC2555F3 /* DCTextLoader.swift */,
 				68325F79C34BA8AE8404AA59 /* DCTheme.swift */,
+				2F5BDFBD4FCFD4BDFFCB3AE4 /* DCTokenizer.swift */,
 			);
 			name = Sources;
 			path = Shared/Sources;
@@ -104,6 +124,7 @@
 		9643FD69E38ECBDF0EDA9AC2 = {
 			isa = PBXGroup;
 			children = (
+				058DAA60DD560C43EB7E7056 /* Resources */,
 				2189B8833F9F1B4790EC6AE6 /* Sources */,
 				9C7AB3BFA15EEF263DFBACD6 /* Sources */,
 				938D6EF942790058A8AEB378 /* Sources */,
@@ -128,7 +149,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 2A18EB66009F982C72082B45 /* Build configuration list for PBXNativeTarget "DCQuickLookExtension" */;
 			buildPhases = (
+				891C40C2737779D3A7A3BD49 /* Sync DC language definition */,
 				ADA963ACA3A890E921BC3125 /* Sources */,
+				BD58FAAF3DD6A733B5ABC407 /* Resources */,
 				EC9064581E3DA85E52AD29C7 /* Frameworks */,
 			);
 			buildRules = (
@@ -179,7 +202,6 @@
 				};
 			};
 			buildConfigurationList = F331B4AE0DDBA1F042132817 /* Build configuration list for PBXProject "DCQuickLook" */;
-			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -188,14 +210,49 @@
 			);
 			mainGroup = 9643FD69E38ECBDF0EDA9AC2;
 			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 8F234D247BB98DF10B4B9A62 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				56195463A0F2F6BC6D423EA3 /* DCQuickLookExtension */,
 				9B1DB1B7FDE74FF2D69596EC /* DCQuickLookHost */,
+				56195463A0F2F6BC6D423EA3 /* DCQuickLookExtension */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		BD58FAAF3DD6A733B5ABC407 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				84FBC1AD8E6D3A1FB1886C2B /* language-definition.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		891C40C2737779D3A7A3BD49 /* Sync DC language definition */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Sync DC language definition";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "python3 \"${SRCROOT}/scripts/sync_language.py\"";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		ADA963ACA3A890E921BC3125 /* Sources */ = {
@@ -203,7 +260,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				57A9CABF11FD60103964988E /* DCHighlighter.swift in Sources */,
+				A6CC394E30A6ADED21DDCB4F /* DCLanguageDefinition.swift in Sources */,
+				ECAE5E422B6422EA93E15CDC /* DCTextLoader.swift in Sources */,
 				8AB3E5E84FCA1C600253376F /* DCTheme.swift in Sources */,
+				E23AB26D9977B42DA5AA95F0 /* DCTokenizer.swift in Sources */,
 				322D9B51CA5C89A2066AAE9F /* PreviewViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -260,6 +320,7 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -353,7 +414,6 @@
 				CODE_SIGN_ENTITLEMENTS = HostApp/HostApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = XT25742G34;
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = HostApp/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -371,7 +431,6 @@
 				CODE_SIGN_ENTITLEMENTS = Extension/Extension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = XT25742G34;
 				ENABLE_HARDENED_RUNTIME = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -394,7 +453,6 @@
 				CODE_SIGN_ENTITLEMENTS = Extension/Extension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = XT25742G34;
 				ENABLE_HARDENED_RUNTIME = YES;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -418,7 +476,6 @@
 				CODE_SIGN_ENTITLEMENTS = HostApp/HostApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = XT25742G34;
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = HostApp/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (

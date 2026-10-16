@@ -6,6 +6,7 @@ import {
   StructuredValue,
   ValidationIssue
 } from "../../models/editor";
+import languageDefinition from "../../../../dclanguage/src/generated/resources/com/cozooo/dclanguage/language-definition.json";
 
 const PRESERVED_RELATION_BLOCKS_SECTION = "__preserved_relation_blocks__";
 const PRESERVED_RELATION_BLOCKS_FIELD = "blocks";
@@ -43,27 +44,44 @@ function countLeadingSpaces(text: string): number {
 }
 
 function stripComment(line: string): string {
-  let inQuote = false;
-  let escaped = false;
+  return scanRawLine(line, { delimiter: "", escaped: false, depth: 0 });
+}
 
+interface RawScanState {
+  delimiter: string;
+  escaped: boolean;
+  depth: number;
+}
+
+function scanRawLine(line: string, state: RawScanState): string {
+  const syntax = languageDefinition.syntax;
   for (let index = 0; index < line.length; index++) {
-    const ch = line[index];
-    if (escaped) {
-      escaped = false;
+    if (state.delimiter) {
+      if (state.escaped) {
+        state.escaped = false;
+      } else if (line.startsWith(state.delimiter, index)) {
+        index += state.delimiter.length - 1;
+        state.delimiter = "";
+      } else if (line[index] === syntax.tokens.escape
+        && syntax.stringRules.find((rule) => rule.delimiter === state.delimiter)?.escaped) {
+        state.escaped = true;
+      }
       continue;
     }
-    if (ch === "\\") {
-      escaped = true;
-      continue;
-    }
-    if (ch === "\"") {
-      inQuote = !inQuote;
-      continue;
-    }
-    if (ch === "#" && !inQuote) {
+    if (line.startsWith(syntax.tokens.comment, index) || line.startsWith(syntax.tokens.lineComment, index)) {
       return line.slice(0, index);
     }
+    const rule = syntax.stringRules.find((candidate) => line.startsWith(candidate.delimiter, index));
+    if (rule) {
+      state.delimiter = rule.delimiter;
+      index += rule.delimiter.length - 1;
+    } else if (line[index] === syntax.tokens.arrayOpen || line[index] === syntax.tokens.objectOpen) {
+      state.depth += 1;
+    } else if (line[index] === syntax.tokens.arrayClose || line[index] === syntax.tokens.objectClose) {
+      state.depth -= 1;
+    }
   }
+  state.escaped = false;
   return line;
 }
 
@@ -220,7 +238,7 @@ export function parseStructuredDocument(text: string, schema: DocumentSchema): {
 
   for (let index = 0; index < lines.length; index++) {
     const rawLine = lines[index];
-    const trimmed = rawLine.trim();
+    const trimmed = stripComment(rawLine).trim();
     const indent = countLeadingSpaces(rawLine);
     if (!trimmed || trimmed.startsWith("#")) {
       continue;
@@ -466,6 +484,9 @@ export function serializeStructuredDocumentWithPreservedRaw(
   schema: DocumentSchema,
   options: SerializeOptions = {}
 ): string {
+  if (schema.type === "required") {
+    return patchRequiredDocument(rawText, model, schema);
+  }
   if (schema.type !== "update") {
     return serializeStructuredDocument(model, schema, options);
   }
@@ -481,6 +502,105 @@ export function serializeStructuredDocumentWithPreservedRaw(
     return `${generated}\n`;
   }
   return `${generated}\n\n${preserved}\n`;
+}
+
+interface RawFieldSpan {
+  section: string;
+  key: string;
+  start: number;
+  valueStart: number;
+  valueEnd: number;
+  end: number;
+}
+
+function patchRequiredDocument(rawText: string, model: StructuredModel, schema: DocumentSchema): string {
+  const previous = parseStructuredDocument(rawText, schema).model || {};
+  const newline = rawText.includes("\r\n") ? "\r\n" : "\n";
+  const fields: RawFieldSpan[] = [];
+  const sectionEnds = new Map<string, number>();
+  const lines = rawText.match(/[^\n]*\n|[^\n]+$/g) || [];
+  let section = ROOT_SECTION_KEY;
+  let offset = 0;
+  for (let index = 0; index < lines.length; index++) {
+    const start = offset;
+    const line = lines[index].replace(/\r?\n$/, "");
+    offset += lines[index].length;
+    const state: RawScanState = { delimiter: "", escaped: false, depth: 0 };
+    const content = scanRawLine(line, state);
+    const header = content.trim().match(/^\[([^\]]+)\]$/);
+    if (header) {
+      sectionEnds.set(section, start);
+      section = header[1].trim();
+      continue;
+    }
+    const assignment = content.match(/^(\s*[^=]+?\s*=\s*)(.*)$/);
+    const key = assignment ? content.slice(0, content.indexOf("=")).trim() : "entries";
+    const valueStart = start + (assignment?.[1].length || 0);
+    let valueEnd = start + content.trimEnd().length;
+    while ((state.delimiter || state.depth > 0) && index + 1 < lines.length) {
+      index += 1;
+      const nextLine = lines[index].replace(/\r?\n$/, "");
+      valueEnd = offset + scanRawLine(nextLine, state).trimEnd().length;
+      offset += lines[index].length;
+    }
+    if (content.trim()) {
+      fields.push({ section, key, start, valueStart, valueEnd: Math.max(valueStart, valueEnd), end: offset });
+    }
+  }
+  sectionEnds.set(section, rawText.length);
+  const edits: Array<{ start: number; end: number; text: string }> = [];
+  const insertions = new Map<number, string[]>();
+  for (const sectionSchema of schema.sections) {
+    const additions: string[] = [];
+    for (const field of sectionSchema.fields) {
+      const value = model[sectionSchema.key]?.[field.key];
+      if (JSON.stringify(previous[sectionSchema.key]?.[field.key]) === JSON.stringify(value)) {
+        continue;
+      }
+      const matches = fields.filter((span) => (span.section === sectionSchema.key && span.key === field.key)
+        || (sectionSchema.key === "dependencies" && field.key === "entries" && span.section === "basic" && span.key === "dependencies"));
+      const removeField = (match: RawFieldSpan) => ({
+        start: match.start,
+        end: match.end,
+        text: rawText.slice(match.valueEnd, match.end).trim() ? rawText.slice(match.valueEnd, match.end) : ""
+      });
+      if (isRelationSection(sectionSchema.key) && field.key === "entries") {
+        for (const match of matches) {
+          edits.push(removeField(match));
+        }
+        if (Array.isArray(value)) {
+          additions.push(...value.map(formatString));
+        }
+      } else if (matches.length > 0) {
+        for (const match of matches) {
+          edits.push(value === undefined
+            ? removeField(match)
+            : { start: match.valueStart, end: match.valueEnd, text: serializeValue(value).replace(/\n/g, newline) });
+        }
+      } else if (value !== undefined) {
+        additions.push(`${field.key} = ${serializeValue(value).replace(/\n/g, newline)}`);
+      }
+    }
+    if (additions.length > 0) {
+      const end = sectionEnds.get(sectionSchema.key);
+      const position = end ?? rawText.length;
+      const linesToInsert = insertions.get(position) || [];
+      if (end === undefined) {
+        linesToInsert.push(sectionSchema.label);
+      }
+      linesToInsert.push(...additions);
+      insertions.set(position, linesToInsert);
+    }
+  }
+  for (const [position, additions] of insertions) {
+    const prefix = position > 0 && !rawText.slice(0, position).endsWith("\n") ? newline : "";
+    edits.push({ start: position, end: position, text: prefix + additions.join(newline) + newline });
+  }
+  let result = rawText;
+  for (const edit of edits.sort((left, right) => right.start - left.start || right.end - left.end)) {
+    result = result.slice(0, edit.start) + edit.text + result.slice(edit.end);
+  }
+  return result;
 }
 
 export function formatPresetListFieldsInRaw(text: string): string {
@@ -1348,7 +1468,7 @@ function addDocumentSpecificIssues(model: StructuredModel, schema: DocumentSchem
     if (!hasAnyLocaleValue(title) && !hasAnyLocaleValue(contentUrl) && !hasAnyLocaleValue(contents)) {
       issues.push({
         severity: "warning",
-        message: "公告已启用，但 Title、ContentUrl、Contents 都为空。",
+        message: "信息已启用，但 Title、ContentUrl、Contents 都为空。",
         source: "schema"
       });
     }

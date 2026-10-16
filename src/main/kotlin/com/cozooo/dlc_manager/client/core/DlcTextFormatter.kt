@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.client.core
 
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import net.minecraft.ChatFormatting
 import net.minecraft.client.gui.Font
 import net.minecraft.network.chat.Component
@@ -17,9 +19,9 @@ object DlcTextFormatter {
     @JvmStatic
     fun parse(text: String?, baseStyle: Style): Component {
         if (text.isNullOrEmpty()) {
-            return Component.empty()
+            return DlcTextCompat.empty()
         }
-        val result = Component.literal("")
+        val result = DlcTextCompat.literal("")
         val current = StringBuilder()
         var currentColor: TextColor? = null
         var extraBold = false
@@ -154,7 +156,7 @@ object DlcTextFormatter {
         if (extraObfuscated) {
             style = style.withObfuscated(true)
         }
-        out.append(Component.literal(current.toString()).withStyle(style))
+        out.append(DlcTextCompat.literal(current.toString()).withStyle(style))
         current.setLength(0)
     }
 }

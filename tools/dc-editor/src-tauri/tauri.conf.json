@@ -27,6 +27,8 @@
   },
   "bundle": {
     "active": true,
+    "license": "LicenseRef-DLC-Manager-Source-1.0",
+    "licenseFile": "../LICENSE",
     "targets": "all",
     "icon": [
       "icons/32x32.png",

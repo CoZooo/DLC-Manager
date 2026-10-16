@@ -3,242 +3,107 @@ package com.cozooo.dlc_manager.dc;
 import com.intellij.lexer.LexerBase;
 import com.intellij.psi.TokenType;
 import com.intellij.psi.tree.IElementType;
+import java.util.regex.Pattern;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public final class DCLexer extends LexerBase {
-    private static final int STATE_DEFAULT = 0;
-    private static final int STATE_TRIPLE_STRING = 1;
-
+    private final DCSyntaxDefinition syntax;
     private CharSequence buffer = "";
-    private int endOffset;
-    private int state;
-    private int tokenStart;
-    private int tokenEnd;
+    private int endOffset, tokenStart, tokenEnd, state, nextState;
     private IElementType tokenType;
 
-    @Override
-    public void start(@NotNull CharSequence buffer, int startOffset, int endOffset, int initialState) {
-        this.buffer = buffer;
-        this.endOffset = endOffset;
-        this.state = initialState;
-        this.tokenStart = startOffset;
-        locateToken();
+    public DCLexer() { this(DCSyntaxDefinition.get()); }
+    public DCLexer(DCSyntaxDefinition syntax) { this.syntax = syntax; }
+    @Override public void start(@NotNull CharSequence buffer, int startOffset, int endOffset, int initialState) {
+        this.buffer = buffer; this.endOffset = endOffset; this.tokenStart = startOffset; this.state = initialState; locateToken();
     }
-
-    @Override
-    public int getState() {
-        return state;
-    }
-
-    @Override
-    public @Nullable IElementType getTokenType() {
-        return tokenType;
-    }
-
-    @Override
-    public int getTokenStart() {
-        return tokenStart;
-    }
-
-    @Override
-    public int getTokenEnd() {
-        return tokenEnd;
-    }
-
-    @Override
-    public void advance() {
-        tokenStart = tokenEnd;
-        locateToken();
-    }
-
-    @Override
-    public @NotNull CharSequence getBufferSequence() {
-        return buffer;
-    }
-
-    @Override
-    public int getBufferEnd() {
-        return endOffset;
-    }
+    @Override public int getState() { return state; }
+    @Override public @Nullable IElementType getTokenType() { return tokenType; }
+    @Override public int getTokenStart() { return tokenStart; }
+    @Override public int getTokenEnd() { return tokenEnd; }
+    @Override public void advance() { tokenStart = tokenEnd; state = nextState; locateToken(); }
+    @Override public @NotNull CharSequence getBufferSequence() { return buffer; }
+    @Override public int getBufferEnd() { return endOffset; }
 
     private void locateToken() {
-        if (tokenStart >= endOffset) {
-            tokenType = null;
-            tokenEnd = tokenStart;
+        nextState = state;
+        if (tokenStart >= endOffset) { tokenType = null; tokenEnd = tokenStart; return; }
+        if (state > 0 && state <= syntax.strings.size()) { stringToken(state - 1, tokenStart); return; }
+        if (Character.isWhitespace(buffer.charAt(tokenStart)) || tokenStart == 0 && syntax.allowBom && buffer.charAt(0) == '\ufeff') {
+            tokenType = TokenType.WHITE_SPACE; tokenEnd = tokenStart + 1;
+            while (tokenEnd < endOffset && Character.isWhitespace(buffer.charAt(tokenEnd))) tokenEnd++;
             return;
         }
-
-        if (state == STATE_TRIPLE_STRING) {
-            int close = indexOf(tokenStart, "\"\"\"");
-            if (close >= 0) {
-                tokenType = DCTokenTypes.STRING;
-                tokenEnd = close + 3;
-                state = STATE_DEFAULT;
-            } else {
-                tokenType = DCTokenTypes.STRING;
-                tokenEnd = endOffset;
-            }
-            return;
+        for (String comment : syntax.comments) if (startsWith(tokenStart, comment)) {
+            tokenType = DCTokenTypes.COMMENT; tokenEnd = lineEnd(tokenStart); return;
         }
-
-        char c = buffer.charAt(tokenStart);
-
-        if (Character.isWhitespace(c)) {
-            tokenType = TokenType.WHITE_SPACE;
-            tokenEnd = tokenStart + 1;
-            while (tokenEnd < endOffset && Character.isWhitespace(buffer.charAt(tokenEnd))) {
+        for (int index = 0; index < syntax.strings.size(); index++) {
+            String delimiter = syntax.strings.get(index).delimiter();
+            if (startsWith(tokenStart, delimiter)) { stringToken(index, tokenStart + delimiter.length()); return; }
+        }
+        String categoryOpen = syntax.token("categoryOpen"), categoryClose = syntax.token("categoryClose");
+        if (startsWith(tokenStart, categoryOpen) && atLineStart()) {
+            tokenType = DCTokenTypes.SECTION; tokenEnd = tokenStart + categoryOpen.length();
+            while (tokenEnd < endOffset && buffer.charAt(tokenEnd) != '\n' && buffer.charAt(tokenEnd) != '\r') {
+                if (startsWith(tokenEnd, categoryClose)) { tokenEnd += categoryClose.length(); return; }
                 tokenEnd++;
             }
             return;
         }
-
-        if (startsWith(tokenStart, "\"\"\"")) {
-            int close = indexOf(tokenStart + 3, "\"\"\"");
-            tokenType = DCTokenTypes.STRING;
-            if (close >= 0) {
-                tokenEnd = close + 3;
-            } else {
-                tokenEnd = endOffset;
-                state = STATE_TRIPLE_STRING;
-            }
-            return;
+        for (String literal : syntax.literals) if (literalMatches(literal)) {
+            tokenType = DCTokenTypes.BOOLEAN; tokenEnd = tokenStart + literal.length(); return;
         }
-
-        if (c == '#' || (c == '/' && tokenStart + 1 < endOffset && buffer.charAt(tokenStart + 1) == '/')) {
-            tokenType = DCTokenTypes.COMMENT;
-            tokenEnd = tokenStart + 1;
-            while (tokenEnd < endOffset) {
-                char ch = buffer.charAt(tokenEnd);
-                if (ch == '\n' || ch == '\r') {
-                    break;
-                }
-                tokenEnd++;
-            }
-            return;
+        int numberEnd = matchingEnd(syntax.number);
+        if (numberEnd > tokenStart) { tokenType = DCTokenTypes.NUMBER; tokenEnd = numberEnd; return; }
+        for (String operator : syntax.operators) if (startsWith(tokenStart, operator)) {
+            tokenType = DCTokenTypes.OPERATOR; tokenEnd = tokenStart + operator.length(); return;
         }
-
-        if (c == '[') {
-            tokenType = DCTokenTypes.SECTION;
-            tokenEnd = tokenStart + 1;
-            while (tokenEnd < endOffset) {
-                char ch = buffer.charAt(tokenEnd);
-                tokenEnd++;
-                if (ch == ']') {
-                    break;
-                }
-                if (ch == '\n' || ch == '\r') {
-                    break;
-                }
-            }
-            return;
+        if (startsWith(tokenStart, syntax.token("itemSeparator"))) {
+            tokenType = DCTokenTypes.COMMA; tokenEnd = tokenStart + syntax.token("itemSeparator").length(); return;
         }
-
-        if (c == '"') {
-            tokenType = DCTokenTypes.STRING;
-            tokenEnd = tokenStart + 1;
-            while (tokenEnd < endOffset) {
-                char ch = buffer.charAt(tokenEnd);
-                if (ch == '\\') {
-                    tokenEnd += 2;
-                    continue;
-                }
-                tokenEnd++;
-                if (ch == '"') {
-                    break;
-                }
-            }
-            tokenEnd = Math.min(tokenEnd, endOffset);
-            return;
+        for (String bracket : syntax.brackets) if (startsWith(tokenStart, bracket)) {
+            tokenType = DCTokenTypes.BRACKET; tokenEnd = tokenStart + bracket.length(); return;
         }
-
-        if (c == '=' || c == ':') {
-            tokenType = DCTokenTypes.OPERATOR;
-            tokenEnd = tokenStart + 1;
-            return;
-        }
-
-        if (c == ',' ) {
-            tokenType = DCTokenTypes.COMMA;
-            tokenEnd = tokenStart + 1;
-            return;
-        }
-
-        if (c == '{' || c == '}' || c == '(' || c == ')' || c == ']') {
-            tokenType = DCTokenTypes.BRACKET;
-            tokenEnd = tokenStart + 1;
-            return;
-        }
-
-        if (c == '-' || Character.isDigit(c)) {
-            int i = tokenStart + 1;
-            boolean hasDot = false;
-            while (i < endOffset) {
-                char ch = buffer.charAt(i);
-                if (Character.isDigit(ch)) {
-                    i++;
-                    continue;
-                }
-                if (!hasDot && ch == '.') {
-                    hasDot = true;
-                    i++;
-                    continue;
-                }
-                break;
-            }
-            tokenType = DCTokenTypes.NUMBER;
-            tokenEnd = i;
-            return;
-        }
-
-        if (isIdentifierStart(c)) {
-            int i = tokenStart + 1;
-            while (i < endOffset && isIdentifierPart(buffer.charAt(i))) {
-                i++;
-            }
-            String word = buffer.subSequence(tokenStart, i).toString();
-            if ("true".equals(word) || "false".equals(word)) {
-                tokenType = DCTokenTypes.BOOLEAN;
-            } else {
-                tokenType = DCTokenTypes.IDENTIFIER;
-            }
-            tokenEnd = i;
-            return;
-        }
-
-        tokenType = DCTokenTypes.BAD_CHARACTER;
-        tokenEnd = tokenStart + 1;
+        int identifierEnd = matchingEnd(syntax.identifier);
+        if (identifierEnd > tokenStart) { tokenType = DCTokenTypes.IDENTIFIER; tokenEnd = identifierEnd; return; }
+        tokenType = DCTokenTypes.BAD_CHARACTER; tokenEnd = tokenStart + 1;
     }
 
-    private boolean startsWith(int offset, String text) {
-        if (offset + text.length() > endOffset) {
-            return false;
+    private void stringToken(int index, int offset) {
+        var rule = syntax.strings.get(index);
+        String escape = syntax.token("escape");
+        tokenType = DCTokenTypes.STRING; tokenEnd = offset;
+        while (tokenEnd < endOffset) {
+            if (startsWith(tokenEnd, rule.delimiter())) { tokenEnd += rule.delimiter().length(); nextState = 0; return; }
+            if (!rule.multiline() && (buffer.charAt(tokenEnd) == '\n' || buffer.charAt(tokenEnd) == '\r')) { nextState = 0; return; }
+            if (rule.escaped() && startsWith(tokenEnd, escape)) tokenEnd = Math.min(endOffset, tokenEnd + escape.length() + 1);
+            else tokenEnd++;
         }
-        for (int i = 0; i < text.length(); i++) {
-            if (buffer.charAt(offset + i) != text.charAt(i)) {
-                return false;
-            }
-        }
+        nextState = rule.multiline() ? index + 1 : 0;
+    }
+    private boolean atLineStart() {
+        for (int i = tokenStart - 1; i >= 0 && buffer.charAt(i) != '\n' && buffer.charAt(i) != '\r'; i--)
+            if (!Character.isWhitespace(buffer.charAt(i))) return false;
         return true;
     }
-
-    private int indexOf(int from, String needle) {
-        if (needle.isEmpty()) {
-            return from;
-        }
-        for (int i = Math.max(from, 0); i <= endOffset - needle.length(); i++) {
-            if (startsWith(i, needle)) {
-                return i;
-            }
-        }
-        return -1;
+    private int lineEnd(int start) { int index = start; while (index < endOffset && buffer.charAt(index) != '\n' && buffer.charAt(index) != '\r') index++; return index; }
+    private int matchingEnd(Pattern pattern) {
+        var matcher = pattern.matcher(buffer).region(tokenStart, endOffset);
+        return matcher.lookingAt() ? matcher.end() : tokenStart;
     }
-
-    private boolean isIdentifierStart(char c) {
-        return Character.isLetter(c) || c == '_';
+    private boolean literalMatches(String literal) {
+        if (tokenStart + literal.length() > endOffset) return false;
+        String value = buffer.subSequence(tokenStart, tokenStart + literal.length()).toString();
+        if (!(syntax.ignoreBooleanCase ? value.equalsIgnoreCase(literal) : value.equals(literal))) return false;
+        if (tokenStart + literal.length() == endOffset) return true;
+        char next = buffer.charAt(tokenStart + literal.length());
+        return Character.isWhitespace(next) || syntax.brackets.stream().anyMatch(token -> startsWith(tokenStart + literal.length(), token))
+            || startsWith(tokenStart + literal.length(), syntax.token("itemSeparator")) || syntax.comments.stream().anyMatch(token -> startsWith(tokenStart + literal.length(), token));
     }
-
-    private boolean isIdentifierPart(char c) {
-        return Character.isLetterOrDigit(c) || c == '_' || c == '.' || c == '-';
+    private boolean startsWith(int offset, String token) {
+        if (token.isEmpty() || offset + token.length() > endOffset) return false;
+        for (int i = 0; i < token.length(); i++) if (buffer.charAt(offset + i) != token.charAt(i)) return false;
+        return true;
     }
 }

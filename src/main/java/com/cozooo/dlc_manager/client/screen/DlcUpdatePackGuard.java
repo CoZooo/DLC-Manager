@@ -1,11 +1,13 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard;
 import com.cozooo.dlc_manager.client.update.DlcUpdateManifest;
+import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -16,22 +18,36 @@ public final class DlcUpdatePackGuard {
     }
 
     public static void confirmBeforeUpdate(Screen returnScreen, List<DlcUpdatePackage> packages, DecisionHandler handler) {
+        if (packages == null || packages.isEmpty()) { handler.proceed(null, false); return; }
+        List<String> unknown = DlcUpdateService.unknownParameters(packages);
+        if (!unknown.isEmpty()) {
+            Minecraft.getInstance().setScreen(new DlcUpdateCompatibilityScreen(returnScreen, unknown, action -> {
+                for (DlcUpdatePackage pkg : packages) if (pkg != null) pkg.setCompatibilityAction(action);
+                confirmBeforeUpdate(returnScreen, packages, handler);
+            }));
+            return;
+        }
         TargetVersion target = resolveTargetVersion(packages);
         DlcPackUpdateGuard.CheckResult check = DlcPackUpdateGuard.check(DlcPaths.dlcRoot(), target.base, target.dlc);
         if (check == null || !check.hasInstalledPacks() || !check.hasIncompatiblePacks()) {
-            handler.proceed(check, false);
+            proceed(returnScreen, packages, handler, check, false);
             return;
         }
-        Component title = Component.translatable("dlc_manager.pack.manager_title");
+        Component title = DlcTextCompat.translatable("dlc_manager.pack.manager_title");
         Component message = DlcConfirmUtil.buildPackUpdateIncompatibleConfirmMessage(check);
-        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+        Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             if (accepted) {
                 Minecraft.getInstance().setScreen(returnScreen);
-                handler.proceed(check, true);
+                proceed(returnScreen, packages, handler, check, true);
             } else {
                 Minecraft.getInstance().setScreen(returnScreen);
             }
         }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
+    }
+
+    private static void proceed(Screen returnScreen, List<DlcUpdatePackage> packages, DecisionHandler handler, DlcPackUpdateGuard.CheckResult check, boolean uninstall) {
+        if (packages != null) for (DlcUpdatePackage pkg : packages) if (pkg != null) pkg.setAllowUninstallPacks(uninstall);
+        Minecraft.getInstance().setScreen(new DlcWorldBackupScreen(returnScreen, packages, () -> handler.proceed(check, uninstall)));
     }
 
     public static TargetVersion resolveTargetVersion(List<DlcUpdatePackage> packages) {

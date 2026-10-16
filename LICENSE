@@ -1,0 +1,139 @@
+DLC Manager Source License
+Version 1.0
+
+License identifier: LicenseRef-DLC-Manager-Source-1.0
+Copyright CoZooo.
+
+1. Scope and definitions
+
+This license applies to the original source code, binaries, documentation,
+and other material that a copyright holder expressly makes available under
+this license (the "Covered Material"). A "Licensor" is a copyright holder,
+or its authorized representative, granting rights that it is entitled to
+grant in the Covered Material. "You" means the person or legal entity
+exercising rights under this license.
+
+Material identified as subject to a separate license, including third-party
+libraries, fonts, tools, games, and IDEs, is not relicensed by this document.
+Its own license continues to govern it. Merely distributing independent
+third-party material alongside the Covered Material does not make that
+third-party material subject to this license.
+
+Independent material supplied by users or third parties, including content,
+data, resource files, linked material, and external services, remains
+outside the scope of this license. Any Covered Material and modifications
+or derivative portions of it included with such material remain subject
+to this license; the other independent portions are not brought within its
+scope merely by that inclusion. Creating, loading, displaying, managing,
+linking, or transferring independent material through the software does
+not, by itself, make it Covered Material. Its rights, terms, pricing, and
+legal status remain separate from those of the Covered Material.
+
+"Corresponding Source" means the preferred form for modifying the Covered
+Material in the version You distribute, including Your modifications and
+the build scripts, configuration, and language definitions needed to build
+that covered version. It does not include private signing keys, passwords,
+access tokens, or the source of independent third-party software. Identify
+the versions and sources of required third-party dependencies and retain
+any notices or source-offer obligations required by their own licenses.
+
+2. License grant
+
+Subject to the conditions below, each Licensor grants You a nonexclusive,
+worldwide, royalty-free permission to use, copy, study, and modify the
+Covered Material, and to redistribute it under section 4. Private changes
+that You do not distribute do not have to be published.
+
+3. Charges for the Covered Material itself
+
+Without prior written permission from the relevant Licensor or its
+explicitly authorized representative, You may not sell or rent the
+Covered Material itself, charge a license fee for it, or require payment
+for obtaining, accessing, activating, or using the Covered Material itself
+or a modified version of it.
+
+For this section, a charge means payment whose subject is the Covered
+Material itself. The mere presence or use of the Covered Material in
+another offering does not, by itself, establish such a charge. A charge
+for the Covered Material itself remains within this section regardless
+of the label used for that charge.
+
+A separate written agreement may authorize specified charges or different
+distribution terms. It overrides this license only to the extent expressly
+agreed and only for rights the granting party is entitled to license.
+No contributor's copyright is assigned or made available for additional
+licensing merely by contributing or distributing changes.
+
+4. Conditions for redistribution
+
+For every copy of Covered Material You distribute, whether modified or
+unmodified, You must:
+
+(a) provide this complete license and retain applicable copyright,
+    attribution, and third-party notices;
+(b) clearly identify Your modifications and their dates, and avoid
+    presenting a modified version as an official release;
+(c) provide the Corresponding Source with the copy, or provide a working
+    link allowing recipients to download that exact Corresponding Source
+    at no charge, without requiring a separate agreement or credentials;
+    the link must remain available for at least three years after Your
+    last distribution of that version;
+(d) distribute Your modifications to the Covered Material under this same
+    license, unless all relevant rights holders have separately authorized
+    another license; and
+(e) impose no additional terms that prevent recipients from exercising
+    the rights granted by this license.
+
+Publishing only an unrelated version or a link to a changing development
+branch is not sufficient to provide the Corresponding Source of a binary.
+This section is triggered by distribution; it does not itself require the
+publication of private changes used without distribution.
+
+5. Reserved rights and independent third-party rights
+
+Rights not expressly granted are reserved. No right to use a Licensor's
+names, logos, or trademarks to imply endorsement is granted.
+
+The restrictions in this license do not remove any rights You independently
+receive under a third-party license, including commercial-use rights in
+separately licensed third-party components. They also do not grant rights
+to distribute Minecraft, a proprietary IDE, or any other third-party work
+contrary to its own license.
+
+6. Termination
+
+Your permissions under this license end automatically if You violate its
+conditions. After termination, You must stop activities that require those
+permissions. Reinstatement requires written permission from the relevant
+Licensor or its authorized representative. A later written permission does
+not excuse earlier unauthorized activities unless it expressly says so.
+
+Termination of Your permissions does not terminate the permissions of
+recipients who independently comply with this license.
+
+7. No warranty; limitation of liability
+
+TO THE EXTENT PERMITTED BY APPLICABLE LAW, THE COVERED MATERIAL IS PROVIDED
+"AS IS", WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND
+NONINFRINGEMENT. TO THE EXTENT PERMITTED BY APPLICABLE LAW, NO LICENSOR OR
+CONTRIBUTOR IS LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING
+FROM THIS LICENSE OR THE USE OR DISTRIBUTION OF THE COVERED MATERIAL.
+
+TO THE EXTENT PERMITTED BY APPLICABLE LAW, LICENSORS AND CONTRIBUTORS DO NOT
+ASSUME RESPONSIBILITY FOR THE OWNERSHIP, LEGALITY, ACCURACY, SAFETY,
+AVAILABILITY, PRICING, OR PERFORMANCE OF INDEPENDENT MATERIAL SUPPLIED BY
+USERS OR THIRD PARTIES. THE SOFTWARE'S ABILITY TO PROCESS OR REFER TO SUCH
+MATERIAL DOES NOT IMPLY THAT A LICENSOR OR CONTRIBUTOR PROVIDES, REVIEWS,
+CONTROLS, OR ENDORSES IT. THE RESPECTIVE PROVIDER'S TERMS AND APPLICABLE LAW
+GOVERN THAT MATERIAL; USERS AND PROVIDERS REMAIN RESPONSIBLE FOR OBTAINING
+THE RIGHTS NEEDED FOR THEIR OWN USE AND DISTRIBUTION.
+
+8. Statutory rights and severability
+
+Nothing in this license limits rights or exceptions that applicable law
+does not permit a license to restrict. If a provision is unenforceable,
+the remaining provisions continue to apply to the extent permitted by law.
+
+This English text is the operative license. Translations and summaries
+are provided for convenience and do not replace its terms.

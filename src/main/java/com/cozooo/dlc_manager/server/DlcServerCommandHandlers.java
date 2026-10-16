@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.server;
 
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.core.DlcConfig;
@@ -14,42 +16,42 @@ public final class DlcServerCommandHandlers {
 
     public static int handleServerManager(CommandSourceStack source) {
         if (!isDedicatedServer(source)) {
-            sendFailure(source, Component.translatable("dlc_manager.server.command_dedicated_only"));
+            sendFailure(source, DlcTextCompat.translatable("dlc_manager.server.command_dedicated_only"));
             return 0;
         }
         if (!isServerSupportEnabled(source)) {
             return 0;
         }
-        sendSuccess(source, Component.translatable("dlc_manager.server.command_open_hint"));
+        sendSuccess(source, DlcTextCompat.translatable("dlc_manager.server.command_open_hint"));
         return 1;
     }
 
     public static int handleServerUpdate(CommandSourceStack source) {
         if (!isDedicatedServer(source)) {
-            sendFailure(source, Component.translatable("dlc_manager.server.command_dedicated_only"));
+            sendFailure(source, DlcTextCompat.translatable("dlc_manager.server.command_dedicated_only"));
             return 0;
         }
         if (!isServerSupportEnabled(source)) {
             return 0;
         }
-        sendSuccess(source, Component.translatable("dlc_manager.update.applying"));
+        sendSuccess(source, DlcTextCompat.translatable("dlc_manager.update.applying"));
         CompletableFuture.runAsync(() -> {
             DlcUpdateService.UpdateCheckResult check = DlcUpdateService.checkForUpdates();
             boolean hasUpdate = check != null && check.hasUpdates();
             if (!hasUpdate) {
-                execute(source, () -> sendSuccess(source, Component.translatable("dlc_manager.update.no_updates")));
+                execute(source, () -> sendSuccess(source, DlcTextCompat.translatable("dlc_manager.update.no_updates")));
                 return;
             }
             DlcUpdateService.UpdateApplyResult result = DlcUpdateService.applyUpdates(check.getUpdates(), false);
             if (result != null && result.isSuccess()) {
                 execute(source, () -> {
-                    sendSuccess(source, Component.translatable("dlc_manager.update.success"));
-                    sendSuccess(source, Component.translatable("dlc_manager.update.restart"));
+                    sendSuccess(source, DlcTextCompat.translatable("dlc_manager.update.success"));
+                    sendSuccess(source, DlcTextCompat.translatable("dlc_manager.update.restart"));
                 });
             } else if (result != null && result.isMissing()) {
-                execute(source, () -> sendFailure(source, Component.translatable("dlc_manager.update.missing_title")));
+                execute(source, () -> sendFailure(source, DlcTextCompat.translatable("dlc_manager.update.missing_title")));
             } else {
-                execute(source, () -> sendFailure(source, Component.translatable("dlc_manager.update.failed")));
+                execute(source, () -> sendFailure(source, DlcTextCompat.translatable("dlc_manager.update.failed")));
             }
         });
         return 1;
@@ -57,46 +59,46 @@ public final class DlcServerCommandHandlers {
 
     public static int handleServerUpdateManager(CommandSourceStack source) {
         if (!isDedicatedServer(source)) {
-            sendFailure(source, Component.translatable("dlc_manager.server.command_dedicated_only"));
+            sendFailure(source, DlcTextCompat.translatable("dlc_manager.server.command_dedicated_only"));
             return 0;
         }
         if (!isServerSupportEnabled(source)) {
             return 0;
         }
         if (!DlcConfig.isUpdateManagerOn()) {
-            sendFailure(source, Component.translatable("dlc_manager.update.no_updates"));
+            sendFailure(source, DlcTextCompat.translatable("dlc_manager.update.no_updates"));
             return 0;
         }
         DlcUpdateService.UpdateCheckResult check = DlcUpdateService.checkForUpdates();
         if (check == null || !check.hasUpdates()) {
-            sendSuccess(source, Component.translatable("dlc_manager.update.no_updates"));
+            sendSuccess(source, DlcTextCompat.translatable("dlc_manager.update.no_updates"));
             return 0;
         }
         int count = check.getUpdates() == null ? 0 : check.getUpdates().size();
-        sendSuccess(source, Component.translatable("dlc_manager.server.command_update_list", count));
+        sendSuccess(source, DlcTextCompat.translatable("dlc_manager.server.command_update_list", count));
         return 1;
     }
 
     public static int handleServerSelfUpdate(CommandSourceStack source) {
         if (!isDedicatedServer(source)) {
-            sendFailure(source, Component.translatable("dlc_manager.server.command_dedicated_only"));
+            sendFailure(source, DlcTextCompat.translatable("dlc_manager.server.command_dedicated_only"));
             return 0;
         }
         if (!isServerSupportEnabled(source)) {
             return 0;
         }
-        sendSuccess(source, Component.translatable("dlc_manager.self_update.checking"));
+        sendSuccess(source, DlcTextCompat.translatable("dlc_manager.self_update.checking"));
         CompletableFuture.runAsync(() -> {
             DlcSelfUpdateService.SelfUpdateResult result = DlcSelfUpdateService.checkForUpdate();
             if (result == null || !result.hasUpdate) {
-                execute(source, () -> sendSuccess(source, Component.translatable("dlc_manager.self_update.none")));
+                execute(source, () -> sendSuccess(source, DlcTextCompat.translatable("dlc_manager.self_update.none")));
                 return;
             }
             DlcSelfUpdateService.DownloadResult download = DlcSelfUpdateService.downloadUpdate(result);
             if (download.success) {
-                execute(source, () -> sendSuccess(source, Component.translatable("dlc_manager.self_update.restart")));
+                execute(source, () -> sendSuccess(source, DlcTextCompat.translatable("dlc_manager.self_update.restart")));
             } else {
-                execute(source, () -> sendFailure(source, Component.translatable("dlc_manager.self_update.failed")));
+                execute(source, () -> sendFailure(source, DlcTextCompat.translatable("dlc_manager.self_update.failed")));
             }
         });
         return 1;
@@ -104,13 +106,13 @@ public final class DlcServerCommandHandlers {
 
     public static int handleServerPush(CommandSourceStack source) {
         if (!isDedicatedServer(source)) {
-            sendFailure(source, Component.translatable("dlc_manager.server.command_dedicated_only"));
+            sendFailure(source, DlcTextCompat.translatable("dlc_manager.server.command_dedicated_only"));
             return 0;
         }
         if (!isServerSupportEnabled(source)) {
             return 0;
         }
-        sendFailure(source, Component.translatable("dlc_manager.server.command_push_unavailable"));
+        sendFailure(source, DlcTextCompat.translatable("dlc_manager.server.command_push_unavailable"));
         return 0;
     }
 
@@ -124,7 +126,7 @@ public final class DlcServerCommandHandlers {
 
     private static boolean isServerSupportEnabled(CommandSourceStack source) {
         if (!DlcConfig.isServerSupportOnServer()) {
-            sendFailure(source, Component.translatable("dlc_manager.server.command_disabled"));
+            sendFailure(source, DlcTextCompat.translatable("dlc_manager.server.command_disabled"));
             return false;
         }
         return true;
@@ -140,7 +142,11 @@ public final class DlcServerCommandHandlers {
     }
 
     private static void sendSuccess(CommandSourceStack source, Component message) {
+        //? if >=1.20.1 {
         source.sendSuccess(() -> message, false);
+        //?} else {
+        //source.sendSuccess(message, false);
+        //?}
     }
 
     private static void sendFailure(CommandSourceStack source, Component message) {

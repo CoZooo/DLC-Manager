@@ -1,0 +1,31 @@
+{
+  "update": {
+    "base_old": "1.0.0",
+    "base_new": "1.1.0"
+  },
+  "preset": {
+    "enable": [
+      "mods/a.jar",
+      "config/a.toml"
+    ],
+    "changelog": {
+      "zh_cn": "\n第一行\n第二行"
+    },
+    "hidden": false,
+    "files": [
+      {
+        "path": "mods/a.jar",
+        "url": "https://example.invalid/a.jar",
+        "size": 1024
+      },
+      {
+        "path": "config/a.toml",
+        "optional": true
+      }
+    ]
+  },
+  "del": {
+    "mods/old.jar": {},
+    "config/old.toml": {}
+  }
+}

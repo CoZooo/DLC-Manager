@@ -1,25 +1,25 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.download.DlcDownloadService
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil
 import com.cozooo.dlc_manager.core.DlcPaths
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.components.EditBox
-import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Locale
-import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.round
 
 class DlcPackUrlScreen(
     private val parent: DlcPackManagerScreen,
-) : Screen(Component.translatable("dlc_manager.pack.import_url_title")) {
+) : DlcUrlPageScreen(DlcUiPage.LOCAL_PACK_URL, parent, DlcTextCompat.translatable("dlc_manager.pack.import_url_title")) {
     private var urlField: EditBox? = null
     private var downloadButton: Button? = null
     private var pasteButton: Button? = null
@@ -33,14 +33,14 @@ class DlcPackUrlScreen(
     @Volatile private var downloadedBytes = 0L
     private var urlValue = ""
 
-    override fun init() {
+    private fun initControls() {
         val fieldWidth = min(320, width - 40)
         val fieldHeight = 18
         val fieldX = width / 2 - fieldWidth / 2
         val fieldY = height / 2 - 20
-        val field = EditBox(font, fieldX, fieldY, fieldWidth, fieldHeight, Component.empty()).apply {
+        val field = EditBox(font, fieldX, fieldY, fieldWidth, fieldHeight, DlcTextCompat.empty()).apply {
             setMaxLength(Int.MAX_VALUE)
-            isFocused = true
+            DlcScreenCompat.setFocused(this, true)
             value = urlValue
         }
         urlField = field
@@ -54,15 +54,15 @@ class DlcPackUrlScreen(
         val rightX = width / 2 + buttonWidth / 2 + 10
 
         val downloadX = if (downloading) centerX else leftX
-        val download = Button.builder(Component.translatable("dlc_manager.update.url_download")) {
+        val download = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.url_download")) {
             if (downloading) cancelDownload() else startDownload()
         }
             .bounds(downloadX, buttonY, buttonWidth, buttonHeight)
             .build()
-        val paste = Button.builder(Component.translatable("dlc_manager.update.url_paste")) { pasteClipboard() }
+        val paste = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.url_paste")) { pasteClipboard() }
             .bounds(centerX, buttonY, buttonWidth, buttonHeight)
             .build()
-        val back = Button.builder(Component.translatable("dlc_manager.pack.back")) {
+        val back = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.pack.back")) {
             Minecraft.getInstance().setScreen(parent)
         }.bounds(rightX, buttonY, buttonWidth, buttonHeight).build()
         downloadButton = download
@@ -76,66 +76,16 @@ class DlcPackUrlScreen(
         }
     }
 
-    override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick)
-        val centerX = width / 2
-        if (downloading) {
-            renderDownloadProgress(guiGraphics, centerX)
-            DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
-            return
-        }
-        var y = height / 2 - 80
-        guiGraphics.drawCenteredString(font, title, centerX, y, 0xFFFFFF)
-        y += 18
-        guiGraphics.drawCenteredString(font, Component.translatable("dlc_manager.pack.url_prompt"), centerX, y, 0xC8C8C8)
-
-        if (!errorText.isNullOrBlank()) {
-            guiGraphics.drawCenteredString(font, errorText ?: "", centerX, height / 2 + 60, 0xFF6B6B)
-        }
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
-    }
-
-    private fun renderDownloadProgress(guiGraphics: GuiGraphics, centerX: Int) {
-        var y = height / 2 - 44
-        guiGraphics.drawCenteredString(font, title, centerX, y, 0xFFFFFF)
-        y += 24
-        guiGraphics.drawCenteredString(font, statusText ?: "", centerX, y, 0xE6E6E6)
-        y += 18
-        drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, progress)
-        val percent = if (totalBytes > 0) round(max(0f, min(1f, progress)) * 100f).toInt() else 0
-        guiGraphics.drawCenteredString(font, "$percent%", centerX, y + 14, 0xC8C8C8)
-    }
-
-    override fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int): Boolean {
-        val field = urlField
-        if (field != null && field.keyPressed(keyCode, scanCode, modifiers)) {
-            return true
-        }
-        return super.keyPressed(keyCode, scanCode, modifiers)
-    }
-
-    override fun charTyped(codePoint: Char, modifiers: Int): Boolean {
-        val field = urlField
-        if (field != null && field.charTyped(codePoint, modifiers)) {
-            return true
-        }
-        return super.charTyped(codePoint, modifiers)
-    }
-
-    override fun resize(minecraft: Minecraft, width: Int, height: Int) {
-        val field = urlField
-        if (field != null) {
-            urlValue = field.value
-        }
-        super.resize(minecraft, width, height)
-        urlField?.value = urlValue
-    }
-
     private fun pasteClipboard() {
         val clipboard = Minecraft.getInstance().keyboardHandler.clipboard
+        //? if >=26.1 {
+        //urlField?.value = clipboard.trim()
+        //?}
+        //? if <26.1 {
         if (clipboard != null) {
             urlField?.value = clipboard.trim()
         }
+        //?}
     }
 
     private fun startDownload() {
@@ -144,7 +94,7 @@ class DlcPackUrlScreen(
         }
         val url = urlField?.value?.trim() ?: ""
         if (url.isBlank()) {
-            errorText = Component.translatable("dlc_manager.update.url_empty").string
+            errorText = DlcTextCompat.translatable("dlc_manager.update.url_empty").string
             return
         }
         downloading = true
@@ -153,7 +103,7 @@ class DlcPackUrlScreen(
         downloadedBytes = 0L
         totalBytes = 0L
         errorText = null
-        statusText = Component.translatable("dlc_manager.pack.url_downloading").string
+        statusText = DlcTextCompat.translatable("dlc_manager.pack.url_downloading").string
         setButtonsForDownload()
 
         Thread({
@@ -174,7 +124,7 @@ class DlcPackUrlScreen(
                     }
                 }
                 Minecraft.getInstance().execute {
-                    errorText = Component.translatable("dlc_manager.pack.url_canceled").string
+                    errorText = DlcTextCompat.translatable("dlc_manager.pack.url_canceled").string
                     downloading = false
                     cancelRequested = false
                     setButtonsActive(true)
@@ -188,7 +138,7 @@ class DlcPackUrlScreen(
                 }
                 val msg = ex.message ?: "download failed"
                 Minecraft.getInstance().execute {
-                    errorText = Component.translatable("dlc_manager.update.url_failed", msg).string
+                    errorText = DlcTextCompat.translatable("dlc_manager.update.url_failed", msg).string
                     downloading = false
                     cancelRequested = false
                     setButtonsActive(true)
@@ -202,9 +152,9 @@ class DlcPackUrlScreen(
             return
         }
         cancelRequested = true
-        statusText = Component.translatable("dlc_manager.pack.canceling").string
+        statusText = DlcTextCompat.translatable("dlc_manager.pack.canceling").string
         downloadButton?.active = false
-        downloadButton?.message = Component.translatable("dlc_manager.pack.canceling")
+        downloadButton?.message = DlcTextCompat.translatable("dlc_manager.pack.canceling")
     }
 
     @Throws(IOException::class)
@@ -227,7 +177,7 @@ class DlcPackUrlScreen(
             outputDir,
             fileName,
             DlcDownloadService.ProgressListener { done, total ->
-                statusText = Component.translatable("dlc_manager.pack.url_downloading").string
+                statusText = DlcTextCompat.translatable("dlc_manager.pack.url_downloading").string
                 downloadedBytes = done
                 totalBytes = total
                 progress = if (total > 0) done / total.toFloat() else 0f
@@ -254,7 +204,7 @@ class DlcPackUrlScreen(
 
     private fun setButtonsActive(active: Boolean) {
         downloadButton?.active = active
-        downloadButton?.message = Component.translatable("dlc_manager.update.url_download")
+        downloadButton?.message = DlcTextCompat.translatable("dlc_manager.update.url_download")
         downloadButton?.visible = true
         urlField?.visible = true
         pasteButton?.active = active
@@ -265,7 +215,7 @@ class DlcPackUrlScreen(
 
     private fun setButtonsForDownload() {
         downloadButton?.active = !cancelRequested
-        downloadButton?.message = if (cancelRequested) Component.translatable("dlc_manager.pack.canceling") else Component.translatable("dlc_manager.pack.cancel")
+        downloadButton?.message = if (cancelRequested) DlcTextCompat.translatable("dlc_manager.pack.canceling") else DlcTextCompat.translatable("dlc_manager.pack.cancel")
         downloadButton?.visible = true
         urlField?.visible = false
         pasteButton?.active = false
@@ -284,9 +234,12 @@ class DlcPackUrlScreen(
         }
     }
 
-    private fun drawProgressBar(guiGraphics: GuiGraphics, x: Int, y: Int, width: Int, height: Int, progress: Float) {
-        val filled = (width * max(0f, min(1f, progress))).toInt()
-        guiGraphics.fill(x, y, x + width, y + height, 0xFF2B2B2B.toInt())
-        guiGraphics.fill(x, y, x + filled, y + height, 0xFF4CAF50.toInt())
+    override fun buildPage() {
+        urlField?.let { urlValue = it.value }
+        initControls()
+        renderUrlForm("dlc_manager.pack.url_prompt", urlField, pasteButton, downloadButton,
+            { statusText }, { errorText }, { progress.toDouble() }, { if (downloading) "${(progress * 100).toInt()}%" else "" }, { downloading })
     }
+    override fun updatePage() { urlField?.active = !downloading }
+
 }

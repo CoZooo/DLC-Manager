@@ -23,11 +23,8 @@ class DlcPackInstallPlan private constructor(
         private val IGNORED_JAR_PREFIXES = listOf(
             "DLC-Manager-",
             "architectury-",
-            "mafglib-",
-            "malilib-",
             "kotlinforforge-",
-            "fabric-language-kotlin-",
-            "MaFgLib-"
+            "fabric-language-kotlin-"
         )
         private val GAME_ROOT_FORBIDDEN_PATHS = listOf(
             "config/dlc_manager/",
@@ -36,8 +33,6 @@ class DlcPackInstallPlan private constructor(
             "tmp/",
             "info/version.dc",
             "info/notice.dc",
-            "required/notice.dc",
-            "required/skip",
             "update/",
             "shownonfirstrun",
             "skip"

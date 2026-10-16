@@ -1,0 +1,8 @@
+test/**
+scripts/**
+node_modules/**
+package-lock.json
+**/*.vsix
+.gitignore
+DEVELOPMENT.md
+DEVELOPMENT.*.md

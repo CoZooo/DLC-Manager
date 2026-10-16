@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.client.core
 
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.DlcUpdateMessage
@@ -9,12 +11,12 @@ object DlcMessageAdapter {
     @JvmStatic
     fun toComponent(message: DlcUpdateMessage?): Component {
         if (message == null) {
-            return Component.empty()
+            return DlcTextCompat.empty()
         }
         return when (message.type) {
-            DlcUpdateMessage.Type.EMPTY -> Component.empty()
-            DlcUpdateMessage.Type.LITERAL -> Component.literal(message.value)
-            DlcUpdateMessage.Type.TRANSLATABLE -> Component.translatable(message.value, *convertArgs(message.args()))
+            DlcUpdateMessage.Type.EMPTY -> DlcTextCompat.empty()
+            DlcUpdateMessage.Type.LITERAL -> DlcTextCompat.literal(message.value)
+            DlcUpdateMessage.Type.TRANSLATABLE -> DlcTextCompat.translatable(message.value, *convertArgs(message.args()))
         }
     }
 
@@ -36,6 +38,13 @@ object DlcMessageAdapter {
     @JvmStatic
     fun toDownloadFailureComponent(error: String?): Component {
         return toComponent(DlcPackReleaseUpdateService.toDownloadFailureUpdateMessage(error))
+    }
+
+    @JvmStatic
+    fun toProgressText(status: String?): String = when {
+        status == null -> ""
+        status.startsWith("dlc_manager.") -> DlcTextCompat.translatable(status).string
+        else -> status
     }
 
     private fun convertArgs(args: Array<out Any?>): Array<Any?> {

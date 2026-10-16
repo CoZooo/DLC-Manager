@@ -7,6 +7,7 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcConfig;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
@@ -27,23 +28,8 @@ public final class DlcRequiredRuntime {
     private DlcRequiredRuntime() {
     }
 
-    public static void markSkipped() {
-        if (hasForceMarker()) {
-            return;
-        }
-        Path requiredDir = getRequiredDir();
-        if (requiredDir == null) {
-            return;
-        }
-        try {
-            Files.createDirectories(requiredDir);
-            Files.writeString(requiredDir.resolve("SKIP"), "");
-        } catch (Exception ignored) {
-        }
-    }
-
     public static List<DlcRequiredEntry> pollMissingDownloadsForTitlePrompt() {
-        if (promptedThisSession || hasSkipMarker()) {
+        if (promptedThisSession) {
             return List.of();
         }
         List<DlcRequiredEntry> missing = collectMissingDownloadsForPrompt();
@@ -57,44 +43,10 @@ public final class DlcRequiredRuntime {
         promptedThisSession = true;
     }
 
-    public static boolean hasSkipMarker() {
-        if (hasForceMarker()) {
-            return false;
-        }
-        Path requiredDir = getRequiredDir();
-        if (requiredDir == null) {
-            return false;
-        }
-        return Files.exists(requiredDir.resolve("SKIP"));
-    }
-
-    public static boolean hasForceMarker() {
-        Path requiredDir = getRequiredDir();
-        if (requiredDir == null) {
-            return false;
-        }
-        return Files.exists(requiredDir.resolve("FORCE"));
-    }
-
-    public static boolean hasForceRestartMarker() {
-        Path requiredDir = getRequiredDir();
-        if (requiredDir == null) {
-            return false;
-        }
-        Path marker = requiredDir.resolve("FORCE");
-        if (!Files.exists(marker)) {
-            return false;
-        }
-        try {
-            String content = Files.readString(marker);
-            return content != null && content.toLowerCase(java.util.Locale.ROOT).contains("forcerestart");
-        } catch (Exception ignored) {
-            return false;
-        }
-    }
-
     public static List<DlcRequiredEntry> loadEntries() {
-        return DlcRequiredLoader.load(getDlcRoot());
+        List<DlcRequiredEntry> entries = new ArrayList<>();
+        for (Path root : DlcConfig.getDlcRoots()) entries.addAll(DlcRequiredLoader.load(root));
+        return entries;
     }
 
     public static List<DlcRequiredEntry> loadAllEntries() {
@@ -136,18 +88,6 @@ public final class DlcRequiredRuntime {
             }
         }
         return entries;
-    }
-
-    private static Path getDlcRoot() {
-        return DlcConfig.getDlcRoots().isEmpty() ? null : DlcConfig.getDlcRoots().get(0);
-    }
-
-    private static Path getRequiredDir() {
-        Path dlcRoot = getDlcRoot();
-        if (dlcRoot == null) {
-            return null;
-        }
-        return dlcRoot.resolve("required");
     }
 
     public static Map<String, DlcRequiredEntry> buildIndex(List<DlcRequiredEntry> entries) {
@@ -261,7 +201,7 @@ public final class DlcRequiredRuntime {
     public static boolean hasMissingDownloadsForPrompt() {
         List<DlcRequiredEntry> entries = loadAllEntries();
         for (DlcRequiredEntry entry : entries) {
-            if (entry == null || entry.isUserRemoved()) {
+            if (entry == null) {
                 continue;
             }
             String fileName = normalizeFileName(entry.getRequiredFileName());
@@ -349,7 +289,7 @@ public final class DlcRequiredRuntime {
         List<DlcRequiredEntry> missing = new ArrayList<>();
         List<DlcRequiredEntry> entries = loadAllEntries();
         for (DlcRequiredEntry entry : entries) {
-            if (entry == null || entry.isUserRemoved()) {
+            if (entry == null) {
                 continue;
             }
             String fileName = normalizeFileName(entry.getRequiredFileName());
@@ -417,28 +357,9 @@ public final class DlcRequiredRuntime {
     }
 
     public static boolean entryNeedsApply(DlcRequiredEntry entry) {
-        if (entry == null) {
-            return false;
-        }
-        String fileName = normalizeFileName(entry.getResolvedFileName());
-        if (fileName == null || fileName.isBlank()) {
-            fileName = normalizeFileName(resolveFileName(entry));
-            entry.setResolvedFileName(fileName);
-        }
-        if (isTempFileName(fileName)) {
-            entry.setResolvedFileName(null);
-            return true;
-        }
-        if (fileName == null) {
-            return true;
-        }
-        for (Path target : entry.resolveAppliedTargets()) {
-            Path targetFile = resolveTarget(target, fileName);
-            if (!Files.exists(targetFile)) {
-                return true;
-            }
-        }
-        return false;
+        if (entry == null) return false;
+        try { return !DlcRequiredInstaller.isInstalled(entry); }
+        catch (IOException exception) { return true; }
     }
 
     public static String guessFileName(DlcRequiredEntry entry) {
@@ -507,11 +428,8 @@ public final class DlcRequiredRuntime {
     }
 
     private static String resolveFileNameLocal(DlcRequiredEntry entry) {
-        String fileName = guessFileName(entry);
-        if (fileName != null && !fileName.isBlank()) {
-            return fileName;
-        }
-        return null;
+        String guessed = guessFileName(entry);
+        return guessed != null && !guessed.isBlank() ? guessed : DlcRequiredService.resolveExistingFileName(entry);
     }
 
     private static String resolveExistingRequiredFile(DlcRequiredEntry entry) {
@@ -585,32 +503,6 @@ public final class DlcRequiredRuntime {
         }
     }
 
-    public static void updateUserRemoved(DlcRequiredEntry entry, boolean userRemoved) {
-        if (entry == null) {
-            return;
-        }
-        Path config = entry.getConfigPath();
-        if (config == null || !Files.exists(config)) {
-            return;
-        }
-        try {
-            com.google.gson.JsonObject obj = DlcDcConfigIO.read(config, DlcDcConfigIO.Layout.DLC_STRUCTURED);
-            if (obj == null) {
-                return;
-            }
-            if (userRemoved) {
-                obj.addProperty("UserRemoved", true);
-            } else {
-                obj.remove("UserRemoved");
-                obj.remove("userRemoved");
-            }
-            com.google.gson.JsonObject reordered = reorderRequiredJson(obj, entry.getRequiredFileName());
-            writeRequiredConfig(config, reordered);
-            entry.setUserRemoved(userRemoved);
-        } catch (Exception ignored) {
-        }
-    }
-
     private static Path writeRequiredConfig(Path config, com.google.gson.JsonObject ordered) {
         if (config == null || ordered == null) {
             return null;
@@ -662,41 +554,12 @@ public final class DlcRequiredRuntime {
         String applied = getString(obj, "appliedTarget");
         ordered.addProperty("appliedTarget", applied == null ? "" : applied);
 
-        ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false));
-        boolean userRemoved = getBoolean(obj, "UserRemoved", false) || getBoolean(obj, "userRemoved", false);
-        if (userRemoved) {
-            ordered.addProperty("UserRemoved", true);
-        }
-
         com.google.gson.JsonElement deps = obj.get("dependencies");
         ordered.add("dependencies", deps == null ? new com.google.gson.JsonPrimitive("") : deps);
-
-        com.google.gson.JsonObject display = null;
-        if (obj.has("DisplayName") && obj.get("DisplayName").isJsonObject()) {
-            display = obj.getAsJsonObject("DisplayName");
-        } else if (obj.has("displayName") && obj.get("displayName").isJsonObject()) {
-            display = obj.getAsJsonObject("displayName");
-        }
-        if (display == null) {
-            display = new com.google.gson.JsonObject();
-            display.addProperty("en_us", "");
-        }
-        ordered.add("DisplayName", display);
-
-        com.google.gson.JsonObject tip = obj.has("tip") && obj.get("tip").isJsonObject()
-            ? obj.getAsJsonObject("tip")
-            : new com.google.gson.JsonObject();
-        ordered.add("tip", tip);
 
         for (var entry : obj.entrySet()) {
             String key = entry.getKey();
             if (key == null || ordered.has(key)) {
-                continue;
-            }
-            if ("displayName".equals(key)) {
-                continue;
-            }
-            if ("UserRemoved".equals(key) || "userRemoved".equals(key)) {
                 continue;
             }
             ordered.add(key, entry.getValue());
@@ -709,28 +572,6 @@ public final class DlcRequiredRuntime {
             return "";
         }
         return obj.get(key).getAsString();
-    }
-
-    private static boolean getBoolean(com.google.gson.JsonObject obj, String key, boolean fallback) {
-        if (obj == null || key == null || !obj.has(key) || !obj.get(key).isJsonPrimitive()) {
-            return fallback;
-        }
-        try {
-            return obj.get(key).getAsBoolean();
-        } catch (Exception ignored) {
-            return fallback;
-        }
-    }
-
-    private static Path resolveTarget(Path targetDir, String fileName) {
-        if (targetDir == null || fileName == null || fileName.isBlank()) {
-            return null;
-        }
-        String name = targetDir.getFileName() == null ? "" : targetDir.getFileName().toString();
-        if (name.endsWith(".jar") || name.endsWith(".zip")) {
-            return targetDir;
-        }
-        return targetDir.resolve(fileName);
     }
 
     private static String normalizeFileName(String fileName) {

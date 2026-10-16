@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.server;
 
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import net.minecraft.network.chat.Component;
@@ -16,34 +18,33 @@ public final class DlcServerUpdateNotifier {
     }
 
     public static void onPlayerJoin(ServerPlayer player) {
-        if (!DlcConfig.isServerSupportOnServer()) {
+        if (!DlcConfig.isServerSupportOnServer() || player == null || !DlcConfig.isSelfUpdateAutoCheckOn()) {
             return;
         }
-        if (player == null || !player.hasPermissions(2)) {
-            return;
-        }
-        if (!DlcConfig.isSelfUpdateAutoCheckOn()) {
-            return;
-        }
-        MinecraftServer server = player.getServer();
-        if (server == null || !server.isDedicatedServer()) {
-            return;
-        }
-        if (CHECKED.get()) {
-            sendIfUpdate(player);
-            return;
-        }
-        if (!CHECKED.compareAndSet(false, true)) {
-            sendIfUpdate(player);
-            return;
-        }
-        CompletableFuture.runAsync(() -> {
-            DlcSelfUpdateService.SelfUpdateResult result = DlcSelfUpdateService.checkForUpdate();
-            lastResult = result;
-            if (result != null && result.hasUpdate) {
-                server.execute(() -> sendIfUpdate(player));
+        try {
+            if (!invokeBoolean(player, "hasPermissions", 2)) return;
+            Object server = invoke(player, "getServer");
+            if (server == null || !invokeBoolean(server, "isDedicatedServer")) return;
+            if (CHECKED.get()) {
+                sendIfUpdate(player);
+                return;
             }
-        });
+            if (!CHECKED.compareAndSet(false, true)) {
+                sendIfUpdate(player);
+                return;
+            }
+            CompletableFuture.runAsync(() -> {
+                DlcSelfUpdateService.SelfUpdateResult result = DlcSelfUpdateService.checkForUpdate();
+                lastResult = result;
+                if (result != null && result.hasUpdate) {
+                    try {
+                        invoke(server, "execute", (Runnable) () -> sendIfUpdate(player));
+                    } catch (ReflectiveOperationException ignored) {
+                    }
+                }
+            });
+        } catch (ReflectiveOperationException ignored) {
+        }
     }
 
     private static void sendIfUpdate(ServerPlayer player) {
@@ -53,6 +54,25 @@ public final class DlcServerUpdateNotifier {
         }
         String current = result.currentVersion == null ? "" : result.currentVersion;
         String latest = result.latestVersion == null ? "" : result.latestVersion;
-        player.sendSystemMessage(Component.translatable("dlc_manager.server.self_update_available", current, latest));
+        try {
+            invoke(player, "sendSystemMessage", DlcTextCompat.translatable("dlc_manager.server.self_update_available", current, latest));
+        } catch (ReflectiveOperationException ignored) {
+        }
     }
+    private static Object invoke(Object target, String name, Object... args) throws ReflectiveOperationException {
+        for (var method : target.getClass().getMethods()) {
+            if (!method.getName().equals(name) || method.getParameterCount() != args.length) continue;
+            try {
+                return method.invoke(target, args);
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        throw new NoSuchMethodException(name);
+    }
+
+    private static boolean invokeBoolean(Object target, String name, Object... args) throws ReflectiveOperationException {
+        Object result = invoke(target, name, args);
+        return result instanceof Boolean && (Boolean) result;
+    }
+
 }

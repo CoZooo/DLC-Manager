@@ -54,9 +54,11 @@ public class DlcApplier {
                     if (!wasEnabled) {
                         messages.add("Enabled " + item.getName());
                     }
-                List<Path> statePaths = applyItem(item, wasEnabled);
+                    List<Path> statePaths = applyItem(item);
                     if (!statePaths.isEmpty()) {
                         DlcStateConfig.DlcState state = new DlcStateConfig.DlcState();
+                        state.root = DlcPathUtil.toGameRelativePath(item.getDlcRoot());
+                        state.mode = item.getMatchMode();
                         state.enabled = true;
                         state.appliedTargets = statePaths.stream()
                             .map(DlcPathUtil::toGameRelativePath)
@@ -66,10 +68,12 @@ public class DlcApplier {
                 } else {
                     if (wasEnabled) {
                         messages.add("Disabled " + item.getName());
-                        RemovalResult removal = removeItem(item, previous);
-                        messages.addAll(removal.messages());
                     }
+                    RemovalResult removal = removeItem(item, previous);
+                    messages.addAll(removal.messages());
                     DlcStateConfig.DlcState state = new DlcStateConfig.DlcState();
+                    state.root = DlcPathUtil.toGameRelativePath(item.getDlcRoot());
+                    state.mode = item.getMatchMode();
                     state.enabled = false;
                     state.appliedTargets = List.of();
                     DlcStateConfig.setState(item.getId(), state);
@@ -447,123 +451,39 @@ public class DlcApplier {
             || DlcConfigTypeSupport.isConfigType(item);
     }
 
-    private static List<Path> applyItem(DlcItem item, boolean wasEnabled) {
+    private static List<Path> applyItem(DlcItem item) {
         List<Path> statePaths = new ArrayList<>();
+        String key = DlcResourceHistory.key(item.getId(), "dlc");
         try {
-            if (item.getType() == DlcType.UNKNOWN) {
-                Path target = DlcPaths.resolveAppliedTarget(item.getAppliedTargetRaw());
-                if (target == null) {
-                    return statePaths;
+            for (DlcItemFiles.Target pair : DlcItemFiles.expected(item)) {
+                Path target = pair.target();
+                if (pair.searchByHash() && "hash".equals(item.getMatchMode())) {
+                    Path matching = DlcFileMatch.find(pair.source(), target.getParent(), "hash");
+                    if (matching != null) target = matching;
                 }
-                List<Path> sources = item.getSourcePaths();
-                if (sources.isEmpty()) {
-                    return statePaths;
+                boolean replace = !DlcFileMatch.matches(pair.source(), target, "hash");
+                DlcResourceHistory.prepare(item.getDlcRoot(), "dlc", key, item.getIdentifier(), null, pair.source(), target, replace, item.getMatchMode());
+                if (replace) {
+                    Files.createDirectories(target.getParent());
+                    if (Files.isDirectory(target)) deleteRecursive(target);
+                    copyRecursive(pair.source(), target);
                 }
-                boolean dirTarget = DlcPaths.isAppliedTargetDirectory(item.getAppliedTargetRaw(), target, sources.get(0));
-                if (!dirTarget && sources.size() > 1) {
-                    return statePaths;
-                }
-                if (DlcConfigTypeSupport.isConfigType(item)) {
-                    return applyConfigItem(item, sources, target, dirTarget, wasEnabled);
-                }
-                if (dirTarget) {
-                    Files.createDirectories(target);
-                    for (Path source : sources) {
-                        if (source == null) {
-                            continue;
-                        }
-                        Path resolved = target.resolve(source.getFileName().toString());
-                        if (!wasEnabled && Files.exists(resolved)) {
-                            backupExisting(resolved);
-                        }
-                        copyRecursive(source, resolved);
-                        statePaths.add(resolved);
-                    }
-                } else {
-                    Path parent = target.getParent();
-                    if (parent != null) {
-                        Files.createDirectories(parent);
-                    }
-                    Path source = sources.get(0);
-                    if (!wasEnabled && Files.exists(target)) {
-                        backupExisting(target);
-                    }
-                    copyRecursive(source, target);
-                    statePaths.add(target);
-                }
-                return statePaths;
-            }
-            List<Path> targetDirs = switch (item.getType()) {
-                case MOD -> List.of(DlcPaths.modsDir());
-                case RESOURCE_PACK -> DlcConfig.getResourcepackRoots();
-                case DATA_PACK -> DlcConfig.getDatapackRoots();
-                case TACZ_PACK -> List.of(DlcPaths.taczDir());
-                default -> List.of();
-            };
-            for (Path targetDir : targetDirs) {
-                Files.createDirectories(targetDir);
-                Path target = targetDir.resolve(item.getSourcePath().getFileName().toString());
-                if (!wasEnabled && Files.exists(target)) {
-                    backupExisting(target);
-                }
-                copyRecursive(item.getSourcePath(), target);
                 statePaths.add(target);
             }
-        } catch (IOException ignored) {
-            recordApplyFailure(ignored);
-        }
-
+            if (!statePaths.isEmpty()) DlcResourceHistory.complete(item.getDlcRoot(), "dlc", key);
+        } catch (IOException exception) { recordApplyFailure(exception); }
         return statePaths;
-    }
-
-    private static List<Path> applyConfigItem(DlcItem item, List<Path> sources, Path targetRoot, boolean dirTarget, boolean wasEnabled) throws IOException {
-        List<Path> statePaths = new ArrayList<>();
-        if (dirTarget) {
-            Files.createDirectories(targetRoot);
-            for (Path source : sources) {
-                if (source == null) {
-                    continue;
-                }
-                Path target = targetRoot.resolve(source.getFileName().toString());
-                Path statePath = backupConfigTarget(item.getId(), target, !wasEnabled);
-                copyRecursive(source, target);
-                statePaths.add(statePath);
-            }
-            return statePaths;
-        }
-        Path parent = targetRoot.getParent();
-        if (parent != null) {
-            Files.createDirectories(parent);
-        }
-        Path source = sources.get(0);
-        Path statePath = backupConfigTarget(item.getId(), targetRoot, !wasEnabled);
-        copyRecursive(source, targetRoot);
-        statePaths.add(statePath);
-        return statePaths;
-    }
-
-    private static Path backupConfigTarget(String itemId, Path target, boolean shouldCreate) throws IOException {
-        Path backupPath = DlcConfigTypeSupport.backupPathForItemTarget(itemId, target);
-        Path markerPath = DlcConfigTypeSupport.missingMarkerPath(backupPath);
-        if (shouldCreate) {
-            deleteRecursiveIfExists(backupPath);
-            deleteRecursiveIfExists(markerPath);
-            Files.createDirectories(DlcConfigTypeSupport.backupRootForItem(itemId));
-            if (Files.exists(target)) {
-                copyRecursive(target, backupPath);
-                return backupPath;
-            }
-            Files.writeString(markerPath, CONFIG_MISSING_MARKER);
-            return markerPath;
-        }
-        if (Files.exists(markerPath)) {
-            return markerPath;
-        }
-        return backupPath;
     }
 
     private static RemovalResult removeItem(DlcItem item, DlcStateConfig.DlcState previous) {
         List<String> messages = new ArrayList<>();
+        try {
+            if (DlcResourceHistory.restore(item.getDlcRoot(), "dlc", DlcResourceHistory.key(item.getId(), "dlc"), false)) return new RemovalResult(messages);
+        } catch (IOException exception) {
+            messages.add("Failed to restore " + item.getName() + ": " + exception.getMessage());
+            recordApplyFailure(exception);
+            return new RemovalResult(messages);
+        }
         if (previous == null || previous.appliedTargets == null) {
             return new RemovalResult(messages);
         }
@@ -601,7 +521,7 @@ public class DlcApplier {
             Path fallbackBackup = DlcConfigTypeSupport.backupPathForItemTarget(item.getId(), target);
             Path fallbackMarker = DlcConfigTypeSupport.missingMarkerPath(fallbackBackup);
             Path statePath = i < stored.size() ? resolveStoredPath(stored.get(i)) : null;
-            if (statePath == null || statePath.toString().isBlank()) {
+            if (statePath == null || statePath.toString().isBlank() || statePath.equals(target)) {
                 if (Files.exists(fallbackMarker)) {
                     statePath = fallbackMarker;
                 } else if (Files.exists(fallbackBackup)) {
@@ -712,26 +632,6 @@ public class DlcApplier {
             });
         } else {
             copyWithHelperFallback(source, target);
-        }
-    }
-
-    private static void backupExisting(Path target) {
-        if (target == null || !Files.exists(target)) {
-            return;
-        }
-        Path backupRoot = null;
-        if (!DlcConfig.getDlcRoots().isEmpty()) {
-            backupRoot = DlcTmpPaths.resolve(DlcConfig.getDlcRoots().get(0), "backup");
-        }
-        if (backupRoot == null) {
-            backupRoot = DlcTmpPaths.resolve(DlcPaths.gameDir(), "backup");
-        }
-        try {
-            Files.createDirectories(backupRoot);
-            String name = target.getFileName().toString() + "." + System.currentTimeMillis() + ".bak";
-            Path backupTarget = backupRoot.resolve(name);
-            copyRecursive(target, backupTarget);
-        } catch (IOException ignored) {
         }
     }
 

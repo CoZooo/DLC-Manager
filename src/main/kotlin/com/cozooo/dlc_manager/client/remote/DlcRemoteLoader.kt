@@ -157,7 +157,7 @@ object DlcRemoteLoader {
             val dcPath = DlcDcFormatUtil.toDcPath(path)
             val migratedToDc = dcPath != null && DlcDcFormatUtil.write(dcPath, normalized.ordered)
             if (migratedToDc) {
-                finalPath = dcPath!!
+                finalPath = dcPath
                 try {
                     Files.deleteIfExists(path)
                 } catch (_: IOException) {
@@ -168,6 +168,7 @@ object DlcRemoteLoader {
         return entry
     }
 
+    @Suppress("DEPRECATION")
     private fun readConfigObject(path: Path?): JsonObject? {
         if (path == null || path.fileName == null) {
             return null
@@ -411,6 +412,7 @@ object DlcRemoteLoader {
         entry.setType(type)
         entry.setConfigType("config".equals(typeRaw?.trim(), ignoreCase = true))
         entry.setAppliedTargetRaw(appliedTarget)
+        entry.setMatchMode(getString(obj, "mode"))
         entry.setRedirectUrl(redirectUrl)
         entry.setHidden(hidden)
         entry.setAllowEnableByAll(allowEnableByAll)

@@ -22,7 +22,7 @@ class DlcPackUpdateCoordinator(
 
     fun uninstallIncompatibleForCurrentVersion(): List<DlcPackInstaller.UninstallReport> {
         val version = DlcUpdateVersion.load(dlcRoot)
-        val check = check(version?.getBase(), version?.getDlc())
+        val check = check(version.getBase(), version.getDlc())
         if (!check.hasIncompatiblePacks()) {
             return emptyList()
         }

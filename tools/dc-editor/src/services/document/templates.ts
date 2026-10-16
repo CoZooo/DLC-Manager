@@ -1,4 +1,5 @@
 import { DocumentType, StructuredModel } from "../../models/editor";
+import { requiredBasicDefaults } from "../../schemas/documentSchemas";
 
 export function createEmptyTemplate(type: DocumentType): string {
   switch (type) {
@@ -7,9 +8,9 @@ export function createEmptyTemplate(type: DocumentType): string {
         "[basic]",
         'identifier = ""',
         'file_name = ""',
+        'mode = "hash"',
         'type = "mod"',
         'RedirectUrl = ""',
-        "isInList = true",
         "isHidden = false",
         "AllowEnableByAll = true",
         "alarm = false",
@@ -36,9 +37,9 @@ export function createEmptyTemplate(type: DocumentType): string {
         "[basic]",
         'identifier = ""',
         'file_name = ""',
+        'mode = "hash"',
         'type = "mod"',
         'RedirectUrl = ""',
-        "isInList = true",
         "isHidden = false",
         "AllowEnableByAll = true",
         "alarm = false",
@@ -65,23 +66,11 @@ export function createEmptyTemplate(type: DocumentType): string {
         "[basic]",
         'identifier = ""',
         'file_name = ""',
+        'mode = "hash"',
         'appliedTarget = ""',
-        'RedirectUrl = ""',
-        "isInList = true",
-        "isHidden = false",
+        `unzip = ${requiredBasicDefaults.unzip}`,
         "",
         "[dependencies]",
-        "",
-        "[DisplayName]",
-        "",
-        "[tip]",
-        ""
-      ].join("\n");
-    case "required_notice":
-      return [
-        "[download_desc]",
-        "",
-        "[manage_desc]",
         ""
       ].join("\n");
     case "preset":

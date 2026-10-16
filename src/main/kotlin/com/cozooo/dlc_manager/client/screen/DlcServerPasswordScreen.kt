@@ -1,12 +1,15 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat
+
 import com.cozooo.dlc_manager.client.server.DlcServerCache
 import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.client.server.DlcServerInfo
 import com.cozooo.dlc_manager.client.server.DlcServerList
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.components.EditBox
 import net.minecraft.client.gui.screens.Screen
@@ -18,26 +21,27 @@ class DlcServerPasswordScreen @JvmOverloads constructor(
     private val entry: DlcServerEntry,
     private val autoConnect: Boolean,
     private val openServerManagerOnSuccess: Boolean = false,
-) : Screen(Component.translatable("dlc_manager.server.password_title")) {
+) : DlcPageScreen(DlcUiPage.SERVER_PASSWORD, parent, DlcTextCompat.translatable("dlc_manager.server.password_title")) {
     private var portField: EditBox? = null
     private var passwordField: EditBox? = null
     private var connectButton: Button? = null
     private var backButton: Button? = null
     private var connecting = false
+    private var autoConnectAttempted = false
 
-    override fun init() {
+    private fun initControls() {
         val fieldWidth = minOf(260, width - 40)
         val fieldHeight = 18
         val centerX = width / 2
         val startY = height / 2 - 32
 
-        portField = EditBox(font, centerX - fieldWidth / 2, startY, fieldWidth, fieldHeight, Component.empty()).also {
+        portField = EditBox(font, centerX - fieldWidth / 2, startY, fieldWidth, fieldHeight, DlcTextCompat.empty()).also {
             it.value = entry.port.toString()
-            it.setFilter { value -> value.chars().allMatch { codePoint -> Character.isDigit(codePoint) } }
+            DlcScreenCompat.setNumericFilter(it)
             addRenderableWidget(it)
         }
 
-        passwordField = EditBox(font, centerX - fieldWidth / 2, startY + 24, fieldWidth, fieldHeight, Component.empty()).also {
+        passwordField = EditBox(font, centerX - fieldWidth / 2, startY + 24, fieldWidth, fieldHeight, DlcTextCompat.empty()).also {
             entry.password?.let { password -> it.value = password }
             addRenderableWidget(it)
         }
@@ -45,12 +49,12 @@ class DlcServerPasswordScreen @JvmOverloads constructor(
         val buttonWidth = 90
         val buttonHeight = 20
         val buttonY = startY + 56
-        connectButton = Button.builder(Component.translatable("dlc_manager.server.connect")) {
+        connectButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.connect")) {
             startConnect()
         }
             .bounds(centerX - buttonWidth - 6, buttonY, buttonWidth, buttonHeight)
             .build()
-        backButton = Button.builder(Component.translatable("gui.back")) {
+        backButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("gui.back")) {
             Minecraft.getInstance().setScreen(parent)
         }
             .bounds(centerX + 6, buttonY, buttonWidth, buttonHeight)
@@ -58,37 +62,10 @@ class DlcServerPasswordScreen @JvmOverloads constructor(
         connectButton?.let { addRenderableWidget(it) }
         backButton?.let { addRenderableWidget(it) }
         updateButtonState()
-        if (autoConnect && !entry.password.isNullOrBlank()) {
+        if (autoConnect && !autoConnectAttempted && !entry.password.isNullOrBlank()) {
+            autoConnectAttempted = true
             startConnect()
         }
-    }
-
-    override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick)
-        val centerX = width / 2
-        guiGraphics.drawCenteredString(font, title, centerX, height / 2 - 60, 0xFFFFFF)
-        val address = entry.host ?: ""
-        guiGraphics.drawCenteredString(
-            font,
-            Component.translatable("dlc_manager.server.address", address),
-            centerX,
-            height / 2 - 48,
-            0xC8C8C8,
-        )
-        portField?.let { drawFieldLabel(guiGraphics, "dlc_manager.server.port", it) }
-        passwordField?.let { drawFieldLabel(guiGraphics, "dlc_manager.server.password", it) }
-        updateButtonState()
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
-    }
-
-    private fun drawFieldLabel(guiGraphics: GuiGraphics, key: String, field: EditBox) {
-        val labelWidth = font.width(Component.translatable(key))
-        var x = field.x - labelWidth - 8
-        if (x < 8) {
-            x = 8
-        }
-        val y = field.y + (field.height - font.lineHeight) / 2
-        guiGraphics.drawString(font, Component.translatable(key), x, y, 0xC8C8C8, false)
     }
 
     private fun updateButtonState() {
@@ -116,9 +93,9 @@ class DlcServerPasswordScreen @JvmOverloads constructor(
                     updateButtonState()
                     if (info == null) {
                         DlcScreenCompat.addOrUpdatePeriodicNotification(
-                            Minecraft.getInstance().toasts,
-                            Component.translatable("dlc_manager.server.connect_failed"),
-                            Component.empty(),
+                            DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                            DlcTextCompat.translatable("dlc_manager.server.connect_failed"),
+                            DlcTextCompat.empty(),
                         )
                         return@execute
                     }
@@ -129,7 +106,7 @@ class DlcServerPasswordScreen @JvmOverloads constructor(
                             DlcServerManagerScreen(parent, entry, info, DlcServerManagerScreen.Tab.SERVERS, true)
                         )
                     } else {
-                        Minecraft.getInstance().setScreen(DlcServerMaLiLibScreen(parent, entry, info))
+                        Minecraft.getInstance().setScreen(DlcServerScreen(parent, entry, info))
                     }
                 }
             }
@@ -177,9 +154,9 @@ class DlcServerPasswordScreen @JvmOverloads constructor(
             val port = value.toInt()
             if (port < 1 || port > 65535) {
                 DlcScreenCompat.addOrUpdatePeriodicNotification(
-                    Minecraft.getInstance().toasts,
-                    Component.translatable("dlc_manager.server.port_invalid"),
-                    Component.empty(),
+                    DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                    DlcTextCompat.translatable("dlc_manager.server.port_invalid"),
+                    DlcTextCompat.empty(),
                 )
                 -1
             } else {
@@ -187,11 +164,28 @@ class DlcServerPasswordScreen @JvmOverloads constructor(
             }
         } catch (_: NumberFormatException) {
             DlcScreenCompat.addOrUpdatePeriodicNotification(
-                Minecraft.getInstance().toasts,
-                Component.translatable("dlc_manager.server.port_invalid"),
-                Component.empty(),
+                DlcScreenCompat.toastManager(Minecraft.getInstance()),
+                DlcTextCompat.translatable("dlc_manager.server.port_invalid"),
+                DlcTextCompat.empty(),
             )
             -1
         }
     }
+
+    override fun buildPage() {
+        val portDraft = portField?.value
+        val passwordDraft = passwordField?.value
+        initControls()
+        if (portDraft != null) portField?.value = portDraft
+        if (passwordDraft != null) passwordField?.value = passwordDraft
+        val form = node(content, "div", "page-dialog")
+        text(form, tr("dlc_manager.server.address", entry.host.orEmpty()), "page-description")
+        portField?.let { mount(form, it, tr("dlc_manager.server.port"), "text") }
+        passwordField?.let { mount(form, it, tr("dlc_manager.server.password"), "password") }
+        connectButton?.let { mount(footer, it).getElement().setAttribute("class", "button primary") }
+    }
+    override fun updatePage() { updateButtonState(); status(if (connecting) tr("dlc_manager.server.connecting") else "") }
+    override fun onClose() { if (!connecting) super.onClose() }
+
+    override fun shouldCloseOnEsc() = !connecting
 }

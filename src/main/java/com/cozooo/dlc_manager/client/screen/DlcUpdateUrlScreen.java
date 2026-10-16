@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
+
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator;
@@ -13,14 +17,10 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
 import com.cozooo.dlc_manager.client.core.DlcMessageAdapter;
-import com.cozooo.dlc_manager.platform.DlcPlatformServices;
-import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -29,7 +29,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
 
-public class DlcUpdateUrlScreen extends Screen {
+public class DlcUpdateUrlScreen extends DlcUrlPageScreen {
     private final Screen parent;
     private EditBox urlField;
     private Button downloadButton;
@@ -45,19 +45,18 @@ public class DlcUpdateUrlScreen extends Screen {
     private boolean applyingUpdates;
 
     public DlcUpdateUrlScreen(Screen parent) {
-        super(Component.translatable("dlc_manager.update.import_url_title"));
+        super(DlcUiPage.LOCAL_UPDATE_URL, parent, DlcTextCompat.translatable("dlc_manager.update.import_url_title"));
         this.parent = parent;
     }
 
-    @Override
-    protected void init() {
+    private void initControls() {
         int fieldWidth = Math.min(320, this.width - 40);
         int fieldHeight = 18;
         int fieldX = this.width / 2 - fieldWidth / 2;
         int fieldY = this.height / 2 - 20;
-        urlField = new EditBox(this.font, fieldX, fieldY, fieldWidth, fieldHeight, Component.empty());
+        urlField = new EditBox(this.font, fieldX, fieldY, fieldWidth, fieldHeight, DlcTextCompat.empty());
         urlField.setMaxLength(Integer.MAX_VALUE);
-        urlField.setFocused(true);
+        DlcScreenCompat.setFocused(urlField, true);
         urlField.setValue(urlValue);
         addRenderableWidget(urlField);
 
@@ -68,67 +67,18 @@ public class DlcUpdateUrlScreen extends Screen {
         int centerX = this.width / 2 - buttonWidth / 2;
         int rightX = this.width / 2 + buttonWidth / 2 + 10;
 
-        downloadButton = Button.builder(Component.translatable("dlc_manager.update.url_download"), btn -> startDownload())
+        downloadButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.url_download"), btn -> startDownload())
             .bounds(leftX, buttonY, buttonWidth, buttonHeight)
             .build();
-        pasteButton = Button.builder(Component.translatable("dlc_manager.update.url_paste"), btn -> pasteClipboard())
+        pasteButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.update.url_paste"), btn -> pasteClipboard())
             .bounds(centerX, buttonY, buttonWidth, buttonHeight)
             .build();
-        backButton = Button.builder(Component.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
+        backButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
             .bounds(rightX, buttonY, buttonWidth, buttonHeight)
             .build();
         addRenderableWidget(downloadButton);
         addRenderableWidget(pasteButton);
         addRenderableWidget(backButton);
-    }
-
-    @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
-        int centerX = this.width / 2;
-        int y = this.height / 2 - 80;
-        guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
-        y += 18;
-        guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.update.url_prompt"), centerX, y, 0xC8C8C8);
-
-        if (downloading) {
-            int barY = this.height / 2 + 60;
-            String status = statusText == null ? "" : statusText;
-            guiGraphics.drawCenteredString(this.font, status, centerX, barY - 14, 0xE6E6E6);
-            drawProgressBar(guiGraphics, centerX - 120, barY, 240, 8, progress);
-            int percent = totalBytes > 0 ? Math.round(Math.max(0f, Math.min(1f, progress)) * 100f) : 0;
-            guiGraphics.drawCenteredString(this.font, percent + "%", centerX, barY + 10, 0xC8C8C8);
-        } else if (errorText != null && !errorText.isBlank()) {
-            guiGraphics.drawCenteredString(this.font, errorText, centerX, this.height / 2 + 60, 0xFF6B6B);
-        }
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
-    }
-
-    @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (urlField != null && urlField.keyPressed(keyCode, scanCode, modifiers)) {
-            return true;
-        }
-        return super.keyPressed(keyCode, scanCode, modifiers);
-    }
-
-    @Override
-    public boolean charTyped(char codePoint, int modifiers) {
-        if (urlField != null && urlField.charTyped(codePoint, modifiers)) {
-            return true;
-        }
-        return super.charTyped(codePoint, modifiers);
-    }
-
-    @Override
-    public void resize(Minecraft minecraft, int width, int height) {
-        if (urlField != null) {
-            urlValue = urlField.getValue();
-        }
-        super.resize(minecraft, width, height);
-        if (urlField != null) {
-            urlField.setValue(urlValue);
-        }
     }
 
     private void pasteClipboard() {
@@ -144,7 +94,7 @@ public class DlcUpdateUrlScreen extends Screen {
         }
         String url = urlField.getValue() == null ? "" : urlField.getValue().trim();
         if (url.isBlank()) {
-            errorText = Component.translatable("dlc_manager.update.url_empty").getString();
+            errorText = DlcTextCompat.translatable("dlc_manager.update.url_empty").getString();
             return;
         }
         downloading = true;
@@ -152,7 +102,7 @@ public class DlcUpdateUrlScreen extends Screen {
         downloadedBytes = 0L;
         totalBytes = 0L;
         errorText = null;
-        statusText = Component.translatable("dlc_manager.update.url_downloading").getString();
+        statusText = DlcTextCompat.translatable("dlc_manager.update.url_downloading").getString();
         downloadButton.active = false;
         pasteButton.active = false;
         backButton.active = false;
@@ -169,7 +119,7 @@ public class DlcUpdateUrlScreen extends Screen {
                     Files.deleteIfExists(downloaded);
                     Minecraft.getInstance().execute(() -> {
                         Component message = DlcMessageAdapter.toImportValidationComponent(validation);
-                        showToast(Component.translatable("dlc_manager.update.manager_title"),
+                        showToast(DlcTextCompat.translatable("dlc_manager.update.manager_title"),
                             message);
                         errorText = message.getString();
                         downloading = false;
@@ -181,10 +131,10 @@ public class DlcUpdateUrlScreen extends Screen {
                 }
                 boolean imported = DlcUpdateService.importUpdatePackage(downloaded);
                 if (!imported) {
-                    showToast(Component.translatable("dlc_manager.update.manager_title"),
-                        Component.translatable("dlc_manager.update.dlc_root_missing"));
+                    showToast(DlcTextCompat.translatable("dlc_manager.update.manager_title"),
+                        DlcTextCompat.translatable("dlc_manager.update.dlc_root_missing"));
                     Minecraft.getInstance().execute(() -> {
-                        errorText = Component.translatable("dlc_manager.update.dlc_root_missing").getString();
+                        errorText = DlcTextCompat.translatable("dlc_manager.update.dlc_root_missing").getString();
                         downloading = false;
                         downloadButton.active = true;
                         pasteButton.active = true;
@@ -207,7 +157,7 @@ public class DlcUpdateUrlScreen extends Screen {
                 }
                 String msg = ex.getMessage() == null ? "download failed" : ex.getMessage();
                 Minecraft.getInstance().execute(() -> {
-                    errorText = Component.translatable("dlc_manager.update.url_failed", msg).getString();
+                    errorText = DlcTextCompat.translatable("dlc_manager.update.url_failed", msg).getString();
                     downloading = false;
                     downloadButton.active = true;
                     pasteButton.active = true;
@@ -223,8 +173,8 @@ public class DlcUpdateUrlScreen extends Screen {
             Minecraft.getInstance().setScreen(new DlcUpdatePromptScreen(parent, check));
             return;
         }
-        showToast(Component.translatable("dlc_manager.update.manager_title"),
-            Component.translatable("dlc_manager.update.no_updates"));
+        showToast(DlcTextCompat.translatable("dlc_manager.update.manager_title"),
+            DlcTextCompat.translatable("dlc_manager.update.no_updates"));
         Minecraft.getInstance().setScreen(parent);
     }
 
@@ -246,32 +196,11 @@ public class DlcUpdateUrlScreen extends Screen {
         totalBytes = 0L;
         downloadedBytes = 0L;
         return DlcDownloadService.download(url, updateDir, fileName, (done, total) -> {
-            statusText = Component.translatable("dlc_manager.update.url_downloading").getString();
+            statusText = DlcTextCompat.translatable("dlc_manager.update.url_downloading").getString();
             downloadedBytes = done;
             totalBytes = total;
             progress = total > 0 ? (done / (float) total) : 0f;
         }, null);
-    }
-
-    private void confirmReupdate(String baseOld, String dlcOld, String baseNew, String dlcNew) {
-        String changelog = DlcUpdateService.buildChangelogText(
-            DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true),
-            DlcPlatformServices.languageCode());
-        confirmReupdateNow(baseOld, dlcOld, baseNew, dlcNew, changelog);
-    }
-
-    private void confirmReupdateNow(String baseOld, String dlcOld, String baseNew, String dlcNew, String changelog) {
-        Component title = DlcConfirmUtil.buildUpdateManagerTitle();
-        Component message = DlcConfirmUtil.buildUpdateConfirmReapplyMessage(baseOld, dlcOld, baseNew, dlcNew, changelog);
-        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
-            if (accepted) {
-                var chain = DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true);
-                DlcUpdatePackGuard.confirmBeforeUpdate(parent, chain,
-                    (packCheck, uninstallIncompatible) -> startReupdate(baseOld, dlcOld, baseNew, dlcNew, chain, packCheck, uninstallIncompatible));
-            } else {
-                Minecraft.getInstance().setScreen(parent);
-            }
-        }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
     }
 
     private void startReupdate(String baseOld, String dlcOld, String baseNew, String dlcNew) {
@@ -282,7 +211,7 @@ public class DlcUpdateUrlScreen extends Screen {
     private void startReupdate(String baseOld, String dlcOld, String baseNew, String dlcNew, java.util.List<DlcUpdatePackage> chain,
                                DlcPackUpdateGuard.CheckResult packCheck, boolean uninstallIncompatible) {
         if (chain == null || chain.isEmpty()) {
-            Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, Component.translatable("dlc_manager.update.failed")));
+            Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, DlcTextCompat.translatable("dlc_manager.update.failed")));
             return;
         }
         setApplyingUpdates(true);
@@ -290,12 +219,13 @@ public class DlcUpdateUrlScreen extends Screen {
             DlcPackUpdateCoordinator.UpdateSession packSession = null;
             try {
                 DlcPackUpdateCoordinator coordinator = new DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot());
-                packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible);
-                UpdateApplyResult result = DlcUpdateService.applyUpdates(chain, false);
+                if (!DlcUpdateService.willDefer(chain)) packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible);
+                UpdateApplyResult result = DlcUpdateService.applyUpdates(chain, false, (status, value) ->
+                    Minecraft.getInstance().execute(() -> statusText = DlcMessageAdapter.toProgressText(status)));
                 if (result != null && result.isSuccess()) {
-                    packSession.finishAfterSuccessfulUpdate();
+                    if (packSession != null) packSession.finishAfterSuccessfulUpdate();
                 } else {
-                    packSession.restoreAfterFailedUpdate();
+                    if (packSession != null) packSession.restoreAfterFailedUpdate();
                 }
                 UpdateApplyResult finalResult = result;
                 Minecraft.getInstance().execute(() -> handleReupdateResult(finalResult, null));
@@ -311,7 +241,7 @@ public class DlcUpdateUrlScreen extends Screen {
                 String message = ex.getMessage() == null ? "Failed to apply update" : ex.getMessage();
                 Minecraft.getInstance().execute(() -> {
                     setApplyingUpdates(false);
-                    Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, Component.literal(message)));
+                    Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, DlcTextCompat.literal(message)));
                 });
             }
         }, "dlc-update-url-apply").start();
@@ -332,9 +262,11 @@ public class DlcUpdateUrlScreen extends Screen {
         if (tryShowPostUpdateDownloads(result)) {
             return;
         }
-        Component message = result != null && result.isHelperScheduled()
-            ? Component.translatable("dlc_manager.update.deferred_restart")
-            : Component.translatable("dlc_manager.update.success");
+        Component message = result != null && result.isPendingUpdate()
+            ? DlcTextCompat.translatable("dlc_manager.update.pending_restart")
+            : result != null && result.isHelperScheduled()
+            ? DlcTextCompat.translatable("dlc_manager.update.deferred_restart")
+            : DlcTextCompat.translatable("dlc_manager.update.success");
         Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, true, message));
     }
 
@@ -386,20 +318,25 @@ public class DlcUpdateUrlScreen extends Screen {
     }
 
     private Screen createSuccessResultScreen(UpdateApplyResult result) {
-        Component message = result != null && result.isHelperScheduled()
-            ? Component.translatable("dlc_manager.update.deferred_restart")
-            : Component.translatable("dlc_manager.update.success");
+        Component message = result != null && result.isPendingUpdate()
+            ? DlcTextCompat.translatable("dlc_manager.update.pending_restart")
+            : result != null && result.isHelperScheduled()
+            ? DlcTextCompat.translatable("dlc_manager.update.deferred_restart")
+            : DlcTextCompat.translatable("dlc_manager.update.success");
         return new DlcUpdateResultScreen(parent, true, message);
     }
 
     private void showToast(Component title, Component desc) {
         Minecraft minecraft = Minecraft.getInstance();
-        DlcScreenCompat.addOrUpdatePeriodicNotification(minecraft.getToasts(), title, desc);
+        DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(minecraft), title, desc);
     }
 
-    private void drawProgressBar(GuiGraphics guiGraphics, int x, int y, int width, int height, float progress) {
-        int filled = (int) (width * Math.max(0f, Math.min(1f, progress)));
-        guiGraphics.fill(x, y, x + width, y + height, 0xFF2B2B2B);
-        guiGraphics.fill(x, y, x + filled, y + height, 0xFF4CAF50);
+    @Override protected void buildPage() {
+        if (urlField != null) urlValue = urlField.getValue();
+        initControls();
+        renderUrlForm("dlc_manager.update.url_prompt", urlField, pasteButton, downloadButton,
+                () -> statusText, () -> errorText, () -> progress, () -> downloading ? Math.round(progress * 100) + "%" : "", () -> downloading);
     }
+    @Override protected void updatePage() { if (urlField != null) urlField.active = !downloading; }
+
 }

@@ -1,0 +1,24 @@
+Gson 2.10.1
+Upstream copyright notices:
+Copyright (C) 2008 Google Inc.
+Copyright (C) 2009 Google Inc.
+Copyright (C) 2010 Google Inc.
+Copyright (C) 2011 Google Inc.
+Copyright (C) 2012 Google Inc.
+Copyright (C) 2014 Google Inc.
+Copyright (C) 2020 Google Inc.
+Copyright (C) 2021 Google Inc.
+Copyright (C) 2010 The Android Open Source Project
+Copyright (C) 2017 The Gson authors
+Copyright (C) 2018 The Gson authors
+Date parsing code (com/google/gson/internal/bind/util/ISO8601Utils.java)
+is derived from Jackson databind ISO8601Utils.java:
+https://github.com/FasterXML/jackson-databind/blob/master/src/main/java/com/fasterxml/jackson/databind/util/ISO8601Utils.java
+
+Licensed under the Apache License, Version 2.0.
+License text: Apache-2.0.txt
+Source: https://github.com/google/gson/tree/gson-parent-2.10.1
+
+DLC Manager modifies the distributed JVM class files by relocating
+com.google.gson to com.cozooo.dlc_bootstrap.internal.gson.
+Module descriptors and multi-release metadata are omitted for loader compatibility.

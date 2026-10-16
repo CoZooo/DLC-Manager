@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.client.core;
 
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
@@ -21,9 +23,9 @@ public final class DlcTextFormatter {
 
     public static Component parse(String text, Style baseStyle) {
         if (text == null || text.isEmpty()) {
-            return Component.empty();
+            return DlcTextCompat.empty();
         }
-        MutableComponent result = Component.literal("");
+        MutableComponent result = DlcTextCompat.literal("");
         StringBuilder current = new StringBuilder();
         TextColor currentColor = null;
         boolean extraBold = false;
@@ -155,7 +157,7 @@ public final class DlcTextFormatter {
         if (extraObfuscated) {
             style = style.withObfuscated(true);
         }
-        out.append(Component.literal(current.toString()).withStyle(style));
+        out.append(DlcTextCompat.literal(current.toString()).withStyle(style));
         current.setLength(0);
     }
 }

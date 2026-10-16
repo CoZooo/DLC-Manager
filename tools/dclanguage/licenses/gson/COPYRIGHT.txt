@@ -1,0 +1,26 @@
+Gson 2.10.1
+Upstream copyright notices:
+Copyright (C) 2008 Google Inc.
+Copyright (C) 2009 Google Inc.
+Copyright (C) 2010 Google Inc.
+Copyright (C) 2011 Google Inc.
+Copyright (C) 2012 Google Inc.
+Copyright (C) 2014 Google Inc.
+Copyright (C) 2020 Google Inc.
+Copyright (C) 2021 Google Inc.
+Copyright (C) 2010 The Android Open Source Project
+Copyright (C) 2017 The Gson authors
+Copyright (C) 2018 The Gson authors
+
+The following source attribution is retained from
+com/google/gson/internal/bind/util/ISO8601Utils.java:
+//Date parsing code from Jackson databind ISO8601Utils.java
+// https://github.com/FasterXML/jackson-databind/blob/master/src/main/java/com/fasterxml/jackson/databind/util/ISO8601Utils.java
+
+Licensed under the Apache License, Version 2.0.
+License text: Apache-2.0.txt
+Source: https://github.com/google/gson/tree/gson-parent-2.10.1
+
+These notices were retained from the Gson 2.10.1 source files distributed
+in com.google.code.gson:gson:2.10.1:sources. Gson's package names are not
+relocated in the DC Language, language server, or MPS distributions.

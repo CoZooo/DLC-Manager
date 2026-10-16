@@ -43,6 +43,7 @@ class DlcTooltipLoader {
                                 entry.fileNames,
                                 entry.alarm,
                             )
+                            data.setMatchMode(entry.matchMode)
                             result[entry.dlcName!!] = data
                         }
                     }
@@ -182,6 +183,7 @@ class DlcTooltipLoader {
         entry.dependencies = parseDependencyNames(DlcDcConfigIO.getIgnoreCase(obj, "dependencies"))
         entry.conflicts = parseDependencyNames(DlcDcConfigIO.getIgnoreCase(obj, "conflicts"))
         entry.alarm = getBoolean(obj, "alarm", false)
+        entry.matchMode = DlcFileMatch.mode(getString(obj, "mode"))
         entry.fileNames = parseFileNames(DlcDcConfigIO.getIgnoreCase(obj, "fileNames"))
         if (entry.fileNames.isEmpty()) {
             entry.fileNames = parseFileNames(DlcDcConfigIO.getIgnoreCase(obj, "fileName"))
@@ -596,6 +598,7 @@ class DlcTooltipLoader {
         var redirectUrl: String? = null
         var fileNames: List<String> = emptyList()
         var alarm = false
+        var matchMode: String = "hash"
     }
 
     class TooltipData(
@@ -622,6 +625,10 @@ class DlcTooltipLoader {
         private val fileNames: List<String> = fileNames ?: emptyList()
 
         fun getTips(): Map<String, String> = tips
+        private var matchMode: String = "hash"
+        fun getMatchMode(): String = matchMode
+        fun setMatchMode(value: String?) { matchMode = DlcFileMatch.mode(value) }
+
         fun getIdentifier(): String? = identifier
         fun getDisplayName(): Map<String, String> = displayName
         fun getType(): DlcType? = type

@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.platform.DlcTextCompat;
+
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.client.pack.DlcPackInstaller;
@@ -20,19 +22,19 @@ public final class DlcConfirmUtil {
     }
 
     public static Component buildConflictLine(String left, String right) {
-        return Component.translatable("dlc_manager.batch.conflicts_line_prefix",
+        return DlcTextCompat.translatable("dlc_manager.batch.conflicts_line_prefix",
                 DlcTextFormatter.parse(left), DlcTextFormatter.parse(right))
-            .append(Component.translatable("dlc_manager.conflict.word").withStyle(ChatFormatting.DARK_RED));
+            .append(DlcTextCompat.translatable("dlc_manager.conflict.word").withStyle(ChatFormatting.DARK_RED));
     }
 
     public static Component buildDependencyLine(String item, String dependency) {
-        return Component.translatable("dlc_manager.batch.dependencies_line",
+        return DlcTextCompat.translatable("dlc_manager.batch.dependencies_line",
             DlcTextFormatter.parse(item), DlcTextFormatter.parse(dependency));
     }
 
     public static Component buildConflictPromptMessage(String list) {
-        return Component.translatable("dlc_manager.conflict.prompt_prefix", DlcTextFormatter.parse(list))
-            .append(Component.translatable("dlc_manager.conflict.word").withStyle(ChatFormatting.DARK_RED));
+        return DlcTextCompat.translatable("dlc_manager.conflict.prompt_prefix", DlcTextFormatter.parse(list))
+            .append(DlcTextCompat.translatable("dlc_manager.conflict.word").withStyle(ChatFormatting.DARK_RED));
     }
 
     public static Component buildConflictPromptMessage(List<String> names) {
@@ -40,7 +42,7 @@ public final class DlcConfirmUtil {
     }
 
     public static Component buildDependencyPromptMessage(String list) {
-        return Component.translatable("dlc_manager.dependency.prompt", DlcTextFormatter.parse(list));
+        return DlcTextCompat.translatable("dlc_manager.dependency.prompt", DlcTextFormatter.parse(list));
     }
 
     public static Component buildDependencyPromptMessage(List<String> names) {
@@ -80,28 +82,28 @@ public final class DlcConfirmUtil {
                 lines.add(status.identifier() + reason);
             }
         }
-        return Component.translatable("dlc_manager.pack.update_incompatible_confirm", String.join("\n", lines));
+        return DlcTextCompat.translatable("dlc_manager.pack.update_incompatible_confirm", String.join("\n", lines));
     }
 
     public static String describePackBlockingPrecheck(DlcPackInstaller.PrecheckResult precheck) {
         List<String> messages = new ArrayList<>();
         if (!precheck.getIncompatibleVersions().isEmpty()) {
-            messages.add(Component.translatable("dlc_manager.pack.incompatible_versions", joinLimited(precheck.getIncompatibleVersions())).getString());
+            messages.add(DlcTextCompat.translatable("dlc_manager.pack.incompatible_versions", joinLimited(precheck.getIncompatibleVersions())).getString());
         }
         if (!precheck.getMissingDependencies().isEmpty()) {
-            messages.add(Component.translatable("dlc_manager.pack.missing_dependencies", joinLimited(precheck.getMissingDependencies())).getString());
+            messages.add(DlcTextCompat.translatable("dlc_manager.pack.missing_dependencies", joinLimited(precheck.getMissingDependencies())).getString());
         }
         if (!precheck.getDlcToEnable().isEmpty()) {
-            messages.add(Component.translatable("dlc_manager.pack.enable_dlc", joinLimited(precheck.getDlcToEnable())).getString());
+            messages.add(DlcTextCompat.translatable("dlc_manager.pack.enable_dlc", joinLimited(precheck.getDlcToEnable())).getString());
         }
         if (!precheck.getPresetsToEnable().isEmpty()) {
-            messages.add(Component.translatable("dlc_manager.pack.enable_presets", joinLimited(precheck.getPresetsToEnable())).getString());
+            messages.add(DlcTextCompat.translatable("dlc_manager.pack.enable_presets", joinLimited(precheck.getPresetsToEnable())).getString());
         }
         if (!precheck.getDlcToDisable().isEmpty()) {
-            messages.add(Component.translatable("dlc_manager.pack.disable_dlc", joinLimited(precheck.getDlcToDisable())).getString());
+            messages.add(DlcTextCompat.translatable("dlc_manager.pack.disable_dlc", joinLimited(precheck.getDlcToDisable())).getString());
         }
         if (!precheck.getPresetsToDisable().isEmpty()) {
-            messages.add(Component.translatable("dlc_manager.pack.disable_presets", joinLimited(precheck.getPresetsToDisable())).getString());
+            messages.add(DlcTextCompat.translatable("dlc_manager.pack.disable_presets", joinLimited(precheck.getPresetsToDisable())).getString());
         }
         if (!messages.isEmpty()) {
             return String.join("\n", messages);
@@ -110,28 +112,28 @@ public final class DlcConfirmUtil {
     }
 
     public static Component confirmYes() {
-        return Component.translatable("dlc_manager.confirm_yes");
+        return DlcTextCompat.translatable("dlc_manager.confirm_yes");
     }
 
     public static Component confirmNo() {
-        return Component.translatable("dlc_manager.confirm_no");
+        return DlcTextCompat.translatable("dlc_manager.confirm_no");
     }
 
     public static Component buildUpdateManagerTitle() {
-        return Component.translatable("dlc_manager.update.manager_title");
+        return DlcTextCompat.translatable("dlc_manager.update.manager_title");
     }
 
     public static Component buildUpdateConfirmApplyMessage() {
-        return Component.translatable("dlc_manager.update.confirm_apply");
+        return DlcTextCompat.translatable("dlc_manager.update.confirm_apply");
     }
 
     public static Component buildUpdateConfirmRollbackMessage(String targetVersion) {
-        return Component.translatable("dlc_manager.update.confirm_rollback", targetVersion);
+        return DlcTextCompat.translatable("dlc_manager.update.confirm_rollback", targetVersion);
     }
 
     public static Component buildUpdateConfirmReapplyMessage(String baseOld, String dlcOld, String baseNew, String dlcNew) {
         String[] compact = compactTransition(baseOld, dlcOld, baseNew, dlcNew);
-        return Component.translatable("dlc_manager.update.confirm_reapply", compact[0], compact[1]);
+        return DlcTextCompat.translatable("dlc_manager.update.confirm_reapply", compact[0], compact[1]);
     }
 
     public static Component buildUpdateConfirmReapplyMessage(String baseOld, String dlcOld, String baseNew, String dlcNew, String changelog) {
@@ -139,10 +141,10 @@ public final class DlcConfirmUtil {
         if (changelog == null || changelog.isBlank()) {
             return base;
         }
-        return Component.empty()
+        return DlcTextCompat.empty()
             .append(base)
             .append("\n\n")
-            .append(Component.translatable("dlc_manager.update.changelog_tooltip_title"))
+            .append(DlcTextCompat.translatable("dlc_manager.update.changelog_tooltip_title"))
             .append("\n")
             .append(DlcMarkdownRenderer.renderMarkdownComponent(changelog));
     }
@@ -150,10 +152,10 @@ public final class DlcConfirmUtil {
     public static Component buildHeaderConfirmMessage(boolean enable, Component activeFilterLabel) {
         if (activeFilterLabel == null) {
             String key = enable ? "dlc_manager.confirm.enable_all" : "dlc_manager.confirm.disable_all";
-            return Component.translatable(key);
+            return DlcTextCompat.translatable(key);
         }
         String key = enable ? "dlc_manager.confirm.enable_all_type" : "dlc_manager.confirm.disable_all_type";
-        return Component.translatable(key, activeFilterLabel);
+        return DlcTextCompat.translatable(key, activeFilterLabel);
     }
 
     public static String buildBatchAlarmTip(Collection<DlcItem> alarmItems) {
@@ -179,10 +181,10 @@ public final class DlcConfirmUtil {
     }
 
     public static MutableComponent joinLines(List<Component> lines) {
-        MutableComponent result = Component.empty();
+        MutableComponent result = DlcTextCompat.empty();
         for (int i = 0; i < lines.size(); i++) {
             if (i > 0) {
-                result = result.append(Component.literal("\n"));
+                result = result.append(DlcTextCompat.literal("\n"));
             }
             result = result.append(lines.get(i));
         }
