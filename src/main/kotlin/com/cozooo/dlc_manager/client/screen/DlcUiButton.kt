@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.sighs.apricityui.event.MouseEvent
 import com.sighs.apricityui.init.Document
 import com.sighs.apricityui.init.Element
 
@@ -12,7 +13,13 @@ class DlcUiButton(document: Document, container: Element, label: String, action:
         element.setAttribute("class", "button")
         element.setAttribute("type", "button")
         setDisplayString(label)
-        element.addEventListener("click") { if (enabled && !element.hasAttribute("disabled")) action.run() }
+        element.addEventListener("mousedown") { event ->
+            if (event is MouseEvent && event.button == 0 && enabled && !element.hasAttribute("disabled")) action.run()
+        }
+        element.addEventListener("click") { event ->
+            if (event is MouseEvent && event.clickCount > 0) return@addEventListener
+            if (enabled && !element.hasAttribute("disabled")) action.run()
+        }
     }
 
     fun getElement(): Element = element
