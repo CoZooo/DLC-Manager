@@ -1,7 +1,7 @@
 {
   "name": "dc-language-tools",
   "displayName": "DC Language Tools",
-  "description": "Edit .dc files with highlighting, completion, error hints, documentation, formatting, and color picking",
+  "description": "Edit .dc files with syntax highlighting, syntax checks, formatting, and color picking",
   "version": "2.0.0",
   "publisher": "cozooo",
   "repository": {
@@ -74,11 +74,6 @@
           "type": "string",
           "default": "",
           "description": "Path to a Java 17+ executable. Leave empty to find Java automatically. Reload the window after changing."
-        },
-        "dc.profile": {
-          "type": "string",
-          "default": "auto",
-          "description": "Configuration type used for checking and completion. Keep auto to detect it automatically. Reload the window after changing."
         }
       }
     }
@@ -88,8 +83,7 @@
     "test": "node --test test/*.test.js",
     "prepare-server": "node scripts/prepare-server.js",
     "vscode:prepublish": "npm run prepare-server",
-    "package": "vsce package --baseContentUrl https://github.com/CoZooo/DLC-Manager/blob/main/tools/editor/vscode-dc-language --out ../vscode-dc-language-2.0.0.vsix",
-    "pretest": "node scripts/prepare-definition.js"
+    "package": "vsce package --baseContentUrl https://github.com/CoZooo/DLC-Manager/blob/main/tools/editor/vscode-dc-language --out ../vscode-dc-language-2.0.0.vsix"
   },
   "devDependencies": {
     "@vscode/vsce": "3.6.2",

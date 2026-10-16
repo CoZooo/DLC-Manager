@@ -7,10 +7,6 @@ const syntaxTriggers = [...new Set(["categoryOpen", "assignment", "block", "cate
 let activeClient;
 
 function activate(context) {
-  const definitionPath = context.extensionMode === vscode.ExtensionMode.Development
-    ? path.resolve(__dirname, "../../../src/main/resources/META-INF/dlc-manager/dlc-definition.json")
-    : path.join(__dirname, "generated/dlc-definition.json");
-  const dlcDefinition = JSON.parse(fs.readFileSync(definitionPath, "utf8"));
   const diagnostics = vscode.languages.createDiagnosticCollection("dc");
   const output = vscode.window.createOutputChannel("DC Language Server");
   const documents = new Map();
@@ -44,8 +40,7 @@ function activate(context) {
     }));
   });
   if (!fs.existsSync(jar)) report(new Error("Bundled language server is missing: " + jar));
-  const profile = config.get("profile", "auto");
-  client.start(vscode.workspace.workspaceFolders?.[0]?.uri.toString(), { definition: dlcDefinition, ...(!profile || profile === "auto" ? {} : { profile }) }).catch(report);
+  client.start(vscode.workspace.workspaceFolders?.[0]?.uri.toString()).catch(report);
   const sync = (document) => {
     if (document.languageId !== "dc") return;
     const uri = document.uri.toString();

@@ -10,6 +10,8 @@ Diagnostics, section and field completion, Quick Documentation, and explicit for
 
 The server tries `JAVA_HOME/bin/java`, then the IDE runtime. Java 17 or later is required. Each project owns its server process and stops it when closing. Requests run outside the event dispatch thread with cancellation and timeouts; diagnostics for older document versions are discarded. Formatting runs when requested by the IDE.
 
+The plugin bundles only generic DC syntax and does not read or package application field definitions. Integrations can explicitly pass a `definition` and optional `profile` through `DCStdioClient.initialize(rootUri, initializationOptions)`; ordinary IDE startup supplies no application schema.
+
 ## Build and test
 
 Start at the repository root:

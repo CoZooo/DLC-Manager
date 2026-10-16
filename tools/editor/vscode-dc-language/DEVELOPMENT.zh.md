@@ -6,7 +6,9 @@
 
 扩展通过 stdio 启动随包提供的 Java 语言服务。诊断、字段补全、悬浮说明和格式化使用与 DC 运行时及其他编辑器集成相同的生成定义。格式化由编辑器请求执行。
 
-Java 查找顺序为 `dc.javaPath`、`JAVA_HOME/bin/java`、`PATH` 中的 `java`；显式设置 `dc.javaPath` 时仅使用指定程序。要求 Java 17 及以上。`dc.profile` 默认自动检测，也可将指定 profile 传入服务。这些设置在扩展激活时读取。日志输出到 **DC Language Server**。
+Java 查找顺序为 `dc.javaPath`、`JAVA_HOME/bin/java`、`PATH` 中的 `java`；显式设置 `dc.javaPath` 时仅使用指定程序。要求 Java 17 及以上。这些设置在扩展激活时读取。日志输出到 **DC Language Server**。
+
+扩展只内置通用 DC 语法，不读取或打包应用字段定义。集成方可通过 `LspClient.start(rootUri, initializationOptions)` 显式传入自己的 `definition` 和可选 `profile`。
 
 ## 构建
 

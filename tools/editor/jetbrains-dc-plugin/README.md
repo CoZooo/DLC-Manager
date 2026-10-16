@@ -2,15 +2,14 @@
 
 [简体中文](README.zh.md)
 
-Edit `.dc` configuration files in JetBrains IDEs with highlighting, completion, error hints, field documentation, formatting, and color picking.
+Edit `.dc` configuration files in JetBrains IDEs with highlighting, syntax checks, formatting, and color picking.
 
 Use is subject to the included license. Charging for this plugin itself requires prior written permission.
 
 ## Features
 
 - Highlight sections, fields, strings, numbers, and comments.
-- Get section and field suggestions and hints for configuration problems.
-- Use **Quick Documentation** to read about supported fields.
+- Check generic DC syntax without imposing application-specific fields or values.
 - Use **Reformat Code** to tidy up a file.
 - Complete `&#RRGGBB` colors and preview or change them with inline color swatches.
 - Customize DC syntax colors in the IDE settings.
@@ -30,7 +29,7 @@ Java 17 or later is required. The IDE's bundled Java can usually be used without
 
 ## Use
 
-Open a `.dc` file to use highlighting and completion. Hover over a problem marker to read its message, or invoke **Quick Documentation** on a supported field. Choose **Code → Reformat Code** to format the file.
+Open a `.dc` file to use highlighting and syntax checks. Hover over a problem marker to read its message. Choose **Code → Reformat Code** to format the file.
 
 Type `&` or `&#` to choose a preset color or **Pick custom color...**. Click the swatch beside an existing `&#RRGGBB` value to replace it with another color.
 

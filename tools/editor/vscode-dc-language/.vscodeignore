@@ -6,3 +6,4 @@ package-lock.json
 .gitignore
 DEVELOPMENT.md
 DEVELOPMENT.*.md
+generated/**

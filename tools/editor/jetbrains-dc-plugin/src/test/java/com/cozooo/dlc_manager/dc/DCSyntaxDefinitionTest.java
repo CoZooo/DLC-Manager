@@ -47,6 +47,9 @@ class DCSyntaxDefinitionTest {
         Map<String, com.intellij.psi.tree.IElementType> values = tokens("text = `literal`\namount = .5e+2\nvalues = [yes]\n", new DCSyntaxDefinition(model));
         assertEquals(DCTokenTypes.STRING, values.get("`literal`")); assertEquals(DCTokenTypes.NUMBER, values.get(".5e+2")); assertEquals(DCTokenTypes.BRACKET, values.get("["));
     }
+    @Test void defaultSyntaxDoesNotContainApplicationProfiles() {
+        assertTrue(definition().getAsJsonArray("profiles").isEmpty());
+    }
     @Test void editorDefinitionIsByteIdenticalToBundledServerDefinition() throws Exception {
         byte[] actual;
         try (var input = DCSyntaxDefinition.class.getResourceAsStream("/com/cozooo/dclanguage/language-definition.json")) { actual = input.readAllBytes(); }

@@ -33,7 +33,7 @@ dependencies {
 intellijPlatform {
     pluginConfiguration {
         ideaVersion { sinceBuild = '233'; untilBuild = providers.provider { null } }
-        changeNotes = 'Edit .dc files with completion, error hints, field documentation, formatting and hex color tools.'
+        changeNotes = 'Edit .dc files with syntax highlighting, syntax checks, formatting and hex color tools.'
     }
     buildSearchableOptions = false
 }
@@ -51,7 +51,6 @@ tasks.withType(PrepareSandboxTask).configureEach {
 }
 
 tasks.processResources {
-    from("../../../src/main/resources/META-INF/dlc-manager/dlc-definition.json")
     inputs.file(serverJar)
     from({ zipTree(serverJar.get()) }) { include 'com/cozooo/dclanguage/language-definition.json' }
 }

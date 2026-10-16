@@ -6,7 +6,9 @@
 
 The extension starts its bundled Java language server over stdio. Diagnostics, field completion, hover documentation, and formatting use the same generated definition as the DC runtime and other editor integrations. Formatting runs when requested by the editor.
 
-Java is selected from `dc.javaPath`, `JAVA_HOME/bin/java`, then `java` on `PATH`. When `dc.javaPath` is set, only that executable is used. Java 17 or later is required. `dc.profile` defaults to automatic detection; an explicit profile is passed to the server. These settings are read when the extension activates. Logs appear in **DC Language Server**.
+Java is selected from `dc.javaPath`, `JAVA_HOME/bin/java`, then `java` on `PATH`. When `dc.javaPath` is set, only that executable is used. Java 17 or later is required. These settings are read when the extension activates. Logs appear in **DC Language Server**.
+
+The extension bundles only generic DC syntax and does not read or package application field definitions. Integrations can explicitly pass their own `definition` and optional `profile` through `LspClient.start(rootUri, initializationOptions)`.
 
 ## Build
 

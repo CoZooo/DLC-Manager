@@ -3,7 +3,6 @@ const assert = require("node:assert/strict");
 const { EventEmitter } = require("node:events");
 const Module = require("node:module");
 const fs = require("node:fs");
-const path = require("node:path");
 
 function harness(extensionMode = 1) {
   const readPaths = [];
@@ -38,7 +37,7 @@ function harness(extensionMode = 1) {
   let client;
   class FakeClient extends EventEmitter {
     constructor() { super(); client = this; this.sent = []; }
-    start(root, options) { this.options = options; return Promise.resolve({}); }
+    start(root, options = {}) { this.options = options; return Promise.resolve({}); }
     notify(method, params) { this.sent.push({ method, params }); return Promise.resolve(); }
     request(method, params) { this.sent.push({ method, params }); return Promise.resolve(this.response); }
     stop() { this.stopped = true; return Promise.resolve(); }
@@ -65,7 +64,7 @@ function harness(extensionMode = 1) {
 test("opening and typing synchronize unchanged text without correcting user files", async () => {
   const h = harness();
   try {
-    assert.deepEqual(h.client.options, { definition: require("../generated/dlc-definition.json") });
+    assert.deepEqual(h.client.options, {});
     assert.equal(h.client.sent[0].method, "textDocument/didOpen");
     assert.equal(h.client.sent[0].params.textDocument.text, h.doc.text);
     h.doc.text = "malformed [\n  keep my whitespace"; h.doc.version++;
@@ -96,15 +95,12 @@ test("diagnostics reject stale versions and completion uses arbitrary server fie
 });
 
 
-test("development reads the main project definition while installed extensions use the bundled definition", async () => {
+test("development and installed extensions do not read or inject application definitions", async () => {
   for (const mode of [1, 2]) {
     const h = harness(mode);
     try {
-      const expected = mode === 2
-        ? path.resolve(__dirname, "../../../../src/main/resources/META-INF/dlc-manager/dlc-definition.json")
-        : path.resolve(__dirname, "../generated/dlc-definition.json");
-      assert.deepEqual(h.readPaths, [expected]);
-      assert.deepEqual(h.client.options.definition, JSON.parse(fs.readFileSync(expected, "utf8")));
+      assert.deepEqual(h.readPaths, []);
+      assert.deepEqual(h.client.options, {});
     } finally { await h.extension.deactivate(); }
   }
 });

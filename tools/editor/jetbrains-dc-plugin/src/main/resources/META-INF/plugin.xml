@@ -6,8 +6,8 @@
     <description><![CDATA[
     Edit <code>.dc</code> configuration files with:
     <ul>
-      <li>syntax highlighting and section and field completion</li>
-      <li>error hints and field documentation</li>
+      <li>syntax highlighting and syntax checks</li>
+      <li>generic DC syntax without bundled application fields</li>
       <li>document formatting with Reformat Code</li>
       <li>hex color completion, previews and a color picker</li>
       <li>customizable syntax colors</li>

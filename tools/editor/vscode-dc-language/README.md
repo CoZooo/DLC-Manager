@@ -2,15 +2,14 @@
 
 [简体中文](README.zh.md)
 
-Edit `.dc` configuration files in VS Code with highlighting, completion, error hints, field documentation, formatting, and color picking.
+Edit `.dc` configuration files in VS Code with highlighting, syntax checks, formatting, and color picking.
 
 Use is subject to the included license. Charging for this plugin itself requires prior written permission.
 
 ## Features
 
 - Highlight sections, fields, strings, numbers, and comments.
-- Get section and field suggestions, with hints for configuration problems.
-- Hover over supported fields to read their documentation.
+- Check DC syntax without imposing application-specific fields or values.
 - Use **Format Document** to tidy up a file.
 - Preview `&#RRGGBB` colors and choose preset or custom colors.
 - Insert common `.dc` snippets and automatically pair brackets and quotes.
@@ -40,9 +39,8 @@ Search for `dc` in VS Code settings:
 | Setting | Purpose |
 | --- | --- |
 | `dc.javaPath` | Path to the Java executable. Leave empty to find Java automatically. |
-| `dc.profile` | Configuration type used for validation. The default, `auto`, detects it automatically and normally needs no change. |
 
-Reload the VS Code window after changing either setting.
+Reload the VS Code window after changing this setting.
 
 ## Troubleshooting
 

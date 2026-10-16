@@ -10,6 +10,8 @@
 
 服务优先使用 `JAVA_HOME/bin/java`，随后尝试 IDE Java 运行时；要求 Java 17 及以上。每个项目管理自己的服务进程，项目关闭时停止。请求在事件派发线程外执行，支持取消与超时；过期文档版本的诊断会被丢弃。格式化由 IDE 请求执行。
 
+插件只内置通用 DC 语法，不读取或打包应用字段定义。集成方可通过 `DCStdioClient.initialize(rootUri, initializationOptions)` 显式传入 `definition` 和可选 `profile`；普通 IDE 启动不注入应用规则。
+
 ## 构建与测试
 
 从仓库根目录开始：

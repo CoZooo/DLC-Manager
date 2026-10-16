@@ -55,24 +55,51 @@ test("subprocess failures reject waiting callers", async () => {
 });
 
 const jar = process.env.DC_LANGUAGE_SERVER_JAR || path.resolve(__dirname, "../../../dclanguage/lsp/build/libs/dclanguage-lsp.jar");
-test("real bundled language service reads UTF-16, diagnoses, completes, hovers and formats", { skip: !fs.existsSync(jar) }, async () => {
+test("default language service accepts arbitrary fields even in application-looking paths", { skip: !fs.existsSync(jar) }, async () => {
   const java = process.env.JAVA_HOME ? path.join(process.env.JAVA_HOME, "bin", "java") : "java";
   const client = new LspClient(java, ["-jar", jar, "--stdio"]);
   const uri = "file:///workspace/DLC/info/test.dc";
   try {
-    await client.start("file:///workspace", { definition: require("../generated/dlc-definition.json") });
+    await client.start("file:///workspace");
     const diagnosed = once(client, "notification");
     await client.notify("textDocument/didOpen", { textDocument: { uri, languageId: "dc", version: 1, text: '[basic]\nidentifier = "中文😀"\nmode = "invalid"\n' } });
     const [, diagnostic] = await diagnosed;
     assert.equal(diagnostic.uri, uri);
-    assert.ok(diagnostic.diagnostics.length > 0);
+    assert.deepEqual(diagnostic.diagnostics, []);
     const items = await client.request("textDocument/completion", { textDocument: { uri }, position: { line: 3, character: 0 } });
-    assert.ok((Array.isArray(items) ? items : items.items).length > 0);
+    assert.deepEqual(Array.isArray(items) ? items : items.items, []);
     const hover = await client.request("textDocument/hover", { textDocument: { uri }, position: { line: 1, character: 3 } });
-    assert.ok(hover && hover.contents);
+    assert.equal(hover, null);
     const edits = await client.request("textDocument/formatting", { textDocument: { uri }, options: { tabSize: 4, insertSpaces: true } });
     assert.ok(Array.isArray(edits));
-    await client.notify("textDocument/didChange", { textDocument: { uri, version: 2 }, contentChanges: [{ text: '[basic]\nidentifier = "fixed"\nmode = "hash"\n' }] });
+    const invalid = once(client, "notification");
+    await client.notify("textDocument/didChange", { textDocument: { uri, version: 2 }, contentChanges: [{ text: '[custom]\nvalue = "unterminated\n' }] });
+    const [, syntax] = await invalid;
+    assert.ok(syntax.diagnostics.some((issue) => issue.code === "syntax"));
     await client.notify("textDocument/didClose", { textDocument: { uri } });
+  } finally { await client.stop(); }
+});
+
+
+test("explicit external definitions enable application validation, completion and hover", { skip: !fs.existsSync(jar) }, async () => {
+  const java = process.env.JAVA_HOME ? path.join(process.env.JAVA_HOME, "bin", "java") : "java";
+  const client = new LspClient(java, ["-jar", jar, "--stdio"]);
+  const uri = "file:///workspace/settings.dc";
+  const definition = { formatVersion: 1, profiles: [{ id: "settings", filePatterns: ["**/settings.dc"], categories: [{
+    path: ["options"], fields: [
+      { name: "mode", type: "string", enumValues: ["fast", "safe"], description: "External mode documentation" },
+      { name: "enabled", type: "boolean" }
+    ]
+  }] }] };
+  try {
+    await client.start("file:///workspace", { definition });
+    const diagnosed = once(client, "notification");
+    await client.notify("textDocument/didOpen", { textDocument: { uri, languageId: "dc", version: 1, text: '[options]\nmode = "invalid"\n' } });
+    const [, diagnostic] = await diagnosed;
+    assert.ok(diagnostic.diagnostics.length > 0);
+    const result = await client.request("textDocument/completion", { textDocument: { uri }, position: { line: 2, character: 0 } });
+    assert.ok((Array.isArray(result) ? result : result.items).some((item) => item.label === "enabled"));
+    const hover = await client.request("textDocument/hover", { textDocument: { uri }, position: { line: 1, character: 2 } });
+    assert.match(JSON.stringify(hover.contents), /External mode documentation/);
   } finally { await client.stop(); }
 });
