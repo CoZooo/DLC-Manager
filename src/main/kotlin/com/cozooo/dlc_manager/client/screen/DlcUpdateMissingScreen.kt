@@ -22,7 +22,7 @@ class DlcUpdateMissingScreen(
     private val parent: Screen?,
     private val updateResult: UpdateCheckResult,
     missingPaths: List<String?>?,
-) : DlcPageScreen(DlcUiPage.UPDATE_MISSING, parent, DlcTextCompat.translatable("dlc_manager.update.missing_title")) {
+) : DlcUpdatePageScreen(DlcUiPage.UPDATE_MISSING, parent, DlcTextCompat.translatable("dlc_manager.update.missing_title")) {
     private val missingPaths: List<String?> = missingPaths ?: emptyList()
     private var forceButton: Button? = null
     private var cancelButton: Button? = null
@@ -67,8 +67,10 @@ class DlcUpdateMissingScreen(
             return
         }
         applying = true
+        updateStatus = tr("dlc_manager.update.applying")
         forceButton?.active = false
         cancelButton?.active = false
+        refreshPage()
         Thread({
             var packSession: DlcPackUpdateCoordinator.UpdateSession? = null
             try {
@@ -153,6 +155,11 @@ class DlcUpdateMissingScreen(
     }
 
     override fun buildPage() {
+        if (applying) {
+            val current = updateResult.current
+            renderExecution({ updateStatus }, current?.getBase() ?: "1.0.0", current?.getDlc() ?: "1.0.0")
+            return
+        }
         initControls()
         live(content, { if (applying) updateStatus else "" }, "page-description")
         val list = section("", tr("dlc_manager.update.missing_desc"))

@@ -36,6 +36,9 @@
 .page-input:disabled { color: #647184; }
 .button.choice { min-width: 96px; color: var(--muted); }
 .button.choice.selected { background: #203831; border-color: #35564a; color: var(--accent); }
+.button.save-choice { display: flex; align-items: center; gap: 14px; width: 100%; padding: 10px 12px; margin-bottom: 8px; text-align: left; }
+.save-icon { display: block; width: 64px; min-width: 64px; height: 64px; flex-shrink: 0; }
+.save-choice-copy { display: block; flex: 1; min-width: 0; white-space: normal; word-break: break-all; }
 .button.danger { color: #ed9b9b; border-color: #614042; }
 .button.tab { background: transparent; border-color: transparent; color: var(--muted); }
 .button.tab.selected { color: var(--accent); border-bottom-color: var(--accent); }
@@ -150,17 +153,31 @@
 .update-version { display: block; color: var(--muted); font-size: 13px; }
 .update-panel > .page-warning, .update-panel > .page-description { text-align: center; font-size: 12px; margin: 0 0 12px; flex-shrink: 0; }
 .update-history { border-top: 1px solid var(--line); }
+.update-prompt-page #page-toolbar { display: none; }
+.update-prompt-history { padding: 16px 12px 0; }
+.update-prompt-changelog-title { display: block; color: var(--muted); font-size: 12px; margin-bottom: 12px; }
 .update-row { display: flex; align-items: center; gap: 16px; min-height: 42px; padding: 6px 12px; border-bottom: 1px solid #202834; }
 .update-row-copy { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; flex-wrap: wrap; }
 .update-transition { display: block; color: var(--ink); font-size: 13px; overflow-wrap: anywhere; }
 .update-note { display: block; color: #dfc37c; font-size: 11px; }
 .update-row .row-controls { max-width: none; flex-wrap: nowrap; }
 .update-row .button { min-height: 28px; min-width: 96px; padding: 4px 10px; font-size: 12px; }
+.update-running-page #page-back, .update-running-page #page-toolbar, .update-running-page .page-footer { display: none; }
+#page-content.update-running-content { display: flex; flex-direction: column; justify-content: center; padding: 32px 12px; overflow-y: auto; }
+.update-execution { display: block; width: 100%; max-width: 680px; margin: auto; padding: 24px 0; flex-shrink: 0; }
+.update-execution-label { display: block; color: var(--accent); font-size: 12px; font-weight: 600; margin-bottom: 18px; }
+.update-execution-status { display: block; color: var(--ink); font-size: 28px; font-weight: 600; line-height: 1.45; min-height: 82px; margin-bottom: 24px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.update-execution .progress-track { height: 6px; margin: 0 0 18px; }
+.update-execution .progress-fill { height: 6px; }
+.update-execution-hint { display: block; color: var(--muted); font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
+.update-execution-versions { display: flex; gap: 12px 32px; flex-wrap: wrap; margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--line); }
 .url-input-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
 .url-input-row > .form-field { flex: 1; min-width: 160px; margin-bottom: 0; }
 .url-input-row > .button { flex-shrink: 0; min-height: 38px; }
 .url-download-status { display: block; }
 @media (max-width: 760px) {
+    .update-execution-status { font-size: 23px; min-height: 68px; }
+    .update-execution-versions { gap: 10px 20px; }
     .remote-row { gap: 8px; }
     .remote-row-progress { gap: 6px; }
     .remote-progress .progress-track { width: 60px; }
@@ -168,6 +185,10 @@
     .remote-page #page-actions .button, .update-page #page-actions .button { min-width: 96px; }
 }
 @media (max-height: 520px) {
+    #page-content.update-running-content { padding: 16px 8px; }
+    .update-execution { padding: 8px 0; }
+    .update-execution-status { margin-bottom: 16px; }
+    .update-execution-versions { margin-top: 20px; padding-top: 14px; }
     .remote-page .page-header, .update-page .page-header { min-height: 54px; }
     .remote-page .page-footer, .update-page .page-footer { min-height: 50px; }
     #page-content.remote-content, #page-content.update-content { padding-top: 10px; padding-bottom: 8px; }

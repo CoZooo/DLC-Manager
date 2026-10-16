@@ -21,7 +21,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import java.util.List;
 
-public class DlcUpdateMissingScreen extends DlcPageScreen {
+public class DlcUpdateMissingScreen extends DlcUpdatePageScreen {
     private final Screen parent;
     private final UpdateCheckResult updateResult;
     private final List<String> missingPaths;
@@ -74,12 +74,14 @@ public class DlcUpdateMissingScreen extends DlcPageScreen {
             return;
         }
         applying = true;
+        updateStatus = tr("dlc_manager.update.applying");
         if (forceButton != null) {
             forceButton.active = false;
         }
         if (cancelButton != null) {
             cancelButton.active = false;
         }
+        refreshPage();
         new Thread(() -> {
             DlcPackUpdateCoordinator.UpdateSession packSession = null;
             try {
@@ -161,6 +163,12 @@ public class DlcUpdateMissingScreen extends DlcPageScreen {
     }
 
     @Override protected void buildPage() {
+        if (applying) {
+            var current = updateResult == null ? null : updateResult.getCurrent();
+            renderExecution(() -> updateStatus, current == null ? "1.0.0" : current.getBase(),
+                current == null ? "1.0.0" : current.getDlc());
+            return;
+        }
         initControls();
         live(content, () -> applying ? updateStatus : "", "page-description");
         var list = section("", tr("dlc_manager.update.missing_desc"));

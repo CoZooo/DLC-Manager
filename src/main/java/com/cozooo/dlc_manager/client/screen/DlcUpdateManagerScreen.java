@@ -196,8 +196,8 @@ public class DlcUpdateManagerScreen extends DlcUpdatePageScreen {
             return;
         }
         if (applyingUpdates) return;
-        updateStatus = DlcTextCompat.translatable("dlc_manager.update.world_working").getString();
         setApplyingUpdates(true);
+        updateStatus = DlcTextCompat.translatable("dlc_manager.update.rolling_back").getString();
         Minecraft.getInstance().setScreen(this);
         new Thread(() -> {
             UpdateRollbackResult result = DlcUpdateService.rollbackTo(targetVersion);
@@ -217,6 +217,7 @@ public class DlcUpdateManagerScreen extends DlcUpdatePageScreen {
             return;
         }
         setApplyingUpdates(true);
+        updateStatus = DlcTextCompat.translatable("dlc_manager.update.rolling_back").getString();
         new Thread(() -> {
             boolean ok = DlcSelfUpdateService.rollbackToPrevious();
             Minecraft.getInstance().execute(() -> {
@@ -437,6 +438,7 @@ public class DlcUpdateManagerScreen extends DlcUpdatePageScreen {
 
     private void setApplyingUpdates(boolean applying) {
         applyingUpdates = applying;
+        if (applying) updateStatus = DlcTextCompat.translatable("dlc_manager.update.applying").getString();
         if (importButton != null) {
             importButton.active = !applying;
         }
@@ -455,6 +457,8 @@ public class DlcUpdateManagerScreen extends DlcUpdatePageScreen {
     public boolean shouldCloseOnEsc() {
         return !applyingUpdates;
     }
+
+    @Override protected boolean showHeaderBackButton() { return !applyingUpdates; }
 
     @Override
     public void onClose() {
@@ -552,7 +556,10 @@ public class DlcUpdateManagerScreen extends DlcUpdatePageScreen {
         if (!controlsReady) { controlsReady = true; initControls(); }
         pageRevision = java.util.Objects.hash(history, rollbackButtons, applyingUpdates);
 
-        live(content, () -> applyingUpdates ? updateStatus : "", "page-description");
+        if (applyingUpdates) {
+            renderExecution(() -> updateStatus, normalizeVersion(baseVersion), normalizeVersion(currentVersion));
+            return;
+        }
         var list = updateSection(baseVersion, currentVersion);
         if (rolledBackMode) text(list, tr("dlc_manager.update.rollback_info", rollbackFrom, normalizeVersion(baseVersion) + "+" + normalizeVersion(currentVersion)), "page-warning");
         if (hasVisibleUpdates) text(list, tr("dlc_manager.update.desc"), "page-description");
