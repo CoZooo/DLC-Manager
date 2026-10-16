@@ -210,8 +210,8 @@ class DlcUpdateManagerScreen(
             return
         }
         if (applyingUpdates) return
-        updateStatus = DlcTextCompat.translatable("dlc_manager.update.world_working").string
         setApplyingUpdates(true)
+        updateStatus = DlcTextCompat.translatable("dlc_manager.update.rolling_back").string
         Minecraft.getInstance().setScreen(this)
         Thread({
             val result: UpdateRollbackResult = DlcUpdateService.rollbackTo(targetVersion)
@@ -231,6 +231,7 @@ class DlcUpdateManagerScreen(
             return
         }
         setApplyingUpdates(true)
+        updateStatus = DlcTextCompat.translatable("dlc_manager.update.rolling_back").string
         Thread({
             val ok = DlcSelfUpdateService.rollbackToPrevious()
             Minecraft.getInstance().execute {
@@ -496,6 +497,7 @@ class DlcUpdateManagerScreen(
 
     private fun setApplyingUpdates(applying: Boolean) {
         applyingUpdates = applying
+        if (applying) updateStatus = DlcTextCompat.translatable("dlc_manager.update.applying").string
         importButton?.active = !applying
         urlButton?.active = !applying
         backButton?.active = !applying
@@ -507,6 +509,8 @@ class DlcUpdateManagerScreen(
     override fun shouldCloseOnEsc(): Boolean {
         return !applyingUpdates
     }
+
+    override fun showHeaderBackButton(): Boolean = !applyingUpdates
 
     override fun onClose() {
         if (!applyingUpdates) {
@@ -629,7 +633,10 @@ class DlcUpdateManagerScreen(
         if (!controlsReady) { controlsReady = true; initControls() }
         pageRevision = 31 * history.hashCode() + rollbackButtons.hashCode() + applyingUpdates.hashCode()
 
-        live(content, { if (applyingUpdates) updateStatus else "" }, "page-description")
+        if (applyingUpdates) {
+            renderExecution({ updateStatus }, normalizeVersion(baseVersion), normalizeVersion(currentVersion))
+            return
+        }
         val list = updateSection(baseVersion, currentVersion)
         if (rolledBackMode) text(list, tr("dlc_manager.update.rollback_info", rollbackFrom.orEmpty(), normalizeVersion(baseVersion) + "+" + normalizeVersion(currentVersion)), "page-warning")
         if (hasVisibleUpdates) text(list, tr("dlc_manager.update.desc"), "page-description")

@@ -10,6 +10,22 @@ abstract class DlcUpdatePageScreen(page: DlcUiPage, parent: Screen?, title: Comp
     private var updateHistory: Element? = null
     protected data class UpdateRow(val label: String, val note: String?, val changelog: String?, val action: Button?, val manageBackups: Runnable? = null)
 
+    protected fun renderExecution(status: java.util.function.Supplier<String?>, baseVersion: String, currentVersion: String,
+                                  fraction: java.util.function.DoubleSupplier = java.util.function.DoubleSupplier { -1.0 }) {
+        content.parentElement.setAttribute("class", "page-shell update-page update-running-page")
+        content.setAttribute("class", "update-running-content")
+        val execution = node(content, "section", "update-execution")
+        text(execution, tr("dlc_manager.update.execution_label"), "update-execution-label")
+        val message = live(execution, { status.get()?.takeIf { it.isNotBlank() } ?: tr("dlc_manager.update.applying") }, "update-execution-status")
+        message.setAttribute("role", "status")
+        message.setAttribute("aria-live", "polite")
+        progress(execution, fraction)
+        text(execution, tr("dlc_manager.update.execution_hint"), "update-execution-hint")
+        val versions = node(execution, "div", "update-execution-versions")
+        text(versions, tr("dlc_manager.update.base", baseVersion), "update-version")
+        text(versions, tr("dlc_manager.update.current", currentVersion), "update-version")
+    }
+
     protected fun updateSection(baseVersion: String?, currentVersion: String?): Element {
         content.parentElement.setAttribute("class", "page-shell update-page")
         content.setAttribute("class", "update-content")

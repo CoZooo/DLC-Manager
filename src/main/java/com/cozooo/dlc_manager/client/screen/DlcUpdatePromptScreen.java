@@ -23,7 +23,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import java.util.List;
 
-public class DlcUpdatePromptScreen extends DlcPageScreen {
+public class DlcUpdatePromptScreen extends DlcUpdatePageScreen {
     private final Screen parent;
     private final UpdateCheckResult result;
     private final boolean forceUpdate;
@@ -116,14 +116,8 @@ public class DlcUpdatePromptScreen extends DlcPageScreen {
         var version = pkg.getManifest().getVersion();
         String oldBase = normalizeVersion(version.getBase());
         String oldDlc = normalizeVersion(version.getDlcOld());
-        String newBase = normalizeVersion(version.getBaseNew());
-        String newDlc = normalizeVersion(version.getDlcNew());
-        if (newBase == null || newBase.isBlank()) {
-            newBase = oldBase;
-        }
-        if (newDlc == null || newDlc.isBlank()) {
-            newDlc = oldDlc;
-        }
+        String newBase = version.getBaseNew() == null || version.getBaseNew().isBlank() ? oldBase : normalizeVersion(version.getBaseNew());
+        String newDlc = version.getDlcNew() == null || version.getDlcNew().isBlank() ? oldDlc : normalizeVersion(version.getDlcNew());
         String[] compact = compactTransition(oldBase, oldDlc, newBase, newDlc);
         String from = compact[0];
         String to = compact[1];
@@ -165,6 +159,8 @@ public class DlcUpdatePromptScreen extends DlcPageScreen {
         return !forceUpdate && !applying;
     }
 
+    @Override protected boolean showHeaderBackButton() { return false; }
+
     @Override
     public void onClose() {
         if (!applying) {
@@ -200,6 +196,7 @@ public class DlcUpdatePromptScreen extends DlcPageScreen {
         if (skipThisUpdateButton != null) {
             skipThisUpdateButton.active = false;
         }
+        refreshPage();
         new Thread(() -> {
             DlcPackUpdateCoordinator.UpdateSession packSession = null;
             try {
@@ -291,17 +288,46 @@ public class DlcUpdatePromptScreen extends DlcPageScreen {
     private int pageRevision;
     @Override protected void buildPage() {
         if (!controlsReady) { controlsReady = true; initControls(); }
-        pageRevision = 0;
+        pageRevision = applying ? 1 : 0;
+        var current = result == null ? null : result.getCurrent();
+        String baseVersion = normalizeVersion(current == null ? null : current.getBase());
+        String dlcVersion = normalizeVersion(current == null ? null : current.getDlc());
 
-        var list = section(null, tr("dlc_manager.update.desc"));
-        if (result != null) for (var pkg : result.getUpdates()) { if (pkg == null) continue; var part = node(list, "section", "page-section"); text(part, formatUpdateLine(pkg), "section-title"); if (pkg.getManifest() != null) markdown(part, pkg.getManifest().resolveChangelog(DlcPlatformServices.languageCode())); }
-        live(content, () -> statusText, "page-description"); progress(content, () -> applying ? progress : 0);
-        if (cancelButton != null) mount(footer, cancelButton); if (skipThisUpdateButton != null) mount(footer, skipThisUpdateButton); mount(footer, applyButton).getElement().setAttribute("class", "button primary");
+        if (applying) {
+            renderExecution(() -> statusText, baseVersion, dlcVersion, () -> progress);
+            return;
+        }
+
+        String targetBase = baseVersion;
+        String targetDlc = dlcVersion;
+        if (result != null) for (var pkg : result.getUpdates()) {
+            if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) continue;
+            var version = pkg.getManifest().getVersion();
+            if (version.getBaseNew() != null && !version.getBaseNew().isBlank()) targetBase = normalizeVersion(version.getBaseNew());
+            if (version.getDlcNew() != null && !version.getDlcNew().isBlank()) targetDlc = normalizeVersion(version.getDlcNew());
+        }
+        var panel = updateSection(baseVersion + " -> " + targetBase, dlcVersion + " -> " + targetDlc);
+        content.parentElement.setAttribute("class", "page-shell update-page update-prompt-page");
+        text(panel, tr("dlc_manager.update.desc"), "page-description");
+        var list = node(panel, "div", "update-history update-prompt-history");
+        if (result != null) for (var pkg : result.getUpdates()) {
+            if (pkg == null) continue;
+            var part = node(list, "section", "page-section");
+            text(part, formatUpdateLine(pkg), "section-title");
+            String changelog = pkg.getManifest() == null ? "" : pkg.getManifest().resolveChangelog(DlcPlatformServices.languageCode());
+            if (changelog != null && !changelog.isBlank()) {
+                text(part, tr("dlc_manager.update.changelog_tooltip_title"), "update-prompt-changelog-title");
+                markdown(part, changelog);
+            }
+        }
+        mount(footer, applyButton).getElement().setAttribute("class", "button primary");
+        if (skipThisUpdateButton != null) mount(footer, skipThisUpdateButton);
+        if (cancelButton != null) mount(footer, cancelButton);
 
     }
     @Override protected void updatePage() {
         applyButton.active = !applying; if (cancelButton != null) cancelButton.active = !applying; if (skipThisUpdateButton != null) skipThisUpdateButton.active = !applying;
-        if (pageRevision != 0) refreshPage();
+        if (pageRevision != (applying ? 1 : 0)) refreshPage();
     }
 
 }

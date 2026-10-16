@@ -14,6 +14,29 @@ public abstract class DlcUpdatePageScreen extends DlcPageScreen {
         protected UpdateRow(String label, String note, String changelog, Button action) { this(label, note, changelog, action, null); }
     }
 
+    protected final void renderExecution(java.util.function.Supplier<String> status, String baseVersion, String currentVersion) {
+        renderExecution(status, baseVersion, currentVersion, () -> -1);
+    }
+
+    protected final void renderExecution(java.util.function.Supplier<String> status, String baseVersion, String currentVersion,
+                                         java.util.function.DoubleSupplier fraction) {
+        content.parentElement.setAttribute("class", "page-shell update-page update-running-page");
+        content.setAttribute("class", "update-running-content");
+        var execution = node(content, "section", "update-execution");
+        text(execution, tr("dlc_manager.update.execution_label"), "update-execution-label");
+        var message = live(execution, () -> {
+            String value = status.get();
+            return value == null || value.isBlank() ? tr("dlc_manager.update.applying") : value;
+        }, "update-execution-status");
+        message.setAttribute("role", "status");
+        message.setAttribute("aria-live", "polite");
+        progress(execution, fraction);
+        text(execution, tr("dlc_manager.update.execution_hint"), "update-execution-hint");
+        var versions = node(execution, "div", "update-execution-versions");
+        text(versions, tr("dlc_manager.update.base", baseVersion), "update-version");
+        text(versions, tr("dlc_manager.update.current", currentVersion), "update-version");
+    }
+
     protected final Element updateSection(String baseVersion, String currentVersion) {
         content.parentElement.setAttribute("class", "page-shell update-page");
         content.setAttribute("class", "update-content");

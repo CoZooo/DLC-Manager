@@ -26,7 +26,7 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
     private val parent: Screen?,
     private val result: UpdateCheckResult?,
     private val allowSkipThisUpdate: Boolean = false,
-) : DlcPageScreen(DlcUiPage.UPDATE_PROMPT, parent, DlcTextCompat.translatable("dlc_manager.update.title")) {
+) : DlcUpdatePageScreen(DlcUiPage.UPDATE_PROMPT, parent, DlcTextCompat.translatable("dlc_manager.update.title")) {
     private val forceUpdate = hasHiddenUpdates(result)
     private var applyButton: Button? = null
     private var skipThisUpdateButton: Button? = null
@@ -113,14 +113,8 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
         val version = pkg.getManifest().getVersion() ?: return ""
         val oldBase = normalizeVersion(version.getBase())
         val oldDlc = normalizeVersion(version.getDlcOld())
-        var newBase = normalizeVersion(version.getBaseNew())
-        var newDlc = normalizeVersion(version.getDlcNew())
-        if (newBase.isBlank()) {
-            newBase = oldBase
-        }
-        if (newDlc.isBlank()) {
-            newDlc = oldDlc
-        }
+        val newBase = version.getBaseNew()?.takeIf { it.isNotBlank() }?.let(::normalizeVersion) ?: oldBase
+        val newDlc = version.getDlcNew()?.takeIf { it.isNotBlank() }?.let(::normalizeVersion) ?: oldDlc
         val compact = compactTransition(oldBase, oldDlc, newBase, newDlc)
         val from = compact[0]
         val to = compact[1]
@@ -161,6 +155,8 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
         return !forceUpdate && !applying
     }
 
+    override fun showHeaderBackButton(): Boolean = false
+
     override fun onClose() {
         if (!applying) {
             super.onClose()
@@ -181,6 +177,7 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
         applyButton?.active = false
         cancelButton?.active = false
         skipThisUpdateButton?.active = false
+        refreshPage()
         Thread({
             var packSession: DlcPackUpdateCoordinator.UpdateSession? = null
             try {
@@ -289,17 +286,45 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
     private var pageRevision = 0
     override fun buildPage() {
         if (!controlsReady) { controlsReady = true; initControls() }
-        pageRevision = 0
+        pageRevision = applying.hashCode()
+        val current = result?.current
+        val baseVersion = normalizeVersion(current?.getBase())
+        val dlcVersion = normalizeVersion(current?.getDlc())
 
-        val list = section(null, tr("dlc_manager.update.desc"))
-        for (pkg in result?.updates.orEmpty()) { if (pkg == null) continue; val part = node(list, "section", "page-section"); text(part, formatUpdateLine(pkg), "section-title"); markdown(part, pkg.getManifest().resolveChangelog(DlcPlatformServices.languageCode())) }
-        live(content, { statusText }, "page-description"); progress(content) { if (applying) progress.toDouble() else 0.0 }
-        cancelButton?.let { mount(footer, it) }; skipThisUpdateButton?.let { mount(footer, it) }; applyButton?.let { mount(footer, it).getElement().setAttribute("class", "button primary") }
+        if (applying) {
+            renderExecution({ statusText }, baseVersion, dlcVersion) { progress.toDouble() }
+            return
+        }
+
+        var targetBase = baseVersion
+        var targetDlc = dlcVersion
+        for (pkg in result?.updates.orEmpty()) {
+            val version = pkg?.getManifest()?.getVersion() ?: continue
+            version.getBaseNew()?.takeIf { it.isNotBlank() }?.let { targetBase = normalizeVersion(it) }
+            version.getDlcNew()?.takeIf { it.isNotBlank() }?.let { targetDlc = normalizeVersion(it) }
+        }
+        val panel = updateSection("$baseVersion -> $targetBase", "$dlcVersion -> $targetDlc")
+        content.parentElement.setAttribute("class", "page-shell update-page update-prompt-page")
+        text(panel, tr("dlc_manager.update.desc"), "page-description")
+        val list = node(panel, "div", "update-history update-prompt-history")
+        for (pkg in result?.updates.orEmpty()) {
+            if (pkg == null) continue
+            val part = node(list, "section", "page-section")
+            text(part, formatUpdateLine(pkg), "section-title")
+            val changelog = pkg.getManifest().resolveChangelog(DlcPlatformServices.languageCode())
+            if (changelog.isNotBlank()) {
+                text(part, tr("dlc_manager.update.changelog_tooltip_title"), "update-prompt-changelog-title")
+                markdown(part, changelog)
+            }
+        }
+        applyButton?.let { mount(footer, it).getElement().setAttribute("class", "button primary") }
+        skipThisUpdateButton?.let { mount(footer, it) }
+        cancelButton?.let { mount(footer, it) }
 
     }
     override fun updatePage() {
         applyButton?.active = !applying; cancelButton?.active = !applying; skipThisUpdateButton?.active = !applying
-        if (pageRevision != 0) refreshPage()
+        if (pageRevision != applying.hashCode()) refreshPage()
     }
 
 }
