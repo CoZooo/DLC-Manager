@@ -47,5 +47,5 @@ test("generated syntax and metadata match the server packed with the extension",
 
 test("application definition is separate from the syntax metadata", () => {
   assert.deepEqual(require("../language-definition.json").profiles, []);
-  assert.deepEqual(require("../dlc-definition.json"), require("../../../../src/main/resources/META-INF/dlc-manager/dlc-definition.json"));
+  assert.deepEqual(require("../generated/dlc-definition.json"), require("../../../../src/main/resources/META-INF/dlc-manager/dlc-definition.json"));
 });

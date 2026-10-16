@@ -88,7 +88,8 @@
     "test": "node --test test/*.test.js",
     "prepare-server": "node scripts/prepare-server.js",
     "vscode:prepublish": "npm run prepare-server",
-    "package": "vsce package --baseContentUrl https://github.com/CoZooo/DLC-Manager/blob/main/tools/editor/vscode-dc-language --out ../vscode-dc-language-2.0.0.vsix"
+    "package": "vsce package --baseContentUrl https://github.com/CoZooo/DLC-Manager/blob/main/tools/editor/vscode-dc-language --out ../vscode-dc-language-2.0.0.vsix",
+    "pretest": "node scripts/prepare-definition.js"
   },
   "devDependencies": {
     "@vscode/vsce": "3.6.2",

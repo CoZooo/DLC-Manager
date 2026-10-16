@@ -60,7 +60,7 @@ test("real bundled language service reads UTF-16, diagnoses, completes, hovers a
   const client = new LspClient(java, ["-jar", jar, "--stdio"]);
   const uri = "file:///workspace/DLC/info/test.dc";
   try {
-    await client.start("file:///workspace", { definition: require("../dlc-definition.json") });
+    await client.start("file:///workspace", { definition: require("../generated/dlc-definition.json") });
     const diagnosed = once(client, "notification");
     await client.notify("textDocument/didOpen", { textDocument: { uri, languageId: "dc", version: 1, text: '[basic]\nidentifier = "中文😀"\nmode = "invalid"\n' } });
     const [, diagnostic] = await diagnosed;

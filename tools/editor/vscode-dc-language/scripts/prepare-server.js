@@ -1,6 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { readDefinition, writeGenerated } = require("./syntax");
+const { prepareDefinition } = require("./prepare-definition");
 async function main() {
   const source = process.env.DC_LANGUAGE_SERVER_JAR || path.resolve(__dirname, "../../../dclanguage/lsp/build/libs/dclanguage-lsp.jar");
   const target = path.resolve(__dirname, "../server/dclanguage-lsp.jar");
@@ -9,7 +10,7 @@ async function main() {
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.copyFileSync(source, target);
   writeGenerated(path.resolve(__dirname, ".."), definition);
-  fs.copyFileSync(path.resolve(__dirname, "../../../../src/main/resources/META-INF/dlc-manager/dlc-definition.json"), path.resolve(__dirname, "../dlc-definition.json"));
+  prepareDefinition();
   console.log("Bundled language server and generated editor syntax: " + definition.definitionHash);
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

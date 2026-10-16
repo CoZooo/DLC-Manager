@@ -2,8 +2,11 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { EventEmitter } = require("node:events");
 const Module = require("node:module");
+const fs = require("node:fs");
+const path = require("node:path");
 
-function harness() {
+function harness(extensionMode = 1) {
+  const readPaths = [];
   const callbacks = {}, providers = {}, edits = [], diagnostics = new Map();
   const doc = { languageId: "dc", uri: { toString: () => "file:///workspace/example.dc" }, version: 1,
     text: '[custom]\nunknown = "kept"\n', getText() { return this.text; }, lineAt(index) { return { text: this.text.split("\n")[index] || "" }; } };
@@ -13,7 +16,7 @@ function harness() {
   class Diagnostic { constructor(range, message, severity) { Object.assign(this, { range, message, severity }); } }
   class MarkdownString { constructor() { this.value = ""; } appendText(text) { this.value += text; } appendMarkdown(text) { this.value += text; } }
   const vscode = {
-    Range, Diagnostic, MarkdownString, DiagnosticSeverity: { Error: 0, Warning: 1, Information: 2, Hint: 3 },
+    ExtensionMode: { Development: 2 }, Range, Diagnostic, MarkdownString, DiagnosticSeverity: { Error: 0, Warning: 1, Information: 2, Hint: 3 },
     CompletionItem: class { constructor(label, kind) { Object.assign(this, { label, kind }); } },
     CompletionList: class { constructor(items, isIncomplete) { Object.assign(this, { items, isIncomplete }); } },
     Hover: class { constructor(contents, range) { Object.assign(this, { contents, range }); } },
@@ -44,7 +47,10 @@ function harness() {
   Module._load = function(name, parent, main) {
     if (name === "vscode") return vscode;
     if (name === "./lsp-client") return { LspClient: FakeClient };
-    if (name === "node:fs" && parent?.filename.endsWith("extension.js")) return { existsSync: () => true };
+    if (name === "node:fs" && parent?.filename.endsWith("extension.js")) return { ...fs, existsSync: () => true, readFileSync(file, ...args) {
+      readPaths.push(file);
+      return fs.readFileSync(file, ...args);
+    } };
     return original.call(this, name, parent, main);
   };
   let extension;
@@ -52,14 +58,14 @@ function harness() {
     delete require.cache[require.resolve("../extension")];
     extension = require("../extension");
   } finally { Module._load = original; }
-  extension.activate({ subscriptions: [], asAbsolutePath: (path) => path });
-  return { extension, client, callbacks, providers, doc, edits, diagnostics };
+  extension.activate({ extensionMode, subscriptions: [], asAbsolutePath: (path) => path });
+  return { extension, client, callbacks, providers, doc, edits, diagnostics, readPaths };
 }
 
 test("opening and typing synchronize unchanged text without correcting user files", async () => {
   const h = harness();
   try {
-    assert.deepEqual(h.client.options, { definition: require("../dlc-definition.json") });
+    assert.deepEqual(h.client.options, { definition: require("../generated/dlc-definition.json") });
     assert.equal(h.client.sent[0].method, "textDocument/didOpen");
     assert.equal(h.client.sent[0].params.textDocument.text, h.doc.text);
     h.doc.text = "malformed [\n  keep my whitespace"; h.doc.version++;
@@ -87,4 +93,18 @@ test("diagnostics reject stale versions and completion uses arbitrary server fie
     assert.equal(result.items[0].insertText, "new_field = ");
     assert.ok(h.providers.color);
   } finally { await h.extension.deactivate(); }
+});
+
+
+test("development reads the main project definition while installed extensions use the bundled definition", async () => {
+  for (const mode of [1, 2]) {
+    const h = harness(mode);
+    try {
+      const expected = mode === 2
+        ? path.resolve(__dirname, "../../../../src/main/resources/META-INF/dlc-manager/dlc-definition.json")
+        : path.resolve(__dirname, "../generated/dlc-definition.json");
+      assert.deepEqual(h.readPaths, [expected]);
+      assert.deepEqual(h.client.options.definition, JSON.parse(fs.readFileSync(expected, "utf8")));
+    } finally { await h.extension.deactivate(); }
+  }
 });

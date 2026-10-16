@@ -3,11 +3,14 @@ const path = require("node:path");
 const fs = require("node:fs");
 const { LspClient } = require("./lsp-client");
 const definition = require("./language-definition.json");
-const dlcDefinition = require("./dlc-definition.json");
 const syntaxTriggers = [...new Set(["categoryOpen", "assignment", "block", "categorySeparator", "comment"].map((name) => Array.from(definition.syntax.tokens[name] || "").at(-1)).filter(Boolean).concat(["&", "#"]))];
 let activeClient;
 
 function activate(context) {
+  const definitionPath = context.extensionMode === vscode.ExtensionMode.Development
+    ? path.resolve(__dirname, "../../../src/main/resources/META-INF/dlc-manager/dlc-definition.json")
+    : path.join(__dirname, "generated/dlc-definition.json");
+  const dlcDefinition = JSON.parse(fs.readFileSync(definitionPath, "utf8"));
   const diagnostics = vscode.languages.createDiagnosticCollection("dc");
   const output = vscode.window.createOutputChannel("DC Language Server");
   const documents = new Map();
