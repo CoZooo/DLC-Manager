@@ -20,8 +20,11 @@
 
 | Minecraft | 加载器 |
 | --- | --- |
-| 1.20.1 | Fabric、Forge |
-| 1.21.1 | Fabric、NeoForge |
+| 1.18.2 | Forge |
+| 1.19.2 | Forge |
+| 1.20.1 | Fabric, Forge |
+| 1.21.1 | Fabric, NeoForge |
+| 26.1.x | Fabric, NeoForge |
 
 请选择同时匹配游戏版本和加载器的文件。
 

@@ -20,8 +20,11 @@ Available content and controls depend on the modpack configuration. Follow the p
 
 | Minecraft | Loaders |
 | --- | --- |
+| 1.18.2 | Forge |
+| 1.19.2 | Forge |
 | 1.20.1 | Fabric, Forge |
 | 1.21.1 | Fabric, NeoForge |
+| 26.1.x | Fabric, NeoForge |
 
 Choose a download matching both your Minecraft version and loader.
 

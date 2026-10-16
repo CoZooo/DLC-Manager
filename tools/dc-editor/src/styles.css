@@ -783,6 +783,10 @@ select.compact-select {
   width: min(220px, 100%);
 }
 
+select.compact-select-mode {
+  width: min(128px, 100%);
+}
+
 select.compact-select-frequency {
   width: min(210px, 100%);
 }

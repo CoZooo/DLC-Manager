@@ -248,7 +248,9 @@ export function StructuredEditor(props: StructuredEditorProps) {
                     {field.kind === "select" && (
                       <select
                         className={
-                          field.key === "type"
+                          field.key === "mode"
+                            ? "compact-select compact-select-mode"
+                            : field.key === "type"
                             ? "compact-select"
                             : field.key === "platform" && section.key === "version"
                               ? "compact-select compact-select-platform"

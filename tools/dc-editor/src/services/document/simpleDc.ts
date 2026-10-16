@@ -1279,7 +1279,7 @@ export function validateStructuredModel(model: StructuredModel | null, schema: D
         && !value.trim()
       ) {
         issues.push({
-          severity: "warning",
+          severity: "error",
           message: `[${section.key}].identifier 为空。`,
           source: "schema"
         });
@@ -1415,7 +1415,7 @@ function addDocumentSpecificIssues(model: StructuredModel, schema: DocumentSchem
     requireNonEmptyString(issues, basic.file_name, "[basic].file_name 为空。", "warning");
     const typeValue = readString(basic.type);
     if (typeValue !== "dlcpack") {
-      requireNonEmptyString(issues, basic.identifier, "[basic].identifier 为空。", "warning");
+      requireNonEmptyString(issues, basic.identifier, "[basic].identifier 为空。", "error");
     }
     if (typeValue === "others" && !readString(basic.appliedTarget)) {
       issues.push({

@@ -85,6 +85,7 @@ export interface EditorDocument {
   id: string;
   name: string;
   originalName?: string;
+  lastIdentifier?: string;
   path?: string;
   type: DocumentType;
   rawText: string;

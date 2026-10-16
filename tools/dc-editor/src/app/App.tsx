@@ -19,6 +19,7 @@ import {
 import { EditorBackend } from "../services/backend/EditorBackend";
 import { LocalBackend } from "../services/backend/LocalBackend";
 import { detectDocumentType } from "../services/document/typeDetection";
+import { deriveDocumentNaming, documentSavePath, effectiveDocumentName } from "../services/document/documentNaming";
 import { formatPresetListFieldsInRaw, serializeStructuredDocumentWithPreservedRaw } from "../services/document/simpleDc";
 import { EDITOR_LOCALE_STORAGE_KEY, EditorLocale, t, translateStaticText } from "../i18n/editorI18n";
 
@@ -26,27 +27,6 @@ const APP_STATE_STORAGE_KEY = "dlc-manager-dc-editor-state-v1";
 
 function makeDocumentId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function deriveDocumentName(type: DocumentType, model: StructuredModel | null, fallbackName: string): string {
-  if (type === "pack") {
-    return "pack.dc";
-  }
-  if (type === "config") {
-    return "config.dc";
-  }
-  if (type !== "info" || !model) {
-    return fallbackName;
-  }
-  const fileName = model.basic?.file_name;
-  if (typeof fileName !== "string" || !fileName.trim()) {
-    return fallbackName;
-  }
-  return `${fileName.trim()}.dc`;
-}
-
-function effectiveDocumentName(document: EditorDocument): string {
-  return deriveDocumentName(document.type, document.structuredModel, document.name);
 }
 
 function stripExtension(name: string): string {
@@ -85,6 +65,7 @@ interface PersistedAppState {
 
 interface DocumentHistoryEntry {
   name: string;
+  lastIdentifier?: string;
   rawText: string;
   structuredModel: StructuredModel | null;
   structuredEnabled: boolean;
@@ -264,6 +245,7 @@ function buildDocument(
 function snapshotDocument(document: EditorDocument): DocumentHistoryEntry {
   return {
     name: document.name,
+    lastIdentifier: document.lastIdentifier,
     rawText: document.rawText,
     structuredModel: document.structuredModel ? structuredClone(document.structuredModel) : null,
     structuredEnabled: document.structuredEnabled
@@ -275,6 +257,7 @@ function restoreDocumentSnapshot(document: EditorDocument, snapshot: DocumentHis
   return {
     ...document,
     name: snapshot.name,
+    lastIdentifier: snapshot.lastIdentifier,
     rawText: snapshot.rawText,
     structuredModel: snapshot.structuredModel ? structuredClone(snapshot.structuredModel) : null,
     structuredEnabled: snapshot.structuredEnabled,
@@ -418,12 +401,14 @@ export function App() {
           }
           const current = previous[index];
           const keepStructuredDraft = preserveStructuredDraftRef.current === current.id;
-          const currentName = effectiveDocumentName(current);
+          const model = keepStructuredDraft ? current.structuredModel : parsed.model;
+          const naming = deriveDocumentNaming(current, parsed.issues.some((issue) => issue.severity === "error") ? null : model);
+          const currentName = naming.name;
           const next = {
             ...current,
             rawText: formattedRawText,
-            structuredModel: keepStructuredDraft ? current.structuredModel : parsed.model,
-            name: current.type === "pack" ? "pack.dc" : current.name,
+            structuredModel: model,
+            ...naming,
             isDirty: formattedRawText !== current.originalText || currentName !== (current.originalName ?? current.name),
             issues: current.type === "pack" ? issues : [...issues, ...validateDocumentFileName(currentName)]
           };
@@ -646,14 +631,15 @@ export function App() {
       const nextRaw = await backend.serialize(type, model);
       const next = buildDocument(
         type,
-        deriveDocumentName(type, model, created.name),
+        created.name,
         nextRaw,
         targetSchema,
         "new",
         created.path
       );
+      Object.assign(next, deriveDocumentNaming(next, model));
       next.structuredModel = model;
-      next.isDirty = next.rawText !== next.originalText;
+      next.isDirty = next.rawText !== next.originalText || next.name !== next.originalName;
       mergeDocuments([next]);
       setStatus(t(locale, "createdFromDlc", { name: picked.name, type: targetSchema.label }));
     } catch (error) {
@@ -697,12 +683,17 @@ export function App() {
       ? serializeStructuredDocumentWithPreservedRaw(editingDocument.rawText, model, documentSchemas[editingDocument.type], { applyImplicitDefaultLocale: true })
       : await backend.serializeForSave(editingDocument.type, model);
     preserveStructuredDraftRef.current = editingDocument.id;
+    const naming = deriveDocumentNaming(editingDocument, model);
     commitDocumentEdit({
       ...editingDocument,
       structuredModel: model,
       rawText: nextRaw,
-      name: deriveDocumentName(editingDocument.type, model, editingDocument.name),
-      isDirty: nextRaw !== editingDocument.originalText || deriveDocumentName(editingDocument.type, model, editingDocument.name) !== (editingDocument.originalName ?? editingDocument.name)
+      ...naming,
+      isDirty: nextRaw !== editingDocument.originalText || naming.name !== (editingDocument.originalName ?? editingDocument.name),
+      issues: [
+        ...editingDocument.issues.filter((issue) => issue.source !== "filename"),
+        ...validateDocumentFileName(naming.name)
+      ]
     });
   };
 
@@ -731,7 +722,7 @@ export function App() {
       const saveName = effectiveDocumentName(editingDocument);
       const result = await backend.save({
         suggestedName: saveName,
-        path: editingDocument.type === "pack" ? saveName : editingDocument.path,
+        path: editingDocument.type === "pack" ? saveName : documentSavePath(editingDocument.path, saveName),
         text: textToSave
       });
       if (currentDocumentIdRef.current === savingDocumentId) {
