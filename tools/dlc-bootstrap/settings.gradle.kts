@@ -10,7 +10,7 @@ pluginManagement {
     }
     plugins {
         id("org.jetbrains.kotlin.jvm") version requireNotNull(managerProperties.getProperty("kotlin_version"))
-        id("dev.kikugie.stonecutter") version "0.10-alpha.12"
+        id("dev.kikugie.stonecutter") version requireNotNull(managerProperties.getProperty("stonecutter_version"))
     }
 }
 

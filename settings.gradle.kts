@@ -13,8 +13,8 @@ pluginManagement {
         file("gradle.properties").inputStream().use(::load)
     }
     plugins {
-        id("gg.meza.stonecraft") version "1.14.3"
-        id("dev.kikugie.stonecutter") version "0.10-alpha.12"
+        id("gg.meza.stonecraft") version requireNotNull(managerProperties.getProperty("stonecraft_version"))
+        id("dev.kikugie.stonecutter") version requireNotNull(managerProperties.getProperty("stonecutter_version"))
         id("dev.architectury.loom") version "1.17-20260912.095804-1"
         id("com.gradleup.shadow") version "8.3.11"
         id("org.jetbrains.kotlin.jvm") version requireNotNull(managerProperties.getProperty("kotlin_version"))

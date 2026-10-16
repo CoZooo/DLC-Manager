@@ -616,7 +616,7 @@ if (stoneNodes.contains(project.name)) {
 
     configurations {
         maybeCreate("embedded")
-        if ((loaderName == "forge" || loaderName == "neoforge") && kotlinEnabled) {
+        if (loaderName == "neoforge" && kotlinEnabled) {
             maybeCreate("kotlinForForgeModDiscovery")
         }
         if (loaderName == "neoforge") {
@@ -661,10 +661,7 @@ if (stoneNodes.contains(project.name)) {
 
         if (loaderName == "forge") {
             if (kotlinEnabled) {
-                add(modDependencyConfiguration, "thedarkcolour:kotlinforforge:${prop("kotlin_for_forge_version")}")
-                add("kotlinForForgeModDiscovery", "thedarkcolour:kotlinforforge:${prop("kotlin_for_forge_version")}:all") {
-                    isTransitive = false
-                }
+                add("implementation", "thedarkcolour:kotlinforforge:${prop("kotlin_for_forge_version")}")
             }
         }
 
@@ -703,7 +700,8 @@ if (stoneNodes.contains(project.name)) {
         add("testRuntimeOnly", "org.junit.jupiter:junit-jupiter-engine:${rootProject.prop("junit_jupiter_version")}")
         add("testRuntimeOnly", "org.junit.platform:junit-platform-launcher")
         if (loaderName == "forge" && (minecraftVersion == "1.18.2" || minecraftVersion == "1.19.2")) {
-            add("testRuntimeOnly", "org.joml:joml:1.10.5")
+            addEmbedded("org.joml:joml:1.10.5")
+            add("forgeRuntimeLibrary", "org.joml:joml:1.10.5")
         }
     }
 
@@ -758,8 +756,8 @@ if (stoneNodes.contains(project.name)) {
         }
     }
 
-    if ((loaderName == "forge" || loaderName == "neoforge") && kotlinEnabled) {
-        val discoveryJarName = if (loaderName == "forge") "kotlinforforge-all.jar" else "kotlinforforge-neoforge.jar"
+    if (loaderName == "neoforge" && kotlinEnabled) {
+        val discoveryJarName = "kotlinforforge-neoforge.jar"
         val discoveryJar = layout.buildDirectory.file("kotlinForForgeModDiscovery/$discoveryJarName")
         val prepareKotlinForForgeModDiscovery = tasks.register<Copy>("prepareKotlinForForgeModDiscovery") {
             from(configurations.getByName("kotlinForForgeModDiscovery"))
@@ -840,7 +838,7 @@ if (stoneNodes.contains(project.name)) {
         else file.set(remappedJar.flatMap { it.archiveFile })
         version.set("${rootProject.prop("mod_version")}-$loaderName-$minecraftVersion")
         displayName.set(rootProject.modPublishDisplayName(loaderName, minecraftVersion))
-        changelog.set(rootProject.modPublishChangelog())
+        changelog.set(rootProject.providers.provider { rootProject.modPublishChangelog() })
         type.set(rootProject.modPublishReleaseType())
         modLoaders.add(modPublishLoaderName(loaderName))
 
