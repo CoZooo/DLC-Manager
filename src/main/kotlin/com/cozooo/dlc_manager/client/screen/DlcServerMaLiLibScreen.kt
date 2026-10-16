@@ -142,6 +142,18 @@ class DlcServerMaLiLibScreen(
         DlcTooltipContext.render(guiGraphics, Minecraft.getInstance().font)
     }
 
+    override fun drawContents(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
+        val panelLeft = 16
+        val panelRight = width - 16
+        val panelTop = 16
+        val footerTop = getFooterTop()
+        DlcDungeonsUi.renderBackdrop(guiGraphics, width, height)
+        DlcDungeonsUi.drawWorkspace(guiGraphics, panelLeft, panelTop, panelRight, footerTop, 0xFF79D5DE.toInt())
+        DlcDungeonsUi.drawSectionCard(guiGraphics, panelLeft + 4, panelTop + 4, panelRight - 4, panelTop + 24, 0xFF79D5DE.toInt())
+        super.drawContents(guiGraphics, mouseX, mouseY, partialTick)
+        updateApplyState()
+    }
+
     private fun setInfo(info: DlcServerInfo?) {
         items.clear()
         itemsByIdentifier.clear()
@@ -1341,11 +1353,17 @@ class DlcServerMaLiLibScreen(
             version = if (dlc.isBlank()) base else if (base.isBlank()) dlc else "$base+$dlc"
         }
         val titleX = 8
-        val titleY = 6
-        guiGraphics.drawString(Minecraft.getInstance().font, title, titleX, titleY, 0xFFFFFF, false)
+        DlcDungeonsUi.drawTitle(guiGraphics, Minecraft.getInstance().font, title, titleX, 3)
         if (version.isNotBlank()) {
             val titleWidth = Minecraft.getInstance().font.width(title)
-            guiGraphics.drawString(Minecraft.getInstance().font, version, titleX + titleWidth + 6, titleY, 0xC8C8C8, false)
+            DlcDungeonsUi.drawStatus(
+                guiGraphics,
+                Minecraft.getInstance().font,
+                version,
+                titleX + titleWidth + 32,
+                7,
+                0xFF79D5DE.toInt(),
+            )
         }
         val textWidth = Minecraft.getInstance().font.width(title) + if (version.isBlank()) 0 else 6 + Minecraft.getInstance().font.width(version)
         val nextX = titleX + textWidth + 8

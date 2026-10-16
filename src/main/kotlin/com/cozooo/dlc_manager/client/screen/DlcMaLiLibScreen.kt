@@ -757,17 +757,10 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
         val panelLeft = 16
         val panelRight = width - 16
         val panelTop = 16
-        val headerHeight = 22
-        val panelBottom = height - 16
         val footerTop = getFooterTop()
-        guiGraphics.fill(panelLeft, panelTop, panelRight, footerTop, -0x33f0eeec)
-        guiGraphics.fill(panelLeft, panelTop, panelRight, panelTop + 2, -0xd5d0ca)
-        guiGraphics.fill(panelLeft, footerTop - 1, panelRight, footerTop, -0xd5d0ca)
-        guiGraphics.fill(panelLeft, panelTop, panelLeft + 2, footerTop, -0xd5d0ca)
-        guiGraphics.fill(panelRight - 1, panelTop, panelRight, footerTop, -0xd5d0ca)
-        guiGraphics.fill(panelLeft, panelTop + headerHeight, panelRight, panelTop + headerHeight + 1, -0xe2ddd7)
-        guiGraphics.fill(panelLeft, footerTop, panelRight, footerTop + 1, -0xe2ddd7)
-        guiGraphics.fill(panelLeft, panelTop, panelLeft + 120, panelTop + 2, -0xb37b01)
+        DlcDungeonsUi.renderBackdrop(guiGraphics, width, height)
+        DlcDungeonsUi.drawWorkspace(guiGraphics, panelLeft, panelTop, panelRight, footerTop)
+        DlcDungeonsUi.drawSectionCard(guiGraphics, panelLeft + 4, panelTop + 4, panelRight - 4, panelTop + 24)
         super.drawContents(guiGraphics, mouseX, mouseY, partialTick)
         drawTitle(guiGraphics, mouseX, mouseY, partialTick)
         updateModeAvailability()
@@ -793,7 +786,14 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
     }
 
     override fun drawTitle(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        guiGraphics.drawString(textRenderer, titleString, 18, 6, 0xFFFFFF, false)
+        DlcDungeonsUi.drawTitle(guiGraphics, textRenderer, titleString, 18, 3)
+        DlcDungeonsUi.drawStatus(
+            guiGraphics,
+            textRenderer,
+            "${items.size} DLC",
+            max(156, textRenderer.width(titleString) + 46),
+            7,
+        )
     }
 
     private fun getListTop(): Int {

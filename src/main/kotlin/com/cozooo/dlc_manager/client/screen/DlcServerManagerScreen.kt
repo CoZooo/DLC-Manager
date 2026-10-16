@@ -340,10 +340,11 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
         lastMouseX = mouseX
         lastMouseY = mouseY
         DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick)
+        DlcDungeonsUi.renderBackdrop(guiGraphics, width, height)
         drawPanel(guiGraphics)
-        guiGraphics.drawString(font, title, 8, 6, 0xFFFFFF, false)
+        DlcDungeonsUi.drawTitle(guiGraphics, font, title.string, 8, 3)
         if (headerLine != null) {
-            guiGraphics.drawString(font, headerLine, 8, 16, 0xC8C8C8, false)
+            DlcDungeonsUi.drawStatus(guiGraphics, font, headerLine!!, 28 + font.width(title.string), 8, 0xFF79D5DE.toInt())
         }
         renderServerTab(guiGraphics)
         DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
@@ -354,15 +355,18 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
         val panelRight = panelRight()
         val panelTop = panelTop()
         val panelBottom = panelBottom()
-        val panelColor = 0xCC0F1114.toInt()
-        val panelBorder = 0xFF2A2F36.toInt()
-        val accent = 0xFF4C84FF.toInt()
-        guiGraphics.fill(panelLeft, panelTop, panelRight, panelBottom, panelColor)
-        guiGraphics.fill(panelLeft, panelTop, panelRight, panelTop + 2, panelBorder)
-        guiGraphics.fill(panelLeft, panelBottom - 1, panelRight, panelBottom, panelBorder)
-        guiGraphics.fill(panelLeft, panelTop, panelLeft + 2, panelBottom, panelBorder)
-        guiGraphics.fill(panelRight - 1, panelTop, panelRight, panelBottom, panelBorder)
-        guiGraphics.fill(panelLeft, panelTop, panelLeft + 120, panelTop + 2, accent)
+        DlcDungeonsUi.drawWorkspace(guiGraphics, panelLeft, panelTop, panelRight, panelBottom, 0xFF79D5DE.toInt())
+        DlcDungeonsUi.drawSectionCard(guiGraphics, panelLeft + 5, panelTop + 5, panelRight - 5, panelTop + 46, 0xFFE2B65F.toInt())
+        val endpoint = entry?.getDisplayName() ?: Component.translatable("dlc_manager.server.disconnected").string
+        DlcDungeonsUi.drawStatus(guiGraphics, font, endpoint, panelLeft + 14, panelTop + 18, 0xFF79D5DE.toInt())
+        DlcDungeonsUi.drawStatus(
+            guiGraphics,
+            font,
+            "${items.size} DLC · ${remoteMissingCount + requiredMissingCount} missing",
+            panelLeft + 14,
+            panelTop + 31,
+            if (remoteMissingCount + requiredMissingCount == 0) 0xFF6FD697.toInt() else 0xFFFFC55D.toInt(),
+        )
     }
 
     private fun renderDlcTab(guiGraphics: GuiGraphics) {

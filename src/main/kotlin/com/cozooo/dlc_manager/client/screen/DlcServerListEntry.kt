@@ -64,12 +64,12 @@ class DlcServerListEntry(
 
     override fun render(mouseX: Int, mouseY: Int, hovered: Boolean, guiGraphics: GuiGraphics) {
         if (row.getType() == DlcServerListRow.RowType.GROUP_HEADER) {
-            drawGroupSeparator(guiGraphics)
+            DlcDungeonsUi.drawSectionHeader(guiGraphics, x + 2, y, x + width - 2, 0xFFE2B65F.toInt())
             val label = Component.translatable(row.getGroupType()?.getDisplayKey() ?: "").string
-            drawStringWithShadow(x + 6, y + 4, COLOR_GROUP, label, guiGraphics)
+            drawStringWithShadow(x + 12, y + 4, COLOR_GROUP, label, guiGraphics)
         } else if (row.getType() == DlcServerListRow.RowType.PATH_HEADER) {
-            drawPathSeparator(guiGraphics)
-            drawString(x + 10, y + 4, COLOR_PATH, row.getLabel(), guiGraphics)
+            DlcDungeonsUi.drawSectionCard(guiGraphics, x + 4, y + 1, x + width - 4, y + height - 1, 0xFF79D5DE.toInt())
+            drawString(x + 12, y + 4, COLOR_PATH, row.getLabel(), guiGraphics)
             groupToggleButton?.let { button ->
                 val state = getGroupToggleState(row.getItems())
                 if (state.show) {
@@ -91,20 +91,24 @@ class DlcServerListEntry(
             }
         } else if (row.getType() == DlcServerListRow.RowType.ITEM) {
             val screen = owner() ?: return
-            drawItemSeparator(guiGraphics)
             val item = row.getItem()
             val dirty = screen.isDirty(item)
+            DlcDungeonsUi.drawListRow(
+                guiGraphics,
+                x + 2,
+                y + 1,
+                x + width - 2,
+                y + height - 1,
+                hovered,
+                item?.enabled == true,
+                dirty,
+            )
             val displayName = screen.resolveDisplayName(item)
             val textY = y + (height - Minecraft.getInstance().font.lineHeight) / 2
-            if (dirty) {
-                drawPendingAccent(guiGraphics)
-            } else if (item?.enabled == true) {
-                drawEnabledAccent(guiGraphics)
-            }
             guiGraphics.drawString(
                 Minecraft.getInstance().font,
                 DlcTextFormatter.parse(displayName),
-                x + 10,
+                x + 12,
                 textY,
                 COLOR_ITEM,
                 false,

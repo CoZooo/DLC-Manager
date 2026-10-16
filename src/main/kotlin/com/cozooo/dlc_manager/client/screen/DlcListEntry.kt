@@ -93,17 +93,17 @@ class DlcListEntry(
     override fun render(mouseX: Int, mouseY: Int, hovered: Boolean, guiGraphics: GuiGraphics) {
         when (row.getType()) {
             DlcListRow.RowType.GROUP_HEADER -> {
-                drawGroupSeparator(guiGraphics)
+                DlcDungeonsUi.drawSectionHeader(guiGraphics, x + 2, y, x + width - 2)
                 val label = Component.translatable(row.getGroupType()?.getDisplayKey() ?: "").string
-                drawStringWithShadow(x + 6, y + 4, COLOR_GROUP, label, guiGraphics)
+                drawStringWithShadow(x + 12, y + 4, COLOR_GROUP, label, guiGraphics)
             }
             DlcListRow.RowType.REDIRECT_HEADER -> {
-                drawGroupSeparator(guiGraphics)
-                drawStringWithShadow(x + 6, y + 4, COLOR_REDIRECT, row.getLabel(), guiGraphics)
+                DlcDungeonsUi.drawSectionHeader(guiGraphics, x + 2, y, x + width - 2)
+                drawStringWithShadow(x + 12, y + 4, COLOR_REDIRECT, row.getLabel(), guiGraphics)
             }
             DlcListRow.RowType.PATH_HEADER -> {
-                drawPathSeparator(guiGraphics)
-                drawString(x + 10, y + 4, COLOR_PATH, row.getLabel(), guiGraphics)
+                DlcDungeonsUi.drawSectionCard(guiGraphics, x + 4, y + 1, x + width - 4, y + height - 1)
+                drawString(x + 12, y + 4, COLOR_PATH, row.getLabel(), guiGraphics)
                 groupToggleButton?.let { button ->
                     val state = getGroupToggleState(row.getItems())
                     if (state.show) {
@@ -125,12 +125,12 @@ class DlcListEntry(
                 }
             }
             DlcListRow.RowType.REDIRECT_ITEM -> {
-                drawItemSeparator(guiGraphics)
+                DlcDungeonsUi.drawListRow(guiGraphics, x + 2, y + 1, x + width - 2, y + height - 1, hovered)
                 val entry = row.getRedirectEntry()
                 val lang = Minecraft.getInstance().options.languageCode
                 val label = entry?.resolveDisplayName(lang) ?: ""
                 val textY = y + (height - Minecraft.getInstance().font.lineHeight) / 2
-                guiGraphics.drawString(Minecraft.getInstance().font, DlcTextFormatter.parse(label), x + 10, textY, COLOR_ITEM, false)
+                guiGraphics.drawString(Minecraft.getInstance().font, DlcTextFormatter.parse(label), x + 12, textY, COLOR_ITEM, false)
                 redirectButton?.let { button ->
                     val bx = x + width - button.getWidth() - 6
                     val by = getAlignedButtonY(y, height, button.getHeight())
@@ -139,18 +139,22 @@ class DlcListEntry(
                 }
             }
             DlcListRow.RowType.ITEM -> {
-                drawItemSeparator(guiGraphics)
                 val item = row.getItem() ?: return
                 val dirty = isDirty(item)
                 item.setDirty(dirty)
+                DlcDungeonsUi.drawListRow(
+                    guiGraphics,
+                    x + 2,
+                    y + 1,
+                    x + width - 2,
+                    y + height - 1,
+                    hovered,
+                    item.isEnabled(),
+                    dirty,
+                )
                 val displayName = DlcDisplayNameUtil.resolveDisplayName(item)
                 val textY = y + (height - Minecraft.getInstance().font.lineHeight) / 2
-                if (dirty) {
-                    drawPendingAccent(guiGraphics)
-                } else if (item.isEnabled()) {
-                    drawEnabledAccent(guiGraphics)
-                }
-                guiGraphics.drawString(Minecraft.getInstance().font, DlcTextFormatter.parse(displayName), x + 10, textY, COLOR_ITEM, false)
+                guiGraphics.drawString(Minecraft.getInstance().font, DlcTextFormatter.parse(displayName), x + 12, textY, COLOR_ITEM, false)
                 if (dirty) {
                     drawPendingBadge(guiGraphics, DlcMaLiLibScreen.getPendingSuffix(item))
                 }
