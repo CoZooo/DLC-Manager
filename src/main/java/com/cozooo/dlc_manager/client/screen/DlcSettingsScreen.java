@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.platform.DlcTextCompat;
 import com.cozooo.dlc_manager.client.config.DlcConfigValue;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -190,7 +191,7 @@ public abstract class DlcSettingsScreen extends DlcPageScreen {
         }, DlcTextCompat.translatable("dlc_manager.config.cancel_title"), DlcTextCompat.translatable("dlc_manager.config.cancel_prompt"), DlcTextCompat.translatable("dlc_manager.config.cancel_yes"), DlcTextCompat.translatable("dlc_manager.config.cancel_no")));
     }
     private static String[] options(String name) {
-        if (name.endsWith("Anchor")) return name.equals("titleAnchor") || name.equals("titleUpdateAnchor") ? new String[]{"auto","top_left","top","top_right","left","center","right","bottom_left","bottom","bottom_right"} : new String[]{"top_left","top","top_right","left","center","right","bottom_left","bottom","bottom_right"};
+        if (name.endsWith("Anchor")) return name.equals("titleAnchor") ? new String[]{"auto", DlcConfig.TITLE_ANCHOR_HIDDEN, "top_left","top","top_right","left","center","right","bottom_left","bottom","bottom_right"} : name.equals("titleUpdateAnchor") ? new String[]{"auto","top_left","top","top_right","left","center","right","bottom_left","bottom","bottom_right"} : new String[]{"top_left","top","top_right","left","center","right","bottom_left","bottom","bottom_right"};
         if (name.equals("noticeDisplayMode")) return new String[]{"manager_button","main_menu_button","main_menu_panel"};
         if (name.equals("downloadMirrorMode")) return new String[]{"smart_official","smart_mirror","smart_precheck","official_only","mirror_only","official_first","mirror_first"};
         if (name.equals("downloadMirrorProbeStrategy")) return new String[]{"single","majority"};

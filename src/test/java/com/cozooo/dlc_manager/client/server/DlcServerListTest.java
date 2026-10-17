@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -61,7 +62,19 @@ class DlcServerListTest {
         assertEquals("secret", loaded.password);
         assertEquals(false, loaded.useTcp);
         assertEquals("rcon", loaded.rconPassword);
-        assertTrue(Files.exists(tempDir.resolve("config").resolve("dlc_manager").resolve("servers.dc")));
+        assertTrue(Files.exists(tempDir.resolve("game").resolve("DLC").resolve("tmp").resolve("servers.dc")));
+    }
+
+    @Test
+    void migratesLegacyServerListIntoDlcTmp() throws Exception {
+        Path legacy = tempDir.resolve("config").resolve("dlc_manager").resolve("servers.dc");
+        Files.createDirectories(legacy.getParent());
+        Files.writeString(legacy, "");
+
+        DlcServerList.load();
+
+        assertTrue(Files.exists(tempDir.resolve("game").resolve("DLC").resolve("tmp").resolve("servers.dc")));
+        assertFalse(Files.exists(legacy));
     }
 
     @Test

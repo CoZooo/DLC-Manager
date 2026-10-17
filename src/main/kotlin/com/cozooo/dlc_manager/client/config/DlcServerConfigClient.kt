@@ -6,10 +6,6 @@ import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 
 object DlcServerConfigClient {
-    private val SERVER_SUPPORT = DlcConfigValue.BooleanValue(
-        "serverSupport", true,
-        "dlc_manager.config.comment.ui.serverSupport", "dlc_manager.config.ui.serverSupport"
-    )
     private val SERVER_PORT = DlcConfigValue.IntegerValue(
         "serverPort", DlcConfig.DEFAULT_SERVER_PORT, 1, 65535,
         "dlc_manager.config.comment.ui.serverPort", "dlc_manager.config.ui.serverPort"
@@ -121,7 +117,6 @@ object DlcServerConfigClient {
     )
 
     private val SERVER_CONFIGS: List<DlcConfigValue> = listOf(
-        SERVER_SUPPORT,
         SERVER_PORT,
         SERVER_PASSWORD,
         RCON_HOST,
@@ -186,7 +181,6 @@ object DlcServerConfigClient {
             return
         }
         val server = asObject(root, "server")
-        SERVER_SUPPORT.booleanValue = getBoolean(server, "serverSupport", SERVER_SUPPORT.booleanValue)
         SERVER_PORT.integerValue = getInt(server, "serverPort", SERVER_PORT.integerValue)
         SERVER_PASSWORD.setValueFromString(getString(server, "serverPassword", SERVER_PASSWORD.stringValue))
         RCON_HOST.setValueFromString(getString(server, "rconHost", RCON_HOST.stringValue))
@@ -232,7 +226,6 @@ object DlcServerConfigClient {
     fun toJson(): JsonObject {
         val root = JsonObject()
         val server = JsonObject()
-        server.addProperty("serverSupport", SERVER_SUPPORT.booleanValue)
         server.addProperty("serverPort", SERVER_PORT.integerValue)
         server.addProperty("serverPassword", SERVER_PASSWORD.stringValue)
         server.addProperty("rconHost", RCON_HOST.stringValue)

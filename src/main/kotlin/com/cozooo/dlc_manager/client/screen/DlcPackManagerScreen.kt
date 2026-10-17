@@ -22,7 +22,6 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcPaths
-import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import com.mojang.blaze3d.platform.NativeImage
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.components.Button
@@ -1028,7 +1027,7 @@ class DlcPackManagerScreen(
     }
 
     private fun packOrderPath(): Path {
-        return DlcPlatformServices.configDir().resolve("dlc_manager").resolve("order.dc")
+        return DlcPaths.migrateLegacyConfigFile("order.dc")
     }
 
     private fun saveLiveOrder(order: List<String>) {

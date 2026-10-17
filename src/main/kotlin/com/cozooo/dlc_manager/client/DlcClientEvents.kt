@@ -200,7 +200,7 @@ object DlcClientEvents {
             DlcClientRuntime.openNoticeFromTitle(screen)
         }.bounds(noticePos[0], noticePos[1], noticeWidth, noticeHeight).build()
 
-        if (findButtonByKey(screen, "dlc_manager.title") == null) {
+        if (!DlcConfig.isTitleAnchorHidden() && findButtonByKey(screen, "dlc_manager.title") == null) {
             access.addRenderableWidget(button)
         }
         if (DlcConfig.isUButtomShown() && DlcConfig.isUpdateManagerOn()
@@ -336,6 +336,13 @@ object DlcClientEvents {
         if (realmsWidget != null) {
             realmsWidget.visible = false
             realmsWidget.active = false
+        }
+        if (DlcConfig.isTitleAnchorHidden()) {
+            dlcWidget?.let {
+                it.visible = false
+                it.active = false
+            }
+            return
         }
         if (dlcWidget == null) return
         var rowStep = 24

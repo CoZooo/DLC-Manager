@@ -1266,7 +1266,7 @@ public class DlcServerService {
     }
 
     private static Path packOrderPath() {
-        return DlcPaths.gameDir().resolve("config").resolve("dlc_manager").resolve("order.dc");
+        return DlcPaths.migrateLegacyConfigFile("order.dc");
     }
 
     private static String readPackIconBase64(Path iconFile) {

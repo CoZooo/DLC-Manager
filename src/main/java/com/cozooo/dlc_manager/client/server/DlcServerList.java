@@ -1,8 +1,6 @@
 package com.cozooo.dlc_manager.client.server;
-import com.cozooo.dlc_manager.platform.DlcPlatformServices;
-import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
-import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
+import com.cozooo.dlc_manager.core.DlcPaths;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.io.IOException;
@@ -19,8 +17,7 @@ public class DlcServerList {
     private static String lastSelectedKey;
 
     public static void load() {
-        Path configDir = DlcPlatformServices.configDir().resolve("dlc_manager");
-        configPath = DlcDcFormatUtil.resolveConfigPath(configDir, "servers");
+        configPath = DlcPaths.migrateLegacyConfigFile("servers.dc");
         entries = new ArrayList<>();
         lastSelectedKey = null;
         if (!Files.exists(configPath)) {
@@ -41,8 +38,7 @@ public class DlcServerList {
 
     public static void save() {
         if (configPath == null) {
-            Path configDir = DlcPlatformServices.configDir().resolve("dlc_manager");
-            configPath = DlcDcFormatUtil.resolveConfigPath(configDir, "servers");
+            configPath = DlcPaths.migrateLegacyConfigFile("servers.dc");
         }
         try {
             Files.createDirectories(configPath.getParent());

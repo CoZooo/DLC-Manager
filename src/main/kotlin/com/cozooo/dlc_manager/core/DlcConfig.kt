@@ -38,6 +38,7 @@ object DlcConfig {
     const val DEFAULT_RCON_PORT: Int = 25575
     const val DEFAULT_RCON_PASSWORD: String = ""
     const val DEFAULT_TITLE_ANCHOR: String = "auto"
+    const val TITLE_ANCHOR_HIDDEN: String = "hidden"
     const val DEFAULT_TITLE_OFFSET_X: Int = 0
     const val DEFAULT_TITLE_OFFSET_Y: Int = 0
     const val DEFAULT_TITLE_UPDATE_ANCHOR: String = "auto"
@@ -91,7 +92,6 @@ object DlcConfig {
     private var showOnFirstRun = DEFAULT_SHOW_ON_FIRST_RUN
     private var alarmWaitingTime = DEFAULT_ALARM_WAITING_TIME
     private var serverSupportClient = DEFAULT_SERVER_SUPPORT
-    private var serverSupportServer = DEFAULT_SERVER_SUPPORT
     private var serverPort = DEFAULT_SERVER_PORT
     private var serverPassword = DEFAULT_SERVER_PASSWORD
     private var apiEnabled = DEFAULT_API_ENABLED
@@ -151,6 +151,7 @@ object DlcConfig {
     fun buildServerConfigJson(): JsonObject {
         val root = JsonObject()
         writeShared(root)
+        root.getAsJsonObject("ui")?.remove("serverSupport")
         writeServer(root)
         return root
     }
@@ -201,7 +202,7 @@ object DlcConfig {
     @JvmStatic fun isShowOnFirstRun(): Boolean = showOnFirstRun
     @JvmStatic fun getAlarmWaitingTime(): Int = alarmWaitingTime
     @JvmStatic fun isServerSupportOn(): Boolean = serverSupportClient
-    @JvmStatic fun isServerSupportOnServer(): Boolean = serverSupportServer
+    @JvmStatic fun isServerSupportOnServer(): Boolean = true
     @JvmStatic fun getServerPort(): Int = serverPort
     @JvmStatic fun getServerPassword(): String = serverPassword
     @JvmStatic fun isApiEnabled(): Boolean = apiEnabled
@@ -211,6 +212,7 @@ object DlcConfig {
     @JvmStatic fun getServerRconPort(): Int = serverRconPort
     @JvmStatic fun getServerRconPassword(): String = serverRconPassword
     @JvmStatic fun getTitleAnchor(): String = titleAnchor
+    @JvmStatic fun isTitleAnchorHidden(): Boolean = titleAnchor.trim().equals(TITLE_ANCHOR_HIDDEN, ignoreCase = true)
     @JvmStatic fun getTitleOffsetX(): Int = titleOffsetX
     @JvmStatic fun getTitleOffsetY(): Int = titleOffsetY
     @JvmStatic fun getTitleUpdateAnchor(): String = titleUpdateAnchor
@@ -305,7 +307,7 @@ object DlcConfig {
     @JvmStatic fun setShowOnFirstRun(value: Boolean) { showOnFirstRun = value }
     @JvmStatic fun setAlarmWaitingTime(value: Int) { alarmWaitingTime = clampInt(value, 0, 10, DEFAULT_ALARM_WAITING_TIME) }
     @JvmStatic fun setServerSupportOn(value: Boolean) { serverSupportClient = value }
-    @JvmStatic fun setServerSupportOnServer(value: Boolean) { serverSupportServer = value }
+    @JvmStatic fun setServerSupportOnServer(@Suppress("UNUSED_PARAMETER") value: Boolean) {}
     @JvmStatic fun setServerPort(value: Int) { serverPort = clampInt(value, 1, 65535, DEFAULT_SERVER_PORT) }
     @JvmStatic fun setServerPassword(value: String?) { serverPassword = value ?: DEFAULT_SERVER_PASSWORD }
     @JvmStatic fun setApiEnabled(value: Boolean) { apiEnabled = value }
@@ -363,7 +365,6 @@ object DlcConfig {
         showOnFirstRun = DEFAULT_SHOW_ON_FIRST_RUN
         alarmWaitingTime = DEFAULT_ALARM_WAITING_TIME
         serverSupportClient = DEFAULT_SERVER_SUPPORT
-        serverSupportServer = DEFAULT_SERVER_SUPPORT
         serverPort = DEFAULT_SERVER_PORT
         serverPassword = DEFAULT_SERVER_PASSWORD
         apiEnabled = DEFAULT_API_ENABLED
@@ -402,7 +403,6 @@ object DlcConfig {
     }
 
     private fun resetServerDefaults() {
-        serverSupportServer = DEFAULT_SERVER_SUPPORT
         serverPort = DEFAULT_SERVER_PORT
         serverPassword = DEFAULT_SERVER_PASSWORD
         serverRconHost = DEFAULT_RCON_HOST
@@ -582,7 +582,6 @@ object DlcConfig {
 
     private fun writeServer(root: JsonObject) {
         val obj = JsonObject()
-        obj.addProperty("serverSupport", serverSupportServer)
         obj.addProperty("serverPort", serverPort)
         obj.addProperty("serverPassword", serverPassword)
         if (serverRconHost != DEFAULT_RCON_HOST || serverRconPort != DEFAULT_RCON_PORT || serverRconPassword != DEFAULT_RCON_PASSWORD) {
@@ -659,7 +658,6 @@ object DlcConfig {
     )
 
     private fun buildServerReaders(): Map<String, (JsonElement) -> Unit> = mapOf(
-        "serverSupport" to { value -> serverSupportServer = asBoolean(value, DEFAULT_SERVER_SUPPORT) },
         "serverPort" to { value -> serverPort = clampInt(asInt(value, DEFAULT_SERVER_PORT), 1, 65535, DEFAULT_SERVER_PORT) },
         "serverPassword" to { value -> serverPassword = asString(value, DEFAULT_SERVER_PASSWORD) },
         "rconHost" to { value -> serverRconHost = asString(value, DEFAULT_RCON_HOST) },

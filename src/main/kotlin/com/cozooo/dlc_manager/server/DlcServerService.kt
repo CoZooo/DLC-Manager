@@ -1171,7 +1171,7 @@ object DlcServerService {
     }
 
     private fun packOrderPath(): Path {
-        return DlcPaths.gameDir().resolve("config").resolve("dlc_manager").resolve("order.dc")
+        return DlcPaths.migrateLegacyConfigFile("order.dc")
     }
 
     private fun readPackIconBase64(iconFile: Path?): String? {

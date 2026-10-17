@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.client.screen
 
 import com.cozooo.dlc_manager.platform.DlcTextCompat
 import com.cozooo.dlc_manager.client.config.DlcConfigValue
+import com.cozooo.dlc_manager.core.DlcConfig
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
@@ -169,7 +170,7 @@ abstract class DlcSettingsScreen(page: DlcUiPage, parent: Screen?, title: Compon
         }, DlcTextCompat.translatable("dlc_manager.config.cancel_title"), DlcTextCompat.translatable("dlc_manager.config.cancel_prompt"), DlcTextCompat.translatable("dlc_manager.config.cancel_yes"), DlcTextCompat.translatable("dlc_manager.config.cancel_no")))
     }
     private fun options(name: String): List<String> = when {
-        name.endsWith("Anchor") -> (if (name == "titleAnchor" || name == "titleUpdateAnchor") listOf("auto") else emptyList()) + listOf("top_left","top","top_right","left","center","right","bottom_left","bottom","bottom_right")
+        name.endsWith("Anchor") -> (if (name == "titleAnchor") listOf("auto", DlcConfig.TITLE_ANCHOR_HIDDEN) else if (name == "titleUpdateAnchor") listOf("auto") else emptyList()) + listOf("top_left","top","top_right","left","center","right","bottom_left","bottom","bottom_right")
         name == "noticeDisplayMode" -> listOf("manager_button","main_menu_button","main_menu_panel")
         name == "downloadMirrorMode" -> listOf("smart_official","smart_mirror","smart_precheck","official_only","mirror_only","official_first","mirror_first")
         name == "downloadMirrorProbeStrategy" -> listOf("single","majority")

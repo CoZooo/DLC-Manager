@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class DlcFxLocalConfigModelTest {
@@ -55,6 +56,7 @@ final class DlcFxLocalConfigModelTest {
                 DlcConfig.DOWNLOAD_MIRROR_OFFICIAL_FIRST,
                 DlcConfig.DOWNLOAD_MIRROR_MIRROR_FIRST
         ), option.choiceValues());
+        assertTrue(model.find("titleAnchor").choiceValues().contains(DlcConfig.TITLE_ANCHOR_HIDDEN));
     }
 
     @Test
@@ -97,6 +99,7 @@ final class DlcFxLocalConfigModelTest {
         model.applyToConfig();
 
         JsonObject server = saved[0].getAsJsonObject("server");
+        assertFalse(saved[0].getAsJsonObject("ui").has("serverSupport"));
         assertEquals(28888, server.get("serverPort").getAsInt());
         assertEquals("secret", server.get("serverPassword").getAsString());
         assertEquals(28888, model.snapshot().getAsJsonObject("server").get("serverPort").getAsInt());

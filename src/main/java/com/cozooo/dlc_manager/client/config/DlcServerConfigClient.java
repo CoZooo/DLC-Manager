@@ -7,8 +7,6 @@ import com.google.gson.JsonObject;
 import java.util.List;
 
 public final class DlcServerConfigClient {
-    private static final DlcConfigValue.BooleanValue SERVER_SUPPORT = new DlcConfigValue.BooleanValue("serverSupport", true,
-        "dlc_manager.config.comment.ui.serverSupport", "dlc_manager.config.ui.serverSupport");
     private static final DlcConfigValue.IntegerValue SERVER_PORT = new DlcConfigValue.IntegerValue("serverPort", DlcConfig.DEFAULT_SERVER_PORT, 1, 65535,
         "dlc_manager.config.comment.ui.serverPort", "dlc_manager.config.ui.serverPort");
     private static final DlcConfigValue.StringValue SERVER_PASSWORD = new DlcConfigValue.StringValue("serverPassword", "",
@@ -71,7 +69,6 @@ public final class DlcServerConfigClient {
         "dlc_manager.config.comment.download.downloadMirrorProbeStrategy", "dlc_manager.config.download.downloadMirrorProbeStrategy");
 
     private static final List<DlcConfigValue> SERVER_CONFIGS = List.of(
-        SERVER_SUPPORT,
         SERVER_PORT,
         SERVER_PASSWORD,
         RCON_HOST,
@@ -143,7 +140,6 @@ public final class DlcServerConfigClient {
             return;
         }
         JsonObject server = asObject(root, "server");
-        SERVER_SUPPORT.setBooleanValue(getBoolean(server, "serverSupport", SERVER_SUPPORT.getBooleanValue()));
         SERVER_PORT.setIntegerValue(getInt(server, "serverPort", SERVER_PORT.getIntegerValue()));
         SERVER_PASSWORD.setValueFromString(getString(server, "serverPassword", SERVER_PASSWORD.getStringValue()));
         RCON_HOST.setValueFromString(getString(server, "rconHost", RCON_HOST.getStringValue()));
@@ -188,7 +184,6 @@ public final class DlcServerConfigClient {
     public static JsonObject toJson() {
         JsonObject root = new JsonObject();
         JsonObject server = new JsonObject();
-        server.addProperty("serverSupport", SERVER_SUPPORT.getBooleanValue());
         server.addProperty("serverPort", SERVER_PORT.getIntegerValue());
         server.addProperty("serverPassword", SERVER_PASSWORD.getStringValue());
         server.addProperty("rconHost", RCON_HOST.getStringValue());

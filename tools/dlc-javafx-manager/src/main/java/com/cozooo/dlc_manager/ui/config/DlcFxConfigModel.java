@@ -20,6 +20,9 @@ public final class DlcFxConfigModel {
     private static final List<String> ANCHOR_VALUES_WITH_AUTO = List.of(
             "auto", "top_left", "top", "top_right", "left", "center", "right", "bottom_left", "bottom", "bottom_right"
     );
+    private static final List<String> TITLE_ANCHOR_VALUES = List.of(
+            "auto", DlcConfig.TITLE_ANCHOR_HIDDEN, "top_left", "top", "top_right", "left", "center", "right", "bottom_left", "bottom", "bottom_right"
+    );
     private static final List<String> ANCHOR_VALUES = List.of(
             "top_left", "top", "top_right", "left", "center", "right", "bottom_left", "bottom", "bottom_right"
     );
@@ -62,7 +65,6 @@ public final class DlcFxConfigModel {
         serverOptions.add(integer("apiPort", "api", "apiPort", "dlc_manager.config.ui.apiPort", "dlc_manager.config.comment.ui.apiPort", DlcConfig.DEFAULT_API_PORT, 0, 65535));
         serverOptions.add(string("apiToken", "api", "apiToken", "dlc_manager.config.ui.apiToken", "dlc_manager.config.comment.ui.apiToken", DlcConfig.DEFAULT_API_TOKEN));
         if (this.source.hasSection("server")) {
-            serverOptions.add(bool("serverRuntimeSupport", "server", "serverSupport", "dlc_manager.config.ui.serverSupport", "dlc_manager.config.comment.ui.serverSupport", DlcConfig.DEFAULT_SERVER_SUPPORT));
             serverOptions.add(integer("serverPort", "server", "serverPort", "dlc_manager.config.ui.serverPort", "dlc_manager.config.comment.ui.serverPort", DlcConfig.DEFAULT_SERVER_PORT, 1, 65535));
             serverOptions.add(string("serverPassword", "server", "serverPassword", "dlc_manager.config.ui.serverPassword", "dlc_manager.config.comment.ui.serverPassword", DlcConfig.DEFAULT_SERVER_PASSWORD));
             serverOptions.add(string("rconHost", "server", "rconHost", "dlc_manager.config.ui.rconHost", "dlc_manager.config.comment.ui.rconHost", DlcConfig.DEFAULT_RCON_HOST));
@@ -91,7 +93,7 @@ public final class DlcFxConfigModel {
                 integer("noticePanelOffsetY", "ui", "noticePanelOffsetY", "dlc_manager.config.ui.noticePanelOffsetY", "dlc_manager.config.comment.ui.noticePanelOffsetY", DlcConfig.DEFAULT_NOTICE_PANEL_OFFSET_Y, -DlcConfig.MAX_NOTICE_OFFSET, DlcConfig.MAX_NOTICE_OFFSET),
                 integer("noticePanelWidth", "ui", "noticePanelWidth", "dlc_manager.config.ui.noticePanelWidth", "dlc_manager.config.comment.ui.noticePanelWidth", DlcConfig.DEFAULT_NOTICE_PANEL_WIDTH, 0, DlcConfig.MAX_NOTICE_PANEL_SIZE),
                 integer("noticePanelHeight", "ui", "noticePanelHeight", "dlc_manager.config.ui.noticePanelHeight", "dlc_manager.config.comment.ui.noticePanelHeight", DlcConfig.DEFAULT_NOTICE_PANEL_HEIGHT, 0, DlcConfig.MAX_NOTICE_PANEL_SIZE),
-                choice("titleAnchor", "ui", "titleAnchor", "dlc_manager.config.ui.titleAnchor", "dlc_manager.config.comment.ui.titleAnchor", DlcConfig.DEFAULT_TITLE_ANCHOR, ANCHOR_VALUES_WITH_AUTO, "dlc_manager.config.ui.titleAnchor."),
+                choice("titleAnchor", "ui", "titleAnchor", "dlc_manager.config.ui.titleAnchor", "dlc_manager.config.comment.ui.titleAnchor", DlcConfig.DEFAULT_TITLE_ANCHOR, TITLE_ANCHOR_VALUES, "dlc_manager.config.ui.titleAnchor."),
                 integer("titleOffsetX", "ui", "titleOffsetX", "dlc_manager.config.ui.titleOffsetX", "dlc_manager.config.comment.ui.titleOffsetX", DlcConfig.DEFAULT_TITLE_OFFSET_X, -10000, 10000),
                 integer("titleOffsetY", "ui", "titleOffsetY", "dlc_manager.config.ui.titleOffsetY", "dlc_manager.config.comment.ui.titleOffsetY", DlcConfig.DEFAULT_TITLE_OFFSET_Y, -10000, 10000),
                 choice("titleUpdateAnchor", "ui", "titleUpdateAnchor", "dlc_manager.config.ui.titleUpdateAnchor", "dlc_manager.config.comment.ui.titleUpdateAnchor", DlcConfig.DEFAULT_TITLE_UPDATE_ANCHOR, ANCHOR_VALUES_WITH_AUTO, "dlc_manager.config.ui.titleUpdateAnchor."),
@@ -187,7 +189,6 @@ public final class DlcFxConfigModel {
 
     private static boolean isHiddenServerOption(String name) {
         return Objects.equals(name, "serverSupport")
-                || Objects.equals(name, "serverRuntimeSupport")
                 || Objects.equals(name, "rconHost")
                 || Objects.equals(name, "rconPort")
                 || Objects.equals(name, "rconPassword");

@@ -39,6 +39,9 @@ class DlcConfigTest {
 
         DlcConfig.setTitleAnchor("auto");
         assertArrayEquals(new int[] { 45, 33 }, DlcConfig.computeTitleButtonPosition(200, 100, 20, 10, 50, 40));
+
+        DlcConfig.setTitleAnchor("hidden");
+        assertTrue(DlcConfig.isTitleAnchorHidden());
     }
 
     @Test
@@ -76,7 +79,7 @@ class DlcConfigTest {
 
     @Test
     void serverConfigJsonRoundTripsServerAndDownloadSettings() {
-        DlcConfig.setServerSupportOnServer(true);
+        DlcConfig.setServerSupportOnServer(false);
         DlcConfig.setServerPort(29691);
         DlcConfig.setApiEnabled(true);
         DlcConfig.setApiPort(10087);
@@ -85,6 +88,8 @@ class DlcConfigTest {
         DlcConfig.setMaxRetryCount(3);
 
         var json = DlcConfig.buildServerConfigJson();
+        assertFalse(json.getAsJsonObject("server").has("serverSupport"));
+        assertFalse(json.getAsJsonObject("ui").has("serverSupport"));
         DlcConfig.loadClient();
         DlcConfig.applySharedConfigJson(json);
         DlcConfig.applyServerConfigJson(json);

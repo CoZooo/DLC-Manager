@@ -1607,7 +1607,7 @@
               "type": "string",
               "required": false,
               "description": "DLC Manager main menu button anchor.",
-              "enumValues": [],
+              "enumValues": ["auto", "hidden", "top_left", "top", "top_right", "left", "center", "right", "bottom_left", "bottom", "bottom_right"],
               "constraints": {}
             },
             {

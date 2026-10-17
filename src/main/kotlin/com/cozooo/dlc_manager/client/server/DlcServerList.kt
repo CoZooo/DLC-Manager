@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.server
 
 import com.cozooo.dlc_manager.core.DlcDcConfigIO
-import com.cozooo.dlc_manager.platform.DlcPlatformServices
+import com.cozooo.dlc_manager.core.DlcPaths
 import com.google.gson.GsonBuilder
 import java.io.IOException
 import java.nio.file.Files
@@ -15,8 +15,7 @@ object DlcServerList {
 
     @JvmStatic
     fun load() {
-        val configDir = DlcPlatformServices.configDir().resolve("dlc_manager")
-        configPath = DlcDcConfigIO.toDcPath(configDir.resolve("servers"))
+        configPath = DlcPaths.migrateLegacyConfigFile("servers.dc")
         entries = ArrayList()
         lastSelectedKey = null
         val path = configPath ?: return
@@ -40,8 +39,7 @@ object DlcServerList {
     @JvmStatic
     fun save() {
         if (configPath == null) {
-            val configDir = DlcPlatformServices.configDir().resolve("dlc_manager")
-            configPath = DlcDcConfigIO.toDcPath(configDir.resolve("servers"))
+            configPath = DlcPaths.migrateLegacyConfigFile("servers.dc")
         }
         val path = configPath ?: return
         try {

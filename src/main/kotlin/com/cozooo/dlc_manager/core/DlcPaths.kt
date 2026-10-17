@@ -1,9 +1,11 @@
 package com.cozooo.dlc_manager.core
 
 import com.cozooo.dlc_manager.platform.DlcPlatformServices
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 
 object DlcPaths {
     @JvmStatic
@@ -19,6 +21,26 @@ object DlcPaths {
     @JvmStatic
     fun tmpRoot(): Path {
         return dlcRoot().resolve("tmp")
+    }
+
+    @JvmStatic
+    fun migrateLegacyConfigFile(fileName: String): Path {
+        val target = tmpRoot().resolve(fileName)
+        val legacy = DlcPlatformServices.configDir().resolve("dlc_manager").resolve(fileName)
+        if (Files.exists(target) || !Files.exists(legacy)) {
+            return target
+        }
+        return try {
+            Files.createDirectories(target.parent)
+            try {
+                Files.move(legacy, target, StandardCopyOption.ATOMIC_MOVE)
+            } catch (_: IOException) {
+                Files.move(legacy, target)
+            }
+            target
+        } catch (_: IOException) {
+            legacy
+        }
     }
 
     @JvmStatic

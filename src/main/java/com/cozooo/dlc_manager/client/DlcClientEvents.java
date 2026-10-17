@@ -209,7 +209,7 @@ public final class DlcClientEvents {
             .bounds(noticePos[0], noticePos[1], noticeWidth, noticeHeight)
             .build();
 
-        if (findButtonByKey(screen, "dlc_manager.title") == null) {
+        if (!DlcConfig.isTitleAnchorHidden() && findButtonByKey(screen, "dlc_manager.title") == null) {
             access.addRenderableWidget(button);
         }
         if (DlcConfig.isUButtomShown() && DlcConfig.isUpdateManagerOn()
@@ -354,6 +354,13 @@ public final class DlcClientEvents {
         if (realmsWidget != null) {
             realmsWidget.visible = false;
             realmsWidget.active = false;
+        }
+        if (DlcConfig.isTitleAnchorHidden()) {
+            if (dlcWidget != null) {
+                dlcWidget.visible = false;
+                dlcWidget.active = false;
+            }
+            return;
         }
         if (dlcWidget == null) {
             return;

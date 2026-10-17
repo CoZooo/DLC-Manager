@@ -45,6 +45,7 @@ public class DlcConfig {
     public static final int DEFAULT_RCON_PORT = 25575;
     public static final String DEFAULT_RCON_PASSWORD = "";
     public static final String DEFAULT_TITLE_ANCHOR = "auto";
+    public static final String TITLE_ANCHOR_HIDDEN = "hidden";
     public static final int DEFAULT_TITLE_OFFSET_X = 0;
     public static final int DEFAULT_TITLE_OFFSET_Y = 0;
     public static final String DEFAULT_TITLE_UPDATE_ANCHOR = "auto";
@@ -99,7 +100,6 @@ public class DlcConfig {
     private static boolean showOnFirstRun = DEFAULT_SHOW_ON_FIRST_RUN;
     private static int alarmWaitingTime = DEFAULT_ALARM_WAITING_TIME;
     private static boolean serverSupportClient = DEFAULT_SERVER_SUPPORT;
-    private static boolean serverSupportServer = DEFAULT_SERVER_SUPPORT;
     private static int serverPort = DEFAULT_SERVER_PORT;
     private static String serverPassword = DEFAULT_SERVER_PASSWORD;
     private static boolean apiEnabled = DEFAULT_API_ENABLED;
@@ -175,6 +175,10 @@ public class DlcConfig {
     public static JsonObject buildServerConfigJson() {
         JsonObject root = new JsonObject();
         writeShared(root);
+        JsonObject ui = root.getAsJsonObject("ui");
+        if (ui != null) {
+            ui.remove("serverSupport");
+        }
         writeServer(root);
         return root;
     }
@@ -296,7 +300,7 @@ public class DlcConfig {
     }
 
     public static boolean isServerSupportOnServer() {
-        return serverSupportServer;
+        return true;
     }
 
     public static int getServerPort() {
@@ -333,6 +337,10 @@ public class DlcConfig {
 
     public static String getTitleAnchor() {
         return titleAnchor;
+    }
+
+    public static boolean isTitleAnchorHidden() {
+        return titleAnchor != null && TITLE_ANCHOR_HIDDEN.equalsIgnoreCase(titleAnchor.trim());
     }
 
     public static int getTitleOffsetX() {
@@ -646,7 +654,6 @@ public class DlcConfig {
     }
 
     public static void setServerSupportOnServer(boolean value) {
-        serverSupportServer = value;
     }
 
     public static void setServerPort(int value) {
@@ -817,7 +824,6 @@ public class DlcConfig {
         showOnFirstRun = DEFAULT_SHOW_ON_FIRST_RUN;
         alarmWaitingTime = DEFAULT_ALARM_WAITING_TIME;
         serverSupportClient = DEFAULT_SERVER_SUPPORT;
-        serverSupportServer = DEFAULT_SERVER_SUPPORT;
         serverPort = DEFAULT_SERVER_PORT;
         serverPassword = DEFAULT_SERVER_PASSWORD;
         apiEnabled = DEFAULT_API_ENABLED;
@@ -878,7 +884,6 @@ public class DlcConfig {
     }
 
     private static void resetServerDefaults() {
-        serverSupportServer = DEFAULT_SERVER_SUPPORT;
         serverPort = DEFAULT_SERVER_PORT;
         serverPassword = DEFAULT_SERVER_PASSWORD;
         serverRconHost = DEFAULT_RCON_HOST;
@@ -1046,7 +1051,6 @@ public class DlcConfig {
 
     private static void writeServer(JsonObject root) {
         JsonObject obj = new JsonObject();
-        obj.addProperty("serverSupport", serverSupportServer);
         obj.addProperty("serverPort", serverPort);
         obj.addProperty("serverPassword", serverPassword);
         if (!DEFAULT_RCON_HOST.equals(serverRconHost) || serverRconPort != DEFAULT_RCON_PORT || !DEFAULT_RCON_PASSWORD.equals(serverRconPassword)) {
@@ -1133,7 +1137,6 @@ public class DlcConfig {
 
     private static Map<String, Consumer<JsonElement>> buildServerReaders() {
         Map<String, Consumer<JsonElement>> map = new HashMap<>();
-        map.put("serverSupport", value -> serverSupportServer = asBoolean(value, DEFAULT_SERVER_SUPPORT));
         map.put("serverPort", value -> serverPort = clampInt(asInt(value, DEFAULT_SERVER_PORT), 1, 65535, DEFAULT_SERVER_PORT));
         map.put("serverPassword", value -> serverPassword = asString(value, DEFAULT_SERVER_PASSWORD));
         map.put("rconHost", value -> serverRconHost = asString(value, DEFAULT_RCON_HOST));

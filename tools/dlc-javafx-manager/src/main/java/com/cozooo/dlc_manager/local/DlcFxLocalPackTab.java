@@ -16,7 +16,6 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
-import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
 import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.common.DlcFxModalOverlay;
@@ -1468,7 +1467,7 @@ public final class DlcFxLocalPackTab {
     }
 
     private Path packOrderPath() {
-        return DlcPlatformServices.configDir().resolve("dlc_manager").resolve("order.dc");
+        return DlcPaths.migrateLegacyConfigFile("order.dc");
     }
 
     private PackArchiveGroup findGroup(String identifier) {
