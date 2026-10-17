@@ -711,6 +711,10 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
 
     private void showBatchDependencyPrompt(java.util.List<DlcRuntimeState.DependencyLine> lines,
         java.util.List<DlcItem> depsToEnable, java.util.List<DlcItem> targets, Component scopeLabel) {
+        if (!DlcConfig.isShowDependencyReminder()) {
+            enableBatchDependencies(depsToEnable, targets);
+            return;
+        }
         Component message = DlcConfirmUtil.buildDependencyMessage(lines);
         Component title = DlcTextCompat.translatable("dlc_manager.batch.dependencies_title");
         Component enableLabel = DlcTextCompat.translatable("dlc_manager.batch.enable_deps", scopeLabel);
@@ -720,29 +724,33 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
             if (!accepted) {
                 return;
             }
-            java.util.ArrayList<DlcItem> planned = new java.util.ArrayList<>();
-            if (depsToEnable != null) {
-                planned.addAll(depsToEnable);
-            }
-            if (targets != null) {
-                planned.addAll(targets);
-            }
-            DlcRuntimeState.ConflictBatchResult conflicts = DlcRuntimeState.collectConflicts(planned);
-            if (!conflicts.getLines().isEmpty()) {
-                java.util.List<DlcItem> filteredTargets = filterConflictTargets(planned, conflicts);
-                if (filteredTargets.isEmpty()) {
-                    refreshAfterStateChange();
-                    return;
-                }
-                showBatchConflictSkipPrompt(conflicts.getLines(), () -> {
-                    enableItems(filteredTargets, true);
-                    refreshAfterStateChange();
-                });
+            enableBatchDependencies(depsToEnable, targets);
+        }, title, message, enableLabel, DlcConfirmUtil.confirmNo()));
+    }
+
+    private void enableBatchDependencies(java.util.List<DlcItem> depsToEnable, java.util.List<DlcItem> targets) {
+        java.util.ArrayList<DlcItem> planned = new java.util.ArrayList<>();
+        if (depsToEnable != null) {
+            planned.addAll(depsToEnable);
+        }
+        if (targets != null) {
+            planned.addAll(targets);
+        }
+        DlcRuntimeState.ConflictBatchResult conflicts = DlcRuntimeState.collectConflicts(planned);
+        if (!conflicts.getLines().isEmpty()) {
+            java.util.List<DlcItem> filteredTargets = filterConflictTargets(planned, conflicts);
+            if (filteredTargets.isEmpty()) {
+                refreshAfterStateChange();
                 return;
             }
-            enableItems(planned, true);
-            refreshAfterStateChange();
-        }, title, message, enableLabel, DlcConfirmUtil.confirmNo()));
+            showBatchConflictSkipPrompt(conflicts.getLines(), () -> {
+                enableItems(filteredTargets, true);
+                refreshAfterStateChange();
+            });
+            return;
+        }
+        enableItems(planned, true);
+        refreshAfterStateChange();
     }
 
     private HeaderLabels getHeaderLabels() {

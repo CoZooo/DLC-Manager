@@ -50,7 +50,7 @@ object DlcConfirmUtil {
 
     @JvmStatic
     fun buildDependencyPromptMessage(names: List<String>?): Component {
-        return buildDependencyPromptMessage(joinNames(names))
+        return buildDependencyPromptMessage(joinNames(names, "\n"))
     }
 
     @JvmStatic
@@ -216,11 +216,11 @@ object DlcConfirmUtil {
         return result
     }
 
-    private fun joinNames(names: List<String>?): String {
+    private fun joinNames(names: List<String>?, separator: String = ", "): String {
         if (names.isNullOrEmpty()) {
             return ""
         }
-        return names.filter { it.isNotBlank() }.joinToString(", ")
+        return names.filter { it.isNotBlank() }.joinToString(separator)
     }
 
     private fun joinLimited(values: List<String>): String {

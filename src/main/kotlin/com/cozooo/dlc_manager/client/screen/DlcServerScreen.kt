@@ -273,6 +273,10 @@ class DlcServerScreen(
         }
         val deps = checkDependencies(item)
         if (deps.missing.isNotEmpty()) {
+            if (!DlcConfig.isShowDependencyReminder()) {
+                enableWithDependencies(item, deps)
+                return
+            }
             val message = DlcConfirmUtil.buildDependencyPromptMessage(deps.missingNames)
             rememberListScroll()
             Minecraft.getInstance().setScreen(
@@ -280,11 +284,7 @@ class DlcServerScreen(
                     { accepted ->
                         Minecraft.getInstance().setScreen(this)
                         if (accepted) {
-                            for (dep in deps.missingItems) {
-                                dep.enabled = true
-                            }
-                            item.enabled = true
-                            updateApplyState()
+                            enableWithDependencies(item, deps)
                         }
                     },
                     DlcTextCompat.translatable("dlc_manager.dependency.enable"),
@@ -311,6 +311,10 @@ class DlcServerScreen(
 
         val deps = checkDependencies(item)
         if (deps.missing.isNotEmpty()) {
+            if (!DlcConfig.isShowDependencyReminder()) {
+                enableWithDependencies(item, deps)
+                return
+            }
             val message = DlcConfirmUtil.buildDependencyPromptMessage(deps.missingNames)
             rememberListScroll()
             Minecraft.getInstance().setScreen(
@@ -318,11 +322,7 @@ class DlcServerScreen(
                     { accepted ->
                         Minecraft.getInstance().setScreen(this)
                         if (accepted) {
-                            for (dep in deps.missingItems) {
-                                dep.enabled = true
-                            }
-                            item.enabled = true
-                            updateApplyState()
+                            enableWithDependencies(item, deps)
                         }
                     },
                     DlcTextCompat.translatable("dlc_manager.dependency.enable"),
@@ -332,6 +332,14 @@ class DlcServerScreen(
                 ),
             )
             return
+        }
+        item.enabled = true
+        updateApplyState()
+    }
+
+    private fun enableWithDependencies(item: DlcServerItem, deps: DependencyCheck) {
+        for (dep in deps.missingItems) {
+            dep.enabled = true
         }
         item.enabled = true
         updateApplyState()

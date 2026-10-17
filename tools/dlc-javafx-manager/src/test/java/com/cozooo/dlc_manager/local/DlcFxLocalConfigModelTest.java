@@ -37,7 +37,7 @@ final class DlcFxLocalConfigModelTest {
 
         assertEquals(4, model.options(DlcFxConfigModel.Tab.PATHS).size());
         assertEquals(4, model.options(DlcFxConfigModel.Tab.SERVER).size());
-        assertEquals(25, model.options(DlcFxConfigModel.Tab.UI).size());
+        assertEquals(26, model.options(DlcFxConfigModel.Tab.UI).size());
         assertEquals(5, model.options(DlcFxConfigModel.Tab.MODPACK).size());
         assertEquals(9, model.options(DlcFxConfigModel.Tab.DOWNLOADS).size());
     }

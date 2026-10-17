@@ -155,6 +155,7 @@ export function createEmptyTemplate(type: DocumentType): string {
         "isPackFuncOn = true",
         "isPButtomShown = true",
         "ShowOnFirstRun = false",
+        "showDependencyReminder = false",
         "WaitingTime = 0",
         "serverSupport = true",
         "apiEnabled = false",

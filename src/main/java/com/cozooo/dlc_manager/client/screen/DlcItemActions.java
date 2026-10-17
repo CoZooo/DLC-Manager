@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.platform.DlcTextCompat;
 
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
@@ -318,6 +319,10 @@ public final class DlcItemActions {
 
     private static void showBatchDependencyPrompt(java.util.List<DlcRuntimeState.DependencyLine> lines,
         java.util.List<DlcItem> depsToEnable, java.util.List<DlcItem> targets, Component scopeLabel) {
+        if (!DlcConfig.isShowDependencyReminder()) {
+            enableBatchDependencies(depsToEnable, targets, null);
+            return;
+        }
         Component message = DlcConfirmUtil.buildDependencyMessage(lines);
         Screen returnScreen = Minecraft.getInstance().screen;
         if (returnScreen instanceof DlcManagerScreen screen) {
@@ -330,35 +335,48 @@ public final class DlcItemActions {
             if (!accepted) {
                 return;
             }
-            java.util.ArrayList<DlcItem> planned = new java.util.ArrayList<>();
-            if (depsToEnable != null) {
-                planned.addAll(depsToEnable);
-            }
-            if (targets != null) {
-                planned.addAll(targets);
-            }
-            DlcRuntimeState.ConflictBatchResult conflicts = DlcRuntimeState.collectConflicts(planned);
-            if (!conflicts.getLines().isEmpty()) {
-                java.util.List<DlcItem> filtered = filterConflictTargets(planned, conflicts);
-                showBatchConflictPrompt(conflicts.getLines(), () -> {
-                    if (!filtered.isEmpty()) {
-                        enableItems(filtered, true);
-                    }
-                    if (returnScreen instanceof DlcManagerScreen screen) {
-                        screen.refreshAfterStateChange();
-                    }
-                });
-                return;
-            }
-            enableItems(planned, true);
-            if (returnScreen instanceof DlcManagerScreen screen) {
-                screen.refreshAfterStateChange();
-            }
+            enableBatchDependencies(depsToEnable, targets, () -> {
+                if (returnScreen instanceof DlcManagerScreen screen) {
+                    screen.refreshAfterStateChange();
+                }
+            });
         }, title, message, enableLabel, DlcConfirmUtil.confirmNo()));
+    }
+
+    private static void enableBatchDependencies(java.util.List<DlcItem> depsToEnable,
+        java.util.List<DlcItem> targets, Runnable onEnabled) {
+        java.util.ArrayList<DlcItem> planned = new java.util.ArrayList<>();
+        if (depsToEnable != null) {
+            planned.addAll(depsToEnable);
+        }
+        if (targets != null) {
+            planned.addAll(targets);
+        }
+        DlcRuntimeState.ConflictBatchResult conflicts = DlcRuntimeState.collectConflicts(planned);
+        if (!conflicts.getLines().isEmpty()) {
+            java.util.List<DlcItem> filtered = filterConflictTargets(planned, conflicts);
+            showBatchConflictPrompt(conflicts.getLines(), () -> {
+                enableItems(filtered, true);
+                if (onEnabled != null) {
+                    onEnabled.run();
+                }
+            });
+            return;
+        }
+        enableItems(planned, true);
+        if (onEnabled != null) {
+            onEnabled.run();
+        }
     }
 
     private static void showDependencyPrompt(DlcItem item, DependencyCheck dependencies) {
         if (dependencies.names.isEmpty()) {
+            return;
+        }
+        if (!DlcConfig.isShowDependencyReminder()) {
+            enableItems(dependencies.items, true);
+            enableItems(java.util.List.of(item), true);
+            item.setDirty(isDirty(item));
             return;
         }
         Screen returnScreen = Minecraft.getInstance().screen;

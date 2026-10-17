@@ -1475,6 +1475,14 @@
               "constraints": {}
             },
             {
+              "name": "showDependencyReminder",
+              "type": "boolean",
+              "required": false,
+              "description": "Ask before enabling required DLCs. Defaults to false; required DLCs are enabled automatically when disabled.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
               "name": "WaitingTime",
               "type": "number",
               "required": false,

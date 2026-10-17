@@ -663,6 +663,10 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
         targets: List<DlcItem>?,
         scopeLabel: Component,
     ) {
+        if (!DlcConfig.isShowDependencyReminder()) {
+            enableBatchDependencies(depsToEnable, targets)
+            return
+        }
         val message = DlcConfirmUtil.buildDependencyMessage(lines)
         val title = DlcTextCompat.translatable("dlc_manager.batch.dependencies_title")
         val enableLabel = DlcTextCompat.translatable("dlc_manager.batch.enable_deps", scopeLabel)
@@ -674,28 +678,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
                     if (!accepted) {
                         return@DlcConfirmScreen
                     }
-                    val planned = ArrayList<DlcItem>()
-                    if (depsToEnable != null) {
-                        planned.addAll(depsToEnable)
-                    }
-                    if (targets != null) {
-                        planned.addAll(targets)
-                    }
-                    val conflicts = DlcRuntimeState.collectConflicts(planned)
-                    if (conflicts.getLines().isNotEmpty()) {
-                        val filteredTargets = filterConflictTargets(planned, conflicts)
-                        if (filteredTargets.isEmpty()) {
-                            refreshAfterStateChange()
-                            return@DlcConfirmScreen
-                        }
-                        showBatchConflictSkipPrompt(conflicts.getLines()) {
-                            enableItems(filteredTargets, true)
-                            refreshAfterStateChange()
-                        }
-                        return@DlcConfirmScreen
-                    }
-                    enableItems(planned, true)
-                    refreshAfterStateChange()
+                    enableBatchDependencies(depsToEnable, targets)
                 },
                 title,
                 message,
@@ -703,6 +686,31 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
                 DlcConfirmUtil.confirmNo(),
             )
         )
+    }
+
+    private fun enableBatchDependencies(depsToEnable: List<DlcItem>?, targets: List<DlcItem>?) {
+        val planned = ArrayList<DlcItem>()
+        if (depsToEnable != null) {
+            planned.addAll(depsToEnable)
+        }
+        if (targets != null) {
+            planned.addAll(targets)
+        }
+        val conflicts = DlcRuntimeState.collectConflicts(planned)
+        if (conflicts.getLines().isNotEmpty()) {
+            val filteredTargets = filterConflictTargets(planned, conflicts)
+            if (filteredTargets.isEmpty()) {
+                refreshAfterStateChange()
+                return
+            }
+            showBatchConflictSkipPrompt(conflicts.getLines()) {
+                enableItems(filteredTargets, true)
+                refreshAfterStateChange()
+            }
+            return
+        }
+        enableItems(planned, true)
+        refreshAfterStateChange()
     }
 
     private fun getHeaderLabels(): HeaderLabels {

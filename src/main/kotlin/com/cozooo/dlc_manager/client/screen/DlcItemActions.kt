@@ -4,6 +4,7 @@ import com.cozooo.dlc_manager.platform.DlcTextCompat
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState
 import com.cozooo.dlc_manager.client.remote.DlcRedirectEntry
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcItem
 import com.cozooo.dlc_manager.core.DlcRuntimeState
 import net.minecraft.ChatFormatting
@@ -319,6 +320,10 @@ object DlcItemActions {
         targets: List<DlcItem>?,
         scopeLabel: Component,
     ) {
+        if (!DlcConfig.isShowDependencyReminder()) {
+            enableBatchDependencies(depsToEnable, targets, null)
+            return
+        }
         val message = DlcConfirmUtil.buildDependencyMessage(lines)
         val returnScreen = Minecraft.getInstance().screen
         if (returnScreen is DlcManagerScreen) {
@@ -333,29 +338,10 @@ object DlcItemActions {
                     if (!accepted) {
                         return@DlcConfirmScreen
                     }
-                    val planned = ArrayList<DlcItem>()
-                    if (depsToEnable != null) {
-                        planned.addAll(depsToEnable)
-                    }
-                    if (targets != null) {
-                        planned.addAll(targets)
-                    }
-                    val conflicts = DlcRuntimeState.collectConflicts(planned)
-                    if (conflicts.getLines().isNotEmpty()) {
-                        val filtered = filterConflictTargets(planned, conflicts)
-                        showBatchConflictPrompt(conflicts.getLines()) {
-                            if (filtered.isNotEmpty()) {
-                                enableItems(filtered, true)
-                            }
-                            if (returnScreen is DlcManagerScreen) {
-                                returnScreen.refreshAfterStateChange()
-                            }
+                    enableBatchDependencies(depsToEnable, targets) {
+                        if (returnScreen is DlcManagerScreen) {
+                            returnScreen.refreshAfterStateChange()
                         }
-                        return@DlcConfirmScreen
-                    }
-                    enableItems(planned, true)
-                    if (returnScreen is DlcManagerScreen) {
-                        returnScreen.refreshAfterStateChange()
                     }
                 },
                 title,
@@ -366,8 +352,35 @@ object DlcItemActions {
         )
     }
 
+    private fun enableBatchDependencies(depsToEnable: List<DlcItem>?, targets: List<DlcItem>?, onEnabled: Runnable?) {
+        val planned = ArrayList<DlcItem>()
+        if (depsToEnable != null) {
+            planned.addAll(depsToEnable)
+        }
+        if (targets != null) {
+            planned.addAll(targets)
+        }
+        val conflicts = DlcRuntimeState.collectConflicts(planned)
+        if (conflicts.getLines().isNotEmpty()) {
+            val filtered = filterConflictTargets(planned, conflicts)
+            showBatchConflictPrompt(conflicts.getLines()) {
+                enableItems(filtered, true)
+                onEnabled?.run()
+            }
+            return
+        }
+        enableItems(planned, true)
+        onEnabled?.run()
+    }
+
     private fun showDependencyPrompt(item: DlcItem, dependencies: DependencyCheck) {
         if (dependencies.names.isEmpty()) {
+            return
+        }
+        if (!DlcConfig.isShowDependencyReminder()) {
+            enableItems(dependencies.items, true)
+            enableItems(listOf(item), true)
+            item.setDirty(isDirty(item))
             return
         }
         val returnScreen = Minecraft.getInstance().screen

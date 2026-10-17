@@ -27,6 +27,7 @@ object DlcConfig {
     const val DEFAULT_PACK_FUNC_ON: Boolean = true
     const val DEFAULT_P_BUTTON_SHOWN: Boolean = true
     const val DEFAULT_SHOW_ON_FIRST_RUN: Boolean = false
+    const val DEFAULT_SHOW_DEPENDENCY_REMINDER: Boolean = false
     const val DEFAULT_ALARM_WAITING_TIME: Int = 0
     const val DEFAULT_SERVER_SUPPORT: Boolean = true
     const val DEFAULT_SERVER_PORT: Int = 29690
@@ -92,6 +93,7 @@ object DlcConfig {
     private var packFuncOn = DEFAULT_PACK_FUNC_ON
     private var pButtonShown = DEFAULT_P_BUTTON_SHOWN
     private var showOnFirstRun = DEFAULT_SHOW_ON_FIRST_RUN
+    private var showDependencyReminder = DEFAULT_SHOW_DEPENDENCY_REMINDER
     private var alarmWaitingTime = DEFAULT_ALARM_WAITING_TIME
     private var serverSupportClient = DEFAULT_SERVER_SUPPORT
     private var serverPort = DEFAULT_SERVER_PORT
@@ -204,6 +206,7 @@ object DlcConfig {
     @JvmStatic fun isPackFuncOn(): Boolean = packFuncOn
     @JvmStatic fun isPButtomShown(): Boolean = pButtonShown
     @JvmStatic fun isShowOnFirstRun(): Boolean = showOnFirstRun
+    @JvmStatic fun isShowDependencyReminder(): Boolean = showDependencyReminder
     @JvmStatic fun getAlarmWaitingTime(): Int = alarmWaitingTime
     @JvmStatic fun isServerSupportOn(): Boolean = serverSupportClient
     @JvmStatic fun isServerSupportOnServer(): Boolean = true
@@ -311,6 +314,7 @@ object DlcConfig {
     @JvmStatic fun setPackFuncOn(value: Boolean) { packFuncOn = value }
     @JvmStatic fun setPButtomShown(value: Boolean) { pButtonShown = value }
     @JvmStatic fun setShowOnFirstRun(value: Boolean) { showOnFirstRun = value }
+    @JvmStatic fun setShowDependencyReminder(value: Boolean) { showDependencyReminder = value }
     @JvmStatic fun setAlarmWaitingTime(value: Int) { alarmWaitingTime = clampInt(value, 0, 10, DEFAULT_ALARM_WAITING_TIME) }
     @JvmStatic fun setServerSupportOn(value: Boolean) { serverSupportClient = value }
     @JvmStatic fun setServerSupportOnServer(@Suppress("UNUSED_PARAMETER") value: Boolean) {}
@@ -371,6 +375,7 @@ object DlcConfig {
         packFuncOn = DEFAULT_PACK_FUNC_ON
         pButtonShown = DEFAULT_P_BUTTON_SHOWN
         showOnFirstRun = DEFAULT_SHOW_ON_FIRST_RUN
+        showDependencyReminder = DEFAULT_SHOW_DEPENDENCY_REMINDER
         alarmWaitingTime = DEFAULT_ALARM_WAITING_TIME
         serverSupportClient = DEFAULT_SERVER_SUPPORT
         serverPort = DEFAULT_SERVER_PORT
@@ -556,6 +561,7 @@ object DlcConfig {
         obj.addProperty("isPackFuncOn", packFuncOn)
         obj.addProperty("isPButtomShown", pButtonShown)
         obj.addProperty("ShowOnFirstRun", showOnFirstRun)
+        obj.addProperty("showDependencyReminder", showDependencyReminder)
         obj.addProperty("WaitingTime", alarmWaitingTime)
         obj.addProperty("serverSupport", serverSupportClient)
         obj.addProperty("titleAnchor", titleAnchor)
@@ -648,6 +654,7 @@ object DlcConfig {
         "isPackFuncOn" to { value -> packFuncOn = asBoolean(value, DEFAULT_PACK_FUNC_ON) },
         "isPButtomShown" to { value -> pButtonShown = asBoolean(value, DEFAULT_P_BUTTON_SHOWN) },
         "ShowOnFirstRun" to { value -> showOnFirstRun = asBoolean(value, DEFAULT_SHOW_ON_FIRST_RUN) },
+        "showDependencyReminder" to { value -> showDependencyReminder = asBoolean(value, DEFAULT_SHOW_DEPENDENCY_REMINDER) },
         "WaitingTime" to { value -> alarmWaitingTime = clampInt(asInt(value, DEFAULT_ALARM_WAITING_TIME), 0, 10, DEFAULT_ALARM_WAITING_TIME) },
         "serverSupport" to { value -> serverSupportClient = asBoolean(value, DEFAULT_SERVER_SUPPORT) },
         "titleAnchor" to { value -> titleAnchor = asString(value, DEFAULT_TITLE_ANCHOR) },

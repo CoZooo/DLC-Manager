@@ -83,6 +83,7 @@ public final class DlcFxConfigModel {
                 bool("isPackFuncOn", "ui", "isPackFuncOn", "dlc_manager.config.ui.isPackFuncOn", "dlc_manager.config.comment.ui.isPackFuncOn", DlcConfig.DEFAULT_PACK_FUNC_ON),
                 bool("isPButtomShown", "ui", "isPButtomShown", "dlc_manager.config.ui.isPButtomShown", "dlc_manager.config.comment.ui.isPButtomShown", DlcConfig.DEFAULT_P_BUTTON_SHOWN),
                 bool("ShowOnFirstRun", "ui", "ShowOnFirstRun", "dlc_manager.config.ui.ShowOnFirstRun", "dlc_manager.config.comment.ui.ShowOnFirstRun", DlcConfig.DEFAULT_SHOW_ON_FIRST_RUN),
+                bool("showDependencyReminder", "ui", "showDependencyReminder", "dlc_manager.config.ui.showDependencyReminder", "dlc_manager.config.comment.ui.showDependencyReminder", DlcConfig.DEFAULT_SHOW_DEPENDENCY_REMINDER),
                 integer("WaitingTime", "ui", "WaitingTime", "dlc_manager.config.ui.WaitingTime", "dlc_manager.config.comment.ui.WaitingTime", DlcConfig.DEFAULT_ALARM_WAITING_TIME, 0, 10),
                 choice("noticeDisplayMode", "ui", "noticeDisplayMode", "dlc_manager.config.ui.noticeDisplayMode", "dlc_manager.config.comment.ui.noticeDisplayMode", DlcConfig.DEFAULT_NOTICE_DISPLAY_MODE, NOTICE_DISPLAY_MODE_VALUES, "dlc_manager.config.ui.noticeDisplayMode."),
                 choice("noticeButtonAnchor", "ui", "noticeButtonAnchor", "dlc_manager.config.ui.noticeButtonAnchor", "dlc_manager.config.comment.ui.noticeButtonAnchor", DlcConfig.DEFAULT_NOTICE_BUTTON_ANCHOR, ANCHOR_VALUES, "dlc_manager.config.ui.noticeButtonAnchor."),

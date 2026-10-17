@@ -298,16 +298,16 @@ public class DlcServerScreen extends DlcManagerPageScreen implements DlcReturnPo
         }
         DependencyCheck deps = checkDependencies(item);
         if (!deps.missing.isEmpty()) {
+            if (!DlcConfig.isShowDependencyReminder()) {
+                enableWithDependencies(item, deps);
+                return;
+            }
             Component message = DlcConfirmUtil.buildDependencyPromptMessage(deps.missingNames);
             rememberListScroll();
             Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
                 Minecraft.getInstance().setScreen(this);
                 if (accepted) {
-                    for (DlcServerItem dep : deps.missingItems) {
-                        dep.enabled = true;
-                    }
-                    item.enabled = true;
-                    updateApplyState();
+                    enableWithDependencies(item, deps);
                 }
             }, DlcTextCompat.translatable("dlc_manager.dependency.enable"), message, DlcTextCompat.translatable("dlc_manager.dependency.enable"), DlcTextCompat.translatable("gui.cancel")));
             return;
@@ -328,21 +328,29 @@ public class DlcServerScreen extends DlcManagerPageScreen implements DlcReturnPo
 
         DependencyCheck deps = checkDependencies(item);
         if (!deps.missing.isEmpty()) {
+            if (!DlcConfig.isShowDependencyReminder()) {
+                enableWithDependencies(item, deps);
+                return;
+            }
             Component message = DlcConfirmUtil.buildDependencyPromptMessage(deps.missingNames);
             rememberListScroll();
             Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
                 Minecraft.getInstance().setScreen(this);
                 if (accepted) {
-                    for (DlcServerItem dep : deps.missingItems) {
-                        dep.enabled = true;
-                    }
-                    item.enabled = true;
-                    updateApplyState();
+                    enableWithDependencies(item, deps);
                 }
             }, DlcTextCompat.translatable("dlc_manager.dependency.enable"), message, DlcTextCompat.translatable("dlc_manager.dependency.enable"), DlcTextCompat.translatable("gui.cancel")));
             return;
         }
 
+        item.enabled = true;
+        updateApplyState();
+    }
+
+    private void enableWithDependencies(DlcServerItem item, DependencyCheck deps) {
+        for (DlcServerItem dep : deps.missingItems) {
+            dep.enabled = true;
+        }
         item.enabled = true;
         updateApplyState();
     }

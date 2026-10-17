@@ -18,6 +18,7 @@ public final class DlcConfigClient {
     private static final DlcConfigValue.BooleanValue PACK_FUNC_ON = new DlcConfigValue.BooleanValue("isPackFuncOn", DlcConfig.DEFAULT_PACK_FUNC_ON, "dlc_manager.config.comment.ui.isPackFuncOn", "dlc_manager.config.ui.isPackFuncOn");
     private static final DlcConfigValue.BooleanValue P_BUTTON = new DlcConfigValue.BooleanValue("isPButtomShown", DlcConfig.DEFAULT_P_BUTTON_SHOWN, "dlc_manager.config.comment.ui.isPButtomShown", "dlc_manager.config.ui.isPButtomShown");
     private static final DlcConfigValue.BooleanValue SHOW_ON_FIRST_RUN = new DlcConfigValue.BooleanValue("ShowOnFirstRun", DlcConfig.DEFAULT_SHOW_ON_FIRST_RUN, "dlc_manager.config.comment.ui.ShowOnFirstRun", "dlc_manager.config.ui.ShowOnFirstRun");
+    private static final DlcConfigValue.BooleanValue SHOW_DEPENDENCY_REMINDER = new DlcConfigValue.BooleanValue("showDependencyReminder", DlcConfig.DEFAULT_SHOW_DEPENDENCY_REMINDER, "dlc_manager.config.comment.ui.showDependencyReminder", "dlc_manager.config.ui.showDependencyReminder");
     private static final DlcConfigValue.IntegerValue ALARM_WAITING_TIME = new DlcConfigValue.IntegerValue("WaitingTime", DlcConfig.DEFAULT_ALARM_WAITING_TIME, 0, 10, "dlc_manager.config.comment.ui.WaitingTime", "dlc_manager.config.ui.WaitingTime");
     private static final DlcConfigValue.BooleanValue SERVER_SUPPORT_CLIENT = new DlcConfigValue.BooleanValue("serverSupport", DlcConfig.DEFAULT_SERVER_SUPPORT, "dlc_manager.config.comment.ui.serverSupport", "dlc_manager.config.ui.serverSupport");
     private static final DlcConfigValue.BooleanValue API_ENABLED = new DlcConfigValue.BooleanValue("apiEnabled", DlcConfig.DEFAULT_API_ENABLED, "dlc_manager.config.comment.ui.apiEnabled", "dlc_manager.config.ui.apiEnabled");
@@ -71,6 +72,7 @@ public final class DlcConfigClient {
             PACK_FUNC_ON,
             P_BUTTON,
             SHOW_ON_FIRST_RUN,
+            SHOW_DEPENDENCY_REMINDER,
             ALARM_WAITING_TIME,
             NOTICE_DISPLAY_MODE,
             NOTICE_BUTTON_ANCHOR,
@@ -154,6 +156,7 @@ public final class DlcConfigClient {
         PACK_FUNC_ON.setBooleanValue(DlcConfig.isPackFuncOn());
         P_BUTTON.setBooleanValue(DlcConfig.isPButtomShown());
         SHOW_ON_FIRST_RUN.setBooleanValue(DlcConfig.isShowOnFirstRun());
+        SHOW_DEPENDENCY_REMINDER.setBooleanValue(DlcConfig.isShowDependencyReminder());
         ALARM_WAITING_TIME.setIntegerValue(DlcConfig.getAlarmWaitingTime());
         SERVER_SUPPORT_CLIENT.setBooleanValue(DlcConfig.isServerSupportOn());
         MODPACK.setValueFromString(DlcConfig.getModpack());
@@ -206,6 +209,7 @@ public final class DlcConfigClient {
         DlcConfig.setPackFuncOn(PACK_FUNC_ON.getBooleanValue());
         DlcConfig.setPButtomShown(P_BUTTON.getBooleanValue());
         DlcConfig.setShowOnFirstRun(SHOW_ON_FIRST_RUN.getBooleanValue());
+        DlcConfig.setShowDependencyReminder(SHOW_DEPENDENCY_REMINDER.getBooleanValue());
         DlcConfig.setAlarmWaitingTime(ALARM_WAITING_TIME.getIntegerValue());
         DlcConfig.setServerSupportOn(SERVER_SUPPORT_CLIENT.getBooleanValue());
         DlcConfig.setModpack(MODPACK.getStringValue());

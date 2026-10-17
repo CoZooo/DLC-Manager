@@ -46,7 +46,7 @@ public final class DlcConfirmUtil {
     }
 
     public static Component buildDependencyPromptMessage(List<String> names) {
-        return buildDependencyPromptMessage(joinNames(names));
+        return buildDependencyPromptMessage(joinNames(names, "\n"));
     }
 
     public static Component buildConflictMessage(List<DlcRuntimeState.ConflictLine> lines) {
@@ -192,6 +192,10 @@ public final class DlcConfirmUtil {
     }
 
     private static String joinNames(List<String> names) {
+        return joinNames(names, ", ");
+    }
+
+    private static String joinNames(List<String> names, String separator) {
         if (names == null || names.isEmpty()) {
             return "";
         }
@@ -201,7 +205,7 @@ public final class DlcConfirmUtil {
                 continue;
             }
             if (sb.length() > 0) {
-                sb.append(", ");
+                sb.append(separator);
             }
             sb.append(name);
         }

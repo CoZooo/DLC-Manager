@@ -313,6 +313,7 @@ const configUiSection: SectionSchema = {
     { key: "isPackFuncOn", label: "isPackFuncOn", kind: "boolean", help: "static.help.configPackFunc" },
     { key: "isPButtomShown", label: "isPButtomShown", kind: "boolean", help: "static.help.configPButton" },
     { key: "ShowOnFirstRun", label: "ShowOnFirstRun", kind: "boolean", help: "static.help.configShowOnFirstRun" },
+    { key: "showDependencyReminder", label: "showDependencyReminder", kind: "boolean", help: "static.help.configShowDependencyReminder" },
     { key: "WaitingTime", label: "WaitingTime", kind: "number", help: "static.help.configWaitingTime" },
     { key: "serverSupport", label: "serverSupport", kind: "boolean", help: "static.help.configServerSupport" },
     { key: "apiEnabled", label: "apiEnabled", kind: "boolean", help: "static.help.configApiEnabled" },

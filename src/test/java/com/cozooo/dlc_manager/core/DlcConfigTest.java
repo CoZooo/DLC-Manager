@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.nio.file.Files;
+import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -42,6 +44,25 @@ class DlcConfigTest {
 
         DlcConfig.setTitleAnchor("hidden");
         assertTrue(DlcConfig.isTitleAnchorHidden());
+    }
+
+    @Test
+    void dependencyReminderDefaultsOffAndPersistsInUiSection() throws IOException {
+        assertFalse(DlcConfig.isShowDependencyReminder());
+        assertFalse(DlcConfig.buildSharedConfigJson().getAsJsonObject("ui")
+            .get("showDependencyReminder").getAsBoolean());
+
+        DlcConfig.setShowDependencyReminder(true);
+        DlcConfig.saveClient();
+        DlcConfig.setShowDependencyReminder(false);
+        DlcConfig.loadClient();
+        assertTrue(DlcConfig.isShowDependencyReminder());
+
+        Path config = tempDir.resolve("config/dlc_manager/config.dc");
+        Files.writeString(config, "[ui]\nShowOnFirstRun = true\n");
+        DlcConfig.loadClient();
+        assertFalse(DlcConfig.isShowDependencyReminder());
+        assertTrue(DlcConfig.isShowOnFirstRun());
     }
 
     @Test

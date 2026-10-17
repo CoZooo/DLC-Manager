@@ -34,6 +34,7 @@ public class DlcConfig {
     public static final boolean DEFAULT_PACK_FUNC_ON = true;
     public static final boolean DEFAULT_P_BUTTON_SHOWN = true;
     public static final boolean DEFAULT_SHOW_ON_FIRST_RUN = false;
+    public static final boolean DEFAULT_SHOW_DEPENDENCY_REMINDER = false;
     public static final int DEFAULT_ALARM_WAITING_TIME = 0;
     public static final boolean DEFAULT_SERVER_SUPPORT = true;
     public static final int DEFAULT_SERVER_PORT = 29690;
@@ -100,6 +101,7 @@ public class DlcConfig {
     private static boolean packFuncOn = DEFAULT_PACK_FUNC_ON;
     private static boolean pButtonShown = DEFAULT_P_BUTTON_SHOWN;
     private static boolean showOnFirstRun = DEFAULT_SHOW_ON_FIRST_RUN;
+    private static boolean showDependencyReminder = DEFAULT_SHOW_DEPENDENCY_REMINDER;
     private static int alarmWaitingTime = DEFAULT_ALARM_WAITING_TIME;
     private static boolean serverSupportClient = DEFAULT_SERVER_SUPPORT;
     private static int serverPort = DEFAULT_SERVER_PORT;
@@ -293,6 +295,10 @@ public class DlcConfig {
 
     public static boolean isShowOnFirstRun() {
         return showOnFirstRun;
+    }
+
+    public static boolean isShowDependencyReminder() {
+        return showDependencyReminder;
     }
 
     public static int getAlarmWaitingTime() {
@@ -657,6 +663,10 @@ public class DlcConfig {
         showOnFirstRun = value;
     }
 
+    public static void setShowDependencyReminder(boolean value) {
+        showDependencyReminder = value;
+    }
+
     public static void setAlarmWaitingTime(int value) {
         alarmWaitingTime = clampInt(value, 0, 10, DEFAULT_ALARM_WAITING_TIME);
     }
@@ -842,6 +852,7 @@ public class DlcConfig {
         packFuncOn = DEFAULT_PACK_FUNC_ON;
         pButtonShown = DEFAULT_P_BUTTON_SHOWN;
         showOnFirstRun = DEFAULT_SHOW_ON_FIRST_RUN;
+        showDependencyReminder = DEFAULT_SHOW_DEPENDENCY_REMINDER;
         alarmWaitingTime = DEFAULT_ALARM_WAITING_TIME;
         serverSupportClient = DEFAULT_SERVER_SUPPORT;
         serverPort = DEFAULT_SERVER_PORT;
@@ -1037,6 +1048,7 @@ public class DlcConfig {
         obj.addProperty("isPackFuncOn", packFuncOn);
         obj.addProperty("isPButtomShown", pButtonShown);
         obj.addProperty("ShowOnFirstRun", showOnFirstRun);
+        obj.addProperty("showDependencyReminder", showDependencyReminder);
         obj.addProperty("WaitingTime", alarmWaitingTime);
         obj.addProperty("serverSupport", serverSupportClient);
         obj.addProperty("titleAnchor", titleAnchor);
@@ -1137,6 +1149,7 @@ public class DlcConfig {
         map.put("isPackFuncOn", value -> packFuncOn = asBoolean(value, DEFAULT_PACK_FUNC_ON));
         map.put("isPButtomShown", value -> pButtonShown = asBoolean(value, DEFAULT_P_BUTTON_SHOWN));
         map.put("ShowOnFirstRun", value -> showOnFirstRun = asBoolean(value, DEFAULT_SHOW_ON_FIRST_RUN));
+        map.put("showDependencyReminder", value -> showDependencyReminder = asBoolean(value, DEFAULT_SHOW_DEPENDENCY_REMINDER));
         map.put("WaitingTime", value -> alarmWaitingTime = clampInt(asInt(value, DEFAULT_ALARM_WAITING_TIME), 0, 10, DEFAULT_ALARM_WAITING_TIME));
         map.put("serverSupport", value -> serverSupportClient = asBoolean(value, DEFAULT_SERVER_SUPPORT));
         map.put("titleAnchor", value -> titleAnchor = asString(value, DEFAULT_TITLE_ANCHOR));

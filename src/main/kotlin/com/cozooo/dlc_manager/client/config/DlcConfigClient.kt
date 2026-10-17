@@ -17,6 +17,7 @@ object DlcConfigClient {
     private val PACK_FUNC_ON = DlcConfigValue.BooleanValue("isPackFuncOn", DlcConfig.DEFAULT_PACK_FUNC_ON, "dlc_manager.config.comment.ui.isPackFuncOn", "dlc_manager.config.ui.isPackFuncOn")
     private val P_BUTTON = DlcConfigValue.BooleanValue("isPButtomShown", DlcConfig.DEFAULT_P_BUTTON_SHOWN, "dlc_manager.config.comment.ui.isPButtomShown", "dlc_manager.config.ui.isPButtomShown")
     private val SHOW_ON_FIRST_RUN = DlcConfigValue.BooleanValue("ShowOnFirstRun", DlcConfig.DEFAULT_SHOW_ON_FIRST_RUN, "dlc_manager.config.comment.ui.ShowOnFirstRun", "dlc_manager.config.ui.ShowOnFirstRun")
+    private val SHOW_DEPENDENCY_REMINDER = DlcConfigValue.BooleanValue("showDependencyReminder", DlcConfig.DEFAULT_SHOW_DEPENDENCY_REMINDER, "dlc_manager.config.comment.ui.showDependencyReminder", "dlc_manager.config.ui.showDependencyReminder")
     private val ALARM_WAITING_TIME = DlcConfigValue.IntegerValue("WaitingTime", DlcConfig.DEFAULT_ALARM_WAITING_TIME, 0, 10, "dlc_manager.config.comment.ui.WaitingTime", "dlc_manager.config.ui.WaitingTime")
     private val SERVER_SUPPORT_CLIENT = DlcConfigValue.BooleanValue("serverSupport", DlcConfig.DEFAULT_SERVER_SUPPORT, "dlc_manager.config.comment.ui.serverSupport", "dlc_manager.config.ui.serverSupport")
     private val API_ENABLED = DlcConfigValue.BooleanValue("apiEnabled", DlcConfig.DEFAULT_API_ENABLED, "dlc_manager.config.comment.ui.apiEnabled", "dlc_manager.config.ui.apiEnabled")
@@ -65,6 +66,7 @@ object DlcConfigClient {
         PACK_FUNC_ON,
         P_BUTTON,
         SHOW_ON_FIRST_RUN,
+        SHOW_DEPENDENCY_REMINDER,
         ALARM_WAITING_TIME,
         NOTICE_DISPLAY_MODE,
         NOTICE_BUTTON_ANCHOR,
@@ -141,6 +143,7 @@ object DlcConfigClient {
         PACK_FUNC_ON.booleanValue = DlcConfig.isPackFuncOn()
         P_BUTTON.booleanValue = DlcConfig.isPButtomShown()
         SHOW_ON_FIRST_RUN.booleanValue = DlcConfig.isShowOnFirstRun()
+        SHOW_DEPENDENCY_REMINDER.booleanValue = DlcConfig.isShowDependencyReminder()
         ALARM_WAITING_TIME.integerValue = DlcConfig.getAlarmWaitingTime()
         SERVER_SUPPORT_CLIENT.booleanValue = DlcConfig.isServerSupportOn()
         MODPACK.setValueFromString(DlcConfig.getModpack())
@@ -194,6 +197,7 @@ object DlcConfigClient {
         DlcConfig.setPackFuncOn(PACK_FUNC_ON.booleanValue)
         DlcConfig.setPButtomShown(P_BUTTON.booleanValue)
         DlcConfig.setShowOnFirstRun(SHOW_ON_FIRST_RUN.booleanValue)
+        DlcConfig.setShowDependencyReminder(SHOW_DEPENDENCY_REMINDER.booleanValue)
         DlcConfig.setAlarmWaitingTime(ALARM_WAITING_TIME.integerValue)
         DlcConfig.setServerSupportOn(SERVER_SUPPORT_CLIENT.booleanValue)
         DlcConfig.setModpack(MODPACK.stringValue)
