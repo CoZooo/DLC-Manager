@@ -41,6 +41,8 @@ public final class DlcConfigClient {
     private static final DlcConfigValue.StringValue MODPACK = new DlcConfigValue.StringValue("modpack", DlcConfig.DEFAULT_MODPACK, "dlc_manager.config.comment.modpack.modpack", "dlc_manager.config.modpack.modpack");
     private static final DlcConfigValue.StringValue MODPACK_URL = new DlcConfigValue.StringValue("modpackUrl", DlcConfig.DEFAULT_MODPACK_URL, "dlc_manager.config.comment.modpack.modpackUrl", "dlc_manager.config.modpack.modpackUrl");
     private static final DlcConfigValue.StringValue UPDATE_GIT_REPO = new DlcConfigValue.StringValue("updateGitRepo", DlcConfig.DEFAULT_UPDATE_GIT_REPO_URL, "dlc_manager.config.comment.modpack.updateGitRepo", "dlc_manager.config.modpack.updateGitRepo");
+    private static final DlcConfigValue.BooleanValue MODPACK_AUTO_UPDATE = new DlcConfigValue.BooleanValue("autoUpdate", DlcConfig.DEFAULT_MODPACK_AUTO_UPDATE, "dlc_manager.config.comment.modpack.autoUpdate", "dlc_manager.config.modpack.autoUpdate");
+    private static final DlcConfigValue.BooleanValue MODPACK_FORCE_UPDATE = new DlcConfigValue.BooleanValue("forceUpdate", DlcConfig.DEFAULT_MODPACK_FORCE_UPDATE, "dlc_manager.config.comment.modpack.forceUpdate", "dlc_manager.config.modpack.forceUpdate");
 
     private static final DlcConfigValue.IntegerValue MAX_CONCURRENT_DOWNLOADS = new DlcConfigValue.IntegerValue("maxConcurrentDownloads", DlcConfig.DEFAULT_MAX_CONCURRENT_DOWNLOADS, 1, 64, "dlc_manager.config.comment.download.maxConcurrentDownloads", "dlc_manager.config.download.maxConcurrentDownloads");
     private static final DlcConfigValue.IntegerValue MAX_SEGMENTS_PER_FILE = new DlcConfigValue.IntegerValue("maxSegmentsPerFile", DlcConfig.DEFAULT_MAX_SEGMENTS_PER_FILE, 1, 64, "dlc_manager.config.comment.download.maxSegmentsPerFile", "dlc_manager.config.download.maxSegmentsPerFile");
@@ -90,7 +92,9 @@ public final class DlcConfigClient {
     private static final List<DlcConfigValue> MODPACK_CONFIGS = List.of(
             MODPACK,
             MODPACK_URL,
-            UPDATE_GIT_REPO
+            UPDATE_GIT_REPO,
+            MODPACK_AUTO_UPDATE,
+            MODPACK_FORCE_UPDATE
     );
 
     private static final List<DlcConfigValue> SERVER_CONFIGS = List.of(
@@ -155,6 +159,8 @@ public final class DlcConfigClient {
         MODPACK.setValueFromString(DlcConfig.getModpack());
         MODPACK_URL.setValueFromString(DlcConfig.getModpackUrl());
         UPDATE_GIT_REPO.setValueFromString(DlcConfig.getUpdateGitRepoUrl());
+        MODPACK_AUTO_UPDATE.setBooleanValue(DlcConfig.isModpackAutoUpdateOn());
+        MODPACK_FORCE_UPDATE.setBooleanValue(DlcConfig.isModpackForceUpdateOn());
         API_ENABLED.setBooleanValue(DlcConfig.isApiEnabled());
         API_PORT.setIntegerValue(DlcConfig.getApiPort());
         API_TOKEN.setValueFromString(DlcConfig.getApiToken());
@@ -205,6 +211,8 @@ public final class DlcConfigClient {
         DlcConfig.setModpack(MODPACK.getStringValue());
         DlcConfig.setModpackUrl(MODPACK_URL.getStringValue());
         DlcConfig.setUpdateGitRepoUrl(UPDATE_GIT_REPO.getStringValue());
+        DlcConfig.setModpackAutoUpdateOn(MODPACK_AUTO_UPDATE.getBooleanValue());
+        DlcConfig.setModpackForceUpdateOn(MODPACK_FORCE_UPDATE.getBooleanValue());
         DlcConfig.setApiEnabled(API_ENABLED.getBooleanValue());
         DlcConfig.setApiPort(API_PORT.getIntegerValue());
         DlcConfig.setApiToken(API_TOKEN.getStringValue());

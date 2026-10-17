@@ -1,8 +1,6 @@
 package com.cozooo.dlc_manager.client.update;
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
-import com.cozooo.dlc_manager.client.server.DlcServerConnection;
-import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.DlcUpdateMessage;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -76,6 +74,11 @@ public final class DlcPackReleaseUpdateService {
     @FunctionalInterface
     public interface CancelChecker {
         boolean isCanceled();
+    }
+
+    @FunctionalInterface
+    public interface ServerPackageImporter {
+        boolean importPackage(String assetUrl, String assetName) throws Exception;
     }
 
     public static final class CheckResult {
@@ -565,6 +568,10 @@ public final class DlcPackReleaseUpdateService {
     }
 
     public static DownloadResult downloadClientPackages(CheckResult result, ProgressListener progress, CancelChecker cancelChecker) {
+        return downloadLocalPackages(result, Side.CLIENT, progress, cancelChecker);
+    }
+
+    public static DownloadResult downloadLocalPackages(CheckResult result, Side side, ProgressListener progress, CancelChecker cancelChecker) {
         if (result == null || !result.hasUpdate()) {
             return DownloadResult.failed("no_update");
         }
@@ -596,7 +603,9 @@ public final class DlcPackReleaseUpdateService {
                 return DownloadResult.failed(ex.getMessage() == null ? "download_failed" : ex.getMessage());
             }
         }
-        clearSkipPromptMarker(Side.CLIENT);
+        if (side != null) {
+            clearSkipPromptMarker(side);
+        }
         return DownloadResult.success(downloaded);
     }
 
@@ -624,15 +633,16 @@ public final class DlcPackReleaseUpdateService {
         return true;
     }
 
-    public static DownloadResult downloadServerPackages(CheckResult result, DlcServerEntry entry, int timeoutMs, ProgressListener progress, CancelChecker cancelChecker) {
+    public static DownloadResult downloadServerPackages(CheckResult result, ProgressListener progress,
+                                                        CancelChecker cancelChecker, ServerPackageImporter importer) {
         if (result == null || !result.hasUpdate()) {
             return DownloadResult.failed("no_update");
         }
         if (!result.canDownload()) {
             return DownloadResult.failed("missing_release_asset");
         }
-        if (entry == null) {
-            return DownloadResult.failed("missing_server_entry");
+        if (importer == null) {
+            return DownloadResult.failed("missing_server_importer");
         }
         int totalSteps = result.steps.size();
         for (int i = 0; i < totalSteps; i++) {
@@ -642,7 +652,7 @@ public final class DlcPackReleaseUpdateService {
             ReleaseStep step = result.steps.get(i);
             final int stepIndex = i;
             try {
-                boolean imported = downloadServerStepWithFallback(step, entry, timeoutMs, stepIndex, totalSteps, progress, cancelChecker);
+                boolean imported = downloadServerStepWithFallback(step, importer, stepIndex, totalSteps, progress, cancelChecker);
                 if (!imported) {
                     return DownloadResult.failed("server_import_failed");
                 }
@@ -675,7 +685,7 @@ public final class DlcPackReleaseUpdateService {
         throw lastError == null ? new IOException("download_failed") : lastError;
     }
 
-    private static boolean downloadServerStepWithFallback(ReleaseStep step, DlcServerEntry entry, int timeoutMs, int stepIndex,
+    private static boolean downloadServerStepWithFallback(ReleaseStep step, ServerPackageImporter importer, int stepIndex,
                                                           int totalSteps, ProgressListener progress, CancelChecker cancelChecker) throws Exception {
         Exception lastError = null;
         for (AssetCandidate candidate : resolveAssetCandidates(step)) {
@@ -684,7 +694,7 @@ public final class DlcPackReleaseUpdateService {
             }
             try {
                 notifyProgress(progress, stepIndex, totalSteps, candidate.assetName, 0L, 1L);
-                return DlcServerConnection.importUpdatePackageFromUrl(entry, timeoutMs, candidate.assetUrl, candidate.assetName);
+                return importer.importPackage(candidate.assetUrl, candidate.assetName);
             } catch (Exception ex) {
                 lastError = ex;
                 if (!isRetryableDownloadFailure(ex)) {

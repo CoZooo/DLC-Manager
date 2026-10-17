@@ -1691,6 +1691,22 @@
               "description": "Modpack version repository link.",
               "enumValues": [],
               "constraints": {}
+            },
+            {
+              "name": "autoUpdate",
+              "type": "boolean",
+              "required": false,
+              "description": "Automatically update the modpack when a newer downloadable version is available.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "forceUpdate",
+              "type": "boolean",
+              "required": false,
+              "description": "Require the modpack update check and update when a newer downloadable version is available.",
+              "enumValues": [],
+              "constraints": {}
             }
           ]
         },

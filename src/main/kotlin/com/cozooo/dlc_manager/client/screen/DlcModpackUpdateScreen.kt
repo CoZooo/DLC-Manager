@@ -5,6 +5,7 @@ import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
 import com.cozooo.dlc_manager.platform.DlcTextCompat
 
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
+import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.CheckResult
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.DownloadResult
@@ -170,7 +171,13 @@ class DlcModpackUpdateScreen @JvmOverloads constructor(
         updateButtons()
         Thread({
             val result = if (side == Side.SERVER) {
-                DlcPackReleaseUpdateService.downloadServerPackages(checkResult, serverEntry, 600000, this::onProgress, cancelRequested::get)
+                DlcPackReleaseUpdateService.downloadServerPackages(
+                    checkResult,
+                    this::onProgress,
+                    cancelRequested::get,
+                ) { assetUrl, assetName ->
+                    DlcServerConnection.importUpdatePackageFromUrl(serverEntry, 600000, assetUrl, assetName)
+                }
             } else {
                 DlcPackReleaseUpdateService.downloadClientPackages(checkResult, this::onProgress, cancelRequested::get)
             }

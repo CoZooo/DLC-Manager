@@ -342,7 +342,9 @@ const configModpackSection: SectionSchema = {
   fields: [
     { key: "modpack", label: "modpack", kind: "text", help: "static.help.configModpack" },
     { key: "modpackUrl", label: "modpackUrl", kind: "text", help: "static.help.configModpackUrl" },
-    { key: "updateGitRepo", label: "updateGitRepo", kind: "text", help: "static.help.configUpdateGitRepo" }
+    { key: "updateGitRepo", label: "updateGitRepo", kind: "text", help: "static.help.configUpdateGitRepo" },
+    { key: "autoUpdate", label: "autoUpdate", kind: "boolean", help: "static.help.configModpackAutoUpdate" },
+    { key: "forceUpdate", label: "forceUpdate", kind: "boolean", help: "static.help.configModpackForceUpdate" }
   ]
 };
 

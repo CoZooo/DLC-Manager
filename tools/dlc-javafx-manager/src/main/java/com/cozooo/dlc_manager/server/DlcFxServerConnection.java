@@ -8,6 +8,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerInfo;
 import com.cozooo.dlc_manager.client.server.DlcServerSession;
 import com.cozooo.dlc_manager.platform.DlcPlatformServices;
+import com.google.gson.JsonObject;
 import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ReadOnlyObjectProperty;
@@ -146,6 +147,15 @@ public final class DlcFxServerConnection {
         if (current == null) throw new IllegalStateException(DlcFxI18n.tr("dlc_manager.server.not_connected"));
         DlcFxRequiredInstallation.installRemote(current);
         if (session != current) throw new IllegalStateException(DlcFxI18n.tr("dlc_manager.server.not_connected"));
+    }
+
+    boolean importUpdatePackageFromUrl(String url, String fileName) throws Exception {
+        DlcServerSession current = session;
+        if (current == null) {
+            return false;
+        }
+        JsonObject response = current.updateImportUrl(url, fileName);
+        return response != null && response.has("ok") && response.get("ok").getAsBoolean();
     }
 
     public void refreshLanguage() {

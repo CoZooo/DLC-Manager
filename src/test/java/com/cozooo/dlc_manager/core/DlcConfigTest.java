@@ -102,4 +102,22 @@ class DlcConfigTest {
         assertEquals(25576, DlcConfig.getServerRconPort());
         assertEquals(3, DlcConfig.getMaxRetryCount());
     }
+
+    @Test
+    void serverLoadsModpackAutoUpdateFlagsFromSharedConfig() {
+        DlcConfig.setModpackAutoUpdateOn(true);
+        DlcConfig.setModpackForceUpdateOn(true);
+
+        var json = DlcConfig.buildServerConfigJson();
+        var modpack = json.getAsJsonObject("modpack");
+        assertTrue(modpack.get("autoUpdate").getAsBoolean());
+        assertTrue(modpack.get("forceUpdate").getAsBoolean());
+
+        DlcConfig.saveShared();
+        DlcConfig.setModpackAutoUpdateOn(false);
+        DlcConfig.setModpackForceUpdateOn(false);
+        DlcConfig.loadServer();
+        assertTrue(DlcConfig.isModpackAutoUpdateOn());
+        assertTrue(DlcConfig.isModpackForceUpdateOn());
+    }
 }

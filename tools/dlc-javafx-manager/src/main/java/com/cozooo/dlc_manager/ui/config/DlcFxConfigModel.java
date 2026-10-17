@@ -103,7 +103,9 @@ public final class DlcFxConfigModel {
         register(Tab.MODPACK,
                 string("modpack", "modpack", "modpack", "dlc_manager.config.modpack.modpack", "dlc_manager.config.comment.modpack.modpack", DlcConfig.DEFAULT_MODPACK),
                 string("modpackUrl", "modpack", "modpackUrl", "dlc_manager.config.modpack.modpackUrl", "dlc_manager.config.comment.modpack.modpackUrl", DlcConfig.DEFAULT_MODPACK_URL),
-                string("updateGitRepo", "modpack", "updateGitRepo", "dlc_manager.config.modpack.updateGitRepo", "dlc_manager.config.comment.modpack.updateGitRepo", DlcConfig.DEFAULT_UPDATE_GIT_REPO_URL));
+                string("updateGitRepo", "modpack", "updateGitRepo", "dlc_manager.config.modpack.updateGitRepo", "dlc_manager.config.comment.modpack.updateGitRepo", DlcConfig.DEFAULT_UPDATE_GIT_REPO_URL),
+                bool("autoUpdate", "modpack", "autoUpdate", "dlc_manager.config.modpack.autoUpdate", "dlc_manager.config.comment.modpack.autoUpdate", DlcConfig.DEFAULT_MODPACK_AUTO_UPDATE),
+                bool("forceUpdate", "modpack", "forceUpdate", "dlc_manager.config.modpack.forceUpdate", "dlc_manager.config.comment.modpack.forceUpdate", DlcConfig.DEFAULT_MODPACK_FORCE_UPDATE));
 
         register(Tab.DOWNLOADS,
                 integer("maxConcurrentDownloads", "downloads", "maxConcurrentDownloads", "dlc_manager.config.download.maxConcurrentDownloads", "dlc_manager.config.comment.download.maxConcurrentDownloads", DlcConfig.DEFAULT_MAX_CONCURRENT_DOWNLOADS, 1, 64),

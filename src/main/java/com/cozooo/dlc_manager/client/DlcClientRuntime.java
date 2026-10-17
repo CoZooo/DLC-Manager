@@ -20,6 +20,8 @@ import com.cozooo.dlc_manager.client.screen.DlcServerManagerScreen;
 import com.cozooo.dlc_manager.client.screen.DlcServerPasswordScreen;
 import com.cozooo.dlc_manager.client.screen.DlcModpackUpdateScreen;
 import com.cozooo.dlc_manager.client.screen.DlcUpdatePromptScreen;
+import com.cozooo.dlc_manager.bootstrap.DlcModpackAutoUpdater;
+import com.cozooo.dlc_manager.bootstrap.DlcStartupRequirements;
 import com.cozooo.dlc_manager.client.screen.DlcUpdateChangelogScreen;
 import com.cozooo.dlc_manager.client.server.DlcServerCache;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
@@ -736,6 +738,9 @@ public final class DlcClientRuntime {
             String currentBaseVersion = "1.0.0";
             String currentDlcVersion = "1.0.0";
             Path dlcRoot = DlcPaths.dlcRoot();
+            if (!DlcStartupRequirements.usesEarlyInstallation()) {
+                DlcModpackAutoUpdater.runIfConfigured(false, message -> LOGGER.info("[dlc-manager] {}", message));
+            }
             if (dlcRoot != null) {
                 DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
                 if (version != null) {

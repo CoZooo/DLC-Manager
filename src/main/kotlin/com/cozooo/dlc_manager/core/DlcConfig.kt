@@ -76,6 +76,8 @@ object DlcConfig {
     const val DEFAULT_MODPACK: String = ""
     const val DEFAULT_MODPACK_URL: String = ""
     const val DEFAULT_UPDATE_GIT_REPO_URL: String = ""
+    const val DEFAULT_MODPACK_AUTO_UPDATE: Boolean = false
+    const val DEFAULT_MODPACK_FORCE_UPDATE: Boolean = false
 
     private var dlcRoot = DEFAULT_DLC_ROOT
     private var taczRoot = DEFAULT_TACZ_DLC_ROOT
@@ -118,6 +120,8 @@ object DlcConfig {
     private var modpack = DEFAULT_MODPACK
     private var modpackUrlClient = DEFAULT_MODPACK_URL
     private var updateGitRepoClient = DEFAULT_UPDATE_GIT_REPO_URL
+    private var modpackAutoUpdate = DEFAULT_MODPACK_AUTO_UPDATE
+    private var modpackForceUpdate = DEFAULT_MODPACK_FORCE_UPDATE
     private var maxConcurrentDownloads = DEFAULT_MAX_CONCURRENT_DOWNLOADS
     private var maxSegmentsPerFile = DEFAULT_MAX_SEGMENTS_PER_FILE
     private var minSegmentMb = DEFAULT_MIN_SEGMENT_MB
@@ -235,6 +239,8 @@ object DlcConfig {
     @JvmStatic fun getUpdateGitRepoUrl(): String = updateGitRepoClient
     @JvmStatic fun getServerModpackUrl(): String = getModpackUrl()
     @JvmStatic fun getServerUpdateGitRepoUrl(): String = getUpdateGitRepoUrl()
+    @JvmStatic fun isModpackAutoUpdateOn(): Boolean = modpackAutoUpdate
+    @JvmStatic fun isModpackForceUpdateOn(): Boolean = modpackForceUpdate
 
     @JvmStatic
     fun computeTitleButtonPosition(screenWidth: Int, screenHeight: Int, buttonWidth: Int, buttonHeight: Int, defaultX: Int, defaultY: Int): IntArray {
@@ -334,6 +340,8 @@ object DlcConfig {
     @JvmStatic fun setModpack(value: String?) { modpack = value ?: DEFAULT_MODPACK }
     @JvmStatic fun setModpackUrl(value: String?) { modpackUrlClient = value ?: DEFAULT_MODPACK_URL }
     @JvmStatic fun setUpdateGitRepoUrl(value: String?) { updateGitRepoClient = value ?: DEFAULT_UPDATE_GIT_REPO_URL }
+    @JvmStatic fun setModpackAutoUpdateOn(value: Boolean) { modpackAutoUpdate = value }
+    @JvmStatic fun setModpackForceUpdateOn(value: Boolean) { modpackForceUpdate = value }
     @JvmStatic fun setServerModpackUrl(value: String?) = setModpackUrl(value)
     @JvmStatic fun setServerUpdateGitRepoUrl(value: String?) = setUpdateGitRepoUrl(value)
     @JvmStatic fun setMaxConcurrentDownloads(value: Int) { maxConcurrentDownloads = maxOf(1, value) }
@@ -391,6 +399,8 @@ object DlcConfig {
         modpack = DEFAULT_MODPACK
         modpackUrlClient = DEFAULT_MODPACK_URL
         updateGitRepoClient = DEFAULT_UPDATE_GIT_REPO_URL
+        modpackAutoUpdate = DEFAULT_MODPACK_AUTO_UPDATE
+        modpackForceUpdate = DEFAULT_MODPACK_FORCE_UPDATE
         maxConcurrentDownloads = DEFAULT_MAX_CONCURRENT_DOWNLOADS
         maxSegmentsPerFile = DEFAULT_MAX_SEGMENTS_PER_FILE
         minSegmentMb = DEFAULT_MIN_SEGMENT_MB
@@ -597,6 +607,8 @@ object DlcConfig {
         obj.addProperty("modpack", modpack)
         obj.addProperty("modpackUrl", modpackUrlClient)
         obj.addProperty("updateGitRepo", updateGitRepoClient)
+        obj.addProperty("autoUpdate", modpackAutoUpdate)
+        obj.addProperty("forceUpdate", modpackForceUpdate)
         root.add("modpack", obj)
     }
 
@@ -670,6 +682,8 @@ object DlcConfig {
         "modpackUrl" to { value -> modpackUrlClient = asString(value, DEFAULT_MODPACK_URL) },
         "updateGithubRepo" to { value -> updateGitRepoClient = asString(value, DEFAULT_UPDATE_GIT_REPO_URL) },
         "updateGitRepo" to { value -> updateGitRepoClient = asString(value, DEFAULT_UPDATE_GIT_REPO_URL) },
+        "autoUpdate" to { value -> modpackAutoUpdate = asBoolean(value, DEFAULT_MODPACK_AUTO_UPDATE) },
+        "forceUpdate" to { value -> modpackForceUpdate = asBoolean(value, DEFAULT_MODPACK_FORCE_UPDATE) },
     )
 
     private fun buildDownloadReaders(): Map<String, (JsonElement) -> Unit> = mapOf(

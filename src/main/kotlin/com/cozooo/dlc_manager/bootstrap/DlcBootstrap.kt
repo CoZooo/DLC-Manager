@@ -19,6 +19,7 @@ object DlcBootstrap {
         if (!DlcStartupRequirements.usesEarlyInstallation() && DlcPlatformServices.isDedicatedServer()) {
             try { com.cozooo.dlc_manager.client.update.DlcPendingUpdate.process({ println(it) }, true) }
             catch (exception: java.io.IOException) { throw IllegalStateException("Pending update recovery failed", exception) }
+            DlcModpackAutoUpdater.runIfConfigured(true) { println(it) }
         }
     }
 }

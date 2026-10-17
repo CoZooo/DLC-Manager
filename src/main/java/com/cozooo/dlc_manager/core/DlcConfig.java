@@ -83,6 +83,8 @@ public class DlcConfig {
     public static final String DEFAULT_MODPACK = "";
     public static final String DEFAULT_MODPACK_URL = "";
     public static final String DEFAULT_UPDATE_GIT_REPO_URL = "";
+    public static final boolean DEFAULT_MODPACK_AUTO_UPDATE = false;
+    public static final boolean DEFAULT_MODPACK_FORCE_UPDATE = false;
 
     private static String dlcRoot = DEFAULT_DLC_ROOT;
     private static String taczRoot = DEFAULT_TACZ_DLC_ROOT;
@@ -126,6 +128,8 @@ public class DlcConfig {
     private static String modpack = DEFAULT_MODPACK;
     private static String modpackUrlClient = DEFAULT_MODPACK_URL;
     private static String updateGitRepoClient = DEFAULT_UPDATE_GIT_REPO_URL;
+    private static boolean modpackAutoUpdate = DEFAULT_MODPACK_AUTO_UPDATE;
+    private static boolean modpackForceUpdate = DEFAULT_MODPACK_FORCE_UPDATE;
     private static int maxConcurrentDownloads = DEFAULT_MAX_CONCURRENT_DOWNLOADS;
     private static int maxSegmentsPerFile = DEFAULT_MAX_SEGMENTS_PER_FILE;
     private static int minSegmentMb = DEFAULT_MIN_SEGMENT_MB;
@@ -429,6 +433,14 @@ public class DlcConfig {
 
     public static String getServerUpdateGitRepoUrl() {
         return getUpdateGitRepoUrl();
+    }
+
+    public static boolean isModpackAutoUpdateOn() {
+        return modpackAutoUpdate;
+    }
+
+    public static boolean isModpackForceUpdateOn() {
+        return modpackForceUpdate;
     }
 
     public static int[] computeTitleButtonPosition(int screenWidth, int screenHeight, int buttonWidth, int buttonHeight, int defaultX, int defaultY) {
@@ -760,6 +772,14 @@ public class DlcConfig {
         updateGitRepoClient = value == null ? DEFAULT_UPDATE_GIT_REPO_URL : value;
     }
 
+    public static void setModpackAutoUpdateOn(boolean value) {
+        modpackAutoUpdate = value;
+    }
+
+    public static void setModpackForceUpdateOn(boolean value) {
+        modpackForceUpdate = value;
+    }
+
     public static void setServerModpackUrl(String value) {
         setModpackUrl(value);
     }
@@ -850,6 +870,8 @@ public class DlcConfig {
         modpack = DEFAULT_MODPACK;
         modpackUrlClient = DEFAULT_MODPACK_URL;
         updateGitRepoClient = DEFAULT_UPDATE_GIT_REPO_URL;
+        modpackAutoUpdate = DEFAULT_MODPACK_AUTO_UPDATE;
+        modpackForceUpdate = DEFAULT_MODPACK_FORCE_UPDATE;
         maxConcurrentDownloads = DEFAULT_MAX_CONCURRENT_DOWNLOADS;
         maxSegmentsPerFile = DEFAULT_MAX_SEGMENTS_PER_FILE;
         minSegmentMb = DEFAULT_MIN_SEGMENT_MB;
@@ -1066,6 +1088,8 @@ public class DlcConfig {
         obj.addProperty("modpack", modpack);
         obj.addProperty("modpackUrl", modpackUrlClient);
         obj.addProperty("updateGitRepo", updateGitRepoClient);
+        obj.addProperty("autoUpdate", modpackAutoUpdate);
+        obj.addProperty("forceUpdate", modpackForceUpdate);
         root.add("modpack", obj);
     }
 
@@ -1151,6 +1175,8 @@ public class DlcConfig {
         map.put("modpackUrl", value -> modpackUrlClient = asString(value, DEFAULT_MODPACK_URL));
         map.put("updateGithubRepo", value -> updateGitRepoClient = asString(value, DEFAULT_UPDATE_GIT_REPO_URL));
         map.put("updateGitRepo", value -> updateGitRepoClient = asString(value, DEFAULT_UPDATE_GIT_REPO_URL));
+        map.put("autoUpdate", value -> modpackAutoUpdate = asBoolean(value, DEFAULT_MODPACK_AUTO_UPDATE));
+        map.put("forceUpdate", value -> modpackForceUpdate = asBoolean(value, DEFAULT_MODPACK_FORCE_UPDATE));
         return map;
     }
 

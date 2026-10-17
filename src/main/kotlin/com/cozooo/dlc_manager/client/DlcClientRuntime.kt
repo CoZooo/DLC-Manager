@@ -21,6 +21,8 @@ import com.cozooo.dlc_manager.client.screen.DlcServerManagerScreen
 import com.cozooo.dlc_manager.client.screen.DlcServerPasswordScreen
 import com.cozooo.dlc_manager.client.screen.DlcUpdateChangelogScreen
 import com.cozooo.dlc_manager.client.screen.DlcUpdatePromptScreen
+import com.cozooo.dlc_manager.bootstrap.DlcModpackAutoUpdater
+import com.cozooo.dlc_manager.bootstrap.DlcStartupRequirements
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService
 import com.cozooo.dlc_manager.client.server.DlcServerCache
 import com.cozooo.dlc_manager.client.server.DlcServerConnection
@@ -665,6 +667,9 @@ object DlcClientRuntime {
             var currentBaseVersion = "1.0.0"
             var currentDlcVersion = "1.0.0"
             val dlcRoot = DlcPaths.dlcRoot()
+            if (!DlcStartupRequirements.usesEarlyInstallation()) {
+                DlcModpackAutoUpdater.runIfConfigured(false) { LOGGER.info("[dlc-manager] {}", it) }
+            }
             val version = DlcUpdateVersion.load(dlcRoot)
             if (!version.getBase().isNullOrBlank()) {
                 currentBaseVersion = version.getBase()!!

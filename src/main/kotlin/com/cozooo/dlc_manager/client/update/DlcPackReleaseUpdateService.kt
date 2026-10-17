@@ -1,8 +1,6 @@
 package com.cozooo.dlc_manager.client.update
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadService
-import com.cozooo.dlc_manager.client.server.DlcServerConnection
-import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.DlcUpdateMessage
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
@@ -58,6 +56,11 @@ object DlcPackReleaseUpdateService {
 
     fun interface CancelChecker {
         fun isCanceled(): Boolean
+    }
+
+    fun interface ServerPackageImporter {
+        @Throws(Exception::class)
+        fun importPackage(assetUrl: String?, assetName: String?): Boolean
     }
 
     class CheckResult {
@@ -437,6 +440,11 @@ object DlcPackReleaseUpdateService {
 
     @JvmStatic
     fun downloadClientPackages(result: CheckResult?, progress: ProgressListener?, cancelChecker: CancelChecker?): DownloadResult {
+        return downloadLocalPackages(result, Side.CLIENT, progress, cancelChecker)
+    }
+
+    @JvmStatic
+    fun downloadLocalPackages(result: CheckResult?, side: Side?, progress: ProgressListener?, cancelChecker: CancelChecker?): DownloadResult {
         if (result == null || !result.hasUpdate()) return DownloadResult.failed("no_update")
         if (!result.canDownload()) return DownloadResult.failed("missing_release_asset")
         val updateDir = DlcUpdateService.updateDir ?: return DownloadResult.failed("missing_dlc_root")
@@ -457,7 +465,7 @@ object DlcPackReleaseUpdateService {
                 return DownloadResult.failed(ex.message ?: "download_failed")
             }
         }
-        clearSkipPromptMarker(Side.CLIENT)
+        if (side != null) clearSkipPromptMarker(side)
         return DownloadResult.success(downloaded)
     }
 
@@ -475,17 +483,17 @@ object DlcPackReleaseUpdateService {
     }
 
     @JvmStatic
-    fun downloadServerPackages(result: CheckResult?, entry: DlcServerEntry?, timeoutMs: Int, progress: ProgressListener?, cancelChecker: CancelChecker?): DownloadResult {
+    fun downloadServerPackages(result: CheckResult?, progress: ProgressListener?, cancelChecker: CancelChecker?, importer: ServerPackageImporter?): DownloadResult {
         if (result == null || !result.hasUpdate()) return DownloadResult.failed("no_update")
         if (!result.canDownload()) return DownloadResult.failed("missing_release_asset")
-        if (entry == null) return DownloadResult.failed("missing_server_entry")
+        if (importer == null) return DownloadResult.failed("missing_server_importer")
         val totalSteps = result.steps.size
         for (i in 0 until totalSteps) {
             if (cancelChecker?.isCanceled() == true) return DownloadResult.canceled()
             val step = result.steps[i]
             val stepIndex = i
             try {
-                val imported = downloadServerStepWithFallback(step, entry, timeoutMs, stepIndex, totalSteps, progress, cancelChecker)
+                val imported = downloadServerStepWithFallback(step, importer, stepIndex, totalSteps, progress, cancelChecker)
                 if (!imported) return DownloadResult.failed("server_import_failed")
                 notifyProgress(progress, stepIndex, totalSteps, step.assetName, 1L, 1L)
             } catch (ex: Exception) {
@@ -519,13 +527,13 @@ object DlcPackReleaseUpdateService {
     }
 
     @Throws(Exception::class)
-    private fun downloadServerStepWithFallback(step: ReleaseStep?, entry: DlcServerEntry, timeoutMs: Int, stepIndex: Int, totalSteps: Int, progress: ProgressListener?, cancelChecker: CancelChecker?): Boolean {
+    private fun downloadServerStepWithFallback(step: ReleaseStep?, importer: ServerPackageImporter, stepIndex: Int, totalSteps: Int, progress: ProgressListener?, cancelChecker: CancelChecker?): Boolean {
         var lastError: Exception? = null
         for (candidate in resolveAssetCandidates(step)) {
             if (cancelChecker?.isCanceled() == true) throw DlcDownloadService.DownloadCanceledException("canceled")
             try {
                 notifyProgress(progress, stepIndex, totalSteps, candidate.assetName, 0L, 1L)
-                return DlcServerConnection.importUpdatePackageFromUrl(entry, timeoutMs, candidate.assetUrl, candidate.assetName)
+                return importer.importPackage(candidate.assetUrl, candidate.assetName)
             } catch (ex: Exception) {
                 lastError = ex
                 if (!isRetryableDownloadFailure(ex)) throw ex

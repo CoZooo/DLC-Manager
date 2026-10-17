@@ -68,6 +68,7 @@ tasks.withType<JavaCompile>().configureEach { options.release.set(17) }
 val sharedClasses = listOf(
     "bootstrap/DlcDistributionPaths",
     "bootstrap/DlcEarlyInstaller",
+    "bootstrap/DlcModpackAutoUpdater",
     "bootstrap/DlcStartupRequirements",
     "client/core/DlcZipUtil",
     "client/download/DlcCurseForgeClient",
@@ -108,6 +109,7 @@ val sharedClasses = listOf(
     "client/required/DlcRequiredInstaller",
     "client/selfupdate/DlcSelfUpdateService",
     "client/update/DlcPendingUpdate",
+    "client/update/DlcPackReleaseUpdateService",
     "client/update/DlcUpdateCompatibility",
     "client/update/DlcUpdateDcParser",
     "client/update/DlcUpdateHashIndex",
@@ -229,6 +231,7 @@ if (currentTarget == null) {
             compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
             sourceSets.named("main") {
                 kotlin.srcDir(managerRoot.resolve("src/main/kotlin"))
+                kotlin.exclude("com/cozooo/dlc_manager/client/server/**")
                 kotlin.include(listOf("DlcBootstrapService", "DlcModPayload").map { "com/cozooo/dlc_manager/bootstrap/$it.kt" })
                 kotlin.include(sharedClasses.map { "com/cozooo/dlc_manager/$it.kt" })
             }

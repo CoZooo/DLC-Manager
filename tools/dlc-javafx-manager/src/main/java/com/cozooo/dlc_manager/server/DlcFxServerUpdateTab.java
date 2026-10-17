@@ -398,10 +398,9 @@ public final class DlcFxServerUpdateTab {
             try {
                 DownloadResult dl = DlcPackReleaseUpdateService.downloadServerPackages(
                     result,
-                    conn.currentEntry(),
-                    600000,
                     progress,
-                    () -> downloadCanceled
+                    () -> downloadCanceled,
+                    conn::importUpdatePackageFromUrl
                 );
                 Platform.runLater(() -> {
                     removeOverlay(overlay);

@@ -51,6 +51,7 @@ val reusedCommonJavaFiles = listOf(
     "com/cozooo/dlc_manager/core/DlcItemFiles.java",
     "com/cozooo/dlc_manager/core/DlcResourceHistory.java",
     "com/cozooo/dlc_manager/bootstrap/DlcEarlyInstaller.java",
+    "com/cozooo/dlc_manager/bootstrap/DlcModpackAutoUpdater.java",
     "com/cozooo/dlc_manager/client/core/DlcZipUtil.java",
     "com/cozooo/dlc_manager/client/download/DlcCurseForgeClient.java",
     "com/cozooo/dlc_manager/client/download/DlcDownloadCandidate.java",

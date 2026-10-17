@@ -40,6 +40,8 @@ object DlcConfigClient {
     private val MODPACK = DlcConfigValue.StringValue("modpack", DlcConfig.DEFAULT_MODPACK, "dlc_manager.config.comment.modpack.modpack", "dlc_manager.config.modpack.modpack")
     private val MODPACK_URL = DlcConfigValue.StringValue("modpackUrl", DlcConfig.DEFAULT_MODPACK_URL, "dlc_manager.config.comment.modpack.modpackUrl", "dlc_manager.config.modpack.modpackUrl")
     private val UPDATE_GIT_REPO = DlcConfigValue.StringValue("updateGitRepo", DlcConfig.DEFAULT_UPDATE_GIT_REPO_URL, "dlc_manager.config.comment.modpack.updateGitRepo", "dlc_manager.config.modpack.updateGitRepo")
+    private val MODPACK_AUTO_UPDATE = DlcConfigValue.BooleanValue("autoUpdate", DlcConfig.DEFAULT_MODPACK_AUTO_UPDATE, "dlc_manager.config.comment.modpack.autoUpdate", "dlc_manager.config.modpack.autoUpdate")
+    private val MODPACK_FORCE_UPDATE = DlcConfigValue.BooleanValue("forceUpdate", DlcConfig.DEFAULT_MODPACK_FORCE_UPDATE, "dlc_manager.config.comment.modpack.forceUpdate", "dlc_manager.config.modpack.forceUpdate")
 
     private val MAX_CONCURRENT_DOWNLOADS = DlcConfigValue.IntegerValue("maxConcurrentDownloads", DlcConfig.DEFAULT_MAX_CONCURRENT_DOWNLOADS, 1, 64, "dlc_manager.config.comment.download.maxConcurrentDownloads", "dlc_manager.config.download.maxConcurrentDownloads")
     private val MAX_SEGMENTS_PER_FILE = DlcConfigValue.IntegerValue("maxSegmentsPerFile", DlcConfig.DEFAULT_MAX_SEGMENTS_PER_FILE, 1, 64, "dlc_manager.config.comment.download.maxSegmentsPerFile", "dlc_manager.config.download.maxSegmentsPerFile")
@@ -84,7 +86,9 @@ object DlcConfigClient {
     private val MODPACK_CONFIGS: List<DlcConfigValue> = listOf(
         MODPACK,
         MODPACK_URL,
-        UPDATE_GIT_REPO
+        UPDATE_GIT_REPO,
+        MODPACK_AUTO_UPDATE,
+        MODPACK_FORCE_UPDATE
     )
 
     private val SERVER_CONFIGS: List<DlcConfigValue> = listOf(
@@ -142,6 +146,8 @@ object DlcConfigClient {
         MODPACK.setValueFromString(DlcConfig.getModpack())
         MODPACK_URL.setValueFromString(DlcConfig.getModpackUrl())
         UPDATE_GIT_REPO.setValueFromString(DlcConfig.getUpdateGitRepoUrl())
+        MODPACK_AUTO_UPDATE.booleanValue = DlcConfig.isModpackAutoUpdateOn()
+        MODPACK_FORCE_UPDATE.booleanValue = DlcConfig.isModpackForceUpdateOn()
         API_ENABLED.booleanValue = DlcConfig.isApiEnabled()
         API_PORT.integerValue = DlcConfig.getApiPort()
         API_TOKEN.setValueFromString(DlcConfig.getApiToken())
@@ -193,6 +199,8 @@ object DlcConfigClient {
         DlcConfig.setModpack(MODPACK.stringValue)
         DlcConfig.setModpackUrl(MODPACK_URL.stringValue)
         DlcConfig.setUpdateGitRepoUrl(UPDATE_GIT_REPO.stringValue)
+        DlcConfig.setModpackAutoUpdateOn(MODPACK_AUTO_UPDATE.booleanValue)
+        DlcConfig.setModpackForceUpdateOn(MODPACK_FORCE_UPDATE.booleanValue)
         DlcConfig.setApiEnabled(API_ENABLED.booleanValue)
         DlcConfig.setApiPort(API_PORT.integerValue)
         DlcConfig.setApiToken(API_TOKEN.stringValue)
