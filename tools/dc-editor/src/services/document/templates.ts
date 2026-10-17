@@ -4,7 +4,7 @@ import { requiredBasicDefaults } from "../../schemas/documentSchemas";
 export function createEmptyTemplate(type: DocumentType): string {
   switch (type) {
     case "folder_metadata":
-      return '[Folder]\npriority = 0\nDisplayName.en_US = "Folder"\nDisplayName.zh_CN = "文件夹"\n';
+      return "";
     case "info":
       return [
         "[basic]",
