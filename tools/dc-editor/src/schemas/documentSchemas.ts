@@ -385,6 +385,16 @@ const tipSection: SectionSchema = {
   fields: []
 };
 
+const alarmSection: SectionSchema = {
+  key: "Alarm",
+  label: "[Alarm]",
+  dynamicLocale: {
+    valueKind: "textarea",
+    help: "static.help.alarmText"
+  },
+  fields: []
+};
+
 const localeTextSection = (key: string, label: string, help: string): SectionSchema => ({
   key,
   label,
@@ -417,7 +427,8 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
       dependenciesSection,
       conflictsSection,
       displayNameSection,
-      tipSection
+      tipSection,
+      alarmSection
     ]
   },
   remote: {
@@ -474,7 +485,8 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
       dependenciesSection,
       conflictsSection,
       displayNameSection,
-      tipSection
+      tipSection,
+      alarmSection
     ]
   },
   required: {
@@ -559,7 +571,8 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
       dependenciesSection,
       conflictsSection,
       displayNameSection,
-      tipSection
+      tipSection,
+      alarmSection
     ]
   },
   notice: {

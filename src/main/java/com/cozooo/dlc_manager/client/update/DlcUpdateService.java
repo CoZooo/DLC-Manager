@@ -1859,7 +1859,7 @@ public final class DlcUpdateService {
     }
 
     private static final Set<String> INFO_ALLOWED_TABLES = Set.of(
-        "basic", "displayname", "tip", "dependencies", "conflicts"
+        "basic", "displayname", "tip", "alarm", "dependencies", "conflicts"
     );
     private static final Set<String> INFO_ALLOWED_BASIC_KEYS = Set.of(
         "identifier",

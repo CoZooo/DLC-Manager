@@ -519,6 +519,7 @@ public class DlcServerService {
         serverItem.name = item.getName();
         serverItem.displayNames = item.getDisplayNames();
         serverItem.tips = item.getTooltips();
+        serverItem.alarmTips = item.getAlarmTips();
         serverItem.type = item.getType() == null ? null : item.getType().name();
         serverItem.enabled = item.isEnabled();
         Boolean baseline = DlcRuntimeState.getBaselineEnabled(item.getId());

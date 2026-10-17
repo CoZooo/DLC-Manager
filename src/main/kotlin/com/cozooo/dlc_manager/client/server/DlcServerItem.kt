@@ -29,6 +29,9 @@ class DlcServerItem {
     var tips: Map<String, String> = emptyMap()
 
     @JvmField
+    var alarmTips: Map<String, String> = emptyMap()
+
+    @JvmField
     var dependencies: List<String> = emptyList()
 
     @JvmField

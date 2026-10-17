@@ -38,6 +38,7 @@ public class DlcTooltipLoader {
                     if (entry != null && entry.dlcName != null) {
                         TooltipData data = new TooltipData(entry.dlcIdentifier, entry.tip, entry.displayName, entry.type, entry.typeValid, entry.hasTypeField, entry.configType,
                             entry.hidden, entry.allowEnableByAll, entry.dependencies, entry.conflicts, entry.appliedTargetRaw, entry.redirectUrl, entry.fileNames, entry.alarm);
+                        data.setAlarmTips(entry.alarmTips);
                         data.setMatchMode(entry.matchMode);
                         result.put(entry.dlcName, data);
                     }
@@ -205,6 +206,7 @@ public class DlcTooltipLoader {
             }
             entry.tip = tips;
         }
+        entry.alarmTips = entry.alarm ? readLocalized(localizedObjectFromAny(obj, "Alarm")) : java.util.Map.of();
         return entry;
     }
 
@@ -225,7 +227,8 @@ public class DlcTooltipLoader {
             || DlcDcConfigIO.hasIgnoreCase(obj, "conflicts")
             || DlcDcConfigIO.hasIgnoreCase(obj, "isHidden")
             || DlcDcConfigIO.hasIgnoreCase(obj, "AllowEnableByAll")
-            || DlcDcConfigIO.hasIgnoreCase(obj, "alarm");
+            || DlcDcConfigIO.hasIgnoreCase(obj, "alarm")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "Alarm");
     }
 
     private JsonObject readTooltipObject(Path path) {
@@ -577,6 +580,7 @@ public class DlcTooltipLoader {
         String redirectUrl;
         java.util.List<String> fileNames = java.util.List.of();
         boolean alarm;
+        Map<String, String> alarmTips = java.util.Map.of();
         String matchMode = "hash";
     }
 
@@ -596,6 +600,7 @@ public class DlcTooltipLoader {
         private final String redirectUrl;
         private final java.util.List<String> fileNames;
         private final boolean alarm;
+        private Map<String, String> alarmTips = java.util.Map.of();
         private String matchMode = "hash";
         public String getMatchMode() { return matchMode; }
         public void setMatchMode(String value) { matchMode = DlcFileMatch.mode(value); }
@@ -678,6 +683,14 @@ public class DlcTooltipLoader {
 
         public boolean isAlarm() {
             return alarm;
+        }
+
+        public Map<String, String> getAlarmTips() {
+            return alarmTips;
+        }
+
+        public void setAlarmTips(Map<String, String> values) {
+            alarmTips = values == null ? java.util.Map.of() : values;
         }
     }
 

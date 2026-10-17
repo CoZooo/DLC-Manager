@@ -83,11 +83,12 @@ public final class DlcPresetLoader {
         List<String> conflicts = readRelationList(DlcDcConfigIO.getIgnoreCase(obj, "conflicts"), null);
         Boolean basicAlarm = DlcDcConfigIO.getBooleanIgnoreCase(basic, "alarm");
         boolean alarm = basicAlarm == null ? DlcDcConfigIO.getBooleanIgnoreCase(obj, "alarm", false) : basicAlarm;
+        Map<String, String> alarmTip = alarm ? readLangMap(DlcDcConfigIO.getObjectIgnoreCase(obj, "Alarm")) : Map.of();
 
         String fileName = stripExtension(path.getFileName().toString());
         String id = readIdentifier(basic, obj, fileName);
         migrateIfNeeded(path, obj, id, alarm, enable, conflicts);
-        return new DlcPresetEntry(id, fileName, path, displayName, tip, enable, conflicts, alarm, DlcPresetStatus.OFF);
+        return new DlcPresetEntry(id, fileName, path, displayName, tip, alarmTip, enable, conflicts, alarm, DlcPresetStatus.OFF);
     }
 
     private static Map<String, String> readLangMap(JsonObject obj) {

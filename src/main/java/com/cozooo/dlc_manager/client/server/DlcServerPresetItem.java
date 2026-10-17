@@ -12,6 +12,7 @@ public class DlcServerPresetItem {
     public String fileName;
     public Map<String, String> displayNames = Collections.emptyMap();
     public Map<String, String> tips = Collections.emptyMap();
+    public Map<String, String> alarmTips = Collections.emptyMap();
     public List<String> enable = List.of();
     public List<String> conflicts = List.of();
     public boolean alarm;
@@ -26,6 +27,7 @@ public class DlcServerPresetItem {
         item.fileName = entry.getFileName();
         item.displayNames = entry.getDisplayNames();
         item.tips = entry.getTips();
+        item.alarmTips = entry.getAlarmTips();
         item.enable = entry.getEnable();
         item.conflicts = entry.getConflicts();
         item.alarm = entry.isAlarm();
@@ -34,6 +36,6 @@ public class DlcServerPresetItem {
     }
 
     public DlcPresetEntry toPresetEntry() {
-        return new DlcPresetEntry(id, fileName, null, displayNames, tips, enable, conflicts, alarm, status);
+        return new DlcPresetEntry(id, fileName, null, displayNames, tips, alarmTips, enable, conflicts, alarm, status);
     }
 }

@@ -20,6 +20,7 @@ class DlcItem {
     private val hiddenValue: Boolean
     private val configTypeValue: Boolean
     private val alarmValue: Boolean
+    private var alarmTipsValue: Map<String, String> = emptyMap()
     private var matchModeValue: String = "hash"
     private var dlcRootValue: Path? = null
     private var groupDirectoryValue: Path? = null
@@ -264,6 +265,8 @@ class DlcItem {
     fun isHidden(): Boolean = hiddenValue
     fun isConfigType(): Boolean = configTypeValue
     fun isAlarm(): Boolean = alarmValue
+    fun getAlarmTips(): Map<String, String> = alarmTipsValue
+    fun setAlarmTips(values: Map<String, String>?) { alarmTipsValue = values ?: emptyMap() }
     fun getRedirectUrl(): String? = redirectUrlValue
     fun setRedirectUrl(redirectUrl: String?) {
         redirectUrlValue = redirectUrl

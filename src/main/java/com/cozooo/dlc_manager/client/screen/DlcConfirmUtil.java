@@ -16,6 +16,7 @@ import net.minecraft.network.chat.MutableComponent;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 public final class DlcConfirmUtil {
     private DlcConfirmUtil() {
@@ -245,15 +246,23 @@ public final class DlcConfirmUtil {
     }
 
     private static String resolveAlarmTip(DlcItem item, String lang) {
-        if (item == null || item.getTooltips().isEmpty()) {
+        if (item == null) {
             return "";
+        }
+        Map<String, String> alarmTips = item.getAlarmTips();
+        if (alarmTips.containsKey(lang) && alarmTips.get(lang) != null && !alarmTips.get(lang).isBlank()) {
+            return alarmTips.get(lang);
         }
         if (item.getTooltips().containsKey(lang)) {
             return item.getTooltips().get(lang);
         }
+        if (alarmTips.containsKey("en_us") && alarmTips.get("en_us") != null && !alarmTips.get("en_us").isBlank()) {
+            return alarmTips.get("en_us");
+        }
         if (item.getTooltips().containsKey("en_us")) {
             return item.getTooltips().get("en_us");
         }
-        return item.getTooltips().values().stream().findFirst().orElse("");
+        return alarmTips.values().stream().filter(value -> value != null && !value.isBlank()).findFirst()
+            .orElseGet(() -> item.getTooltips().values().stream().filter(value -> value != null && !value.isBlank()).findFirst().orElse(""));
     }
 }

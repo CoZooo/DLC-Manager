@@ -8,13 +8,14 @@ class DlcServerPresetItem {
     @JvmField var fileName: String? = null
     @JvmField var displayNames: Map<String, String> = emptyMap()
     @JvmField var tips: Map<String, String> = emptyMap()
+    @JvmField var alarmTips: Map<String, String> = emptyMap()
     @JvmField var enable: List<String> = emptyList()
     @JvmField var conflicts: List<String> = emptyList()
     @JvmField var alarm: Boolean = false
     @JvmField var status: DlcPresetStatus = DlcPresetStatus.OFF
 
     fun toPresetEntry(): DlcPresetEntry {
-        return DlcPresetEntry(id, fileName, null, displayNames, tips, enable, conflicts, alarm, status)
+        return DlcPresetEntry(id, fileName, null, displayNames, tips, alarmTips, enable, conflicts, alarm, status)
     }
 
     companion object {
@@ -28,6 +29,7 @@ class DlcServerPresetItem {
             item.fileName = entry.getFileName()
             item.displayNames = entry.getDisplayNames()
             item.tips = entry.getTips()
+            item.alarmTips = entry.getAlarmTips()
             item.enable = entry.getEnable()
             item.conflicts = entry.getConflicts()
             item.alarm = entry.isAlarm()

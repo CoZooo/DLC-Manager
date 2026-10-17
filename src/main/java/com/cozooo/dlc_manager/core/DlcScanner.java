@@ -273,6 +273,7 @@ public class DlcScanner {
             : new DlcItem(id, identifier, name, effectiveType, source, sources, appliedTargetRaw, enabled, tips, displayNames, dependencies, conflicts, allowEnableByAll, hidden, configType, alarm);
         if (tooltipData != null) {
             item.setRedirectUrl(tooltipData.getRedirectUrl());
+            item.setAlarmTips(tooltipData.getAlarmTips());
         }
         item.setDlcRoot(DlcConfig.getDlcRoots().contains(root) ? root : DlcConfig.getDlcRoot());
         item.setGroupDirectory(remoteMetadata.groupDirectories.get(relative));
@@ -439,6 +440,7 @@ public class DlcScanner {
                 java.util.List.of(),
                 entry.isAlarm()
             );
+            data.setAlarmTips(entry.getAlarmTips());
             data.setMatchMode(entry.getMatchMode());
             String relative = root.toAbsolutePath().normalize().relativize(legacy.toAbsolutePath().normalize()).toString().replace('\\', '/');
             lookup.byPath.put(relative, data);

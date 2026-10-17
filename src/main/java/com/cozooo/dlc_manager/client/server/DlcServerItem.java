@@ -14,6 +14,7 @@ public class DlcServerItem {
     public Boolean baselineEnabled;
     public Map<String, String> displayNames = Collections.emptyMap();
     public Map<String, String> tips = Collections.emptyMap();
+    public Map<String, String> alarmTips = Collections.emptyMap();
     public List<String> dependencies = List.of();
     public List<String> conflicts = List.of();
     public boolean allowEnableByAll = true;

@@ -256,15 +256,24 @@ object DlcConfirmUtil {
     }
 
     private fun resolveAlarmTip(item: DlcItem?, lang: String): String {
-        if (item == null || item.getTooltips().isEmpty()) {
+        if (item == null) {
             return ""
+        }
+        val alarmTips = item.getAlarmTips()
+        if (alarmTips.containsKey(lang) && !alarmTips[lang].isNullOrBlank()) {
+            return alarmTips[lang].orEmpty()
         }
         if (item.getTooltips().containsKey(lang)) {
             return item.getTooltips()[lang] ?: ""
         }
+        if (alarmTips.containsKey("en_us") && !alarmTips["en_us"].isNullOrBlank()) {
+            return alarmTips["en_us"].orEmpty()
+        }
         if (item.getTooltips().containsKey("en_us")) {
             return item.getTooltips()["en_us"] ?: ""
         }
-        return item.getTooltips().values.firstOrNull() ?: ""
+        return alarmTips.values.firstOrNull { !it.isNullOrBlank() }
+            ?: item.getTooltips().values.firstOrNull { !it.isNullOrBlank() }
+            ?: ""
     }
 }

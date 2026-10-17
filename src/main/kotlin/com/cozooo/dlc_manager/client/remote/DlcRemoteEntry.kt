@@ -31,6 +31,7 @@ class DlcRemoteEntry(
     private var conflictNames: List<String> = emptyList()
     private var displayNames: Map<String, String> = emptyMap()
     private var tips: Map<String, String> = emptyMap()
+    private var alarmTips: Map<String, String> = emptyMap()
     private var redirectUrl: String? = null
     private var alarm = false
     private var remoteDependencies: List<DlcRemoteEntry> = emptyList()
@@ -196,6 +197,9 @@ class DlcRemoteEntry(
     fun setTips(tips: Map<String, String>?) {
         this.tips = tips ?: emptyMap()
     }
+
+    fun getAlarmTips(): Map<String, String> = alarmTips
+    fun setAlarmTips(values: Map<String, String>?) { alarmTips = values ?: emptyMap() }
 
     fun getRedirectUrl(): String? = redirectUrl
 

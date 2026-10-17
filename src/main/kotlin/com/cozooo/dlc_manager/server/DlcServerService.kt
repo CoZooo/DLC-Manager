@@ -438,6 +438,7 @@ object DlcServerService {
         serverItem.name = item.getName()
         serverItem.displayNames = item.getDisplayNames()
         serverItem.tips = item.getTooltips()
+        serverItem.alarmTips = item.getAlarmTips()
         serverItem.type = item.getType()?.name
         serverItem.enabled = item.isEnabled()
         serverItem.baselineEnabled = DlcRuntimeState.getBaselineEnabled(item.getId()) ?: item.isEnabled()

@@ -12,6 +12,7 @@ public final class DlcPresetEntry {
     private final Path sourcePath;
     private final Map<String, String> displayName;
     private final Map<String, String> tip;
+    private final Map<String, String> alarmTip;
     private final List<String> enable;
     private final List<String> conflicts;
     private final boolean alarm;
@@ -22,6 +23,7 @@ public final class DlcPresetEntry {
                           Path sourcePath,
                           Map<String, String> displayName,
                           Map<String, String> tip,
+                          Map<String, String> alarmTip,
                           List<String> enable,
                           List<String> conflicts,
                           boolean alarm,
@@ -31,10 +33,23 @@ public final class DlcPresetEntry {
         this.sourcePath = sourcePath;
         this.displayName = displayName == null ? Collections.emptyMap() : displayName;
         this.tip = tip == null ? Collections.emptyMap() : tip;
+        this.alarmTip = alarmTip == null ? Collections.emptyMap() : alarmTip;
         this.enable = enable == null ? List.of() : List.copyOf(enable);
         this.conflicts = conflicts == null ? List.of() : List.copyOf(conflicts);
         this.alarm = alarm;
         this.status = status == null ? DlcPresetStatus.OFF : status;
+    }
+
+    public DlcPresetEntry(String id,
+                          String fileName,
+                          Path sourcePath,
+                          Map<String, String> displayName,
+                          Map<String, String> tip,
+                          List<String> enable,
+                          List<String> conflicts,
+                          boolean alarm,
+                          DlcPresetStatus status) {
+        this(id, fileName, sourcePath, displayName, tip, Map.of(), enable, conflicts, alarm, status);
     }
 
     public String getId() {
@@ -55,6 +70,10 @@ public final class DlcPresetEntry {
 
     public Map<String, String> getTips() {
         return tip;
+    }
+
+    public Map<String, String> getAlarmTips() {
+        return alarmTip;
     }
 
     public List<String> getEnable() {
@@ -114,5 +133,13 @@ public final class DlcPresetEntry {
             }
         }
         return null;
+    }
+
+    public String resolveAlarmTip(String lang) {
+        String key = DlcDcConfigIO.normalizeLangKey(lang);
+        if (key != null && alarmTip.get(key) != null && !alarmTip.get(key).isBlank()) return alarmTip.get(key);
+        if (key != null && tip.get(key) != null && !tip.get(key).isBlank()) return tip.get(key);
+        if (alarmTip.get("en_us") != null && !alarmTip.get("en_us").isBlank()) return alarmTip.get("en_us");
+        return resolveTip(lang);
     }
 }

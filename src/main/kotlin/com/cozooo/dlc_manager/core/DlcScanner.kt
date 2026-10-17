@@ -271,6 +271,7 @@ class DlcScanner {
         }
         if (tooltipData != null) {
             item.setRedirectUrl(tooltipData.getRedirectUrl())
+            item.setAlarmTips(tooltipData.getAlarmTips())
         }
         item.setDlcRoot(if (root in DlcConfig.getDlcRoots()) root else DlcConfig.getDlcRoot())
         item.setGroupDirectory(remoteMetadata.groupDirectories[relative])
@@ -441,6 +442,7 @@ class DlcScanner {
                 emptyList(),
                 entry.isAlarm(),
             )
+            data.setAlarmTips(entry.getAlarmTips())
             data.setMatchMode(entry.getMatchMode())
             if (legacy != null) {
                 val relative = root.toAbsolutePath().normalize().relativize(legacy.toAbsolutePath().normalize()).toString().replace('\\', '/')

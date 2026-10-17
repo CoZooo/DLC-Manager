@@ -272,7 +272,7 @@ public class DlcServerScreen extends DlcManagerPageScreen implements DlcReturnPo
             return;
         }
         if (item.alarm) {
-            String tip = getTooltipText(item);
+            String tip = getAlarmText(item);
             rememberListScroll();
             Minecraft.getInstance().setScreen(new DlcAlarmConfirmScreen(this, tip, () -> continueEnableWithChecks(item)));
             return;
@@ -550,6 +550,17 @@ public class DlcServerScreen extends DlcManagerPageScreen implements DlcReturnPo
             return item.tips.get("en_us");
         }
         return item.tips.values().stream().findFirst().orElse(null);
+    }
+
+    private String getAlarmText(DlcServerItem item) {
+        Map<String, String> alarm = item == null ? null : item.alarmTips;
+        String lang = Minecraft.getInstance().options.languageCode;
+        if (alarm != null && !alarm.isEmpty() && alarm.get(lang) != null && !alarm.get(lang).isBlank()) return alarm.get(lang);
+        if (alarm != null && alarm.get("en_us") != null && !alarm.get("en_us").isBlank()) return alarm.get("en_us");
+        if (alarm != null) {
+            for (String value : alarm.values()) if (value != null && !value.isBlank()) return value;
+        }
+        return getTooltipText(item);
     }
 
     private List<String> collectDependencyNamesRecursive(DlcServerItem item) {

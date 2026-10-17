@@ -22,6 +22,7 @@ public class DlcItem {
     private final boolean hidden;
     private final boolean configType;
     private final boolean alarm;
+    private java.util.Map<String, String> alarmTips = java.util.Map.of();
     private String redirectUrl;
     private String matchMode = "hash";
     private Path dlcRoot;
@@ -175,6 +176,14 @@ public class DlcItem {
 
     public boolean isAlarm() {
         return alarm;
+    }
+
+    public java.util.Map<String, String> getAlarmTips() {
+        return alarmTips;
+    }
+
+    public void setAlarmTips(java.util.Map<String, String> values) {
+        alarmTips = values == null ? java.util.Map.of() : values;
     }
 
     public String getRedirectUrl() {

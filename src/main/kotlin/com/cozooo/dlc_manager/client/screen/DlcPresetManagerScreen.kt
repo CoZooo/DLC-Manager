@@ -48,7 +48,7 @@ open class DlcPresetManagerScreen(page: DlcUiPage, parent: Screen?) : DlcPageScr
     private fun togglePreset(preset: DlcPresetEntry) {
         if (DlcPresetRuntimeState.isPresetBlocked(preset.getId())) return
         val enable = !DlcPresetRuntimeState.isPresetEnabled(preset.getId())
-        if (enable && preset.isAlarm()) Minecraft.getInstance().setScreen(DlcAlarmConfirmScreen(this, preset.resolveTip(Minecraft.getInstance().options.languageCode)) { apply(preset, true) })
+        if (enable && preset.isAlarm()) Minecraft.getInstance().setScreen(DlcAlarmConfirmScreen(this, preset.resolveAlarmTip(Minecraft.getInstance().options.languageCode)) { apply(preset, true) })
         else apply(preset, enable)
     }
     private fun apply(preset: DlcPresetEntry, enabled: Boolean) {

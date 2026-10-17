@@ -241,7 +241,7 @@ class DlcServerScreen(
             return
         }
         if (item.alarm) {
-            val tip = getTooltipText(item)
+            val tip = getAlarmText(item)
             rememberListScroll()
             Minecraft.getInstance().setScreen(DlcAlarmConfirmScreen(this, tip, Runnable { continueEnableWithChecks(item) }))
             return
@@ -461,6 +461,15 @@ class DlcServerScreen(
             return tips["en_us"]
         }
         return tips.values.firstOrNull()
+    }
+
+    private fun getAlarmText(item: DlcServerItem?): String? {
+        val alarm = item?.alarmTips
+        val lang = Minecraft.getInstance().options.languageCode
+        if (!alarm.isNullOrEmpty() && !alarm[lang].isNullOrBlank()) return alarm[lang]
+        if (!alarm.isNullOrEmpty() && !alarm["en_us"].isNullOrBlank()) return alarm["en_us"]
+        if (!alarm.isNullOrEmpty()) alarm.values.firstOrNull { !it.isNullOrBlank() }?.let { return it }
+        return getTooltipText(item)
     }
 
     private fun collectDependencyNamesRecursive(item: DlcServerItem?): List<String> {

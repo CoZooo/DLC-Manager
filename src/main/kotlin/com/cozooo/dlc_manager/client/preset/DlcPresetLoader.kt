@@ -73,11 +73,12 @@ object DlcPresetLoader {
         val conflicts = readRelationList(DlcDcConfigIO.getIgnoreCase(obj, "conflicts"), null)
         val alarm = DlcDcConfigIO.getBooleanIgnoreCase(basic, "alarm")
             ?: DlcDcConfigIO.getBooleanIgnoreCase(obj, "alarm", false)
+        val alarmTip = if (alarm) readLangMap(DlcDcConfigIO.getObjectIgnoreCase(obj, "Alarm")) else emptyMap()
 
         val fileName = stripExtension(path.fileName.toString())
         val id = readIdentifier(basic, obj, fileName)
         migrateIfNeeded(path, obj, id, alarm, enable, conflicts)
-        return DlcPresetEntry(id, fileName, path, displayName, tip, enable, conflicts, alarm, DlcPresetStatus.OFF)
+        return DlcPresetEntry(id, fileName, path, displayName, tip, alarmTip, enable, conflicts, alarm, DlcPresetStatus.OFF)
     }
 
     private fun readLangMap(obj: JsonObject?): Map<String, String> {

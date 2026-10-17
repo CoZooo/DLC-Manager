@@ -180,6 +180,24 @@
               "constraints": {}
             }
           ]
+        },
+        {
+          "path": [
+            "Alarm"
+          ],
+          "name": "Alarm",
+          "required": false,
+          "description": "Localized warning text used when alarm is enabled.",
+          "fields": [
+            {
+              "name": "*",
+              "type": "string",
+              "required": false,
+              "description": "Localized value keyed by language code.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
         }
       ]
     },
@@ -415,6 +433,24 @@
           "name": "tip",
           "required": false,
           "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "string",
+              "required": false,
+              "description": "Localized value keyed by language code.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "Alarm"
+          ],
+          "name": "Alarm",
+          "required": false,
+          "description": "Localized warning text used when alarm is enabled.",
           "fields": [
             {
               "name": "*",
@@ -667,6 +703,24 @@
           "name": "tip",
           "required": false,
           "description": "",
+          "fields": [
+            {
+              "name": "*",
+              "type": "string",
+              "required": false,
+              "description": "Localized value keyed by language code.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "Alarm"
+          ],
+          "name": "Alarm",
+          "required": false,
+          "description": "Localized warning text used when alarm is enabled.",
           "fields": [
             {
               "name": "*",
@@ -1615,7 +1669,19 @@
               "type": "string",
               "required": false,
               "description": "DLC Manager main menu button anchor.",
-              "enumValues": ["auto", "hidden", "top_left", "top", "top_right", "left", "center", "right", "bottom_left", "bottom", "bottom_right"],
+              "enumValues": [
+                "auto",
+                "hidden",
+                "top_left",
+                "top",
+                "top_right",
+                "left",
+                "center",
+                "right",
+                "bottom_left",
+                "bottom",
+                "bottom_right"
+              ],
               "constraints": {}
             },
             {

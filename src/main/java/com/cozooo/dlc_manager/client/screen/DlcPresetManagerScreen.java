@@ -55,7 +55,7 @@ public class DlcPresetManagerScreen extends DlcPageScreen {
     private void togglePreset(DlcPresetEntry preset) {
         if (DlcPresetRuntimeState.isPresetBlocked(preset.getId())) return;
         boolean enable = !DlcPresetRuntimeState.isPresetEnabled(preset.getId());
-        if (enable && preset.isAlarm()) Minecraft.getInstance().setScreen(new DlcAlarmConfirmScreen(this, preset.resolveTip(Minecraft.getInstance().options.languageCode), () -> apply(preset, true)));
+        if (enable && preset.isAlarm()) Minecraft.getInstance().setScreen(new DlcAlarmConfirmScreen(this, preset.resolveAlarmTip(Minecraft.getInstance().options.languageCode), () -> apply(preset, true)));
         else apply(preset, enable);
     }
     private void apply(DlcPresetEntry preset, boolean enabled) {

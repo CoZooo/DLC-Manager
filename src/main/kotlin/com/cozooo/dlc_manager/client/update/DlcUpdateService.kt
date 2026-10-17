@@ -1968,7 +1968,7 @@ object DlcUpdateService {
     }
 
     private val INFO_ALLOWED_TABLES = mutableSetOf<kotlin.String?>(
-        "basic", "displayname", "tip", "dependencies", "conflicts"
+        "basic", "displayname", "tip", "alarm", "dependencies", "conflicts"
     )
     private val INFO_ALLOWED_BASIC_KEYS = mutableSetOf<kotlin.String?>(
         "identifier",

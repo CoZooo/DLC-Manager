@@ -33,6 +33,7 @@ public class DlcRemoteEntry {
     private List<String> conflictNames = List.of();
     private Map<String, String> displayNames = Map.of();
     private Map<String, String> tips = Map.of();
+    private Map<String, String> alarmTips = Map.of();
     private String redirectUrl;
     private boolean alarm;
     private List<DlcRemoteEntry> remoteDependencies = List.of();
@@ -300,6 +301,9 @@ public class DlcRemoteEntry {
     public void setTips(Map<String, String> tips) {
         this.tips = tips == null ? Map.of() : tips;
     }
+
+    public Map<String, String> getAlarmTips() { return alarmTips; }
+    public void setAlarmTips(Map<String, String> values) { alarmTips = values == null ? Map.of() : values; }
 
     public String getRedirectUrl() {
         return redirectUrl;

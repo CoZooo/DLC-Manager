@@ -139,6 +139,7 @@ public final class DlcApiService {
                 json.add("sourcePaths", toStringArray(item.getSourcePaths()));
                 json.add("displayNames", toJsonObject(item.getDisplayNames()));
                 json.add("tips", toJsonObject(item.getTooltips()));
+                json.add("alarmTips", toJsonObject(item.getAlarmTips()));
                 json.add("dependencies", toStringArray(item.getDependencies()));
                 json.add("conflicts", toStringArray(item.getConflicts()));
                 items.add(json);

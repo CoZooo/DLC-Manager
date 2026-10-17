@@ -43,6 +43,7 @@ class DlcTooltipLoader {
                                 entry.fileNames,
                                 entry.alarm,
                             )
+                            data.setAlarmTips(entry.alarmTips)
                             data.setMatchMode(entry.matchMode)
                             result[entry.dlcName!!] = data
                         }
@@ -219,6 +220,7 @@ class DlcTooltipLoader {
             }
             entry.tip = tips
         }
+        entry.alarmTips = if (entry.alarm) readLocalized(localizedObjectFromAny(obj, "Alarm")) else emptyMap()
         return entry
     }
 
@@ -239,7 +241,8 @@ class DlcTooltipLoader {
             DlcDcConfigIO.hasIgnoreCase(obj, "conflicts") ||
             DlcDcConfigIO.hasIgnoreCase(obj, "isHidden") ||
             DlcDcConfigIO.hasIgnoreCase(obj, "AllowEnableByAll") ||
-            DlcDcConfigIO.hasIgnoreCase(obj, "alarm")
+            DlcDcConfigIO.hasIgnoreCase(obj, "alarm") ||
+            DlcDcConfigIO.hasIgnoreCase(obj, "Alarm")
     }
 
     private fun readTooltipObject(path: Path?): JsonObject? {
@@ -598,6 +601,7 @@ class DlcTooltipLoader {
         var redirectUrl: String? = null
         var fileNames: List<String> = emptyList()
         var alarm = false
+        var alarmTips: Map<String, String> = emptyMap()
         var matchMode: String = "hash"
     }
 
@@ -623,6 +627,7 @@ class DlcTooltipLoader {
         private val dependencies: List<String> = dependencies ?: emptyList()
         private val conflicts: List<String> = conflicts ?: emptyList()
         private val fileNames: List<String> = fileNames ?: emptyList()
+        private var alarmTips: Map<String, String> = emptyMap()
 
         fun getTips(): Map<String, String> = tips
         private var matchMode: String = "hash"
@@ -643,6 +648,8 @@ class DlcTooltipLoader {
         fun getRedirectUrl(): String? = redirectUrl
         fun getFileNames(): List<String> = fileNames
         fun isAlarm(): Boolean = alarm
+        fun getAlarmTips(): Map<String, String> = alarmTips
+        fun setAlarmTips(values: Map<String, String>?) { alarmTips = values ?: emptyMap() }
     }
 
     companion object {

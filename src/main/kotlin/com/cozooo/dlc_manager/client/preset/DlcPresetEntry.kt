@@ -10,13 +10,20 @@ class DlcPresetEntry(
     private val sourcePath: Path?,
     displayName: Map<String, String>?,
     tip: Map<String, String>?,
+    alarmTip: Map<String, String>?,
     enable: List<String>?,
     conflicts: List<String>?,
     private val alarm: Boolean,
     status: DlcPresetStatus?,
 ) {
+    constructor(
+        id: String?, fileName: String?, sourcePath: Path?, displayName: Map<String, String>?, tip: Map<String, String>?,
+        enable: List<String>?, conflicts: List<String>?, alarm: Boolean, status: DlcPresetStatus?
+    ) : this(id, fileName, sourcePath, displayName, tip, emptyMap(), enable, conflicts, alarm, status)
+
     private val displayName: Map<String, String> = displayName ?: emptyMap()
     private val tip: Map<String, String> = tip ?: emptyMap()
+    private val alarmTip: Map<String, String> = alarmTip ?: emptyMap()
     private val enable: MutableList<String> = Collections.unmodifiableList(ArrayList(enable ?: emptyList()))
     private val conflicts: MutableList<String> = Collections.unmodifiableList(ArrayList(conflicts ?: emptyList()))
     private var status: DlcPresetStatus = status ?: DlcPresetStatus.OFF
@@ -30,6 +37,7 @@ class DlcPresetEntry(
     fun getDisplayNames(): Map<String, String> = displayName
 
     fun getTips(): Map<String, String> = tip
+    fun getAlarmTips(): Map<String, String> = alarmTip
 
     fun getEnable(): MutableList<String> = enable
 
@@ -80,5 +88,13 @@ class DlcPresetEntry(
             }
         }
         return null
+    }
+
+    fun resolveAlarmTip(lang: String?): String? {
+        val key = DlcDcConfigIO.normalizeLangKey(lang)
+        if (key != null && alarmTip[key].orEmpty().isNotBlank()) return alarmTip[key]
+        if (key != null && tip[key].orEmpty().isNotBlank()) return tip[key]
+        if (alarmTip["en_us"].orEmpty().isNotBlank()) return alarmTip["en_us"]
+        return resolveTip(lang)
     }
 }

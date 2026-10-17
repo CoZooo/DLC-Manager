@@ -436,6 +436,7 @@ public final class DlcRemoteLoader {
         entry.setRemoteDependencies(deps.entries);
         entry.setDisplayNames(readLocalized(displayObj));
         entry.setTips(readLocalized(tipObj));
+        entry.setAlarmTips(alarm ? readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "Alarm")) : Map.of());
         entry.setAlarm(alarm);
 
         return new NormalizedRemote(entry, ordered);
