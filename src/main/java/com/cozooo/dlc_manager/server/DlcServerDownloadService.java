@@ -1634,11 +1634,7 @@ public final class DlcServerDownloadService {
     }
 
     private static String getIdentifier(JsonObject obj) {
-        String identifier = getString(obj, "identifier");
-        if (identifier == null || identifier.isBlank()) {
-            identifier = getString(obj, "dlc_identifier");
-        }
-        return identifier;
+        return getString(obj, "identifier");
     }
 
     private static JsonElement normalizeRelationElement(JsonElement element) {
@@ -1663,11 +1659,6 @@ public final class DlcServerDownloadService {
                 continue;
             }
             String targetKey = key;
-            if ("dlc_identifier".equalsIgnoreCase(key)) {
-                targetKey = "identifier";
-            } else if ("dlc_name".equalsIgnoreCase(key)) {
-                targetKey = "file_name";
-            }
             if (normalized.has(targetKey)) {
                 continue;
             }

@@ -374,7 +374,7 @@ object DlcRemoteLoader {
                 continue
             }
             if ("platform".equals(key, ignoreCase = true) || "projectid".equals(key, ignoreCase = true) || "version".equals(key, ignoreCase = true)
-                || "modid".equals(key, ignoreCase = true) || "dlc_name".equals(key, ignoreCase = true) || "dlc_identifier".equals(key, ignoreCase = true)
+                || "modid".equals(key, ignoreCase = true)
                 || "identifier".equals(key, ignoreCase = true)
             ) {
                 continue
@@ -670,17 +670,15 @@ object DlcRemoteLoader {
             return false
         }
         val hasIdentifier = DlcDcConfigIO.hasIgnoreCase(obj, "identifier")
-            || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_identifier")
             || DlcDcConfigIO.hasIgnoreCase(obj, "file_name")
-            || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_name")
             || DlcDcConfigIO.hasIgnoreCase(obj, "name")
         if (!hasIdentifier) {
             return false
         }
         for ((key, _) in obj.entrySet()) {
-            if ("identifier".equals(key, ignoreCase = true) || "dlc_identifier".equals(key, ignoreCase = true)
+            if ("identifier".equals(key, ignoreCase = true)
                 || "file_name".equals(key, ignoreCase = true)
-                || "dlc_name".equals(key, ignoreCase = true) || "name".equals(key, ignoreCase = true)
+                || "name".equals(key, ignoreCase = true)
             ) {
                 continue
             }
@@ -695,13 +693,7 @@ object DlcRemoteLoader {
         }
         var identifier = getString(obj, "identifier")
         if (identifier.isNullOrBlank()) {
-            identifier = getString(obj, "dlc_identifier")
-        }
-        if (identifier.isNullOrBlank()) {
             identifier = getString(obj, "file_name")
-        }
-        if (identifier.isNullOrBlank()) {
-            identifier = getString(obj, "dlc_name")
         }
         if (identifier.isNullOrBlank()) {
             identifier = getString(obj, "name")
@@ -722,7 +714,6 @@ object DlcRemoteLoader {
             || DlcDcConfigIO.hasIgnoreCase(obj, "curseforge_projectid")
             || DlcDcConfigIO.hasIgnoreCase(obj, "curseforge_fileid")
             || DlcDcConfigIO.hasIgnoreCase(obj, "identifier")
-            || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_identifier")
             || DlcDcConfigIO.hasIgnoreCase(obj, "file_name")
             || DlcDcConfigIO.hasIgnoreCase(obj, "type")
             || DlcDcConfigIO.hasIgnoreCase(obj, "appliedTarget")
@@ -738,9 +729,6 @@ object DlcRemoteLoader {
     private fun needsKeyMigration(obj: JsonObject?): Boolean {
         if (obj == null) {
             return false
-        }
-        if (DlcDcConfigIO.hasIgnoreCase(obj, "dlc_name") || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_identifier")) {
-            return true
         }
         return !DlcDcConfigIO.hasIgnoreCase(obj, "file_name") || !DlcDcConfigIO.hasIgnoreCase(obj, "identifier")
     }

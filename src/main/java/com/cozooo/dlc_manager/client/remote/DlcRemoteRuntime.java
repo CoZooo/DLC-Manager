@@ -174,9 +174,6 @@ public final class DlcRemoteRuntime {
             if (key == null || ordered.has(key)) {
                 continue;
             }
-            if ("dlc_name".equalsIgnoreCase(key) || "dlc_identifier".equalsIgnoreCase(key)) {
-                continue;
-            }
             ordered.add(key, entry.getValue());
         }
         return ordered;
@@ -190,19 +187,11 @@ public final class DlcRemoteRuntime {
     }
 
     private static String getIdentifier(JsonObject obj) {
-        String identifier = getString(obj, "identifier");
-        if (identifier == null || identifier.isBlank()) {
-            identifier = getString(obj, "dlc_identifier");
-        }
-        return identifier;
+        return getString(obj, "identifier");
     }
 
     private static String getFileName(JsonObject obj) {
-        String fileName = getString(obj, "file_name");
-        if (fileName == null || fileName.isBlank()) {
-            fileName = getString(obj, "dlc_name");
-        }
-        return fileName;
+        return getString(obj, "file_name");
     }
 
     private static JsonElement normalizeRelationElement(JsonElement element) {
@@ -227,11 +216,6 @@ public final class DlcRemoteRuntime {
                 continue;
             }
             String targetKey = key;
-            if ("dlc_identifier".equalsIgnoreCase(key)) {
-                targetKey = "identifier";
-            } else if ("dlc_name".equalsIgnoreCase(key)) {
-                targetKey = "file_name";
-            }
             if (normalized.has(targetKey)) {
                 continue;
             }

@@ -1942,12 +1942,6 @@ public final class DlcUpdateService {
         if ("dependency".equalsIgnoreCase(key)) {
             return "dependencies";
         }
-        if ("dlc_identifier".equalsIgnoreCase(key)) {
-            return "identifier";
-        }
-        if ("dlc_name".equalsIgnoreCase(key)) {
-            return "file_name";
-        }
         if ("redirecturl".equalsIgnoreCase(key)) {
             return "RedirectUrl";
         }
@@ -2048,9 +2042,6 @@ public final class DlcUpdateService {
                         return;
                     }
                     String identifier = DlcDcConfigIO.getStringIgnoreCase(obj, "identifier");
-                    if (identifier == null || identifier.isBlank()) {
-                        identifier = DlcDcConfigIO.getStringIgnoreCase(obj, "dlc_identifier");
-                    }
                     if (identifier == null || identifier.isBlank()) {
                         return;
                     }

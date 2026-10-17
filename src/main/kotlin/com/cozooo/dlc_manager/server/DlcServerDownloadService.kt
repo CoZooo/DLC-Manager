@@ -1429,11 +1429,7 @@ object DlcServerDownloadService {
     }
 
     private fun getIdentifier(obj: JsonObject): String {
-        var identifier = getString(obj, "identifier")
-        if (identifier.isBlank()) {
-            identifier = getString(obj, "dlc_identifier")
-        }
-        return identifier
+        return getString(obj, "identifier")
     }
 
     private fun normalizeRelationElement(element: JsonElement?): JsonElement {
@@ -1454,11 +1450,6 @@ object DlcServerDownloadService {
         val normalized = JsonObject()
         for ((key, value) in obj.entrySet()) {
             var targetKey = key ?: continue
-            if ("dlc_identifier".equals(key, ignoreCase = true)) {
-                targetKey = "identifier"
-            } else if ("dlc_name".equals(key, ignoreCase = true)) {
-                targetKey = "file_name"
-            }
             if (normalized.has(targetKey)) {
                 continue
             }

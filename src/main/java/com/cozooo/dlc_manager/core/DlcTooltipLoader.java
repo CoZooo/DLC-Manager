@@ -215,9 +215,7 @@ public class DlcTooltipLoader {
             return false;
         }
         return DlcDcConfigIO.hasIgnoreCase(obj, "file_name")
-            || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_name")
             || DlcDcConfigIO.hasIgnoreCase(obj, "identifier")
-            || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_identifier")
             || DlcDcConfigIO.hasIgnoreCase(obj, "DisplayName")
             || DlcDcConfigIO.hasIgnoreCase(obj, "tip")
             || DlcDcConfigIO.hasIgnoreCase(obj, "type")
@@ -265,19 +263,11 @@ public class DlcTooltipLoader {
     }
 
     private String getIdentifier(JsonObject obj) {
-        String identifier = getString(obj, "identifier");
-        if (identifier == null || identifier.isBlank()) {
-            identifier = getString(obj, "dlc_identifier");
-        }
-        return identifier;
+        return getString(obj, "identifier");
     }
 
     private String getFileName(JsonObject obj) {
-        String fileName = getString(obj, "file_name");
-        if (fileName == null || fileName.isBlank()) {
-            fileName = getString(obj, "dlc_name");
-        }
-        return fileName;
+        return getString(obj, "file_name");
     }
 
     private boolean getBoolean(JsonObject obj, String key, boolean fallback) {
@@ -294,9 +284,6 @@ public class DlcTooltipLoader {
     private boolean needsKeyMigration(JsonObject obj) {
         if (obj == null) {
             return false;
-        }
-        if (DlcDcConfigIO.hasIgnoreCase(obj, "dlc_name") || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_identifier")) {
-            return true;
         }
         return !DlcDcConfigIO.hasIgnoreCase(obj, "file_name") || !DlcDcConfigIO.hasIgnoreCase(obj, "identifier");
     }
@@ -343,8 +330,6 @@ public class DlcTooltipLoader {
             String targetKey = key;
             if (isIdentifierAlias(key)) {
                 targetKey = "identifier";
-            } else if (isFileNameAlias(key)) {
-                targetKey = "file_name";
             }
             if (normalized.has(targetKey)) {
                 continue;
@@ -381,10 +366,6 @@ public class DlcTooltipLoader {
         return "identifier".equalsIgnoreCase(key);
     }
 
-    private boolean isFileNameAlias(String key) {
-        return "file_name".equalsIgnoreCase(key) || "dlc_name".equalsIgnoreCase(key);
-    }
-
     private JsonObject buildOrderedTooltipObject(JsonObject source, String dlcName, String dlcIdentifier, JsonObject displayName, String type,
         String appliedTarget, String redirectUrl,
         boolean hidden, boolean allowEnableByAll, JsonElement dependencies, JsonElement conflicts, boolean alarm, JsonObject tip) {
@@ -413,9 +394,6 @@ public class DlcTooltipLoader {
             for (Map.Entry<String, JsonElement> entry : source.entrySet()) {
                 String key = entry.getKey();
                 if (key == null || ordered.has(key)) {
-                    continue;
-                }
-                if ("dlc_name".equalsIgnoreCase(key) || "dlc_identifier".equalsIgnoreCase(key)) {
                     continue;
                 }
                 if ("modrinth_projectid".equalsIgnoreCase(key)

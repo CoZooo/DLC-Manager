@@ -390,7 +390,7 @@ public final class DlcRemoteLoader {
                 continue;
             }
             if ("platform".equalsIgnoreCase(key) || "projectid".equalsIgnoreCase(key) || "version".equalsIgnoreCase(key)
-                || "modid".equalsIgnoreCase(key) || "dlc_name".equalsIgnoreCase(key) || "dlc_identifier".equalsIgnoreCase(key)
+                || "modid".equalsIgnoreCase(key)
                 || "identifier".equalsIgnoreCase(key)) {
                 continue;
             }
@@ -692,18 +692,16 @@ public final class DlcRemoteLoader {
             return false;
         }
         boolean hasIdentifier = DlcDcConfigIO.hasIgnoreCase(obj, "identifier")
-            || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_identifier")
             || DlcDcConfigIO.hasIgnoreCase(obj, "file_name")
-            || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_name")
             || DlcDcConfigIO.hasIgnoreCase(obj, "name");
         if (!hasIdentifier) {
             return false;
         }
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
             String key = entry.getKey();
-            if ("identifier".equalsIgnoreCase(key) || "dlc_identifier".equalsIgnoreCase(key)
+            if ("identifier".equalsIgnoreCase(key)
                 || "file_name".equalsIgnoreCase(key)
-                || "dlc_name".equalsIgnoreCase(key) || "name".equalsIgnoreCase(key)) {
+                || "name".equalsIgnoreCase(key)) {
                 continue;
             }
             return false;
@@ -717,13 +715,7 @@ public final class DlcRemoteLoader {
         }
         String identifier = getString(obj, "identifier");
         if (identifier == null || identifier.isBlank()) {
-            identifier = getString(obj, "dlc_identifier");
-        }
-        if (identifier == null || identifier.isBlank()) {
             identifier = getString(obj, "file_name");
-        }
-        if (identifier == null || identifier.isBlank()) {
-            identifier = getString(obj, "dlc_name");
         }
         if (identifier == null || identifier.isBlank()) {
             identifier = getString(obj, "name");
@@ -744,7 +736,6 @@ public final class DlcRemoteLoader {
             || DlcDcConfigIO.hasIgnoreCase(obj, "curseforge_projectid")
             || DlcDcConfigIO.hasIgnoreCase(obj, "curseforge_fileid")
             || DlcDcConfigIO.hasIgnoreCase(obj, "identifier")
-            || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_identifier")
             || DlcDcConfigIO.hasIgnoreCase(obj, "file_name")
             || DlcDcConfigIO.hasIgnoreCase(obj, "type")
             || DlcDcConfigIO.hasIgnoreCase(obj, "appliedTarget")
@@ -760,9 +751,6 @@ public final class DlcRemoteLoader {
     private static boolean needsKeyMigration(JsonObject obj) {
         if (obj == null) {
             return false;
-        }
-        if (DlcDcConfigIO.hasIgnoreCase(obj, "dlc_name") || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_identifier")) {
-            return true;
         }
         return !DlcDcConfigIO.hasIgnoreCase(obj, "file_name") || !DlcDcConfigIO.hasIgnoreCase(obj, "identifier");
     }

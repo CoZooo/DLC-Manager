@@ -167,9 +167,6 @@ object DlcRemoteRuntime {
             if (key == null || ordered.has(key)) {
                 continue
             }
-            if ("dlc_name".equals(key, ignoreCase = true) || "dlc_identifier".equals(key, ignoreCase = true)) {
-                continue
-            }
             ordered.add(key, value)
         }
         return ordered
@@ -183,19 +180,11 @@ object DlcRemoteRuntime {
     }
 
     private fun getIdentifier(obj: JsonObject): String {
-        var identifier = getString(obj, "identifier")
-        if (identifier.isBlank()) {
-            identifier = getString(obj, "dlc_identifier")
-        }
-        return identifier
+        return getString(obj, "identifier")
     }
 
     private fun getFileName(obj: JsonObject): String {
-        var fileName = getString(obj, "file_name")
-        if (fileName.isBlank()) {
-            fileName = getString(obj, "dlc_name")
-        }
-        return fileName
+        return getString(obj, "file_name")
     }
 
     private fun normalizeRelationElement(element: JsonElement?): JsonElement {
@@ -218,13 +207,7 @@ object DlcRemoteRuntime {
             if (key == null) {
                 continue
             }
-            val targetKey = if ("dlc_identifier".equals(key, ignoreCase = true)) {
-                "identifier"
-            } else if ("dlc_name".equals(key, ignoreCase = true)) {
-                "file_name"
-            } else {
-                key
-            }
+            val targetKey = key
             if (normalized.has(targetKey)) {
                 continue
             }

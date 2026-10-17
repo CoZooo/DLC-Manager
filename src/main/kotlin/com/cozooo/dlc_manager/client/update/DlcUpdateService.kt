@@ -2057,12 +2057,6 @@ object DlcUpdateService {
         if ("dependency".equals(key, ignoreCase = true)) {
             return "dependencies"
         }
-        if ("dlc_identifier".equals(key, ignoreCase = true)) {
-            return "identifier"
-        }
-        if ("dlc_name".equals(key, ignoreCase = true)) {
-            return "file_name"
-        }
         if ("redirecturl".equals(key, ignoreCase = true)) {
             return "RedirectUrl"
         }
@@ -2162,10 +2156,7 @@ object DlcUpdateService {
                         if (obj == null) {
                             return@forEach
                         }
-                        var identifier: kotlin.String? = DlcDcConfigIO.getStringIgnoreCase(obj, "identifier")
-                        if (identifier == null || identifier.isBlank()) {
-                            identifier = DlcDcConfigIO.getStringIgnoreCase(obj, "dlc_identifier")
-                        }
+                        val identifier: kotlin.String? = DlcDcConfigIO.getStringIgnoreCase(obj, "identifier")
                         if (identifier == null || identifier.isBlank()) {
                             return@forEach
                         }

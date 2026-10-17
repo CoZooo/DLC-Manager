@@ -229,9 +229,7 @@ class DlcTooltipLoader {
             return false
         }
         return DlcDcConfigIO.hasIgnoreCase(obj, "file_name") ||
-            DlcDcConfigIO.hasIgnoreCase(obj, "dlc_name") ||
             DlcDcConfigIO.hasIgnoreCase(obj, "identifier") ||
-            DlcDcConfigIO.hasIgnoreCase(obj, "dlc_identifier") ||
             DlcDcConfigIO.hasIgnoreCase(obj, "DisplayName") ||
             DlcDcConfigIO.hasIgnoreCase(obj, "tip") ||
             DlcDcConfigIO.hasIgnoreCase(obj, "type") ||
@@ -280,19 +278,11 @@ class DlcTooltipLoader {
     }
 
     private fun getIdentifier(obj: JsonObject?): String? {
-        var identifier = getString(obj, "identifier")
-        if (identifier.isNullOrBlank()) {
-            identifier = getString(obj, "dlc_identifier")
-        }
-        return identifier
+        return getString(obj, "identifier")
     }
 
     private fun getFileName(obj: JsonObject?): String? {
-        var fileName = getString(obj, "file_name")
-        if (fileName.isNullOrBlank()) {
-            fileName = getString(obj, "dlc_name")
-        }
-        return fileName
+        return getString(obj, "file_name")
     }
 
     private fun getBoolean(obj: JsonObject?, key: String, fallback: Boolean): Boolean {
@@ -309,9 +299,6 @@ class DlcTooltipLoader {
     private fun needsKeyMigration(obj: JsonObject?): Boolean {
         if (obj == null) {
             return false
-        }
-        if (DlcDcConfigIO.hasIgnoreCase(obj, "dlc_name") || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_identifier")) {
-            return true
         }
         return !DlcDcConfigIO.hasIgnoreCase(obj, "file_name") || !DlcDcConfigIO.hasIgnoreCase(obj, "identifier")
     }
@@ -354,8 +341,6 @@ class DlcTooltipLoader {
             var targetKey = key ?: continue
             if (isIdentifierAlias(key)) {
                 targetKey = "identifier"
-            } else if (isFileNameAlias(key)) {
-                targetKey = "file_name"
             }
             if (normalized.has(targetKey)) {
                 continue
@@ -389,10 +374,6 @@ class DlcTooltipLoader {
 
     private fun isIdentifierAlias(key: String): Boolean {
         return "identifier".equals(key, ignoreCase = true)
-    }
-
-    private fun isFileNameAlias(key: String): Boolean {
-        return "file_name".equals(key, ignoreCase = true) || "dlc_name".equals(key, ignoreCase = true)
     }
 
     private fun buildOrderedTooltipObject(
@@ -434,9 +415,6 @@ class DlcTooltipLoader {
         if (source != null) {
             for ((key, value) in source.entrySet()) {
                 if (key == null || ordered.has(key)) {
-                    continue
-                }
-                if ("dlc_name".equals(key, ignoreCase = true) || "dlc_identifier".equals(key, ignoreCase = true)) {
                     continue
                 }
                 if ("modrinth_projectid".equals(key, ignoreCase = true) ||

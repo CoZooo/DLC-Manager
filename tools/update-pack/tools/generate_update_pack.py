@@ -445,7 +445,7 @@ def extract_key_value(text: str, keys: list[str]):
 
 
 def extract_identifier_from_config(text: str, path: str) -> str:
-    identifier = extract_key_value(text, ["identifier", "dlc_identifier"])
+    identifier = extract_key_value(text, ["identifier"])
     if isinstance(identifier, str) and identifier.strip():
         return identifier.strip()
     return strip_config_extension(Path(path).name)
@@ -603,7 +603,7 @@ def parse_config_flat_map(text: str, path: str) -> dict[str, object]:
 def canonicalize_config_map(raw: dict[str, object], path: str) -> dict[str, object]:
     canonical: dict[str, object] = {}
     identifier = None
-    for key in ("basic.identifier", "identifier", "dlc_identifier", "basic.dlc_identifier"):
+    for key in ("basic.identifier", "identifier"):
         value = raw.get(key)
         if isinstance(value, str) and value.strip():
             identifier = value.strip()
@@ -621,7 +621,6 @@ def canonicalize_config_map(raw: dict[str, object], path: str) -> dict[str, obje
 
     basic_keys = {
         "identifier": "identifier",
-        "dlc_identifier": "identifier",
         "file_name": "file_name",
         "type": "type",
         "ishidden": "isHidden",
@@ -646,7 +645,7 @@ def canonicalize_config_map(raw: dict[str, object], path: str) -> dict[str, obje
         if value is None:
             continue
         low = key.lower()
-        if low in {"identifier", "dlc_identifier", "basic.identifier", "basic.dlc_identifier"}:
+        if low in {"identifier", "basic.identifier"}:
             continue
         if low in download_keys:
             canonical[download_keys[low]] = value
