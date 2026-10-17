@@ -51,7 +51,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -67,8 +66,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -78,60 +75,10 @@ public class DlcServerService {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Gson GSON = new GsonBuilder().create();
     private static final int FILE_CHUNK_SIZE = 64 * 1024;
-    private static final AtomicBoolean RUNNING = new AtomicBoolean(false);
     private static final Set<String> LOGGED_CONNECTION_KEYS = ConcurrentHashMap.newKeySet();
     private static final Object PACK_APPLY_LOCK = new Object();
     private static volatile PackApplyJob packApplyJob;
-    private static ServerSocket serverSocket;
-    private static Thread acceptThread;
-    private static ExecutorService clientPool;
     private static volatile MinecraftServer currentServer;
-
-    public static void start() {
-        if (!DlcConfig.isServerSupportOnServer()) {
-            LOGGER.info("[dlc-manager] server support disabled; skip server manager TCP start");
-            return;
-        }
-        if (RUNNING.get()) {
-            if (serverSocket != null && !serverSocket.isClosed()) {
-                return;
-            }
-            RUNNING.set(false);
-        }
-        if (RUNNING.get()) {
-            return;
-        }
-        RUNNING.set(true);
-        clientPool = Executors.newCachedThreadPool(runnable -> {
-            Thread thread = new Thread(runnable, "dlc-manager-server-client");
-            thread.setDaemon(true);
-            return thread;
-        });
-        acceptThread = new Thread(DlcServerService::acceptLoop, "dlc-manager-server");
-        acceptThread.setDaemon(true);
-        acceptThread.start();
-        LOGGER.info("[dlc-manager] server manager TCP starting on port {}", DlcConfig.getServerPort());
-    }
-
-    public static void stop() {
-        RUNNING.set(false);
-        LOGGED_CONNECTION_KEYS.clear();
-        if (acceptThread != null) {
-            acceptThread.interrupt();
-            acceptThread = null;
-        }
-        if (serverSocket != null) {
-            try {
-                serverSocket.close();
-            } catch (IOException ignored) {
-            }
-            serverSocket = null;
-        }
-        if (clientPool != null) {
-            clientPool.shutdownNow();
-            clientPool = null;
-        }
-    }
 
     public static void updateServerStatus(MinecraftServer server) {
         if (!DlcConfig.isServerSupportOnServer()) {
@@ -172,27 +119,6 @@ public class DlcServerService {
             return "";
         }
         return base + "+" + dlc;
-    }
-
-    private static void acceptLoop() {
-        try (ServerSocket socket = new ServerSocket(DlcConfig.getServerPort())) {
-            serverSocket = socket;
-            while (RUNNING.get()) {
-                Socket client = socket.accept();
-                if (clientPool != null) {
-                    clientPool.submit(() -> handleClient(client));
-                } else {
-                    client.close();
-                }
-            }
-        } catch (IOException error) {
-            if (RUNNING.get()) {
-                LOGGER.warn("[dlc-manager] server manager TCP failed", error);
-            }
-        } finally {
-            RUNNING.set(false);
-            serverSocket = null;
-        }
     }
 
     public static void handleClient(Socket socket) {

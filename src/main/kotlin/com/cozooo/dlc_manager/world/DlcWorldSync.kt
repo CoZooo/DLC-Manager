@@ -36,13 +36,11 @@ object DlcWorldSync {
                 DlcConfig.loadServer()
                 DlcServerService.updateServerStatus(server)
                 DlcServerApi.start(server)
-                DlcServerService.start()
                 if (!DlcStartupRequirements.usesEarlyInstallation()) startServerRequiredDownload(server)
             }
         }
         LifecycleEvent.SERVER_STOPPING.register {
             DlcServerApi.stop()
-            DlcServerService.stop()
         }
         PlayerEvent.PLAYER_JOIN.register(DlcServerUpdateNotifier::onPlayerJoin)
     }

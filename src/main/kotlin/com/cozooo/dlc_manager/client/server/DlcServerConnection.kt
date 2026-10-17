@@ -998,7 +998,6 @@ object DlcServerConnection {
             DlcPlatformServices.languageCode(),
             playerName,
             playerUuid,
-            actualEntry.usePortMultiplexer,
         )
     }
 

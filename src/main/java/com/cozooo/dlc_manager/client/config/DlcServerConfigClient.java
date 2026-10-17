@@ -7,8 +7,6 @@ import com.google.gson.JsonObject;
 import java.util.List;
 
 public final class DlcServerConfigClient {
-    private static final DlcConfigValue.IntegerValue SERVER_PORT = new DlcConfigValue.IntegerValue("serverPort", DlcConfig.DEFAULT_SERVER_PORT, 1, 65535,
-        "dlc_manager.config.comment.ui.serverPort", "dlc_manager.config.ui.serverPort");
     private static final DlcConfigValue.StringValue SERVER_PASSWORD = new DlcConfigValue.StringValue("serverPassword", "",
         "dlc_manager.config.comment.ui.serverPassword", "dlc_manager.config.ui.serverPassword");
     private static final DlcConfigValue.StringValue RCON_HOST = new DlcConfigValue.StringValue("rconHost", DlcConfig.DEFAULT_RCON_HOST,
@@ -69,7 +67,6 @@ public final class DlcServerConfigClient {
         "dlc_manager.config.comment.download.downloadMirrorProbeStrategy", "dlc_manager.config.download.downloadMirrorProbeStrategy");
 
     private static final List<DlcConfigValue> SERVER_CONFIGS = List.of(
-        SERVER_PORT,
         SERVER_PASSWORD,
         RCON_HOST,
         RCON_PORT,
@@ -140,7 +137,6 @@ public final class DlcServerConfigClient {
             return;
         }
         JsonObject server = asObject(root, "server");
-        SERVER_PORT.setIntegerValue(getInt(server, "serverPort", SERVER_PORT.getIntegerValue()));
         SERVER_PASSWORD.setValueFromString(getString(server, "serverPassword", SERVER_PASSWORD.getStringValue()));
         RCON_HOST.setValueFromString(getString(server, "rconHost", RCON_HOST.getStringValue()));
         RCON_PORT.setIntegerValue(getInt(server, "rconPort", RCON_PORT.getIntegerValue()));
@@ -184,7 +180,6 @@ public final class DlcServerConfigClient {
     public static JsonObject toJson() {
         JsonObject root = new JsonObject();
         JsonObject server = new JsonObject();
-        server.addProperty("serverPort", SERVER_PORT.getIntegerValue());
         server.addProperty("serverPassword", SERVER_PASSWORD.getStringValue());
         server.addProperty("rconHost", RCON_HOST.getStringValue());
         server.addProperty("rconPort", RCON_PORT.getIntegerValue());

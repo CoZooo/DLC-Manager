@@ -93,16 +93,15 @@ final class DlcFxLocalConfigModelTest {
         DlcFxConfigModel model = new DlcFxConfigModel(DlcFxConfigModel.serverSource(root, json -> saved[0] = json));
         model.loadFromConfig();
 
-        assertEquals(5, model.options(DlcFxConfigModel.Tab.SERVER).size());
-        assertTrue(model.find("serverPort").setValueFromString("28888"));
+        assertEquals(4, model.options(DlcFxConfigModel.Tab.SERVER).size());
         assertTrue(model.find("serverPassword").setValueFromString("secret"));
         model.applyToConfig();
 
         JsonObject server = saved[0].getAsJsonObject("server");
         assertFalse(saved[0].getAsJsonObject("ui").has("serverSupport"));
-        assertEquals(28888, server.get("serverPort").getAsInt());
         assertEquals("secret", server.get("serverPassword").getAsString());
-        assertEquals(28888, model.snapshot().getAsJsonObject("server").get("serverPort").getAsInt());
+        assertFalse(server.has("serverPort"));
+        assertFalse(model.snapshot().getAsJsonObject("server").has("serverPort"));
     }
 
     private record TestProvider(Path gameDir, Path configDir) implements PlatformServices.Provider {

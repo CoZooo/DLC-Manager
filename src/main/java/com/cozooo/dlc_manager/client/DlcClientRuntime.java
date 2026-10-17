@@ -1173,22 +1173,34 @@ public final class DlcClientRuntime {
         entry.name = data.name;
         String ip = data.ip == null ? "" : data.ip;
         String host = ip;
-        int port = DlcConfig.getServerPort();
+        int port = 25565;
         if (ip.startsWith("[") && ip.contains("]")) {
             int end = ip.indexOf(']');
             if (end > 1) {
                 host = ip.substring(1, end);
+                if (end + 1 < ip.length() && ip.charAt(end + 1) == ':') {
+                    port = parseMinecraftPort(ip.substring(end + 2), port);
+                }
             }
         } else {
             int index = ip.lastIndexOf(':');
             if (index > 0 && index < ip.length() - 1 && ip.indexOf(':') == index) {
                 host = ip.substring(0, index);
+                port = parseMinecraftPort(ip.substring(index + 1), port);
             }
         }
         entry.host = host;
         entry.port = port;
-        entry.useTcp = true;
         return entry;
+    }
+
+    private static int parseMinecraftPort(String value, int fallback) {
+        try {
+            int port = Integer.parseInt(value);
+            return port >= 1 && port <= 65535 ? port : fallback;
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
     }
 
     private static DlcServerInfo fetchServerInfo(DlcServerEntry entry) {

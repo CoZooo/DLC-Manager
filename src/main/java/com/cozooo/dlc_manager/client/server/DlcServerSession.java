@@ -44,26 +44,19 @@ public final class DlcServerSession implements AutoCloseable {
             throw new IOException("missing server entry");
         }
         return connect(entry.host, entry.port, entry.password, timeoutMs,
-                DlcPlatformServices.languageCode(), DlcPlatformServices.playerName(), DlcPlatformServices.playerUuid(), entry.usePortMultiplexer);
+                DlcPlatformServices.languageCode(), DlcPlatformServices.playerName(), DlcPlatformServices.playerUuid());
     }
 
     public static DlcServerSession connect(String host, int port, String password, int timeoutMs,
                                            String lang, String player, String uuid) throws IOException {
-        return connect(host, port, password, timeoutMs, lang, player, uuid, false);
-    }
-
-    public static DlcServerSession connect(String host, int port, String password, int timeoutMs,
-                                           String lang, String player, String uuid, boolean usePortMultiplexer) throws IOException {
         Socket socket = new Socket();
         String actualHost = host == null ? "" : host;
         socket.connect(new InetSocketAddress(actualHost, port), timeoutMs);
         socket.setSoTimeout(timeoutMs);
         DlcServerSession session = new DlcServerSession(socket);
         try {
-            if (usePortMultiplexer) {
-                socket.getOutputStream().write(PORT_MULTIPLEXER_PREFACE);
-                socket.getOutputStream().flush();
-            }
+            socket.getOutputStream().write(PORT_MULTIPLEXER_PREFACE);
+            socket.getOutputStream().flush();
             session.hello(password, lang, player, uuid);
             return session;
         } catch (IOException | RuntimeException error) {

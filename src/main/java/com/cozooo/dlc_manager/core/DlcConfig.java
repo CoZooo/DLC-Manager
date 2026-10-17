@@ -37,7 +37,6 @@ public class DlcConfig {
     public static final boolean DEFAULT_SHOW_DEPENDENCY_REMINDER = false;
     public static final int DEFAULT_ALARM_WAITING_TIME = 0;
     public static final boolean DEFAULT_SERVER_SUPPORT = true;
-    public static final int DEFAULT_SERVER_PORT = 29690;
     public static final String DEFAULT_SERVER_PASSWORD = "";
     public static final boolean DEFAULT_API_ENABLED = false;
     public static final int DEFAULT_API_PORT = 10086;
@@ -104,7 +103,6 @@ public class DlcConfig {
     private static boolean showDependencyReminder = DEFAULT_SHOW_DEPENDENCY_REMINDER;
     private static int alarmWaitingTime = DEFAULT_ALARM_WAITING_TIME;
     private static boolean serverSupportClient = DEFAULT_SERVER_SUPPORT;
-    private static int serverPort = DEFAULT_SERVER_PORT;
     private static String serverPassword = DEFAULT_SERVER_PASSWORD;
     private static boolean apiEnabled = DEFAULT_API_ENABLED;
     private static int apiPort = DEFAULT_API_PORT;
@@ -311,10 +309,6 @@ public class DlcConfig {
 
     public static boolean isServerSupportOnServer() {
         return true;
-    }
-
-    public static int getServerPort() {
-        return serverPort;
     }
 
     public static String getServerPassword() {
@@ -678,10 +672,6 @@ public class DlcConfig {
     public static void setServerSupportOnServer(boolean value) {
     }
 
-    public static void setServerPort(int value) {
-        serverPort = clampInt(value, 1, 65535, DEFAULT_SERVER_PORT);
-    }
-
     public static void setServerPassword(String value) {
         serverPassword = value == null ? DEFAULT_SERVER_PASSWORD : value;
     }
@@ -855,7 +845,6 @@ public class DlcConfig {
         showDependencyReminder = DEFAULT_SHOW_DEPENDENCY_REMINDER;
         alarmWaitingTime = DEFAULT_ALARM_WAITING_TIME;
         serverSupportClient = DEFAULT_SERVER_SUPPORT;
-        serverPort = DEFAULT_SERVER_PORT;
         serverPassword = DEFAULT_SERVER_PASSWORD;
         apiEnabled = DEFAULT_API_ENABLED;
         apiPort = DEFAULT_API_PORT;
@@ -917,7 +906,6 @@ public class DlcConfig {
     }
 
     private static void resetServerDefaults() {
-        serverPort = DEFAULT_SERVER_PORT;
         serverPassword = DEFAULT_SERVER_PASSWORD;
         serverRconHost = DEFAULT_RCON_HOST;
         serverRconPort = DEFAULT_RCON_PORT;
@@ -1085,7 +1073,6 @@ public class DlcConfig {
 
     private static void writeServer(JsonObject root) {
         JsonObject obj = new JsonObject();
-        obj.addProperty("serverPort", serverPort);
         obj.addProperty("serverPassword", serverPassword);
         if (!DEFAULT_RCON_HOST.equals(serverRconHost) || serverRconPort != DEFAULT_RCON_PORT || !DEFAULT_RCON_PASSWORD.equals(serverRconPassword)) {
             obj.addProperty("rconHost", serverRconHost);
@@ -1174,7 +1161,6 @@ public class DlcConfig {
 
     private static Map<String, Consumer<JsonElement>> buildServerReaders() {
         Map<String, Consumer<JsonElement>> map = new HashMap<>();
-        map.put("serverPort", value -> serverPort = clampInt(asInt(value, DEFAULT_SERVER_PORT), 1, 65535, DEFAULT_SERVER_PORT));
         map.put("serverPassword", value -> serverPassword = asString(value, DEFAULT_SERVER_PASSWORD));
         map.put("rconHost", value -> serverRconHost = asString(value, DEFAULT_RCON_HOST));
         map.put("rconPort", value -> serverRconPort = clampInt(asInt(value, DEFAULT_RCON_PORT), 1, 65535, DEFAULT_RCON_PORT));

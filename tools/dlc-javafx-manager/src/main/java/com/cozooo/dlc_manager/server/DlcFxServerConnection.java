@@ -71,7 +71,6 @@ public final class DlcFxServerConnection {
         entry.host = connectedHost;
         entry.port = connectedPort;
         entry.password = connectedPassword == null ? "" : connectedPassword;
-        entry.useTcp = true;
         return entry;
     }
 

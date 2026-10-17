@@ -28,7 +28,7 @@ public final class DlcFxServerConnectionTab {
     private final DlcFxServerConnection conn;
     private final TextField nameField = new TextField();
     private final TextField hostField = new TextField("127.0.0.1");
-    private final TextField portField = new TextField("29690");
+    private final TextField portField = new TextField("25565");
     private final TextField passwordField = new TextField();
     private final Label infoLabel = new Label("");
     private boolean loadingConnectionState;
@@ -90,7 +90,7 @@ public final class DlcFxServerConnectionTab {
 
     private void connectCurrent() {
         String host = hostField.getText().trim();
-        int port = parsePort(portField.getText(), 29690);
+        int port = parsePort(portField.getText(), 25565);
         String password = passwordField.getText();
         saveConnectionState();
         conn.connectAsync(host, port, password, 10000, err -> {

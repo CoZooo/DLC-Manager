@@ -101,7 +101,6 @@ class DlcConfigTest {
     @Test
     void serverConfigJsonRoundTripsServerAndDownloadSettings() {
         DlcConfig.setServerSupportOnServer(false);
-        DlcConfig.setServerPort(29691);
         DlcConfig.setApiEnabled(true);
         DlcConfig.setApiPort(10087);
         DlcConfig.setServerRconHost("127.0.0.1");
@@ -116,7 +115,6 @@ class DlcConfigTest {
         DlcConfig.applyServerConfigJson(json);
 
         assertTrue(DlcConfig.isServerSupportOnServer());
-        assertEquals(29691, DlcConfig.getServerPort());
         assertTrue(DlcConfig.isApiEnabled());
         assertEquals(10087, DlcConfig.getApiPort());
         assertEquals("127.0.0.1", DlcConfig.getServerRconHost());

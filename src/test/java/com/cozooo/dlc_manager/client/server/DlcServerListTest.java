@@ -41,7 +41,6 @@ class DlcServerListTest {
         entry.host = "127.0.0.1";
         entry.port = 25565;
         entry.password = "secret";
-        entry.useTcp = false;
         entry.rconPort = 25575;
         entry.rconPassword = "rcon";
 
@@ -60,7 +59,6 @@ class DlcServerListTest {
         assertEquals("127.0.0.1", loaded.host);
         assertEquals(25565, loaded.port);
         assertEquals("secret", loaded.password);
-        assertEquals(false, loaded.useTcp);
         assertEquals("rcon", loaded.rconPassword);
         assertTrue(Files.exists(tempDir.resolve("game").resolve("DLC").resolve("tmp").resolve("servers.dc")));
     }

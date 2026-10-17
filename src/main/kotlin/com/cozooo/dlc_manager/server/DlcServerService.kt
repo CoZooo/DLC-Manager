@@ -49,7 +49,6 @@ import java.io.IOException
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
-import java.net.ServerSocket
 import java.net.Socket
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
@@ -61,8 +60,6 @@ import java.util.Comparator
 import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
@@ -74,59 +71,12 @@ object DlcServerService {
     private val LOGGER = LogUtils.getLogger()
     private val GSON: Gson = GsonBuilder().create()
     private const val FILE_CHUNK_SIZE = 64 * 1024
-    private val RUNNING = AtomicBoolean(false)
     private val LOGGED_CONNECTION_KEYS = ConcurrentHashMap.newKeySet<String>()
     private val PACK_APPLY_LOCK = Any()
     @Volatile
     private var packApplyJob: PackApplyJob? = null
-    private var serverSocket: ServerSocket? = null
-    private var acceptThread: Thread? = null
-    private var clientPool: ExecutorService? = null
     @Volatile
     private var currentServer: MinecraftServer? = null
-
-    @JvmStatic
-    fun start() {
-        if (!DlcConfig.isServerSupportOnServer()) {
-            LOGGER.info("[dlc-manager] server support disabled; skip server manager TCP start")
-            return
-        }
-        if (RUNNING.get()) {
-            if (serverSocket != null && !serverSocket!!.isClosed) {
-                return
-            }
-            RUNNING.set(false)
-        }
-        if (RUNNING.get()) {
-            return
-        }
-        RUNNING.set(true)
-        clientPool = Executors.newCachedThreadPool { runnable ->
-            Thread(runnable, "dlc-manager-server-client").apply { isDaemon = true }
-        }
-        acceptThread = Thread({ acceptLoop() }, "dlc-manager-server").apply {
-            isDaemon = true
-            start()
-        }
-        LOGGER.info("[dlc-manager] server manager TCP starting on port {}", DlcConfig.getServerPort())
-    }
-
-    @JvmStatic
-    fun stop() {
-        RUNNING.set(false)
-        LOGGED_CONNECTION_KEYS.clear()
-        acceptThread?.interrupt()
-        acceptThread = null
-        serverSocket?.let {
-            try {
-                it.close()
-            } catch (_: IOException) {
-            }
-        }
-        serverSocket = null
-        clientPool?.shutdownNow()
-        clientPool = null
-    }
 
     @JvmStatic
     fun updateServerStatus(server: MinecraftServer?) {
@@ -165,30 +115,6 @@ object DlcServerService {
             return ""
         }
         return "$base+$dlc"
-    }
-
-    private fun acceptLoop() {
-        try {
-            ServerSocket(DlcConfig.getServerPort()).use { socket ->
-                serverSocket = socket
-                while (RUNNING.get()) {
-                    val client = socket.accept()
-                    val pool = clientPool
-                    if (pool != null) {
-                        pool.submit { handleClient(client) }
-                    } else {
-                        client.close()
-                    }
-                }
-            }
-        } catch (error: IOException) {
-            if (RUNNING.get()) {
-                LOGGER.warn("[dlc-manager] server manager TCP failed", error)
-            }
-        } finally {
-            RUNNING.set(false)
-            serverSocket = null
-        }
     }
 
     @JvmStatic

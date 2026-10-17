@@ -30,7 +30,6 @@ object DlcConfig {
     const val DEFAULT_SHOW_DEPENDENCY_REMINDER: Boolean = false
     const val DEFAULT_ALARM_WAITING_TIME: Int = 0
     const val DEFAULT_SERVER_SUPPORT: Boolean = true
-    const val DEFAULT_SERVER_PORT: Int = 29690
     const val DEFAULT_SERVER_PASSWORD: String = ""
     const val DEFAULT_API_ENABLED: Boolean = false
     const val DEFAULT_API_PORT: Int = 10086
@@ -96,7 +95,6 @@ object DlcConfig {
     private var showDependencyReminder = DEFAULT_SHOW_DEPENDENCY_REMINDER
     private var alarmWaitingTime = DEFAULT_ALARM_WAITING_TIME
     private var serverSupportClient = DEFAULT_SERVER_SUPPORT
-    private var serverPort = DEFAULT_SERVER_PORT
     private var serverPassword = DEFAULT_SERVER_PASSWORD
     private var apiEnabled = DEFAULT_API_ENABLED
     private var apiPort = DEFAULT_API_PORT
@@ -210,7 +208,6 @@ object DlcConfig {
     @JvmStatic fun getAlarmWaitingTime(): Int = alarmWaitingTime
     @JvmStatic fun isServerSupportOn(): Boolean = serverSupportClient
     @JvmStatic fun isServerSupportOnServer(): Boolean = true
-    @JvmStatic fun getServerPort(): Int = serverPort
     @JvmStatic fun getServerPassword(): String = serverPassword
     @JvmStatic fun isApiEnabled(): Boolean = apiEnabled
     @JvmStatic fun getApiPort(): Int = apiPort
@@ -318,7 +315,6 @@ object DlcConfig {
     @JvmStatic fun setAlarmWaitingTime(value: Int) { alarmWaitingTime = clampInt(value, 0, 10, DEFAULT_ALARM_WAITING_TIME) }
     @JvmStatic fun setServerSupportOn(value: Boolean) { serverSupportClient = value }
     @JvmStatic fun setServerSupportOnServer(@Suppress("UNUSED_PARAMETER") value: Boolean) {}
-    @JvmStatic fun setServerPort(value: Int) { serverPort = clampInt(value, 1, 65535, DEFAULT_SERVER_PORT) }
     @JvmStatic fun setServerPassword(value: String?) { serverPassword = value ?: DEFAULT_SERVER_PASSWORD }
     @JvmStatic fun setApiEnabled(value: Boolean) { apiEnabled = value }
     @JvmStatic fun setApiPort(value: Int) { apiPort = clampInt(value, 0, 65535, DEFAULT_API_PORT) }
@@ -378,7 +374,6 @@ object DlcConfig {
         showDependencyReminder = DEFAULT_SHOW_DEPENDENCY_REMINDER
         alarmWaitingTime = DEFAULT_ALARM_WAITING_TIME
         serverSupportClient = DEFAULT_SERVER_SUPPORT
-        serverPort = DEFAULT_SERVER_PORT
         serverPassword = DEFAULT_SERVER_PASSWORD
         apiEnabled = DEFAULT_API_ENABLED
         apiPort = DEFAULT_API_PORT
@@ -418,7 +413,6 @@ object DlcConfig {
     }
 
     private fun resetServerDefaults() {
-        serverPort = DEFAULT_SERVER_PORT
         serverPassword = DEFAULT_SERVER_PASSWORD
         serverRconHost = DEFAULT_RCON_HOST
         serverRconPort = DEFAULT_RCON_PORT
@@ -598,7 +592,6 @@ object DlcConfig {
 
     private fun writeServer(root: JsonObject) {
         val obj = JsonObject()
-        obj.addProperty("serverPort", serverPort)
         obj.addProperty("serverPassword", serverPassword)
         if (serverRconHost != DEFAULT_RCON_HOST || serverRconPort != DEFAULT_RCON_PORT || serverRconPassword != DEFAULT_RCON_PASSWORD) {
             obj.addProperty("rconHost", serverRconHost)
@@ -677,7 +670,6 @@ object DlcConfig {
     )
 
     private fun buildServerReaders(): Map<String, (JsonElement) -> Unit> = mapOf(
-        "serverPort" to { value -> serverPort = clampInt(asInt(value, DEFAULT_SERVER_PORT), 1, 65535, DEFAULT_SERVER_PORT) },
         "serverPassword" to { value -> serverPassword = asString(value, DEFAULT_SERVER_PASSWORD) },
         "rconHost" to { value -> serverRconHost = asString(value, DEFAULT_RCON_HOST) },
         "rconPort" to { value -> serverRconPort = clampInt(asInt(value, DEFAULT_RCON_PORT), 1, 65535, DEFAULT_RCON_PORT) },

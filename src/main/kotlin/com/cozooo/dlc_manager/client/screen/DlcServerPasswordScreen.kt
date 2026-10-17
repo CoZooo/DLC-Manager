@@ -28,7 +28,6 @@ class DlcServerPasswordScreen @JvmOverloads constructor(
     private var backButton: Button? = null
     private var connecting = false
     private var autoConnectAttempted = false
-    private var usePortMultiplexer = entry.usePortMultiplexer
 
     private fun initControls() {
         val fieldWidth = minOf(260, width - 40)
@@ -85,7 +84,6 @@ class DlcServerPasswordScreen @JvmOverloads constructor(
         connecting = true
         entry.port = port
         entry.password = passwordField?.value?.trim() ?: ""
-        entry.usePortMultiplexer = usePortMultiplexer
         updateButtonState()
         CompletableFuture
             .supplyAsync { fetchInfo(entry) }
@@ -131,7 +129,6 @@ class DlcServerPasswordScreen @JvmOverloads constructor(
             if (existing != null && entry.getKey() == existing.getKey()) {
                 existing.password = entry.password
                 existing.port = entry.port
-                existing.usePortMultiplexer = entry.usePortMultiplexer
                 if (!entry.name.isNullOrBlank()) {
                     existing.name = entry.name
                 }
@@ -185,7 +182,6 @@ class DlcServerPasswordScreen @JvmOverloads constructor(
         text(form, tr("dlc_manager.server.address", entry.host.orEmpty()), "page-description")
         portField?.let { mount(form, it, tr("dlc_manager.server.port"), "text") }
         passwordField?.let { mount(form, it, tr("dlc_manager.server.password"), "password") }
-        toggle(form, tr("dlc_manager.server.use_port_multiplexer"), usePortMultiplexer) { usePortMultiplexer = it; refreshPage() }
         connectButton?.let { mount(footer, it).getElement().setAttribute("class", "button primary") }
     }
     override fun updatePage() { updateButtonState(); status(if (connecting) tr("dlc_manager.server.connecting") else "") }

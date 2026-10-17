@@ -5,8 +5,6 @@ class DlcServerEntry {
     @JvmField var host: String? = null
     @JvmField var port: Int = 0
     @JvmField var password: String? = null
-    @JvmField var useTcp: Boolean = true
-    @JvmField var usePortMultiplexer: Boolean = false
     @JvmField var rconPort: Int = 25575
     @JvmField var rconPassword: String? = ""
 

@@ -40,13 +40,11 @@ public final class DlcWorldSync {
                 DlcConfig.loadServer();
                 DlcServerService.updateServerStatus(server);
                 DlcServerApi.start(server);
-                DlcServerService.start();
                 if (!DlcStartupRequirements.usesEarlyInstallation()) startServerRequiredDownload(server);
             }
         });
         LifecycleEvent.SERVER_STOPPING.register(server -> {
             DlcServerApi.stop();
-            DlcServerService.stop();
         });
         PlayerEvent.PLAYER_JOIN.register(DlcServerUpdateNotifier::onPlayerJoin);
     }

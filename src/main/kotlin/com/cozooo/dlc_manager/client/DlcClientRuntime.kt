@@ -1078,22 +1078,29 @@ object DlcClientRuntime {
         val ip = data.ip ?: ""
         //?}
         var host = ip
-        val port = DlcConfig.getServerPort()
+        var port = 25565
         if (ip.startsWith("[") && ip.contains("]")) {
             val end = ip.indexOf(']')
             if (end > 1) {
                 host = ip.substring(1, end)
+                if (end + 1 < ip.length && ip[end + 1] == ':') {
+                    port = parseMinecraftPort(ip.substring(end + 2), port)
+                }
             }
         } else {
             val index = ip.lastIndexOf(':')
             if (index > 0 && index < ip.length - 1 && ip.indexOf(':') == index) {
                 host = ip.substring(0, index)
+                port = parseMinecraftPort(ip.substring(index + 1), port)
             }
         }
         entry.host = host
         entry.port = port
-        entry.useTcp = true
         return entry
+    }
+
+    private fun parseMinecraftPort(value: String, fallback: Int): Int {
+        return value.toIntOrNull()?.takeIf { it in 1..65535 } ?: fallback
     }
 
     private fun fetchServerInfo(entry: DlcServerEntry?): DlcServerInfo? {

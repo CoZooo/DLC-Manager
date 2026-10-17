@@ -65,7 +65,6 @@ public final class DlcFxConfigModel {
         serverOptions.add(integer("apiPort", "api", "apiPort", "dlc_manager.config.ui.apiPort", "dlc_manager.config.comment.ui.apiPort", DlcConfig.DEFAULT_API_PORT, 0, 65535));
         serverOptions.add(string("apiToken", "api", "apiToken", "dlc_manager.config.ui.apiToken", "dlc_manager.config.comment.ui.apiToken", DlcConfig.DEFAULT_API_TOKEN));
         if (this.source.hasSection("server")) {
-            serverOptions.add(integer("serverPort", "server", "serverPort", "dlc_manager.config.ui.serverPort", "dlc_manager.config.comment.ui.serverPort", DlcConfig.DEFAULT_SERVER_PORT, 1, 65535));
             serverOptions.add(string("serverPassword", "server", "serverPassword", "dlc_manager.config.ui.serverPassword", "dlc_manager.config.comment.ui.serverPassword", DlcConfig.DEFAULT_SERVER_PASSWORD));
             serverOptions.add(string("rconHost", "server", "rconHost", "dlc_manager.config.ui.rconHost", "dlc_manager.config.comment.ui.rconHost", DlcConfig.DEFAULT_RCON_HOST));
             serverOptions.add(integer("rconPort", "server", "rconPort", "dlc_manager.config.ui.rconPort", "dlc_manager.config.comment.ui.rconPort", DlcConfig.DEFAULT_RCON_PORT, 1, 65535));
