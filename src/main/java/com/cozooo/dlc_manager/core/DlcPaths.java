@@ -80,12 +80,13 @@ public class DlcPaths {
         if (raw == null || raw.isBlank()) {
             return null;
         }
+        String normalizedSeparators = raw.replace('\\', '/');
         try {
-            return Path.of(raw);
+            return Path.of(normalizedSeparators);
         } catch (InvalidPathException ignored) {
         }
-        String repaired = repairEscapedControlChars(raw);
-        if (repaired.equals(raw) || repaired.isBlank()) {
+        String repaired = repairEscapedControlChars(normalizedSeparators);
+        if (repaired.equals(normalizedSeparators) || repaired.isBlank()) {
             return null;
         }
         try {

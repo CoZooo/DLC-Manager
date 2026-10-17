@@ -262,7 +262,10 @@ public final class DlcSelfUpdateService {
         if (history == null || history.backupFile == null || history.backupFile.isBlank()) {
             return false;
         }
-        Path backup = Path.of(history.backupFile);
+        Path backup = DlcPaths.parsePathLenient(history.backupFile);
+        if (backup == null) {
+            return false;
+        }
         if (!Files.exists(backup)) {
             return false;
         }
@@ -330,8 +333,9 @@ public final class DlcSelfUpdateService {
             SelfUpdateHistory history = root == null ? null : GSON.fromJson(root, SelfUpdateHistory.class);
             if (history != null && history.backupFile != null && !history.backupFile.isBlank()) {
                 Path dlcRoot = DlcPaths.dlcRoot();
-                if (dlcRoot != null && !Path.of(history.backupFile).isAbsolute()) {
-                    history.backupFile = dlcRoot.resolve(history.backupFile).toString();
+                Path historyPath = DlcPaths.parsePathLenient(history.backupFile);
+                if (dlcRoot != null && historyPath != null && !historyPath.isAbsolute()) {
+                    history.backupFile = dlcRoot.resolve(historyPath).toString();
                 }
             }
             return history;
@@ -441,7 +445,10 @@ public final class DlcSelfUpdateService {
 
     private static Path resolveStoredPath(String value) {
         String raw = value == null ? "" : value.trim();
-        Path path = Path.of(raw);
+        Path path = DlcPaths.parsePathLenient(raw);
+        if (path == null) {
+            return DlcPlatformServices.gameDir().toAbsolutePath().normalize();
+        }
         if (path.isAbsolute()) {
             return path;
         }

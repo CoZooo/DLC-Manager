@@ -285,7 +285,7 @@ object DlcStateConfig {
             return key
         }
         try {
-            val rootPath = Path.of(rootPart)
+            val rootPath = DlcPaths.parsePathLenient(rootPart) ?: return key
             if (!rootPath.isAbsolute) {
                 return key
             }

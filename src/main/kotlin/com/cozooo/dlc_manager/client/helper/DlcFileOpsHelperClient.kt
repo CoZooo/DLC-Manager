@@ -320,7 +320,7 @@ object DlcFileOpsHelperClient {
             return ""
         }
         return try {
-            var normalized = Path.of(path)
+            var normalized = DlcPaths.parsePathLenient(path) ?: return safeTrim(path)
             if (!normalized.isAbsolute) {
                 normalized = DlcPaths.gameDir().resolve(normalized)
             }

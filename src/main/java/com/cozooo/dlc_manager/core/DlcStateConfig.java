@@ -282,7 +282,10 @@ public class DlcStateConfig {
             return key;
         }
         try {
-            Path rootPath = Path.of(rootPart);
+            Path rootPath = DlcPaths.parsePathLenient(rootPart);
+            if (rootPath == null) {
+                return key;
+            }
             if (!rootPath.isAbsolute()) {
                 return key;
             }

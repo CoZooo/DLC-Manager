@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client.update
 
 import com.cozooo.dclanguage.DcDocuments
+import com.cozooo.dlc_manager.core.DlcPaths
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import java.io.IOException
@@ -109,7 +110,7 @@ class DlcUpdateJournal private constructor(game: Path, directory: Path, private 
 
         @JvmStatic
         fun resolveRelativePath(base: Path, value: String): Path {
-            val relative = Path.of(value)
+            val relative = DlcPaths.parsePathLenient(value) ?: throw IOException("Expected a relative path")
             if (relative.isAbsolute || value.startsWith("\\") || value.matches(Regex("^[A-Za-z]:.*"))) throw IOException("Expected a relative path")
             return base.toAbsolutePath().normalize().resolve(relative).normalize()
         }

@@ -41,7 +41,7 @@ class DlcRequiredEntry(
         for (part in appliedTargetRaw.orEmpty().split(',')) {
             val value = part.trim().replace('\\', '/')
             if (value.isEmpty()) continue
-            var path = Path.of(value)
+            var path = DlcPaths.parsePathLenient(value) ?: continue
             if (!path.isAbsolute) path = DlcPaths.gameDir().resolve(path)
             path = path.normalize()
             val name = path.fileName?.toString().orEmpty()
@@ -213,7 +213,7 @@ class DlcRequiredEntry(
             if (value.isEmpty()) {
                 continue
             }
-            var path = Path.of(value)
+            var path = DlcPaths.parsePathLenient(value) ?: continue
             if (!path.isAbsolute) {
                 path = DlcPaths.gameDir().resolve(path)
             }

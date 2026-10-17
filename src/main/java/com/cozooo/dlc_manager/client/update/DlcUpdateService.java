@@ -23,6 +23,7 @@ import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPathUtil;
 import com.cozooo.dlc_manager.core.DlcApplyMode;
 import com.cozooo.dlc_manager.core.DlcApplier;
+import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcStateConfig;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcItemFiles;
@@ -2787,7 +2788,10 @@ public final class DlcUpdateService {
         if (rawPath == null || rawPath.isBlank()) {
             return null;
         }
-        Path path = Path.of(rawPath);
+        Path path = DlcPaths.parsePathLenient(rawPath);
+        if (path == null) {
+            return null;
+        }
         if (!path.isAbsolute()) {
             path = gameDir.resolve(path);
         }
@@ -3858,7 +3862,10 @@ public final class DlcUpdateService {
         if (rawPath == null || rawPath.isBlank()) {
             return Path.of("");
         }
-        Path path = Path.of(rawPath);
+        Path path = DlcPaths.parsePathLenient(rawPath);
+        if (path == null) {
+            return Path.of("");
+        }
         if (path.isAbsolute()) {
             return path.normalize();
         }

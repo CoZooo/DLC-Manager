@@ -43,7 +43,8 @@ public class DlcRequiredEntry {
         for (String part : appliedTargetRaw.split(",")) {
             String value = part.trim().replace('\\', '/');
             if (value.isEmpty()) continue;
-            Path path = Path.of(value);
+            Path path = DlcPaths.parsePathLenient(value);
+            if (path == null) continue;
             if (!path.isAbsolute()) path = DlcPaths.gameDir().resolve(path);
             path = path.normalize();
             String name = path.getFileName() == null ? "" : path.getFileName().toString();
@@ -289,7 +290,10 @@ public class DlcRequiredEntry {
             if (value.isEmpty()) {
                 continue;
             }
-            Path path = Path.of(value);
+            Path path = DlcPaths.parsePathLenient(value);
+            if (path == null) {
+                continue;
+            }
             if (!path.isAbsolute()) {
                 path = DlcPaths.gameDir().resolve(path);
             }

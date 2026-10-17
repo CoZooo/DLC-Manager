@@ -86,12 +86,13 @@ object DlcPaths {
         if (raw.isNullOrBlank()) {
             return null
         }
+        val normalizedSeparators = raw.replace('\\', '/')
         try {
-            return Path.of(raw)
+            return Path.of(normalizedSeparators)
         } catch (_: InvalidPathException) {
         }
-        val repaired = repairEscapedControlChars(raw)
-        if (repaired == raw || repaired.isBlank()) {
+        val repaired = repairEscapedControlChars(normalizedSeparators)
+        if (repaired == normalizedSeparators || repaired.isBlank()) {
             return null
         }
         return try {

@@ -2940,7 +2940,7 @@ object DlcUpdateService {
         if (rawPath == null || rawPath.isBlank()) {
             return null
         }
-        var path = Path.of(rawPath)
+        var path = DlcPaths.parsePathLenient(rawPath) ?: return null
         if (!path.isAbsolute()) {
             path = gameDir.resolve(path)
         }
@@ -3913,7 +3913,7 @@ object DlcUpdateService {
         if (rawPath == null || rawPath.isBlank()) {
             return Path.of("")
         }
-        val path = Path.of(rawPath)
+        val path = DlcPaths.parsePathLenient(rawPath) ?: return Path.of("")
         if (path.isAbsolute()) {
             return path.normalize()
         }

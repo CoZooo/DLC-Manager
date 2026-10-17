@@ -7,6 +7,7 @@ import com.cozooo.dlc_manager.client.preset.DlcPresetStateStore;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
@@ -764,7 +765,10 @@ public class DlcApplier {
         if (rawPath == null || rawPath.isBlank()) {
             return Path.of("");
         }
-        Path path = Path.of(rawPath);
+        Path path = DlcPaths.parsePathLenient(rawPath);
+        if (path == null) {
+            throw new InvalidPathException(rawPath, "Invalid stored path");
+        }
         if (path.isAbsolute()) {
             return path.normalize();
         }

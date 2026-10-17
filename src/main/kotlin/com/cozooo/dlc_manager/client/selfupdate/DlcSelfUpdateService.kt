@@ -257,7 +257,7 @@ object DlcSelfUpdateService {
         if (history == null || history.backupFile.isNullOrBlank()) {
             return false
         }
-        val backup = Path.of(history.backupFile)
+        val backup = DlcPaths.parsePathLenient(history.backupFile) ?: return false
         if (!Files.exists(backup)) {
             return false
         }
@@ -319,8 +319,9 @@ object DlcSelfUpdateService {
             val history = if (root == null) null else GSON.fromJson(root, SelfUpdateHistory::class.java)
             if (history != null && !history.backupFile.isNullOrBlank()) {
                 val dlcRoot = DlcPaths.dlcRoot()
-                if (!Path.of(history.backupFile).isAbsolute) {
-                    history.backupFile = dlcRoot.resolve(history.backupFile).toString()
+                val historyPath = DlcPaths.parsePathLenient(history.backupFile)
+                if (historyPath != null && !historyPath.isAbsolute) {
+                    history.backupFile = dlcRoot.resolve(historyPath).toString()
                 }
             }
             history
@@ -417,7 +418,8 @@ object DlcSelfUpdateService {
 
     private fun resolveStoredPath(value: String?): Path {
         val raw = value?.trim().orEmpty()
-        val path = Path.of(raw)
+        val path = DlcPaths.parsePathLenient(raw)
+            ?: return DlcPlatformServices.gameDir().toAbsolutePath().normalize()
         return if (path.isAbsolute) {
             path
         } else {

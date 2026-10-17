@@ -41,6 +41,7 @@ class DlcPathsTest {
         Path parsed = DlcPaths.parsePathLenient("config/a.toml");
 
         assertEquals(Path.of("config/a.toml"), parsed);
+        assertEquals(Path.of("config/a.toml"), DlcPaths.parsePathLenient("config\\a.toml"));
         assertNull(DlcPaths.parsePathLenient(null));
         assertNull(DlcPaths.parsePathLenient(" "));
     }

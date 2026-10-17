@@ -282,7 +282,10 @@ public final class DlcFileOpsHelperClient {
             return "";
         }
         try {
-            Path normalized = Path.of(path);
+            Path normalized = DlcPaths.parsePathLenient(path);
+            if (normalized == null) {
+                return safeTrim(path);
+            }
             if (!normalized.isAbsolute()) {
                 normalized = DlcPaths.gameDir().resolve(normalized);
             }

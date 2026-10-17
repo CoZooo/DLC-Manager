@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client.update;
 
 import com.cozooo.dclanguage.DcDocuments;
+import com.cozooo.dlc_manager.core.DlcPaths;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import java.io.IOException;
@@ -117,7 +118,10 @@ public final class DlcUpdateJournal implements AutoCloseable {
     }
 
     public static Path resolveRelativePath(Path base, String value) throws IOException {
-        Path relative = Path.of(value);
+        Path relative = DlcPaths.parsePathLenient(value);
+        if (relative == null) {
+            throw new IOException("Expected a relative path");
+        }
         if (relative.isAbsolute() || value.startsWith("\\") || value.matches("^[A-Za-z]:.*")) throw new IOException("Expected a relative path");
         return base.toAbsolutePath().normalize().resolve(relative).normalize();
     }

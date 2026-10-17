@@ -5,6 +5,7 @@ import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState
 import java.io.IOException
 import java.nio.file.FileVisitResult
 import java.nio.file.Files
+import java.nio.file.InvalidPathException
 import java.nio.file.Path
 import java.nio.file.SimpleFileVisitor
 import java.nio.file.StandardCopyOption
@@ -757,7 +758,8 @@ object DlcApplier {
         if (rawPath.isNullOrBlank()) {
             return Path.of("")
         }
-        val path = Path.of(rawPath)
+        val path = DlcPaths.parsePathLenient(rawPath)
+            ?: throw InvalidPathException(rawPath, "Invalid stored path")
         return if (path.isAbsolute) path.normalize() else DlcPaths.gameDir().resolve(path).normalize()
     }
 
