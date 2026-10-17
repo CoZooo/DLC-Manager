@@ -207,7 +207,11 @@ public abstract class DlcApricityScreen extends ApricityScreen {
 
     private void updateViewport() {
         Document document = getLinkedDocument();
-        if (document != null && document.isActive()) document.setViewportZoom(1120.0 / Math.max(1, Minecraft.getInstance().getWindow().getScreenWidth()));
+        if (document != null && document.isActive()) {
+            var viewport = document.getViewport();
+            double cssToGuiScale = 0.6;
+            document.setViewportZoom(viewport.zoom() * cssToGuiScale / viewport.renderScale());
+        }
     }
 
     //? if <26.1 {

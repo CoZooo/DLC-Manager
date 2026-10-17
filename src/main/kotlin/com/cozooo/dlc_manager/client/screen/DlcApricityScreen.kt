@@ -164,7 +164,11 @@ abstract class DlcApricityScreen private constructor(
 
     private fun updateViewport() {
         val document = linkedDocument ?: return
-        if (document.isActive) document.setViewportZoom(1120.0 / Minecraft.getInstance().window.screenWidth.coerceAtLeast(1))
+        if (document.isActive) {
+            val viewport = document.viewport
+            val cssToGuiScale = 0.6
+            document.setViewportZoom(viewport.zoom() * cssToGuiScale / viewport.renderScale())
+        }
     }
 
     //? if <26.1 {

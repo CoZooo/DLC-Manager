@@ -325,25 +325,6 @@ public final class DlcClientEvents {
         return findButtonByKey(screen, "fml.menu.mods");
     }
 
-    private static void moveBottomRow(Screen screen, int targetY) {
-        AbstractWidget optionsWidget = findButtonByKey(screen, "menu.options");
-        if (optionsWidget != null) {
-            int currentY = DlcScreenCompat.getY(optionsWidget);
-            for (GuiEventListener child : screen.children()) {
-                if (child instanceof AbstractWidget widget && Math.abs(DlcScreenCompat.getY(widget) - currentY) <= 1) {
-                    DlcScreenCompat.setY(widget, targetY);
-                }
-            }
-            return;
-        }
-        for (String key : new String[] {"menu.options", "menu.quit", "options.language", "options.accessibility"}) {
-            AbstractWidget widget = findButtonByKey(screen, key);
-            if (widget != null) {
-                DlcScreenCompat.setY(widget, targetY);
-            }
-        }
-    }
-
     private static void alignTitleButtons(Screen screen) {
         AbstractWidget realmsWidget = findRealmsButton(screen);
         AbstractWidget multiplayerWidget = findButtonByKey(screen, "menu.multiplayer");
@@ -365,16 +346,13 @@ public final class DlcClientEvents {
         if (dlcWidget == null) {
             return;
         }
-        int rowStep = 24;
-        int rowGap = 4;
         int rowX = screen.width / 2 - 100;
         int rowY = screen.height / 4 + 48;
         int rowW = 200;
         int rowH = 20;
         AbstractWidget anchor = multiplayerWidget != null ? multiplayerWidget : realmsWidget;
         if (anchor != null) {
-            rowGap = 2;
-            rowStep = anchor.getHeight() + 4;
+            int rowGap = 2;
             rowX = DlcScreenCompat.getX(anchor);
             rowW = anchor.getWidth();
             rowH = anchor.getHeight();
@@ -427,7 +405,6 @@ public final class DlcClientEvents {
             //? if >=1.21.1 {
             //dlcWidget.setHeight(rowH);
             //?}
-            moveBottomRow(screen, rowY + rowStep);
         } else {
             int iconGap = 4;
             int iconWidth = 20;

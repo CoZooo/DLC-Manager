@@ -25,7 +25,6 @@ import net.minecraft.client.gui.screens.PauseScreen
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.gui.screens.TitleScreen
 import net.minecraft.network.chat.Component
-import kotlin.math.abs
 import kotlin.math.max
 
 object DlcClientEvents {
@@ -310,22 +309,6 @@ object DlcClientEvents {
         return findButtonByKey(screen, "fml.menu.mods")
     }
 
-    private fun moveBottomRow(screen: Screen, targetY: Int) {
-        val optionsWidget = findButtonByKey(screen, "menu.options")
-        if (optionsWidget != null) {
-            val currentY = DlcScreenCompat.getY(optionsWidget)
-            for (child in screen.children()) {
-                if (child is AbstractWidget && abs(DlcScreenCompat.getY(child) - currentY) <= 1) {
-                    DlcScreenCompat.setY(child, targetY)
-                }
-            }
-            return
-        }
-        for (key in arrayOf("menu.options", "menu.quit", "options.language", "options.accessibility")) {
-            findButtonByKey(screen, key)?.let { DlcScreenCompat.setY(it, targetY) }
-        }
-    }
-
     private fun alignTitleButtons(screen: Screen) {
         val realmsWidget = findRealmsButton(screen)
         val multiplayerWidget = findButtonByKey(screen, "menu.multiplayer")
@@ -345,16 +328,13 @@ object DlcClientEvents {
             return
         }
         if (dlcWidget == null) return
-        var rowStep = 24
-        var rowGap = 4
         var rowX = screen.width / 2 - 100
         var rowY = screen.height / 4 + 48
         var rowW = 200
         var rowH = 20
         val anchor = multiplayerWidget ?: realmsWidget
         if (anchor != null) {
-            rowGap = 2
-            rowStep = anchor.height + 4
+            val rowGap = 2
             rowX = DlcScreenCompat.getX(anchor)
             rowW = anchor.width
             rowH = anchor.height
@@ -407,7 +387,6 @@ object DlcClientEvents {
             //? if >=1.21.1 {
             //dlcWidget.height = rowH
             //?}
-            moveBottomRow(screen, rowY + rowStep)
         } else {
             val iconGap = 4
             val iconWidth = 20
