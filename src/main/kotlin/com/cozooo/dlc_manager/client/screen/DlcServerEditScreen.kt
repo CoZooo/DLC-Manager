@@ -11,6 +11,7 @@ class DlcServerEditScreen(parent: Screen?, private val editing: DlcServerEntry?,
     private var host = editing?.host.orEmpty()
     private var port = (editing?.port?.takeIf { it > 0 } ?: DlcConfig.getServerPort()).toString()
     private var password = editing?.password.orEmpty()
+    private var usePortMultiplexer = editing?.usePortMultiplexer ?: false
     private var saveButton: DlcUiButton? = null
     override fun buildPage() {
         val form = node(content, "div", "page-dialog")
@@ -18,6 +19,7 @@ class DlcServerEditScreen(parent: Screen?, private val editing: DlcServerEntry?,
         input(form, tr("dlc_manager.server.host"), host, "text") { host = it; updatePage() }
         input(form, tr("dlc_manager.server.port"), port, "text") { port = it; updatePage() }
         input(form, tr("dlc_manager.server.password"), password, "password") { password = it }
+        toggle(form, tr("dlc_manager.server.use_port_multiplexer"), usePortMultiplexer) { usePortMultiplexer = it; refreshPage() }
         action(footer, tr("gui.cancel")) { onClose() }
         saveButton = primary(tr("dlc_manager.server.save")) { save() }
         updatePage()
@@ -31,7 +33,7 @@ class DlcServerEditScreen(parent: Screen?, private val editing: DlcServerEntry?,
     private fun save() {
         if (host.isBlank() || portNumber() !in 1..65535) return
         val entry = editing ?: DlcServerEntry()
-        entry.name = name.trim(); entry.host = host.trim(); entry.port = portNumber(); entry.password = password.trim(); entry.useTcp = true
+        entry.name = name.trim(); entry.host = host.trim(); entry.port = portNumber(); entry.password = password.trim(); entry.useTcp = true; entry.usePortMultiplexer = usePortMultiplexer
         onSave?.accept(entry)
         onClose()
     }

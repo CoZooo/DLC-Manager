@@ -893,7 +893,8 @@ public class DlcServerConnection {
                 timeoutMs,
                 DlcPlatformServices.languageCode(),
                 playerName,
-                playerUuid);
+                playerUuid,
+                entry.usePortMultiplexer);
     }
 
     @FunctionalInterface

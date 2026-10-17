@@ -13,6 +13,7 @@ public class DlcServerEditScreen extends DlcPageScreen {
     private String host;
     private String port;
     private String password;
+    private boolean usePortMultiplexer;
     private DlcUiButton saveButton;
     public DlcServerEditScreen(Screen parent, DlcServerEntry editing, Consumer<DlcServerEntry> onSave) {
         super(DlcUiPage.SERVER_EDIT, parent, DlcTextCompat.translatable("dlc_manager.server.edit_title")); this.editing = editing; this.onSave = onSave;
@@ -20,6 +21,7 @@ public class DlcServerEditScreen extends DlcPageScreen {
         host = editing == null || editing.host == null ? "" : editing.host;
         port = String.valueOf(editing == null || editing.port <= 0 ? DlcConfig.getServerPort() : editing.port);
         password = editing == null || editing.password == null ? "" : editing.password;
+        usePortMultiplexer = editing != null && editing.usePortMultiplexer;
     }
     @Override protected void buildPage() {
         var form = node(content, "div", "page-dialog");
@@ -27,6 +29,7 @@ public class DlcServerEditScreen extends DlcPageScreen {
         input(form, tr("dlc_manager.server.host"), host, "text", value -> { host = value; updatePage(); });
         input(form, tr("dlc_manager.server.port"), port, "text", value -> { port = value; updatePage(); });
         input(form, tr("dlc_manager.server.password"), password, "password", value -> password = value);
+        toggle(form, tr("dlc_manager.server.use_port_multiplexer"), usePortMultiplexer, value -> { usePortMultiplexer = value; refreshPage(); });
         action(footer, tr("gui.cancel"), this::onClose);
         saveButton = primary(tr("dlc_manager.server.save"), this::save);
         updatePage();
@@ -41,7 +44,7 @@ public class DlcServerEditScreen extends DlcPageScreen {
     private void save() {
         if (host.isBlank() || portNumber() <= 0 || portNumber() > 65535) return;
         DlcServerEntry entry = editing == null ? new DlcServerEntry() : editing;
-        entry.name = name.trim(); entry.host = host.trim(); entry.port = portNumber(); entry.password = password.trim(); entry.useTcp = true;
+        entry.name = name.trim(); entry.host = host.trim(); entry.port = portNumber(); entry.password = password.trim(); entry.useTcp = true; entry.usePortMultiplexer = usePortMultiplexer;
         if (onSave != null) onSave.accept(entry);
         onClose();
     }

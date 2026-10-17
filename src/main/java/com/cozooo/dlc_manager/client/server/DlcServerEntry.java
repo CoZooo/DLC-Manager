@@ -6,6 +6,7 @@ public class DlcServerEntry {
     public int port;
     public String password;
     public boolean useTcp = true;
+    public boolean usePortMultiplexer;
     public int rconPort = 25575;
     public String rconPassword = "";
 

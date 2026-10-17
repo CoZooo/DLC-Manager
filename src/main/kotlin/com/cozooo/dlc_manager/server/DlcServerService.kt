@@ -191,7 +191,8 @@ object DlcServerService {
         }
     }
 
-    private fun handleClient(socket: Socket) {
+    @JvmStatic
+    fun handleClient(socket: Socket) {
         try {
             socket.use { client ->
                 BufferedReader(InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8)).use { reader ->

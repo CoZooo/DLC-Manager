@@ -195,7 +195,7 @@ public class DlcServerService {
         }
     }
 
-    private static void handleClient(Socket socket) {
+    public static void handleClient(Socket socket) {
         try (Socket client = socket;
              BufferedReader reader = new BufferedReader(new InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8));
              BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(client.getOutputStream(), StandardCharsets.UTF_8))) {

@@ -30,6 +30,7 @@ public class DlcServerPasswordScreen extends DlcPageScreen {
     private Button connectButton;
     private Button backButton;
     private boolean connecting;
+    private boolean usePortMultiplexer;
 
     public DlcServerPasswordScreen(Screen parent, DlcServerEntry entry, boolean autoConnect) {
         this(parent, entry, autoConnect, false);
@@ -41,6 +42,7 @@ public class DlcServerPasswordScreen extends DlcPageScreen {
         this.entry = entry;
         this.autoConnect = autoConnect;
         this.openServerManagerOnSuccess = openServerManagerOnSuccess;
+        this.usePortMultiplexer = entry.usePortMultiplexer;
     }
 
     private void initControls() {
@@ -98,6 +100,7 @@ public class DlcServerPasswordScreen extends DlcPageScreen {
         connecting = true;
         entry.port = port;
         entry.password = passwordField.getValue().trim();
+        entry.usePortMultiplexer = usePortMultiplexer;
         updateButtonState();
         CompletableFuture
             .supplyAsync(() -> fetchInfo(entry))
@@ -136,6 +139,7 @@ public class DlcServerPasswordScreen extends DlcPageScreen {
             if (existing != null && entry.getKey().equals(existing.getKey())) {
                 existing.password = entry.password;
                 existing.port = entry.port;
+                existing.usePortMultiplexer = entry.usePortMultiplexer;
                 if (entry.name != null && !entry.name.isBlank()) {
                     existing.name = entry.name;
                 }
@@ -184,6 +188,7 @@ public class DlcServerPasswordScreen extends DlcPageScreen {
         text(form, tr("dlc_manager.server.address", entry.host == null ? "" : entry.host), "page-description");
         mount(form, portField, tr("dlc_manager.server.port"), "text");
         mount(form, passwordField, tr("dlc_manager.server.password"), "password");
+        toggle(form, tr("dlc_manager.server.use_port_multiplexer"), usePortMultiplexer, value -> { usePortMultiplexer = value; refreshPage(); });
 
         mount(footer, connectButton).getElement().setAttribute("class", "button primary");
     }

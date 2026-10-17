@@ -418,6 +418,7 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
     companion object {
         private val GSON = Gson()
         private const val CHUNK_SIZE = 64 * 1024
+        private val PORT_MULTIPLEXER_PREFACE = byteArrayOf('D'.code.toByte(), 'L'.code.toByte(), 'C'.code.toByte(), 'M'.code.toByte(), 1)
 
         @JvmStatic
         @Throws(IOException::class)
@@ -431,18 +432,29 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
                 DlcPlatformServices.languageCode(),
                 DlcPlatformServices.playerName(),
                 DlcPlatformServices.playerUuid(),
+                entry.usePortMultiplexer,
             )
         }
 
         @JvmStatic
         @Throws(IOException::class)
         fun connect(host: String?, port: Int, password: String?, timeoutMs: Int, lang: String?, player: String?, uuid: String?): DlcServerSession {
+            return connect(host, port, password, timeoutMs, lang, player, uuid, false)
+        }
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun connect(host: String?, port: Int, password: String?, timeoutMs: Int, lang: String?, player: String?, uuid: String?, usePortMultiplexer: Boolean): DlcServerSession {
             val socket = Socket()
             val actualHost = host ?: ""
             socket.connect(InetSocketAddress(actualHost, port), timeoutMs)
             socket.soTimeout = timeoutMs
             val session = DlcServerSession(socket)
             try {
+                if (usePortMultiplexer) {
+                    socket.getOutputStream().write(PORT_MULTIPLEXER_PREFACE)
+                    socket.getOutputStream().flush()
+                }
                 session.hello(password, lang, player, uuid)
                 return session
             } catch (error: Throwable) {
