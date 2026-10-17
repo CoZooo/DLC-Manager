@@ -7,6 +7,7 @@ function readIdentifier(model: StructuredModel | null): string {
 }
 
 export function effectiveDocumentName(document: Pick<EditorDocument, "type" | "name">): string {
+  if (document.type === "folder_metadata") return "_metadata.dc";
   if (document.type === "pack") return "pack.dc";
   if (document.type === "config") return "config.dc";
   return document.name;

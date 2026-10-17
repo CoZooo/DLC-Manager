@@ -123,6 +123,7 @@ class DlcScanner {
                             return FileVisitResult.CONTINUE
                         }
                         val name = file.fileName.toString()
+                        if (DlcDcFormatUtil.FOLDER_METADATA_FILE_NAME.equals(name, true)) return FileVisitResult.CONTINUE
                         val relative = root.relativize(file).toString().replace('\\', '/')
                         val owner = groupedOwners[relative]
                         if (owner != null && owner != name) {
@@ -272,6 +273,7 @@ class DlcScanner {
             item.setRedirectUrl(tooltipData.getRedirectUrl())
         }
         item.setDlcRoot(if (root in DlcConfig.getDlcRoots()) root else DlcConfig.getDlcRoot())
+        item.setGroupDirectory(remoteMetadata.groupDirectories[relative])
         item.setMatchMode(tooltipData?.getMatchMode() ?: "hash")
         if (detectInstalledState) {
             try {
@@ -440,7 +442,11 @@ class DlcScanner {
                 entry.isAlarm(),
             )
             data.setMatchMode(entry.getMatchMode())
-            if (legacy != null) lookup.byPath[root.toAbsolutePath().normalize().relativize(legacy.toAbsolutePath().normalize()).toString().replace('\\', '/')] = data
+            if (legacy != null) {
+                val relative = root.toAbsolutePath().normalize().relativize(legacy.toAbsolutePath().normalize()).toString().replace('\\', '/')
+                lookup.byPath[relative] = data
+                entry.getConfigPath()?.parent?.let { lookup.groupDirectories[relative] = it }
+            }
             if (ambiguousFileNames.contains(fileName)) {
                 continue
             }
@@ -466,6 +472,7 @@ class DlcScanner {
         }
 
         val byPath = HashMap<String, DlcTooltipLoader.TooltipData>()
+        val groupDirectories = HashMap<String, Path>()
         val shadowed = HashSet<Path>()
         fun get(fileName: String?): DlcTooltipLoader.TooltipData? {
             if (fileName.isNullOrBlank()) {

@@ -137,6 +137,7 @@ object DlcRemoteLoader {
     }
 
     private fun readEntry(path: Path, dlcRoot: Path, remoteRoot: Path): DlcRemoteEntry? {
+        if (!isRemoteConfigName(path.fileName.toString())) return null
         val obj = readConfigObject(path) ?: return null
         val fileName = DlcDcFormatUtil.stripConfigExtension(path.fileName.toString())
         val relative = remoteRoot.relativize(path)
@@ -190,7 +191,7 @@ object DlcRemoteLoader {
         }
     }
 
-    private fun isRemoteConfigName(fileName: String): Boolean = DlcDcFormatUtil.isDcName(fileName)
+    private fun isRemoteConfigName(fileName: String): Boolean = DlcDcFormatUtil.isDcName(fileName) && !DlcDcFormatUtil.FOLDER_METADATA_FILE_NAME.equals(fileName, true)
 
     private fun configPriority(path: Path?): Int {
         if (path == null || path.fileName == null) {

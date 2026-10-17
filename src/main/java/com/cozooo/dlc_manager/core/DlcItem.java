@@ -25,6 +25,7 @@ public class DlcItem {
     private String redirectUrl;
     private String matchMode = "hash";
     private Path dlcRoot;
+    private Path groupDirectory;
     private boolean dirty;
 
     public DlcItem(String id, String identifier, String name, DlcType type, Path sourcePath, String appliedTargetRaw, boolean enabled, java.util.Map<String, String> tooltips,
@@ -101,6 +102,8 @@ public class DlcItem {
     public void setMatchMode(String value) { matchMode = DlcFileMatch.mode(value); }
     public Path getDlcRoot() { return dlcRoot == null ? DlcPaths.dlcRoot() : dlcRoot; }
     public void setDlcRoot(Path value) { dlcRoot = value; }
+    public Path getGroupDirectory() { return groupDirectory; }
+    public void setGroupDirectory(Path value) { groupDirectory = value; }
 
     public String getId() {
         return id;

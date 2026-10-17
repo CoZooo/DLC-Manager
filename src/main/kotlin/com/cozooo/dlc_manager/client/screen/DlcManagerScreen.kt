@@ -15,6 +15,7 @@ import com.cozooo.dlc_manager.core.DlcApplier
 import com.cozooo.dlc_manager.core.DlcStateConfig
 import com.cozooo.dlc_manager.core.DlcConfigTypeSupport
 import com.cozooo.dlc_manager.core.DlcItem
+import com.cozooo.dlc_manager.core.DlcFolderMetadata
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcPaths
 import com.cozooo.dlc_manager.core.DlcRuntimeState
@@ -42,7 +43,6 @@ import java.nio.file.Path
 import java.nio.file.SimpleFileVisitor
 import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.BasicFileAttributes
-import java.util.TreeMap
 import java.util.concurrent.CompletableFuture
 import com.sighs.apricityui.init.Document
 import com.sighs.apricityui.init.Element
@@ -87,6 +87,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
             appendRedirectRows()
         }
         val grouped = DlcScanner().scan()
+        val folders = DlcFolderMetadata(DlcConfig.getDlcRoots(), DlcPaths.gameDir())
         val enabledById: MutableMap<String?, Boolean> = HashMap()
         for (type in DlcType.values()) {
             if (type == DlcType.TACZ_PACK && !hasTaczMod) {
@@ -116,20 +117,16 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
             if (activeFilter == null) {
                 rows.add(DlcListRow.groupHeader(type))
             }
-            val byPath = groupByRelativeFolder(visibleItems)
-            val hasSubDir = byPath.keys.any { it != ROOT_GROUP }
+            val byPath = folders.group(visibleItems, DlcPlatformServices.languageCode())
+            val hasSubDir = byPath.any { !it.isRoot() }
             var firstPathHeader = true
-            for ((path, pathItems) in byPath) {
-                if (path == ROOT_GROUP) {
-                    if (hasSubDir) {
-                        rows.add(DlcListRow.pathHeader(resolvePathLabel(path), pathItems, true, firstPathHeader))
-                        firstPathHeader = false
-                    }
-                } else {
-                    rows.add(DlcListRow.pathHeader(resolvePathLabel(path), pathItems, false, firstPathHeader))
+            for (group in byPath) {
+                if (!group.isRoot() || hasSubDir) {
+                    val label = if (group.isRoot()) translate("dlc_manager.group.root") else group.label
+                    rows.add(DlcListRow.pathHeader(label, group.items, group.isRoot(), firstPathHeader, group.key))
                     firstPathHeader = false
                 }
-                for (item in pathItems) {
+                for (item in group.items) {
                     val enabled = enabledById[item.getId()] ?: item.isEnabled()
                     DlcRuntimeState.ensureBaseline(item.getId(), enabled)
                     DlcRuntimeState.getOverride(item.getId())?.let { item.setEnabled(it) }
@@ -162,39 +159,6 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
         for (entry in visible) {
             rows.add(DlcListRow.redirectItem(entry))
         }
-    }
-
-    private fun groupByRelativeFolder(items: List<DlcItem>): Map<String, List<DlcItem>> {
-        val grouped: MutableMap<String, MutableList<DlcItem>> = TreeMap()
-        for (item in items) {
-            val label = resolveGroupLabel(item)
-            grouped.computeIfAbsent(label) { ArrayList() }.add(item)
-        }
-        return grouped
-    }
-
-    private fun resolveGroupLabel(item: DlcItem): String {
-        return try {
-            val source = item.getSourcePath() ?: return ROOT_GROUP
-            var relative: String? = null
-            for (dlcRoot in DlcConfig.getDlcRoots()) {
-                if (source.startsWith(dlcRoot)) {
-                    relative = dlcRoot.relativize(source).toString().replace('\\', '/')
-                    break
-                }
-            }
-            if (relative == null) {
-                relative = DlcPaths.gameDir().relativize(source).toString().replace('\\', '/')
-            }
-            val lastSlash = relative.lastIndexOf('/')
-            if (lastSlash <= 0) ROOT_GROUP else relative.substring(0, lastSlash)
-        } catch (_: Exception) {
-            ROOT_GROUP
-        }
-    }
-
-    private fun resolvePathLabel(raw: String): String {
-        return if (raw == ROOT_GROUP) translate("dlc_manager.group.root") else raw
     }
 
     private fun getDlcApplyModeLabel(): String {
@@ -796,7 +760,6 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
     )
 
     companion object {
-        private const val ROOT_GROUP = "__root__"
         private fun translate(key: String, vararg args: Any): String = plain(DlcTextCompat.translatable(key, *args).string)
         private fun plain(value: String?): String = value?.let { DlcTextFormatter.parse(it).string } ?: ""
 
@@ -1043,7 +1006,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
                             DlcItemActions.toggleGroup(groupItems)
                             refreshAfterStateChange()
                         }
-                    val key = (groupItems.first().getType()?.name ?: "") + ":" + row.getLabel()
+                    val key = (groupItems.first().getType()?.name ?: "") + ":" + row.getPathKey()
                     rowParent = addManagerGroup(document, list, entry, key, groupItems.size)
                 }
                 DlcListRow.RowType.REDIRECT_ITEM -> {

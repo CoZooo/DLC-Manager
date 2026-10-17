@@ -817,6 +817,24 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
       configDownloadsSection
     ]
   },
+  folder_metadata: {
+    type: "folder_metadata",
+    label: "Folder Metadata",
+    summary: "static.summary.folderMetadata",
+    defaultFileName: "_metadata.dc",
+    supportsStructured: true,
+    sections: [],
+    sectionTemplate: {
+      key: "*",
+      label: "*",
+      fields: dlcLanguages.get("folder_metadata")!.category(["*"]).fields
+        .filter((field) => field.name !== "*").map((field) => ({
+          key: field.name,
+          label: field.name,
+          kind: field.type === "integer" || field.type === "number" ? "number" : "text"
+        }))
+    }
+  },
   pack: {
     type: "pack",
     label: "DLC Pack",
@@ -852,7 +870,8 @@ export const orderedDocumentTypes: DocumentType[] = [
   "update",
   "version",
   "config",
-  "pack"
+  "pack",
+  "folder_metadata"
 ];
 
 export const configurableDocumentTypes: DocumentType[] = [
@@ -865,5 +884,6 @@ export const configurableDocumentTypes: DocumentType[] = [
   "update",
   "version",
   "config",
-  "pack"
+  "pack",
+  "folder_metadata"
 ];

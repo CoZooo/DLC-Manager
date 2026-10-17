@@ -225,7 +225,7 @@ function buildDocument(
   source: "new" | "imported",
   path?: string
 ): EditorDocument {
-  const documentName = type === "pack" ? "pack.dc" : name;
+  const documentName = type === "folder_metadata" ? "_metadata.dc" : type === "pack" ? "pack.dc" : name;
   return {
     id: makeDocumentId(),
     name: documentName,
@@ -660,7 +660,7 @@ export function App() {
   };
 
   const updateDocumentName = (name: string) => {
-    if (!editingDocument || editingDocument.type === "pack") {
+    if (!editingDocument || editingDocument.type === "pack" || editingDocument.type === "folder_metadata") {
       return;
     }
     preserveStructuredDraftRef.current = editingDocument.id;
@@ -679,7 +679,7 @@ export function App() {
     if (!editingDocument) {
       return;
     }
-    const nextRaw = (editingDocument.type === "update" || editingDocument.type === "required")
+    const nextRaw = (editingDocument.type === "update" || editingDocument.type === "required" || editingDocument.type === "folder_metadata")
       ? serializeStructuredDocumentWithPreservedRaw(editingDocument.rawText, model, documentSchemas[editingDocument.type], { applyImplicitDefaultLocale: true })
       : await backend.serializeForSave(editingDocument.type, model);
     preserveStructuredDraftRef.current = editingDocument.id;
@@ -712,7 +712,7 @@ export function App() {
     }
     try {
       const textToSave = editingDocument.structuredEnabled && editingDocument.structuredModel
-        ? (editingDocument.type === "update" || editingDocument.type === "required")
+        ? (editingDocument.type === "update" || editingDocument.type === "required" || editingDocument.type === "folder_metadata")
           ? serializeStructuredDocumentWithPreservedRaw(editingDocument.rawText, editingDocument.structuredModel, documentSchemas[editingDocument.type], { applyImplicitDefaultLocale: true })
           : await backend.serializeForSave(editingDocument.type, editingDocument.structuredModel)
         : editingDocument.rawText;
@@ -771,7 +771,7 @@ export function App() {
       const zip = new JSZip();
       for (const doc of documents) {
         const textToSave = doc.structuredEnabled && doc.structuredModel
-          ? (doc.type === "update" || doc.type === "required")
+          ? (doc.type === "update" || doc.type === "required" || doc.type === "folder_metadata")
             ? serializeStructuredDocumentWithPreservedRaw(doc.rawText, doc.structuredModel, documentSchemas[doc.type], { applyImplicitDefaultLocale: true })
             : await backend.serializeForSave(doc.type, doc.structuredModel)
           : doc.rawText;
@@ -940,8 +940,8 @@ export function App() {
                   schema={schema}
                   model={editingDocument.structuredModel}
                   enabled={editingDocument.structuredEnabled}
-                  fileName={editingDocument.type === "pack" ? undefined : editingDocument.name}
-                  onFileNameChange={editingDocument.type === "pack" ? undefined : updateDocumentName}
+                  fileName={editingDocument.type === "pack" || editingDocument.type === "folder_metadata" ? undefined : editingDocument.name}
+                  onFileNameChange={editingDocument.type === "pack" || editingDocument.type === "folder_metadata" ? undefined : updateDocumentName}
                   onChange={updateStructured}
                 />
               )}

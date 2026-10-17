@@ -84,6 +84,24 @@ class DlcScannerTest {
         assertEquals("config/config.toml", item.getAppliedTargetRaw());
     }
 
+    @Test
+    void folderMetadataIsNotAResourceAndRemoteItemsKeepTheirLogicalOrigin() throws Exception {
+        Files.createDirectories(dlcRoot.resolve("remote/A"));
+        Files.createDirectories(dlcRoot.resolve("A"));
+        Files.createDirectories(dlcRoot.resolve("downloaded/DLCs/A"));
+        Files.writeString(dlcRoot.resolve("_metadata.dc"), "[A]\nDisplayName.en_US='Local'\n");
+        Files.writeString(dlcRoot.resolve("remote/_metadata.dc"), "[A]\nDisplayName.en_US='Remote'\n");
+        Files.writeString(dlcRoot.resolve("remote/A/entry.dc"), "[basic]\nidentifier='remote-entry'\nfile_name='remote.jar'\ntype='mod'\n");
+        Files.writeString(dlcRoot.resolve("A/local.jar"), "jar");
+        Files.writeString(dlcRoot.resolve("downloaded/DLCs/A/remote.jar"), "jar");
+        var items = new DlcScanner().scan().get(DlcType.MOD);
+        assertEquals(2, items.size());
+        var remote = items.stream().filter(item -> item.getName().equals("remote.jar")).findFirst().orElseThrow();
+        assertEquals(dlcRoot.resolve("remote/A"), remote.getGroupDirectory());
+        var groups = new DlcFolderMetadata(List.of(dlcRoot), gameDir).group(items, "en_us");
+        assertEquals(List.of("Local", "Remote"), groups.stream().map(DlcFolderMetadata.Group::label).toList());
+    }
+
     private static List<String> names(List<DlcItem> items) {
         return items.stream().map(DlcItem::getName).toList();
     }

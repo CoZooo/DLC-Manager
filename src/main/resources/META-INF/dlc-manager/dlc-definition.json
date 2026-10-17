@@ -2013,6 +2013,46 @@
           ]
         }
       ]
+    },
+    {
+      "id": "folder_metadata",
+      "description": "DLC folder display names and ordering.",
+      "filePatterns": [
+        "_metadata.dc",
+        "**/_metadata.dc"
+      ],
+      "categories": [
+        {
+          "path": [
+            "*"
+          ],
+          "name": "*",
+          "required": false,
+          "description": "A physical child folder name.",
+          "fields": [
+            {
+              "name": "priority",
+              "type": "integer",
+              "required": false,
+              "description": "Folder order. Lower values appear first; negative values are allowed.",
+              "enumValues": [],
+              "constraints": {
+                "min": -2147483648,
+                "max": 2147483647
+              },
+              "defaultValue": 0
+            },
+            {
+              "name": "*",
+              "type": "string",
+              "required": false,
+              "description": "Displayed folder name for this language.",
+              "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        }
+      ]
     }
   ]
 }

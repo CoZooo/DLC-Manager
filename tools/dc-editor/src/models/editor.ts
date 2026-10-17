@@ -8,7 +8,8 @@ export type DocumentType =
   | "update"
   | "version"
   | "config"
-  | "pack";
+  | "pack"
+  | "folder_metadata";
 
 export type FieldKind =
   | "text"
@@ -74,6 +75,7 @@ export interface DocumentSchema {
   defaultFileName: string;
   supportsStructured: boolean;
   sections: SectionSchema[];
+  sectionTemplate?: SectionSchema;
 }
 
 export type StructuredRecordValue = Record<string, string>;

@@ -4,6 +4,7 @@ import {
   ROOT_SECTION_KEY,
   StructuredModel,
   StructuredValue,
+  SectionSchema,
   ValidationIssue
 } from "../../models/editor";
 import languageDefinition from "../../../../dclanguage/src/generated/resources/com/cozooo/dclanguage/language-definition.json";
@@ -15,7 +16,35 @@ function parseQuoted(text: string): string {
   if (text.length >= 2 && text.startsWith("\"") && text.endsWith("\"")) {
     return text.slice(1, -1).replace(/\\n/g, "\n").replace(/\\"/g, "\"");
   }
+  if (text.length >= 2 && text.startsWith("'") && text.endsWith("'")) return text.slice(1, -1);
   return text;
+}
+
+function categoryKey(header: string, schema: DocumentSchema): string {
+  if (!schema.sectionTemplate) return header;
+  let name = parseQuoted(header);
+  if (header.startsWith('"')) {
+    try { name = JSON.parse(header); } catch { }
+  }
+  return JSON.stringify(name);
+}
+
+function fieldKey(key: string, schema: DocumentSchema): string {
+  if (!schema.sectionTemplate) return key;
+  const declared = schema.sectionTemplate.fields.find((field) => field.key.toLowerCase() === key.toLowerCase());
+  if (declared) return declared.key;
+  if (key.toLowerCase().startsWith("displayname.")) return `DisplayName.${key.slice(12).toLowerCase()}`;
+  return key;
+}
+
+function documentSections(schema: DocumentSchema, model: StructuredModel): SectionSchema[] {
+  if (!schema.sectionTemplate) return schema.sections;
+  const template = schema.sectionTemplate;
+  return Object.keys(model).filter((key) => key !== ROOT_SECTION_KEY).map((key) => ({
+    ...template, key, label: `[${key}]`,
+    fields: [...new Set([...template.fields.map((field) => field.key), ...Object.keys(model[key])])].map((name) =>
+      template.fields.find((field) => field.key === name) ?? { key: name, label: name, kind: "text" })
+  }));
 }
 
 function formatString(value: string): string {
@@ -27,7 +56,7 @@ function formatString(value: string): string {
 
 function buildFieldKindMap(schema: DocumentSchema): Record<string, FieldKind> {
   const result: Record<string, FieldKind> = {};
-  for (const section of schema.sections) {
+  for (const section of [...schema.sections, ...(schema.sectionTemplate ? [schema.sectionTemplate] : [])]) {
     for (const field of section.fields) {
       result[`${section.key}.${field.key}`] = field.kind;
     }
@@ -243,7 +272,7 @@ export function parseStructuredDocument(text: string, schema: DocumentSchema): {
     if (!trimmed || trimmed.startsWith("#")) {
       continue;
     }
-    if (indent === 0 && trimmed.startsWith("[") && trimmed.endsWith("]") && isRelationSubsection(trimmed.slice(1, -1).trim())) {
+    if (!schema.sectionTemplate && indent === 0 && trimmed.startsWith("[") && trimmed.endsWith("]") && isRelationSubsection(trimmed.slice(1, -1).trim())) {
       const blockLines = [rawLine];
       while (index + 1 < lines.length) {
         const nextLine = lines[index + 1];
@@ -259,7 +288,11 @@ export function parseStructuredDocument(text: string, schema: DocumentSchema): {
       continue;
     }
     if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-      currentSection = trimmed.slice(1, -1).trim();
+      const header = trimmed.slice(1, -1).trim();
+      if (schema.sectionTemplate && header.includes(".") && !header.startsWith('"') && !header.startsWith("'")) {
+        issues.push({ severity: "error", message: '包含点号的文件夹名需要加引号，例如 ["A.B"]。', line: index + 1, source: "syntax" });
+      }
+      currentSection = categoryKey(header, schema);
       if (!model[currentSection]) {
         model[currentSection] = {};
       }
@@ -282,7 +315,7 @@ export function parseStructuredDocument(text: string, schema: DocumentSchema): {
     }
 
     const eq = trimmed.indexOf("=");
-    if (eq < 0 && isRelationSection(currentSection)) {
+    if (eq < 0 && !schema.sectionTemplate && isRelationSection(currentSection)) {
       const value = parseQuoted(trimmed).trim();
       if (value) {
         const section = model[currentSection] || {};
@@ -302,14 +335,19 @@ export function parseStructuredDocument(text: string, schema: DocumentSchema): {
       continue;
     }
 
-    const key = trimmed.slice(0, eq).trim();
+    const key = fieldKey(trimmed.slice(0, eq).trim(), schema);
     let valueText = trimmed.slice(eq + 1).trim();
     if (!currentSection) {
       currentSection = ROOT_SECTION_KEY;
       model[currentSection] = model[currentSection] || {};
     }
 
-    const kind = fieldKinds[`${currentSection}.${key}`] || "text";
+    const kind = fieldKinds[`${currentSection}.${key}`] || fieldKinds[`*.${key}`] || "text";
+    if (schema.sectionTemplate && kind === "number") {
+      const number = new RegExp(`^(?:${languageDefinition.syntax.numberPattern})$`).test(valueText) ? Number(valueText) : NaN;
+      model[currentSection][key] = Number.isFinite(number) ? number : valueText;
+      continue;
+    }
 
     if (isBracketListKind(kind) && valueText.startsWith("[") && !valueText.endsWith("]")) {
       let block = valueText;
@@ -327,14 +365,15 @@ export function parseStructuredDocument(text: string, schema: DocumentSchema): {
       valueText = block;
     }
 
-    if (valueText.startsWith("\"\"\"")) {
-      let block = valueText.slice(3);
-      while (!block.endsWith("\"\"\"") && index + 1 < lines.length) {
+    const multiline = languageDefinition.syntax.stringRules.find((rule) => rule.multiline && valueText.startsWith(rule.delimiter));
+    if (multiline) {
+      let block = valueText.slice(multiline.delimiter.length);
+      while (!block.endsWith(multiline.delimiter) && index + 1 < lines.length) {
         index += 1;
         block += `\n${lines[index]}`;
       }
-      if (block.endsWith("\"\"\"")) {
-        valueText = block.slice(0, -3);
+      if (block.endsWith(multiline.delimiter)) {
+        valueText = block.slice(0, -multiline.delimiter.length);
       } else {
         issues.push({
           severity: "error",
@@ -350,6 +389,22 @@ export function parseStructuredDocument(text: string, schema: DocumentSchema): {
     if (schema.type === "update" && currentSection === ROOT_SECTION_KEY && key === "UpdateDLCM") {
       model[currentSection][key] = parseUpdateDLCMValue(valueText);
       continue;
+    }
+    if (schema.sectionTemplate && key.startsWith("DisplayName.")) {
+      if (valueText.startsWith('"') && valueText.endsWith('"')) {
+        try { model[currentSection][key] = JSON.parse(valueText); continue; } catch { }
+      }
+      if (new RegExp(`^(?:${languageDefinition.syntax.numberPattern})$`).test(valueText)) {
+        model[currentSection][key] = Number(valueText);
+        continue;
+      }
+      if (/^(true|false)$/i.test(valueText)) {
+        model[currentSection][key] = valueText.toLowerCase() === "true";
+        continue;
+      }
+      if (valueText === "null" || valueText.startsWith("[") || valueText.startsWith("{")) {
+        issues.push({ severity: "error", message: `${key} 应为文本名称。`, line: index + 1, source: "schema" });
+      }
     }
     model[currentSection][key] = parseValueByKind(valueText, kind);
   }
@@ -380,8 +435,9 @@ interface SerializeFieldContext {
 
 export function serializeStructuredDocument(model: StructuredModel, schema: DocumentSchema, options: SerializeOptions = {}): string {
   const out: string[] = [];
-  for (let index = 0; index < schema.sections.length; index++) {
-    const section = schema.sections[index];
+  const sections = documentSections(schema, model);
+  for (let index = 0; index < sections.length; index++) {
+    const section = sections[index];
     const sectionKey = section.key;
     const values = model[sectionKey] || {};
     const fieldKeys = new Set(section.fields.map((field) => field.key));
@@ -416,7 +472,7 @@ export function serializeStructuredDocument(model: StructuredModel, schema: Docu
         }
         continue;
       }
-      if (isRelationSection(section.key) && field.key === "entries") {
+      if (!schema.sectionTemplate && isRelationSection(section.key) && field.key === "entries") {
         if (Array.isArray(values.entries)) {
           for (const entry of values.entries.map((item) => item.trim()).filter(Boolean)) {
             out.push(formatString(entry));
@@ -462,7 +518,7 @@ export function serializeStructuredDocument(model: StructuredModel, schema: Docu
         out.push(localizedLinks);
       }
     }
-    if (sectionKey === ROOT_SECTION_KEY && hasValues && index < schema.sections.length - 1) {
+    if (sectionKey === ROOT_SECTION_KEY && hasValues && index < sections.length - 1) {
       out.push("");
     } else if (sectionKey !== ROOT_SECTION_KEY) {
       out.push("");
@@ -484,8 +540,8 @@ export function serializeStructuredDocumentWithPreservedRaw(
   schema: DocumentSchema,
   options: SerializeOptions = {}
 ): string {
-  if (schema.type === "required") {
-    return patchRequiredDocument(rawText, model, schema);
+  if (schema.type === "required" || schema.sectionTemplate) {
+    return patchStructuredDocument(rawText, model, schema);
   }
   if (schema.type !== "update") {
     return serializeStructuredDocument(model, schema, options);
@@ -513,11 +569,12 @@ interface RawFieldSpan {
   end: number;
 }
 
-function patchRequiredDocument(rawText: string, model: StructuredModel, schema: DocumentSchema): string {
+function patchStructuredDocument(rawText: string, model: StructuredModel, schema: DocumentSchema): string {
   const previous = parseStructuredDocument(rawText, schema).model || {};
   const newline = rawText.includes("\r\n") ? "\r\n" : "\n";
   const fields: RawFieldSpan[] = [];
   const sectionEnds = new Map<string, number>();
+  const sectionSpans: Array<{ key: string; start: number; end: number }> = [];
   const lines = rawText.match(/[^\n]*\n|[^\n]+$/g) || [];
   let section = ROOT_SECTION_KEY;
   let offset = 0;
@@ -527,14 +584,16 @@ function patchRequiredDocument(rawText: string, model: StructuredModel, schema: 
     offset += lines[index].length;
     const state: RawScanState = { delimiter: "", escaped: false, depth: 0 };
     const content = scanRawLine(line, state);
-    const header = content.trim().match(/^\[([^\]]+)\]$/);
-    if (header) {
+    const trimmed = content.trim();
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
       sectionEnds.set(section, start);
-      section = header[1].trim();
+      if (sectionSpans.length) sectionSpans[sectionSpans.length - 1].end = start;
+      section = categoryKey(trimmed.slice(1, -1).trim(), schema);
+      sectionSpans.push({ key: section, start, end: rawText.length });
       continue;
     }
     const assignment = content.match(/^(\s*[^=]+?\s*=\s*)(.*)$/);
-    const key = assignment ? content.slice(0, content.indexOf("=")).trim() : "entries";
+    const key = assignment ? fieldKey(content.slice(0, content.indexOf("=")).trim(), schema) : "entries";
     const valueStart = start + (assignment?.[1].length || 0);
     let valueEnd = start + content.trimEnd().length;
     while ((state.delimiter || state.depth > 0) && index + 1 < lines.length) {
@@ -550,10 +609,17 @@ function patchRequiredDocument(rawText: string, model: StructuredModel, schema: 
   sectionEnds.set(section, rawText.length);
   const edits: Array<{ start: number; end: number; text: string }> = [];
   const insertions = new Map<number, string[]>();
-  for (const sectionSchema of schema.sections) {
+  if (schema.sectionTemplate) {
+    for (const span of sectionSpans) {
+      if (!Object.prototype.hasOwnProperty.call(model, span.key)) edits.push({ start: span.start, end: span.end, text: "" });
+    }
+  }
+  const combined = Object.fromEntries(Object.keys(model).map((key) => [key, { ...previous[key], ...model[key] }]));
+  for (const sectionSchema of documentSections(schema, combined)) {
     const additions: string[] = [];
     for (const field of sectionSchema.fields) {
       const value = model[sectionSchema.key]?.[field.key];
+      const serialize = (value: StructuredValue) => serializeValue(value, { schemaType: schema.type, sectionKey: sectionSchema.key, fieldKey: field.key }).replace(/\n/g, newline);
       if (JSON.stringify(previous[sectionSchema.key]?.[field.key]) === JSON.stringify(value)) {
         continue;
       }
@@ -564,7 +630,7 @@ function patchRequiredDocument(rawText: string, model: StructuredModel, schema: 
         end: match.end,
         text: rawText.slice(match.valueEnd, match.end).trim() ? rawText.slice(match.valueEnd, match.end) : ""
       });
-      if (isRelationSection(sectionSchema.key) && field.key === "entries") {
+      if (!schema.sectionTemplate && isRelationSection(sectionSchema.key) && field.key === "entries") {
         for (const match of matches) {
           edits.push(removeField(match));
         }
@@ -575,10 +641,10 @@ function patchRequiredDocument(rawText: string, model: StructuredModel, schema: 
         for (const match of matches) {
           edits.push(value === undefined
             ? removeField(match)
-            : { start: match.valueStart, end: match.valueEnd, text: serializeValue(value).replace(/\n/g, newline) });
+            : { start: match.valueStart, end: match.valueEnd, text: serialize(value) });
         }
       } else if (value !== undefined) {
-        additions.push(`${field.key} = ${serializeValue(value).replace(/\n/g, newline)}`);
+        additions.push(`${field.key} = ${serialize(value)}`);
       }
     }
     if (additions.length > 0) {
@@ -802,6 +868,7 @@ function serializeInlineStringList(value: string[]): string {
 }
 
 function serializeValue(value: StructuredValue, context?: SerializeFieldContext): string {
+  if (context?.schemaType === "folder_metadata" && typeof value === "string") return JSON.stringify(value);
   if (typeof value === "boolean") {
     return value ? "true" : "false";
   }
@@ -1268,7 +1335,7 @@ export function validateStructuredModel(model: StructuredModel | null, schema: D
     return [];
   }
   const issues: ValidationIssue[] = [];
-  for (const section of schema.sections) {
+  for (const section of documentSections(schema, model)) {
     const values = model[section.key] || {};
     const fieldKeys = new Set(section.fields.map((field) => field.key));
     for (const field of section.fields) {
@@ -1335,6 +1402,24 @@ export function validateStructuredModel(model: StructuredModel | null, schema: D
   }
   if (schema.type === "pack") {
     validateLocalizedLinkSections(model, issues);
+  }
+  if (schema.sectionTemplate) {
+    for (const [key, values] of Object.entries(model)) {
+      let name = "";
+      try { name = JSON.parse(key); } catch { }
+      if (!name.trim() || name === "." || name === ".." || /[/\\]/.test(name)) {
+        issues.push({ severity: "error", message: "文件夹名必须是非空的单级目录名称。", source: "schema" });
+      }
+      const priority = values.priority;
+      if (priority !== undefined && (typeof priority !== "number" || !Number.isInteger(priority) || priority < -2147483648 || priority > 2147483647)) {
+        issues.push({ severity: "error", message: `[${name}].priority 必须为 32 位整数，可以为负数。`, source: "schema" });
+      }
+      for (const [field, value] of Object.entries(values)) {
+        if (field.startsWith("DisplayName.") && (!isValidLocaleCode(field.slice(12)) || typeof value !== "string")) {
+          issues.push({ severity: "error", message: `[${name}].${field} 应为语言代码和文本名称。`, source: "schema" });
+        }
+      }
+    }
   }
   addDocumentSpecificIssues(model, schema, issues);
   return issues;

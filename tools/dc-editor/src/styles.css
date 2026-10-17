@@ -769,6 +769,7 @@ button:disabled {
 }
 
 input[type="text"],
+input.folder-priority,
 textarea,
 select {
   width: 100%;

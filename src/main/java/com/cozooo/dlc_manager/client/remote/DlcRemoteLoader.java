@@ -143,6 +143,7 @@ public final class DlcRemoteLoader {
     }
 
     private static DlcRemoteEntry readEntry(Path path, Path dlcRoot, Path remoteRoot) {
+        if (!isRemoteConfigName(path.getFileName().toString())) return null;
         JsonObject obj = readConfigObject(path);
         if (obj == null) {
             return null;
@@ -198,7 +199,7 @@ public final class DlcRemoteLoader {
     }
 
     private static boolean isRemoteConfigName(String fileName) {
-        return DlcDcFormatUtil.isDcName(fileName);
+        return DlcDcFormatUtil.isDcName(fileName) && !DlcDcFormatUtil.FOLDER_METADATA_FILE_NAME.equalsIgnoreCase(fileName);
     }
 
     private static int configPriority(Path path) {

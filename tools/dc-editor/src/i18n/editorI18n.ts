@@ -26,6 +26,12 @@ const uiDictionary: Record<EditorLocale, Record<string, string>> = {
     documents: "文档",
     formTitle: "结构化编辑",
     fileName: "配置文件名",
+    folderName: "实际文件夹名",
+    folderPriority: "优先级（默认 0，数值越小越靠前）",
+    folderDisplayNames: "按语言设置显示名称，不会修改磁盘上的文件夹名。",
+    folderMetadataHelp: "在 DLC 或 remote 的对应目录保存 _metadata.dc，配置其直接子文件夹。支持多个文件夹及多种语言。",
+    addFolder: "新增文件夹定义",
+    removeFolder: "移除此文件夹定义",
     rawTitle: "原始 DC",
     previewTitle: "信息预览",
     validationTitle: "校验",
@@ -150,6 +156,12 @@ const uiDictionary: Record<EditorLocale, Record<string, string>> = {
     documents: "Documents",
     formTitle: "Structured Editor",
     fileName: "Config File Name",
+    folderName: "Physical Folder Name",
+    folderPriority: "Priority (default 0; lower values appear first)",
+    folderDisplayNames: "Localized display names. The folder on disk is not renamed.",
+    folderMetadataHelp: "Save _metadata.dc in a DLC or remote directory to configure its immediate child folders. Multiple folders and languages are supported.",
+    addFolder: "Add Folder Definition",
+    removeFolder: "Remove Folder Definition",
     rawTitle: "Raw DC",
     previewTitle: "Information Preview",
     validationTitle: "Validation",
@@ -255,6 +267,7 @@ const uiDictionary: Record<EditorLocale, Record<string, string>> = {
 
 const staticTextDictionary: Record<EditorLocale, Record<string, string>> = {
   zh_cn: {
+    "static.summary.folderMetadata": "文件夹名称与排序\n文件固定为对应目录下的 _metadata.dc",
     "static.summary.info": "DLC 文件的信息\n文件存放于 <DLC>/info 下",
     "static.summary.remote": "需下载的 DLC\n文件存放于 <DLC>/remote 下",
     "static.summary.required": "必要资源配置\n文件存放于 <DLC>/required 下",
@@ -376,6 +389,7 @@ const staticTextDictionary: Record<EditorLocale, Record<string, string>> = {
     "static.help.configDownloadMirrorProbeStrategy": "下载源测速优选策略。"
   },
   en_us: {
+    "static.summary.folderMetadata": "Folder names and ordering\nStored as _metadata.dc in its parent directory",
     "static.summary.info": "DLC file information\nStored in <DLC>/info",
     "static.summary.remote": "Downloadable DLC\nStored in <DLC>/remote",
     "static.summary.required": "Required resource config\nStored in <DLC>/required",

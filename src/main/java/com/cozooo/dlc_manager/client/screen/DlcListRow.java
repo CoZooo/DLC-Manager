@@ -21,6 +21,7 @@ public class DlcListRow {
     private final DlcRedirectEntry redirectEntry;
     private final boolean rootPath;
     private final boolean hideTopSeparator;
+    private String pathKey;
 
     private DlcListRow(RowType type, String label, DlcType groupType, DlcItem item, java.util.List<DlcItem> items,
                        DlcRedirectEntry redirectEntry, boolean rootPath, boolean hideTopSeparator) {
@@ -41,6 +42,14 @@ public class DlcListRow {
     public static DlcListRow pathHeader(String label, java.util.List<DlcItem> items, boolean rootPath, boolean hideTopSeparator) {
         return new DlcListRow(RowType.PATH_HEADER, label, null, null, items, null, rootPath, hideTopSeparator);
     }
+
+    public static DlcListRow pathHeader(String label, java.util.List<DlcItem> items, boolean rootPath, boolean hideTopSeparator, String key) {
+        DlcListRow row = pathHeader(label, items, rootPath, hideTopSeparator);
+        row.pathKey = key;
+        return row;
+    }
+
+    public String getPathKey() { return pathKey == null ? label : pathKey; }
 
     public static DlcListRow item(DlcItem item) {
         return new DlcListRow(RowType.ITEM, null, null, item, null, null, false, false);

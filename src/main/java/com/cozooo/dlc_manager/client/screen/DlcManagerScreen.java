@@ -8,6 +8,7 @@ import com.cozooo.dlc_manager.core.DlcApplyMode;
 import com.cozooo.dlc_manager.core.DlcApplier;
 import com.cozooo.dlc_manager.core.DlcStateConfig;
 import com.cozooo.dlc_manager.core.DlcItem;
+import com.cozooo.dlc_manager.core.DlcFolderMetadata;
 import com.cozooo.dlc_manager.core.DlcConfigTypeSupport;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
@@ -45,7 +46,6 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.Set;
 import java.nio.file.Path;
 import java.nio.file.Files;
@@ -95,6 +95,7 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
         }
 
         Map<DlcType, List<DlcItem>> grouped = new DlcScanner().scan();
+        DlcFolderMetadata folders = new DlcFolderMetadata(DlcConfig.getDlcRoots(), DlcPaths.gameDir());
         Map<String, Boolean> enabledById = new HashMap<>();
         for (DlcType type : DlcType.values()) {
             if (type == DlcType.TACZ_PACK && !hasTaczMod) {
@@ -129,20 +130,16 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
             if (activeFilter == null) {
                 rows.add(DlcListRow.groupHeader(type));
             }
-            Map<String, List<DlcItem>> byPath = groupByRelativeFolder(visibleItems);
-            boolean hasSubDir = byPath.keySet().stream().anyMatch(key -> !"__root__".equals(key));
+            List<DlcFolderMetadata.Group> byPath = folders.group(visibleItems, DlcPlatformServices.languageCode());
+            boolean hasSubDir = byPath.stream().anyMatch(group -> !group.isRoot());
             boolean firstPathHeader = true;
-            for (Map.Entry<String, List<DlcItem>> entry : byPath.entrySet()) {
-                if ("__root__".equals(entry.getKey())) {
-                    if (hasSubDir) {
-                        rows.add(DlcListRow.pathHeader(resolvePathLabel(entry.getKey()), entry.getValue(), true, firstPathHeader));
-                        firstPathHeader = false;
-                    }
-                } else {
-                    rows.add(DlcListRow.pathHeader(resolvePathLabel(entry.getKey()), entry.getValue(), false, firstPathHeader));
+            for (DlcFolderMetadata.Group group : byPath) {
+                if (!group.isRoot() || hasSubDir) {
+                    String label = group.isRoot() ? translate("dlc_manager.group.root") : group.label();
+                    rows.add(DlcListRow.pathHeader(label, group.items(), group.isRoot(), firstPathHeader, group.key()));
                     firstPathHeader = false;
                 }
-                for (DlcItem item : entry.getValue()) {
+                for (DlcItem item : group.items()) {
                     boolean enabled = enabledById.getOrDefault(item.getId(), item.isEnabled());
                     DlcRuntimeState.ensureBaseline(item.getId(), enabled);
                     Boolean override = DlcRuntimeState.getOverride(item.getId());
@@ -180,45 +177,6 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
         for (DlcRedirectEntry entry : visible) {
             rows.add(DlcListRow.redirectItem(entry));
         }
-    }
-
-    private Map<String, List<DlcItem>> groupByRelativeFolder(List<DlcItem> items) {
-        Map<String, List<DlcItem>> grouped = new TreeMap<>();
-        for (DlcItem item : items) {
-            String label = resolveGroupLabel(item);
-            grouped.computeIfAbsent(label, key -> new ArrayList<>()).add(item);
-        }
-        return grouped;
-    }
-
-    private String resolveGroupLabel(DlcItem item) {
-        try {
-            Path source = item.getSourcePath();
-            String relative = null;
-            for (Path dlcRoot : DlcConfig.getDlcRoots()) {
-                if (source.startsWith(dlcRoot)) {
-                    relative = dlcRoot.relativize(source).toString().replace('\\', '/');
-                    break;
-                }
-            }
-            if (relative == null) {
-                relative = DlcPaths.gameDir().relativize(source).toString().replace('\\', '/');
-            }
-            int lastSlash = relative.lastIndexOf('/');
-            if (lastSlash <= 0) {
-                return "__root__";
-            }
-            return relative.substring(0, lastSlash);
-        } catch (Exception ignored) {
-            return "__root__";
-        }
-    }
-
-    private String resolvePathLabel(String raw) {
-        if ("__root__".equals(raw)) {
-            return translate("dlc_manager.group.root");
-        }
-        return raw;
     }
 
     private String getDlcApplyModeLabel() {
@@ -1091,7 +1049,7 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
                             DlcItemActions.toggleGroup(groupItems);
                             refreshAfterStateChange();
                         });
-                    String key = groupItems.get(0).getType().name() + ":" + row.getLabel();
+                    String key = groupItems.get(0).getType().name() + ":" + row.getPathKey();
                     rowParent = addManagerGroup(document, list, entry, key, groupItems.size());
                 }
                 case REDIRECT_ITEM -> {

@@ -123,6 +123,7 @@ public class DlcScanner {
                         return FileVisitResult.CONTINUE;
                     }
                     String name = file.getFileName().toString();
+                    if (DlcDcFormatUtil.FOLDER_METADATA_FILE_NAME.equalsIgnoreCase(name)) return FileVisitResult.CONTINUE;
                     String relative = root.relativize(file).toString().replace('\\', '/');
                     String owner = groupedOwners.get(relative);
                     if (owner != null && !owner.equals(name)) {
@@ -274,6 +275,7 @@ public class DlcScanner {
             item.setRedirectUrl(tooltipData.getRedirectUrl());
         }
         item.setDlcRoot(DlcConfig.getDlcRoots().contains(root) ? root : DlcConfig.getDlcRoot());
+        item.setGroupDirectory(remoteMetadata.groupDirectories.get(relative));
         item.setMatchMode(tooltipData == null ? "hash" : tooltipData.getMatchMode());
         if (detectInstalledState) {
             try {
@@ -438,7 +440,9 @@ public class DlcScanner {
                 entry.isAlarm()
             );
             data.setMatchMode(entry.getMatchMode());
-            lookup.byPath.put(root.toAbsolutePath().normalize().relativize(legacy.toAbsolutePath().normalize()).toString().replace('\\', '/'), data);
+            String relative = root.toAbsolutePath().normalize().relativize(legacy.toAbsolutePath().normalize()).toString().replace('\\', '/');
+            lookup.byPath.put(relative, data);
+            if (entry.getConfigPath() != null) lookup.groupDirectories.put(relative, entry.getConfigPath().getParent());
             if (ambiguousFileNames.contains(fileName)) {
                 continue;
             }
@@ -456,6 +460,7 @@ public class DlcScanner {
     private static final class RemoteMetadataLookup {
         private final Map<String, DlcTooltipLoader.TooltipData> byFileName;
         private final Map<String, DlcTooltipLoader.TooltipData> byPath = new java.util.HashMap<>();
+        private final Map<String, Path> groupDirectories = new java.util.HashMap<>();
         private final Set<Path> shadowed = new HashSet<>();
 
         private RemoteMetadataLookup(Map<String, DlcTooltipLoader.TooltipData> byFileName) {

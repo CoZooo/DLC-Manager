@@ -72,6 +72,7 @@ export function StructuredEditor(props: StructuredEditorProps) {
           </div>
         </div>
       )}
+      {props.schema.type === "folder_metadata" && <FolderMetadataEditor {...props} model={model} />}
       <div className="section-stack">
         {props.schema.sections.map((section) => (
           <div key={section.key} className="section-card">
@@ -427,6 +428,59 @@ function ListFieldEditor(props: ListFieldEditorProps) {
       }}
       onChangeValue={setDraft}
     />
+  );
+}
+
+function FolderMetadataEditor(props: StructuredEditorProps & { model: StructuredModel }) {
+  const [folderName, setFolderName] = useState("");
+  const name = folderName.trim();
+  const key = JSON.stringify(name);
+  const canAdd = Boolean(name) && name !== "." && name !== ".." && !/[/\\]/.test(name) && !Object.prototype.hasOwnProperty.call(props.model, key);
+  return (
+    <div className="section-stack">
+      <div className="section-card">
+        <div className="field-help">{t(props.locale, "folderMetadataHelp")}</div>
+        <div className="field">
+          <label className="field-label">{t(props.locale, "folderName")}</label>
+          <UndoableInput type="text" value={folderName} onChangeValue={setFolderName} />
+          <button type="button" className="secondary-action" disabled={!canAdd} onClick={() => {
+            props.onChange({ ...props.model, [key]: { priority: 0 } });
+            setFolderName("");
+          }}>{t(props.locale, "addFolder")}</button>
+        </div>
+      </div>
+      {Object.entries(props.model).filter(([section]) => section !== ROOT_SECTION_KEY).map(([section, values]) => {
+        const localized = Object.fromEntries(Object.entries(values)
+          .filter(([field]) => field.startsWith("DisplayName."))
+          .map(([field, value]) => [field.slice(12), value]));
+        return (
+          <div className="section-card" key={section}>
+            <div className="section-title">{JSON.parse(section)}</div>
+            <div className="field">
+              <label className="field-label">{t(props.locale, "folderPriority")}</label>
+              <UndoableInput className="folder-priority" type="number" step="1" min="-2147483648" max="2147483647" value={String(values.priority ?? 0)} onChangeValue={(value) => {
+                const number = Number(value);
+                props.onChange(withValue(props.model, section, "priority", value.trim() && Number.isFinite(number) ? number : value));
+              }} />
+            </div>
+            <DynamicLocaleSection locale={props.locale} sectionKey={section} values={localized} valueKind="text"
+              help={t(props.locale, "folderDisplayNames")} onChange={(next) => {
+                const entries = Object.entries(next);
+                const remaining = Object.fromEntries(Object.entries(values).filter(([field]) => !field.startsWith("DisplayName.")));
+                for (const [locale, value] of entries) {
+                  const code = entries.length === 1 && locale.startsWith("__draft_locale__:") ? "en_us" : locale;
+                  remaining[`DisplayName.${code}`] = value;
+                }
+                props.onChange({ ...props.model, [section]: remaining });
+              }} />
+            <button type="button" className="secondary-action" onClick={() => {
+              const { [section]: removed, ...remaining } = props.model;
+              props.onChange(remaining);
+            }}>{t(props.locale, "removeFolder")}</button>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 

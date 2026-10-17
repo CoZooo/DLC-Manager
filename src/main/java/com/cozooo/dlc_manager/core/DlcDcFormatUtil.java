@@ -18,6 +18,7 @@ import java.util.Set;
 
 public final class DlcDcFormatUtil {
     public static final String DC_EXTENSION = ".dc";
+    public static final String FOLDER_METADATA_FILE_NAME = "_metadata.dc";
     private static final Set<String> DOWNLOAD_KEYS = Set.of(
         "modrinth_projectid", "modrinth_versionid", "curseforge_projectid", "curseforge_fileid", "directurl", "priority"
     );

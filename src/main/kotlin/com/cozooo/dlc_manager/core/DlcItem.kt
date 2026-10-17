@@ -22,6 +22,7 @@ class DlcItem {
     private val alarmValue: Boolean
     private var matchModeValue: String = "hash"
     private var dlcRootValue: Path? = null
+    private var groupDirectoryValue: Path? = null
     private var redirectUrlValue: String? = null
     private var dirtyValue: Boolean = false
 
@@ -240,6 +241,8 @@ class DlcItem {
     fun setMatchMode(value: String?) { matchModeValue = DlcFileMatch.mode(value) }
     fun getDlcRoot(): Path = dlcRootValue ?: DlcPaths.dlcRoot()
     fun setDlcRoot(value: Path?) { dlcRootValue = value }
+    fun getGroupDirectory(): Path? = groupDirectoryValue
+    fun setGroupDirectory(value: Path?) { groupDirectoryValue = value }
 
     fun getId(): String? = idValue
     fun getIdentifier(): String? = identifierValue

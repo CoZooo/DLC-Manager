@@ -104,6 +104,8 @@ export function detectDocumentType(path?: string, text?: string): DocumentType {
   const lowerPath = (path || "").toLowerCase();
   const body = (text || "").toLowerCase();
 
+  if (name === "_metadata.dc") return "folder_metadata";
+
   if (isPackMetadataPath(path || "") || (name === "pack.dc" && looksLikePackConfig(text))) {
     return "pack";
   }

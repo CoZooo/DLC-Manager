@@ -43,6 +43,21 @@ class DlcDcDefinitionTest {
         assertTrue(service.completions(uri, "[basic]\nun", new DcLanguageService.Position(1, 2)).stream().anyMatch(value -> value.label().equals("unzip")));
     }
 
+    @Test void folderMetadataRegistersDynamicFoldersAndDottedLocaleFields() throws Exception {
+        var catalog = DlcDcDefinition.catalog();
+        var service = new DcLanguageService(catalog);
+        String text = "[A]\npriority=-3\nDisplayName.en_US='Folder'\nDisplayName.zh_CN='文件夹'\n";
+        for (String uri : List.of("file:///DLC/_metadata.dc", "file:///DLC/remote/A/_metadata.dc")) {
+            assertTrue(service.diagnostics(uri, text).isEmpty(), uri);
+            assertTrue(service.diagnostics(uri, text.replace("priority=-3", "priority=0.5")).stream()
+                .anyMatch(issue -> issue.message().contains("priority")), uri);
+            assertTrue(service.diagnostics(uri, text.replace("DisplayName.en_US='Folder'", "DisplayName.en_US=42")).stream()
+                .anyMatch(issue -> issue.message().contains("DisplayName.en_US")), uri);
+        }
+        var document = DcDocuments.readText(text);
+        assertTrue(DlcDcDefinition.register("folder_metadata", document.toJson()).validate(document).valid());
+    }
+
     @Test void registersApplicationFieldsThroughTheDcApi() throws Exception {
         var language = DlcDcDefinition.register("required");
         var basic = language.categories().get("basic");

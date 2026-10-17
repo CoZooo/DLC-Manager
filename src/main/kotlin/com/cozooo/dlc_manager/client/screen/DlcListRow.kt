@@ -14,6 +14,8 @@ class DlcListRow private constructor(
     private val rootPath: Boolean,
     private val hideTopSeparator: Boolean,
 ) {
+    private var pathKey: String? = null
+    fun getPathKey(): String? = pathKey ?: label
     enum class RowType {
         GROUP_HEADER,
         PATH_HEADER,
@@ -45,6 +47,11 @@ class DlcListRow private constructor(
         @JvmStatic
         fun pathHeader(label: String?, items: List<DlcItem>?, rootPath: Boolean, hideTopSeparator: Boolean): DlcListRow {
             return DlcListRow(RowType.PATH_HEADER, label, null, null, items, null, rootPath, hideTopSeparator)
+        }
+
+        @JvmStatic
+        fun pathHeader(label: String?, items: List<DlcItem>?, rootPath: Boolean, hideTopSeparator: Boolean, key: String): DlcListRow {
+            return pathHeader(label, items, rootPath, hideTopSeparator).also { it.pathKey = key }
         }
 
         @JvmStatic

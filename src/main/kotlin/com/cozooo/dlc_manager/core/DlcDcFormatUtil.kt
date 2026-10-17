@@ -13,6 +13,7 @@ import java.util.Locale
 
 object DlcDcFormatUtil {
     const val DC_EXTENSION: String = ".dc"
+    const val FOLDER_METADATA_FILE_NAME: String = "_metadata.dc"
     private val downloadKeys = setOf(
         "modrinth_projectid", "modrinth_versionid", "curseforge_projectid", "curseforge_fileid", "directurl", "priority",
     )
