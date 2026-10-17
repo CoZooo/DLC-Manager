@@ -557,7 +557,7 @@
   "dlc_manager.config.comment.download.taskTimeoutSeconds": "Unit: seconds. Range: 10 to 600",
   "dlc_manager.config.comment.modpack.modpack": "Current modpack identifier used by DLC Pack modpack compatibility checks.",
   "dlc_manager.config.comment.modpack.modpackUrl": "Modpack home page URL (used by the update page jump button).",
-  "dlc_manager.config.comment.modpack.updateGitRepo": "Modpack version repository URL (supports GitHub / GitCode / GitLab / Gitee; comma-separated multi-repo).",
+  "dlc_manager.config.comment.modpack.updateGitRepo": "Modpack version repository URL (supports GitHub / GitCode / GitLab / Gitee / CNB; comma-separated multi-repo).",
   "dlc_manager.config.comment.modpack.autoUpdate": "Check for and apply the latest downloadable modpack version at startup; skip if the update fails.",
   "dlc_manager.config.comment.modpack.forceUpdate": "Always check for the latest downloadable modpack version at startup; an unavailable version may be skipped, but the check is never ignored.",
   "dlc_manager.config.comment.paths.datapackRoot": "Datapack roots (relative to game root, support multiple directories, comma-separated).",

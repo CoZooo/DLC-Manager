@@ -38,6 +38,15 @@ public final class DlcPackReleaseUpdateService {
     private static final String[] VERSION_PAIR_DELIMITERS = new String[] {"_", "+", "@", "~", " "};
     private static final int RELEASES_PER_PAGE = 100;
     private static final int RELEASES_MAX_PAGES = 10;
+    private static final String CNB_API_HOST = "api.cnb.cool";
+    private static final int CNB_TOKEN_SHIFT = 7;
+    private static final byte CNB_TOKEN_MASK = (byte) 0x2D;
+    private static final byte[] CNB_TOKEN_PART1 = new byte[] {
+        (byte) 0xF3, (byte) 0xFA, (byte) 0xE3, (byte) 0x9B, (byte) 0xB9, 0x0B, (byte) 0xD0, (byte) 0xAA, (byte) 0xA0,
+        (byte) 0xEE, 0x1D, (byte) 0x95, (byte) 0x91, (byte) 0xDB, (byte) 0x86, (byte) 0x88, (byte) 0x88, 0x3A,
+        (byte) 0x88, (byte) 0xA7, (byte) 0xC1, 0x2B, 0x30, 0x4B, 0x47, (byte) 0xF6, 0x2E
+    };
+    private static final int CNB_TOKEN_PART2_SEED = 0x59;
     private static final int GITCODE_TOKEN_SHIFT = 5;
     private static final byte GITCODE_TOKEN_MASK = (byte) 0x33;
     private static final byte[] GITCODE_TOKEN_PART1 = new byte[] {
@@ -1375,6 +1384,9 @@ public final class DlcPackReleaseUpdateService {
         if (host.endsWith("gitee.com")) {
             return Provider.GITEE;
         }
+        if (host.endsWith("cnb.cool")) {
+            return Provider.CNB;
+        }
         if (host.endsWith("gitlab.com") || host.contains("gitlab")) {
             return Provider.GITLAB;
         }
@@ -1405,6 +1417,16 @@ public final class DlcPackReleaseUpdateService {
             case GITEE -> endpoints.add(new ApiEndpoint(
                 "https://gitee.com/api/v5/repos/" + owner + "/" + project + "/releases?per_page=" + RELEASES_PER_PAGE,
                 "application/json"));
+            case CNB -> {
+                endpoints.add(new ApiEndpoint(
+                    "https://cnb.cool/" + namespacePath + "/-/releases?per_page=" + RELEASES_PER_PAGE,
+                    "application/json"));
+                endpoints.add(new ApiEndpoint(
+                    "https://" + CNB_API_HOST + "/" + projectPath + "/-/releases?page_size=" + RELEASES_PER_PAGE,
+                    "application/vnd.cnb.api+json",
+                    "Authorization",
+                    cnbAuthorizationHeader()));
+            }
             case GITLAB -> endpoints.add(new ApiEndpoint(
                 "https://" + host + "/api/v4/projects/" + projectPath + "/releases?per_page=" + RELEASES_PER_PAGE,
                 "application/json"));
@@ -1439,7 +1461,7 @@ public final class DlcPackReleaseUpdateService {
             return null;
         }
         List<String> repoParts = new ArrayList<>(parts);
-        if (provider == Provider.GITLAB || provider == Provider.GENERIC) {
+        if (provider == Provider.GITLAB || provider == Provider.CNB || provider == Provider.GENERIC) {
             int routeMarker = repoParts.indexOf("-");
             if (routeMarker >= 2) {
                 repoParts = new ArrayList<>(repoParts.subList(0, routeMarker));
@@ -1629,6 +1651,35 @@ public final class DlcPackReleaseUpdateService {
         return GITCODE_TOKEN_CACHE;
     }
 
+    private static String cnbAuthorizationHeader() {
+        return "Bearer " + getEmbeddedCnbAccessToken();
+    }
+
+    private static String getEmbeddedCnbAccessToken() {
+        int length = CNB_TOKEN_PART1.length;
+        byte[] part2 = generateCnbTokenPart2(length);
+        byte[] decoded = new byte[length];
+        for (int i = 0; i < length; i++) {
+            byte mixed = (byte) (CNB_TOKEN_PART1[i] ^ part2[i]);
+            decoded[i] = (byte) (mixed ^ CNB_TOKEN_MASK ^ ((i * 17) & 0xFF));
+        }
+        byte[] shifted = new byte[length];
+        for (int i = 0; i < length; i++) {
+            shifted[i] = decoded[(i + CNB_TOKEN_SHIFT) % length];
+        }
+        return new String(shifted, StandardCharsets.UTF_8);
+    }
+
+    private static byte[] generateCnbTokenPart2(int length) {
+        byte[] bytes = new byte[length];
+        int seed = CNB_TOKEN_PART2_SEED;
+        for (int i = 0; i < length; i++) {
+            seed = (seed * 73 + 41) & 0xFF;
+            bytes[i] = (byte) seed;
+        }
+        return bytes;
+    }
+
     private static byte[] generateGitCodeTokenPart2(int length) {
         byte[] bytes = new byte[length];
         int seed = GITCODE_TOKEN_PART2_SEED;
@@ -1652,6 +1703,7 @@ public final class DlcPackReleaseUpdateService {
         GITCODE,
         GITEE,
         GITLAB,
+        CNB,
         GENERIC
     }
 

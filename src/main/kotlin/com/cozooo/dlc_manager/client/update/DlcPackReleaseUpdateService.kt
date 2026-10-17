@@ -33,6 +33,15 @@ object DlcPackReleaseUpdateService {
     private val VERSION_PAIR_DELIMITERS = arrayOf("_", "+", "@", "~", " ")
     private const val RELEASES_PER_PAGE = 100
     private const val RELEASES_MAX_PAGES = 10
+    private const val CNB_API_HOST = "api.cnb.cool"
+    private const val CNB_TOKEN_SHIFT = 7
+    private const val CNB_TOKEN_MASK: Byte = 0x2D
+    private val CNB_TOKEN_PART1 = byteArrayOf(
+        0xF3.toByte(), 0xFA.toByte(), 0xE3.toByte(), 0x9B.toByte(), 0xB9.toByte(), 0x0B, 0xD0.toByte(), 0xAA.toByte(), 0xA0.toByte(),
+        0xEE.toByte(), 0x1D, 0x95.toByte(), 0x91.toByte(), 0xDB.toByte(), 0x86.toByte(), 0x88.toByte(), 0x88.toByte(), 0x3A,
+        0x88.toByte(), 0xA7.toByte(), 0xC1.toByte(), 0x2B, 0x30, 0x4B, 0x47, 0xF6.toByte(), 0x2E,
+    )
+    private const val CNB_TOKEN_PART2_SEED = 0x59
     private const val GITCODE_TOKEN_SHIFT = 5
     private const val GITCODE_TOKEN_MASK: Byte = 0x33
     private val GITCODE_TOKEN_PART1 = byteArrayOf(
@@ -1008,6 +1017,7 @@ object DlcPackReleaseUpdateService {
         if (host.endsWith("github.com")) return Provider.GITHUB
         if (host.endsWith("gitcode.com")) return Provider.GITCODE
         if (host.endsWith("gitee.com")) return Provider.GITEE
+        if (host.endsWith("cnb.cool")) return Provider.CNB
         if (host.endsWith("gitlab.com") || host.contains("gitlab")) return Provider.GITLAB
         return Provider.GENERIC
     }
@@ -1024,6 +1034,15 @@ object DlcPackReleaseUpdateService {
             Provider.GITHUB -> endpoints.add(ApiEndpoint("https://api.github.com/repos/$owner/$project/releases?per_page=$RELEASES_PER_PAGE", "application/vnd.github+json"))
             Provider.GITCODE -> endpoints.add(ApiEndpoint("https://api.gitcode.com/api/v5/repos/$owner/$project/releases?per_page=$RELEASES_PER_PAGE", "application/json", "PRIVATE-TOKEN", getGitCodeAccessToken()))
             Provider.GITEE -> endpoints.add(ApiEndpoint("https://gitee.com/api/v5/repos/$owner/$project/releases?per_page=$RELEASES_PER_PAGE", "application/json"))
+            Provider.CNB -> {
+                endpoints.add(ApiEndpoint("https://cnb.cool/$namespacePath/-/releases?per_page=$RELEASES_PER_PAGE", "application/json"))
+                endpoints.add(ApiEndpoint(
+                    "https://$CNB_API_HOST/$projectPath/-/releases?page_size=$RELEASES_PER_PAGE",
+                    "application/vnd.cnb.api+json",
+                    "Authorization",
+                    cnbAuthorizationHeader(),
+                ))
+            }
             Provider.GITLAB -> endpoints.add(ApiEndpoint("https://$host/api/v4/projects/$projectPath/releases?per_page=$RELEASES_PER_PAGE", "application/json"))
             Provider.GENERIC, null -> {
                 endpoints.add(ApiEndpoint("https://$host/api/v5/repos/$owner/$project/releases?per_page=$RELEASES_PER_PAGE", "application/json"))
@@ -1043,7 +1062,7 @@ object DlcPackReleaseUpdateService {
         }
         if (parts.size < 2) return null
         var repoParts = ArrayList(parts)
-        if (provider == Provider.GITLAB || provider == Provider.GENERIC) {
+        if (provider == Provider.GITLAB || provider == Provider.CNB || provider == Provider.GENERIC) {
             val routeMarker = repoParts.indexOf("-")
             if (routeMarker >= 2) {
                 repoParts = ArrayList(repoParts.subList(0, routeMarker))
@@ -1186,6 +1205,33 @@ object DlcPackReleaseUpdateService {
         return token
     }
 
+    private fun cnbAuthorizationHeader(): String? {
+        return "Bearer ${getEmbeddedCnbAccessToken()}"
+    }
+
+    private fun getEmbeddedCnbAccessToken(): String {
+        val length = CNB_TOKEN_PART1.size
+        val part2 = generateCnbTokenPart2(length)
+        val decoded = ByteArray(length)
+        for (i in 0 until length) {
+            val mixed = (CNB_TOKEN_PART1[i].toInt() xor part2[i].toInt()).toByte()
+            decoded[i] = (mixed.toInt() xor CNB_TOKEN_MASK.toInt() xor ((i * 17) and 0xFF)).toByte()
+        }
+        val shifted = ByteArray(length)
+        for (i in 0 until length) shifted[i] = decoded[(i + CNB_TOKEN_SHIFT) % length]
+        return String(shifted, StandardCharsets.UTF_8)
+    }
+
+    private fun generateCnbTokenPart2(length: Int): ByteArray {
+        val bytes = ByteArray(length)
+        var seed = CNB_TOKEN_PART2_SEED
+        for (i in 0 until length) {
+            seed = (seed * 73 + 41) and 0xFF
+            bytes[i] = seed.toByte()
+        }
+        return bytes
+    }
+
     private fun generateGitCodeTokenPart2(length: Int): ByteArray {
         val bytes = ByteArray(length)
         var seed = GITCODE_TOKEN_PART2_SEED
@@ -1209,6 +1255,7 @@ object DlcPackReleaseUpdateService {
         GITCODE,
         GITEE,
         GITLAB,
+        CNB,
         GENERIC,
     }
 

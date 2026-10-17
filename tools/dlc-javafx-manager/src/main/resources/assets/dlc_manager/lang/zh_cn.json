@@ -557,7 +557,7 @@
   "dlc_manager.config.comment.download.taskTimeoutSeconds": "单位：秒，范围 10～600",
   "dlc_manager.config.comment.modpack.modpack": "当前整合包标识，用于拓展包的 modpack 条件检测",
   "dlc_manager.config.comment.modpack.modpackUrl": "整合包主页链接（用于更新页跳转）",
-  "dlc_manager.config.comment.modpack.updateGitRepo": "整合包版本仓库链接（支持 GitHub / GitCode / GitLab / Gitee；可用逗号分隔多个仓库）",
+  "dlc_manager.config.comment.modpack.updateGitRepo": "整合包版本仓库链接（支持 GitHub / GitCode / GitLab / Gitee / CNB；可用逗号分隔多个仓库）",
   "dlc_manager.config.comment.modpack.autoUpdate": "启动时检查并更新到能下载到的最新整合包版本，更新失败时跳过",
   "dlc_manager.config.comment.modpack.forceUpdate": "启动时始终检查并尝试更新到能下载到的最新整合包版本；无法更新的版本可以跳过，但不能忽略检查",
   "dlc_manager.config.comment.paths.datapackRoot": "数据包目录（相对游戏根目录，支持多个目录，使用逗号分隔）",
