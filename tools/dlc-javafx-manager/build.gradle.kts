@@ -12,6 +12,9 @@ import org.gradle.api.tasks.JavaExec
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import java.util.Locale
 import java.util.Properties
+import java.util.UUID
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 plugins {
     application
@@ -225,7 +228,6 @@ if (javafxRuntimeJdkVersion >= 24) {
     appJvmArgs += "--sun-misc-unsafe-memory-access=allow"
 }
 val classpathJvmArgs = appJvmArgs + listOf("--enable-native-access=ALL-UNNAMED")
-val moduleJvmArgs = appJvmArgs + listOf("--enable-native-access=javafx.graphics")
 val hybridJvmArgs = appJvmArgs + listOf("--enable-native-access=javafx.graphics,ALL-UNNAMED")
 
 application {
@@ -338,6 +340,94 @@ val appIconIcnsFile = file("src/main/resources/assets/dlc_manager/textures/gui/i
 val appIconIcoFile = file("src/main/resources/assets/dlc_manager/textures/gui/icon.ico")
 val appDisplayName = "DLC Manager"
 val appIdentifier = "com.cozooo.dlcmanager"
+val nativeAppVersion = Regex("""^(\d+)\.(\d+)\.(\d+)(?:[-+][0-9A-Za-z.+-]+)?$""")
+    .matchEntire(appVersion)?.groupValues?.drop(1)?.joinToString(".") { it.toInt().toString() }
+    ?: throw GradleException("Installer versions require major.minor.patch, optionally followed by a prerelease suffix: $appVersion")
+val nativeOs = System.getProperty("os.name", "").lowercase(Locale.ROOT).let {
+    when {
+        it.contains("windows") -> "windows"
+        it.contains("mac") -> "mac"
+        it.contains("linux") -> "linux"
+        else -> "unsupported"
+    }
+}
+val nativeArch = when (val arch = System.getProperty("os.arch", "").lowercase(Locale.ROOT)) {
+    "aarch64", "arm64" -> "aarch64"
+    "amd64", "x86_64" -> "x64"
+    else -> arch
+}
+val nativePlatform = when (nativeOs) {
+    "windows" -> if (nativeArch == "x64") "windows" else "windows-$nativeArch"
+    "linux" -> if (nativeArch == "x64") "linux" else "linux-$nativeArch"
+    else -> "$nativeOs-$nativeArch"
+}
+val installerFormats = mapOf("exe" to "windows", "msi" to "windows", "dmg" to "mac", "pkg" to "mac", "deb" to "linux", "rpm" to "linux")
+val macSign = providers.gradleProperty("macSign").orElse("false").get().toBooleanStrict()
+val macSigningIdentity = providers.environmentVariable("MAC_SIGNING_IDENTITY").orElse("").get()
+val macSigningKeychain = providers.environmentVariable("MAC_SIGNING_KEYCHAIN").orElse("").get()
+val macReleaseScript = file("packaging/macos/release.py")
+val installerOutputDir = if (nativeOs == "mac" && macSign) releaseOutputDir.dir("signed") else releaseOutputDir
+
+fun nativePackageCommand(type: String): List<String> {
+    val command = listOf(jpackageBin().absolutePath) + nativePackageArguments(type)
+    if (nativeOs != "mac" || !macSign) return command
+    if (macSigningIdentity.isBlank()) throw GradleException("Set MAC_SIGNING_IDENTITY to the name and team in your Developer ID certificates.")
+    return buildList {
+        addAll(listOf("python3", macReleaseScript.absolutePath, "package", "--identity", macSigningIdentity,
+            "--work-dir", layout.buildDirectory.dir("macos-signing").get().asFile.absolutePath))
+        if (macSigningKeychain.isNotBlank()) addAll(listOf("--keychain", macSigningKeychain))
+        add("--")
+        addAll(command)
+    }
+}
+
+fun nativePackageArguments(type: String): List<String> {
+    val appDir = layout.buildDirectory.dir("install/${project.name}").get().asFile
+    val packageOs = installerFormats[type] ?: nativeOs
+    val icon = when (packageOs) {
+        "mac" -> appIconIcnsFile
+        "windows" -> appIconIcoFile
+        else -> appIconPngFile
+    }
+    val arguments = mutableListOf(
+        "--name", appDisplayName,
+        "--input", appDir.resolve("lib").absolutePath,
+        "--main-jar", tasks.named<Jar>("jar").get().archiveFileName.get(),
+        "--main-class", application.mainClass.get(),
+        "--app-version", nativeAppVersion,
+        "--type", type,
+        "--vendor", "CoZooo",
+        "--description", "DLC Manager External Manager",
+        "--module-path", appDir.resolve("lib").absolutePath,
+        "--add-modules", "java.se,jdk.unsupported,jdk.crypto.ec,jdk.localedata,javafx.controls,javafx.fxml,javafx.graphics",
+        "--jlink-options", "--strip-debug --no-man-pages --no-header-files --bind-services",
+    )
+    if (icon.exists()) arguments += listOf("--icon", icon.absolutePath)
+    if (type == "dmg") arguments += listOf("--resource-dir", file("packaging/macos").absolutePath)
+    hybridJvmArgs.forEach { option -> arguments += listOf("--java-options", option) }
+    if (packageOs == "mac") {
+        arguments += listOf("--mac-package-identifier", appIdentifier, "--mac-package-name", appDisplayName)
+        if (macSign) {
+            arguments += listOf("--mac-sign", "--mac-signing-key-user-name", macSigningIdentity)
+            if (macSigningKeychain.isNotBlank()) arguments += listOf("--mac-signing-keychain", macSigningKeychain)
+        }
+    }
+    if (type != "app-image") {
+        arguments += listOf("--about-url", "https://github.com/CoZooo/DLC-Manager")
+        when (packageOs) {
+            "windows" -> arguments += listOf(
+                "--win-dir-chooser", "--win-shortcut", "--win-shortcut-prompt", "--win-menu",
+                "--win-menu-group", appDisplayName,
+                "--win-upgrade-uuid", UUID.nameUUIDFromBytes(appIdentifier.toByteArray(Charsets.UTF_8)).toString(),
+            )
+            "linux" -> arguments += listOf(
+                "--linux-package-name", "dlc-manager", "--linux-shortcut",
+                "--linux-package-deps", if (type == "deb") "libgtk-3-0 | libgtk-3-0t64, libasound2 | libasound2t64" else "gtk3, alsa-lib",
+            )
+        }
+    }
+    return arguments
+}
 
 javafxFatJarPlatforms.forEach { (platformName, platform) ->
     registerPlatformFatJar(
@@ -372,42 +462,8 @@ tasks.register<Exec>("jpackageImage") {
     if (!cmd.exists()) {
         throw GradleException("jpackage not found. Install JDK $javafxRuntimeJdkVersion+ or configure Gradle toolchains.")
     }
-    val appDir = layout.buildDirectory.dir("install/${project.name}").get().asFile
-    val mainJarName = tasks.named<Jar>("jar").get().archiveFileName.get()
-    val osName = System.getProperty("os.name", "").lowercase(Locale.ROOT)
-    val isMacOs = osName.contains("mac")
-    var packageIconFile = appIconPngFile
-    if (isMacOs && appIconIcnsFile.exists()) {
-        packageIconFile = appIconIcnsFile
-    } else if (osName.contains("windows") && appIconIcoFile.exists()) {
-        packageIconFile = appIconIcoFile
-    }
-
-    executable = cmd.absolutePath
-    args(
-        "--name", appDisplayName,
-        "--input", appDir.resolve("lib").toString(),
-        "--main-jar", mainJarName,
-        "--main-class", application.mainClass.get(),
-        "--app-version", appVersion,
-        "--type", "app-image",
-        "--dest", jpackageNativeImageDir.asFile.absolutePath,
-    )
-    if (packageIconFile.exists()) {
-        args("--icon", packageIconFile.absolutePath)
-    }
-    args(
-        "--module-path", appDir.resolve("lib").toString(),
-        "--add-modules", "javafx.controls,javafx.fxml,javafx.graphics,java.desktop",
-    )
-    moduleJvmArgs.forEach { option ->
-        args("--java-options", option)
-    }
-    if (isMacOs) {
-        args("--mac-package-identifier", appIdentifier)
-        args("--mac-package-name", appDisplayName)
-    }
-    args("--verbose")
+    commandLine(nativePackageCommand("app-image"))
+    args("--dest", jpackageNativeImageDir.asFile.absolutePath)
 }
 
 tasks.register<Zip>("jpackageZip") {
@@ -417,4 +473,105 @@ tasks.register<Zip>("jpackageZip") {
     archiveBaseName.set("${project.name}-native")
     from(jpackageNativeImageDir)
     destinationDirectory.set(releaseOutputDir)
+}
+
+installerFormats.forEach { (format, requiredOs) ->
+    tasks.register<Exec>("jpackage${format.capitalized()}") {
+        group = "distribution"
+        description = "Build a $format installer with bundled Java on $requiredOs."
+        dependsOn("installDist")
+        val hostOs = nativeOs
+        val hostPlatform = nativePlatform
+        val packageVersion = nativeAppVersion
+        val supportedPlatforms = javafxFatJarPlatforms.values.map { it.archiveClassifier }
+        val installerFile = installerOutputDir.file("DLC-Manager-$appVersion-$nativePlatform.$format")
+        inputs.files(tasks.named("installDist"))
+        inputs.files(appIconPngFile, appIconIcnsFile, appIconIcoFile)
+        if (format == "dmg") inputs.dir(file("packaging/macos"))
+        inputs.property("appVersion", appVersion)
+        inputs.property("nativePlatform", nativePlatform)
+        inputs.property("macSign", macSign)
+        if (requiredOs == "mac" && macSign) {
+            inputs.file(macReleaseScript)
+            inputs.property("macSigningIdentity", macSigningIdentity)
+            inputs.property("macSigningKeychain", macSigningKeychain)
+            outputs.upToDateWhen { false }
+        }
+        inputs.file(jpackageLauncher.map { it.metadata.installationPath.file("release") })
+        outputs.file(installerFile)
+        commandLine(nativePackageCommand(format))
+        doFirst {
+            if (hostOs != requiredOs) throw GradleException("$format installers must be built on $requiredOs (current: $hostOs).")
+            if (hostPlatform !in supportedPlatforms) {
+                throw GradleException("Unsupported installer platform: $hostPlatform")
+            }
+            if (format in listOf("exe", "msi")) {
+                val parts = packageVersion.split('.').map(String::toInt)
+                if (parts[0] > 255 || parts[1] > 255 || parts[2] > 65535) {
+                    throw GradleException("Windows installer versions require major/minor <= 255 and patch <= 65535: $packageVersion")
+                }
+            }
+            Files.createDirectories(temporaryDir.toPath())
+            val stagingDir = Files.createTempDirectory(temporaryDir.toPath(), "bundle-")
+            args("--dest", stagingDir.toString())
+        }
+        doLast {
+            val stagingDir = File(args[args.indexOf("--dest") + 1])
+            val bundles = stagingDir.listFiles().orEmpty().filter { it.isFile && it.extension == format }
+            if (bundles.size != 1) throw GradleException("Expected one .$format installer in $stagingDir; found ${bundles.size}.")
+            Files.createDirectories(installerFile.asFile.parentFile.toPath())
+            Files.copy(bundles.single().toPath(), installerFile.asFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            logger.lifecycle("Installer: ${installerFile.asFile}")
+        }
+    }
+}
+
+tasks.register("jpackageInstaller") {
+    group = "distribution"
+    description = "Build the default installer for the current platform (Windows EXE, macOS DMG, Linux DEB)."
+    val format = when (nativeOs) {
+        "windows" -> "exe"
+        "mac" -> "dmg"
+        "linux" -> "deb"
+        else -> throw GradleException("Unsupported installer operating system: $nativeOs")
+    }
+    dependsOn("jpackage${format.capitalized()}")
+}
+
+tasks.register("jpackageInstallers") {
+    group = "distribution"
+    description = "Build both installer formats supported by the current operating system."
+    dependsOn(installerFormats.filterValues { it == nativeOs }.keys.map { "jpackage${it.capitalized()}" })
+}
+
+listOf("dmg", "pkg").forEach { format ->
+    tasks.register<Exec>("notarize${format.capitalized()}") {
+        group = "distribution"
+        description = "Sign, notarize, and staple the macOS $format installer."
+        dependsOn("jpackage${format.capitalized()}")
+        val signingEnabled = nativeOs == "mac" && macSign
+        val profile = providers.environmentVariable("MAC_NOTARY_PROFILE").orElse("").get()
+        val keychain = providers.environmentVariable("MAC_NOTARY_KEYCHAIN").orElse("").get()
+        val installerName = "DLC-Manager-$appVersion-$nativePlatform.$format"
+        inputs.file(installerOutputDir.file(installerName))
+        inputs.file(macReleaseScript)
+        inputs.property("notaryProfile", profile)
+        outputs.file(releaseOutputDir.dir("notarized").file(installerName))
+        outputs.upToDateWhen { false }
+        commandLine("python3", macReleaseScript.absolutePath, "notarize", "--profile", profile,
+            "--output-dir", releaseOutputDir.dir("notarized").asFile.absolutePath,
+            "--log-dir", layout.buildDirectory.dir("notarization").get().asFile.absolutePath,
+            installerOutputDir.file(installerName).asFile.absolutePath)
+        if (keychain.isNotBlank()) args("--keychain", keychain)
+        doFirst {
+            if (!signingEnabled) throw GradleException("Notarization requires macOS and -PmacSign=true.")
+            if (profile.isBlank()) throw GradleException("Set MAC_NOTARY_PROFILE to your notarytool Keychain profile name.")
+        }
+    }
+}
+
+tasks.register("notarizeInstallers") {
+    group = "distribution"
+    description = "Build and notarize both macOS installer formats."
+    dependsOn("notarizeDmg", "notarizePkg")
 }

@@ -284,6 +284,9 @@ if (!rootProject.extensions.extraProperties.has("dlcRootBuildTasksConfigured")) 
     registerIncludedBuildTask("javafxManagerJarMacX64", "distribution", "Build the JavaFX DLC Manager runnable jar for macOS x64.", "dlcJavafxManager", ":jarMacX64")
     registerIncludedBuildTask("javafxManagerJarMacAarch64", "distribution", "Build the JavaFX DLC Manager runnable jar for macOS aarch64.", "dlcJavafxManager", ":jarMacAarch64")
     registerIncludedBuildTask("javafxManagerJarAll", "distribution", "Build the JavaFX DLC Manager runnable jars for all supported platforms.", "dlcJavafxManager", ":jarAll")
+    registerIncludedBuildTask("javafxManagerInstaller", "distribution", "Build the JavaFX DLC Manager installer for the current platform.", "dlcJavafxManager", ":jpackageInstaller")
+    registerIncludedBuildTask("javafxManagerInstallers", "distribution", "Build both JavaFX DLC Manager installer formats for the current platform.", "dlcJavafxManager", ":jpackageInstallers")
+    registerIncludedBuildTask("javafxManagerNotarizedInstallers", "distribution", "Build, sign, and notarize both macOS JavaFX installer formats.", "dlcJavafxManager", ":notarizeInstallers")
 
     tasks.register("publishModPlatforms") {
         group = "publishing"
