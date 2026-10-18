@@ -111,3 +111,256 @@ html, body { display: block; width: 100%; height: 100%; margin: 0; overflow: hid
 .tooltip-value { display: block; overflow-wrap: anywhere; }
 .tooltip-detail.warning .tooltip-value { color: var(--pending); }
 .tooltip-hint { display: block; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); color: var(--accent); font-size: 12px; }
+
+.mc-gui-layout {
+    min-width: 0;
+    min-height: 0;
+}
+.manager {
+    border-top-width: 3px;
+    border-bottom-width: 3px;
+}
+.sidebar {
+    width: 132px;
+}
+.sidebar-content {
+    width: 131px;
+    min-width: 131px;
+    padding: 14px 8px 10px;
+}
+.brand {
+    padding: 0 5px 14px;
+    font-size: 15px;
+}
+.brand::after {
+    width: 30px;
+    height: 4px;
+    margin-top: 8px;
+}
+.sidebar-tools {
+    padding-top: 12px;
+}
+.section-label {
+    padding: 0 8px 6px;
+    font-size: 10px;
+}
+#manager-filters, #manager-tools {
+    gap: 3px;
+}
+.sidebar-divider {
+    margin: 12px 8px;
+}
+.button.nav-button, .button.filter {
+    min-height: 32px;
+    padding: 7px 8px;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.workspace {
+    padding: 12px 14px 0;
+}
+.list-toolbar {
+    gap: 6px 8px;
+    padding-bottom: 8px;
+}
+.search-field {
+    flex-basis: 180px;
+    min-width: 140px;
+    max-width: 260px;
+    min-height: 30px;
+}
+#manager-search {
+    height: 28px;
+    padding: 5px 8px;
+    font-size: 12px;
+}
+#manager-list {
+    padding-right: 6px;
+}
+.group-heading {
+    padding: 10px 8px 6px;
+    font-size: 10px;
+}
+.path-heading {
+    min-height: 28px;
+    padding: 3px 8px;
+    gap: 8px;
+    font-size: 11px;
+}
+.path-heading .button {
+    min-height: 24px;
+    padding: 3px 6px;
+    font-size: 10px;
+}
+.dlc-row {
+    height: 34px;
+    min-height: 34px;
+    gap: 8px;
+    padding: 4px 8px;
+}
+.item-name {
+    font-size: 12px;
+}
+.pending-label {
+    padding: 1px 5px;
+    font-size: 9px;
+}
+.button.toggle {
+    min-width: 64px;
+    min-height: 24px;
+    padding: 4px 7px;
+    font-size: 10px;
+}
+.workspace-footer {
+    min-height: 54px;
+    gap: 8px;
+    padding: 8px 0;
+}
+#manager-actions, #manager-mode {
+    gap: 5px;
+}
+#manager-actions .button, #manager-mode .button {
+    min-width: 76px;
+    min-height: 28px;
+    padding: 5px 8px;
+    font-size: 11px;
+}
+#pending-status {
+    font-size: 11px;
+}
+
+@media (max-width: 600px) {
+    .sidebar-content {
+        padding: 12px 6px 8px;
+    }
+    .brand {
+        padding-right: 3px;
+        padding-bottom: 10px;
+        font-size: 13px;
+    }
+    .brand::after {
+        width: 24px;
+        height: 3px;
+        margin-top: 6px;
+    }
+    .section-label {
+        padding-left: 6px;
+        padding-right: 6px;
+        font-size: 9px;
+    }
+    .sidebar-divider {
+        margin: 9px 6px;
+    }
+    .button.nav-button, .button.filter {
+        min-height: 29px;
+        padding: 6px;
+        font-size: 10px;
+    }
+    .workspace {
+        padding: 8px 8px 0;
+    }
+    .workspace::before, .workspace::after {
+        top: 4px;
+        width: 10px;
+        height: 10px;
+    }
+    .list-toolbar {
+        align-items: stretch;
+        gap: 5px;
+    }
+    #sidebar-toggle-slot {
+        align-items: center;
+    }
+    .button.sidebar-toggle {
+        width: 28px;
+        min-width: 28px;
+        min-height: 28px;
+        padding: 3px;
+        font-size: 17px;
+    }
+    .search-field {
+        flex-basis: 140px;
+        min-width: 120px;
+        max-width: none;
+        min-height: 28px;
+    }
+    #manager-search {
+        height: 26px;
+        font-size: 11px;
+    }
+    #manager-summary {
+        flex-basis: 100%;
+        order: 4;
+        font-size: 10px;
+    }
+    #batch-actions, #manager-context {
+        flex-basis: 100%;
+        max-width: none;
+    }
+    #batch-actions .button, #manager-context .button {
+        min-width: 0;
+        min-height: 26px;
+        padding: 4px 7px;
+        font-size: 10px;
+    }
+    #manager-list {
+        padding-right: 3px;
+    }
+    .dlc-row {
+        gap: 5px;
+        padding-left: 7px;
+        padding-right: 6px;
+    }
+    .item-name {
+        font-size: 11px;
+    }
+    .button.toggle {
+        min-width: 56px;
+        padding-left: 5px;
+        padding-right: 5px;
+    }
+    .workspace-footer {
+        flex-wrap: wrap;
+        min-height: 48px;
+        padding: 6px 0;
+    }
+    #pending-status {
+        flex-basis: 100%;
+        order: 3;
+    }
+    #manager-actions {
+        margin-left: auto;
+    }
+    #manager-actions .button, #manager-mode .button {
+        min-width: 64px;
+        min-height: 26px;
+        padding: 4px 6px;
+        font-size: 10px;
+    }
+}
+
+@media (max-height: 280px) {
+    .sidebar-content {
+        padding-top: 8px;
+        padding-bottom: 6px;
+    }
+    .brand {
+        padding-bottom: 7px;
+    }
+    .sidebar-tools {
+        padding-top: 7px;
+    }
+    .sidebar-divider {
+        margin-top: 6px;
+        margin-bottom: 6px;
+    }
+    .workspace {
+        padding-top: 7px;
+    }
+    .workspace-footer {
+        min-height: 42px;
+        padding-top: 4px;
+        padding-bottom: 4px;
+    }
+}
