@@ -46,6 +46,42 @@ class DlcSyncTest {
         assertTrue(SyncModel.plan(List.of(unknown), List.of(a), Direction.PUSH, false, Mode.FILES).get(0).replacement());
         assertTrue(SyncModel.plan(List.of(unknown), List.of(a), Direction.PUSH, false, Mode.CONFIG).isEmpty());
     }
+    @Test void comparisonCachesStatusesWithoutReadingResourcesAgainForDisplay() {
+        AtomicBoolean displayed = new AtomicBoolean();
+        List<File> resources = new AbstractList<>() {
+            @Override public File get(int index) {
+                assertFalse(displayed.get(), "Opening a tooltip must not compare resources again");
+                return List.of(file("data/a", "new")).get(index);
+            }
+            @Override public int size() {
+                assertFalse(displayed.get(), "Displaying a comparison must not traverse resources again");
+                return 1;
+            }
+        };
+        Item local = new Item("remote/a.dc", "a", file("remote/a.dc", "same"), resources, true);
+        Item remote = new Item(local.key(), "a", local.config(), List.of(file("data/a", "old")), true);
+        Comparison comparison = SyncModel.compare(List.of(local), List.of(remote), Direction.PUSH, true, Mode.FILES);
+        assertEquals(1, comparison.rows().size());
+        Row row = comparison.rows().get(0);
+        displayed.set(true);
+        for (int hover = 0; hover < 100; hover++) assertEquals("content_changed", comparison.status(row));
+        assertThrows(UnsupportedOperationException.class, () -> comparison.statuses().clear());
+    }
+    @Test void rebuildingAComparisonRefreshesCachedStatusesForModeDirectionAndNewManifests() {
+        Item local = item("remote/a.dc", "same", true);
+        Item remote = new Item(local.key(), local.identifier(), local.config(), List.of(new File(local.resources().get(0).id(), -1, null)), false);
+        Comparison config = SyncModel.compare(List.of(local), List.of(remote), Direction.PUSH, true, Mode.CONFIG);
+        Comparison files = SyncModel.compare(List.of(local), List.of(remote), Direction.PUSH, true, Mode.FILES);
+        Comparison pull = SyncModel.compare(List.of(), List.of(remote), Direction.PUSH, true, Mode.FILES);
+        assertEquals("state_changed", config.status(config.rows().get(0)));
+        assertEquals("resources_missing", files.status(files.rows().get(0)));
+        assertEquals("client_missing", pull.status(pull.rows().get(0)));
+        assertTrue(SyncModel.compare(List.of(local), List.of(remote), Direction.PUSH, false, Mode.CONFIG).rows().isEmpty());
+        Comparison unchanged = SyncModel.compare(List.of(local), List.of(local), Direction.PULL, true, Mode.FILES);
+        assertTrue(unchanged.rows().isEmpty());
+        assertTrue(unchanged.statuses().isEmpty());
+        assertEquals("state_changed", config.status(config.rows().get(0)), "A new comparison must not mutate a previous snapshot");
+    }
     private Item update(String key, String from, String to, String platform) {
         return new Item(key, key, file(key, key), List.of(), null, Map.of(), Map.of(), new Update("1.0.0", from, "1.0.0", to, platform));
     }

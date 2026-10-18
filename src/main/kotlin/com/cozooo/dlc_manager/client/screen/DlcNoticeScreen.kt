@@ -25,7 +25,10 @@ class DlcNoticeScreen(parent: Screen?, private val config: DlcNoticeConfig) : Dl
         }
         val body = node(content, "article", "page-prose")
         markdown(body, resolvedContents)
-        if (config.getShowFrequency() != DlcNoticeConfig.ShowFrequency.ONCE) toggle(footer, tr("dlc_manager.notice.never_show"), neverShow) { neverShow = it; refreshPage() }
+        if (config.getShowFrequency() != DlcNoticeConfig.ShowFrequency.ONCE) {
+            footerLeading.setAttribute("style", "display:flex")
+            toggle(footerLeading, tr("dlc_manager.notice.never_show"), neverShow) { neverShow = it; refreshPage() }
+        }
         primary(tr("dlc_manager.notice.read")) { onClose() }
         status(if (future == null) "" else tr("dlc_manager.notice.loading"))
     }

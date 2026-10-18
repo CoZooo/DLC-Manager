@@ -58,6 +58,7 @@ public abstract class DlcPageScreen extends DlcApricityScreen {
         clearUiContent(back);
         backAction = null;
         back.setAttribute("style", showHeaderBackButton() ? "" : "display:none");
+        back.parentElement.setAttribute("data-has-back", Boolean.toString(showHeaderBackButton()));
         if (showHeaderBackButton()) {
             backAction = action(back, "‹", this::onClose);
             backAction.getElement().setAttribute("aria-label", tr("gui.back"));

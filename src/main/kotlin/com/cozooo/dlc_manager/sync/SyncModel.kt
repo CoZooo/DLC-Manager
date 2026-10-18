@@ -40,6 +40,11 @@ class SyncModel private constructor() {
         fun replacement() = replacement
         fun stateChanged() = stateChanged
     }
+    data class Comparison(val rows: List<Row>, val statuses: Map<String, String>) {
+        fun rows() = rows
+        fun statuses() = statuses
+        fun status(row: Row) = statuses[row.key]
+    }
     data class Result(val completed: Int, val canceled: Boolean, val requiresRestart: Boolean, val errors: List<String>, val succeeded: List<String>) {
         fun completed() = completed
         fun canceled() = canceled
@@ -100,8 +105,16 @@ class SyncModel private constructor() {
                 if (direction == Direction.PUSH) Direction.PULL else Direction.PUSH, false, false))
             return rows.sortedBy { it.key }
         }
+        @JvmStatic fun compare(local: List<Item>, server: List<Item>, direction: Direction, states: Boolean, mode: Mode): Comparison {
+            val rows = plan(local, server, direction, states, mode)
+            return Comparison(java.util.List.copyOf(rows), java.util.Map.copyOf(rows.associate { it.key to status(it, mode) }))
+        }
         @JvmStatic fun same(a: File?, b: File?): Boolean = a != null && b != null && a.size >= 0 && a.size == b.size && a.id == b.id && a.hash != null && a.hash == b.hash
-        @JvmStatic fun sameResources(a: List<File>, b: List<File>): Boolean = a.isNotEmpty() && b.isNotEmpty() && a.size == b.size && a.all { same(it, b.associateBy { it.id }[it.id]) }
+        @JvmStatic fun sameResources(a: List<File>, b: List<File>): Boolean {
+            if (a.isEmpty() || b.isEmpty() || a.size != b.size) return false
+            val indexed = b.associateBy { it.id }
+            return a.all { same(it, indexed[it.id]) }
+        }
         @JvmStatic fun resourcesMatch(source: List<File>, target: List<File>, mode: Mode): Boolean {
             if (mode == Mode.FILES) return sameResources(source, target)
             return true

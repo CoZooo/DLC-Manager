@@ -2,15 +2,21 @@
 html, body { display: block; width: 100%; height: 100%; margin: 0; overflow: hidden; }
 .dlc-manager-ui {
     --canvas: #11151c; --surface: #181e28; --hover: #242e3b; --line: #2b3542;
+    --back-size: 40px; --back-left: 24px; --back-top: 20px; --header-height: 80px;
     --ink: #e9edf3; --muted: #98a5b7; --accent: #a5e7d1; --accent-ink: #14352b;
     background: var(--canvas); color: var(--ink); font-family: "DlcInter", "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "DejaVu Sans", sans-serif; font-size: 14px;
     line-height: 1.4; user-select: none;
 }
 .dlc-manager-ui * { box-sizing: border-box; }
 .manager { position: absolute; inset: 0; width: 100%; height: 100%; display: flex; overflow: hidden; }
-.sidebar { width: 172px; flex-shrink: 0; border-right: 1px solid var(--line); overflow: hidden; opacity: 1; }
-.sidebar-content { display: flex; flex-direction: column; width: 171px; min-width: 171px; height: 100%; padding: 26px 14px 18px; overflow-y: auto; overflow-x: hidden; scrollbar-color: #465469 #11151c; }
+.sidebar { width: 240px; flex-shrink: 0; border-right: 1px solid var(--line); overflow: hidden; opacity: 1; }
+.sidebar-content { display: flex; flex-direction: column; width: 239px; min-width: 239px; height: 100%; padding: var(--back-top) var(--back-left) 18px; overflow-y: auto; overflow-x: hidden; scrollbar-color: #465469 #11151c; }
 .brand { display: block; flex-shrink: 0; padding: 0 8px 24px; font-size: 18px; font-weight: 600; line-height: 1.2; margin: 0; white-space: nowrap; }
+.brand-row { display: flex; align-items: center; gap: 12px; min-height: var(--back-size); flex-shrink: 0; padding-left: 52px; margin-bottom: 24px; }
+.brand-row .brand { flex: 1; min-width: 0; padding: 0; white-space: normal; }
+#manager-back, #page-back { position: absolute; left: var(--back-left); top: var(--back-top); width: var(--back-size); min-width: var(--back-size); height: var(--back-size); display: flex; align-items: center; justify-content: center; flex-shrink: 0; z-index: 10; }
+.button.manager-back, #page-back .button { width: var(--back-size); min-width: var(--back-size); height: var(--back-size); min-height: var(--back-size); padding: 0; font-size: 28px; background: transparent; }
+.manager.sidebar-collapsed .list-toolbar, .manager.sidebar-collapsed .workspace-header { padding-left: 52px; }
 .sidebar-tools { margin-top: auto; padding-top: 24px; flex-shrink: 0; }
 .manager.sidebar-collapsed .sidebar { pointer-events: none; }
 #sidebar-toggle-slot { display: flex; flex-shrink: 0; }
@@ -83,8 +89,7 @@ html, body { display: block; width: 100%; height: 100%; margin: 0; overflow: hid
 #pending-status { display: block; flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--muted); font-size: 12px; }
 #pending-status.pending { color: var(--accent); }
 @media (max-height: 520px) {
-    .sidebar-content { padding-top: 16px; }
-    .brand { padding-bottom: 14px; }
+    .brand-row { margin-bottom: 14px; }
     .sidebar-divider { margin-top: 12px; margin-bottom: 12px; }
     .button.nav-button, .button.filter { min-height: 32px; padding-top: 7px; padding-bottom: 7px; }
     .workspace { padding-top: 12px; }
@@ -106,3 +111,7 @@ html, body { display: block; width: 100%; height: 100%; margin: 0; overflow: hid
 .tooltip-value { display: block; overflow-wrap: anywhere; }
 .tooltip-detail.warning .tooltip-value { color: #dfc37c; }
 .tooltip-hint { display: block; margin-top: 12px; padding-top: 10px; border-top: 1px solid #344151; color: var(--accent); font-size: 12px; }
+
+@media (max-width: 760px), (max-height: 520px) {
+    .dlc-manager-ui { --back-left: 16px; --back-top: 12px; --header-height: 64px; }
+}

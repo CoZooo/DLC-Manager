@@ -16,6 +16,7 @@ class DlcServerPushScreen(parent: Screen, private val entry: DlcServerEntry?) :
     private var remote = emptyList<Item>()
     private var rows = emptyList<Row>()
     private var filteredRows = emptyList<Row>()
+    private var comparison = Comparison(emptyList(), emptyMap())
     private val selected = mutableSetOf<String>()
     private var mode = Mode.CONFIG
     private var category = Category.ALL
@@ -64,12 +65,14 @@ class DlcServerPushScreen(parent: Screen, private val entry: DlcServerEntry?) :
         results.appendChild(list)
         showWhen(list) { !busy || syncing }
         if (shown.isNotEmpty()) selectionRow(list, tr("dlc_manager.sync.select_all"), ::selectionState, ::selectVisible)
+        val language = com.cozooo.dlc_manager.platform.DlcPlatformServices.languageCode()
         for (row in shown) {
-            val language = com.cozooo.dlc_manager.platform.DlcPlatformServices.languageCode()
             val name = SyncModel.displayName(row.source, language)
+            val status = tr("dlc_manager.sync." + comparison.status(row))
+            val tooltip = DlcUiTooltip.Content(name, SyncModel.tooltip(row.source, language), emptyList(), status)
             val line = selectionRow(list, name, { selected.contains(row.key).toString() }) { if (!selected.add(row.key)) selected.remove(row.key) }
-            tip(line) { DlcUiTooltip.Content(name, SyncModel.tooltip(row.source, language), emptyList(), tr("dlc_manager.sync." + SyncModel.status(row, mode))) }
-            text(line, tr("dlc_manager.sync." + SyncModel.status(row, mode)), "row-description")
+            tip(line) { tooltip }
+            text(line, status, "row-description")
         }
         live(results, { message }, "page-description")
         showWhen(progress(results) { fraction }) { busy }
@@ -84,14 +87,15 @@ class DlcServerPushScreen(parent: Screen, private val entry: DlcServerEntry?) :
         updateExecuteButton()
     }
     private fun selectionRow(list: com.sighs.apricityui.init.Element, name: String, checked: java.util.function.Supplier<String>, change: Runnable): com.sighs.apricityui.init.Element {
-        val line = fileRowLine(list, name, null, checked, { !busy }, change, null)
+        val line = managerRowLine(list, name, checked, { !busy }, change)
+        line.setAttribute("class", "dlc-row sync-row")
         val checkbox = line.getChildren()[0]
         val document = pageDocument
         val generation = document.getRefreshGeneration()
         line.addEventListener("mousedown") { event ->
             val target = event.target
             if (event is com.sighs.apricityui.event.MouseEvent && event.button == 0 && !busy && Minecraft.getInstance().screen === this && document === getLinkedDocument() && document.isCurrentGeneration(generation) && !(target is com.sighs.apricityui.init.Element && checkbox.contains(target))) {
-                event.preventDefault(); change.run(); updatePage()
+                event.preventDefault(); change.run(); syncSelections(); updatePage()
             }
         }
         return line
@@ -111,7 +115,7 @@ class DlcServerPushScreen(parent: Screen, private val entry: DlcServerEntry?) :
         shown.forEach { if (all) selected.remove(it.key) else selected.add(it.key) }
     }
     private fun updateExecuteButton() {
-        executeButton?.setEnabled(if (busy) syncing && !cancelRequested else settingsSelected && settingsRow() != null || visibleRows().any { it.key in selected })
+        executeButton?.setEnabled(if (busy) syncing && !cancelRequested else settingsSelected && settingsRow() != null || selected.isNotEmpty() && visibleRows().any { it.key in selected })
     }
     private fun peer(session: DlcServerSession) = object : Peer {
         override fun call(request: com.google.gson.JsonObject): com.google.gson.JsonObject = try { session.syncRequest(request) }
@@ -135,7 +139,8 @@ class DlcServerPushScreen(parent: Screen, private val entry: DlcServerEntry?) :
         }
     }
     private fun replan() {
-        rows = SyncModel.plan(local, remote, direction, states, mode)
+        comparison = SyncModel.compare(local, remote, direction, states, mode)
+        rows = comparison.rows
         selected.clear(); settingsSelected = false; refilter()
         refreshPage()
     }
@@ -210,6 +215,6 @@ class DlcServerPushScreen(parent: Screen, private val entry: DlcServerEntry?) :
             finally { Minecraft.getInstance().execute { busy = false; syncing = false; connecting = null; refreshPage(); failureReason?.let(::showFailure) } }
         }
     }
-    override fun updatePage() { updateExecuteButton(); super.updatePage() }
+    override fun updatePage() { updateExecuteButton() }
     override fun shouldCloseOnEsc() = !busy
 }

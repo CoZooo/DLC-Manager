@@ -51,6 +51,7 @@ abstract class DlcPageScreen(
         clearUiContent(back)
         backAction = null
         back.setAttribute("style", if (showHeaderBackButton()) "" else "display:none")
+        back.parentElement.setAttribute("data-has-back", showHeaderBackButton().toString())
         if (showHeaderBackButton()) {
             backAction = action(back, "‹") { onClose() }
             backAction!!.getElement().setAttribute("aria-label", tr("gui.back"))

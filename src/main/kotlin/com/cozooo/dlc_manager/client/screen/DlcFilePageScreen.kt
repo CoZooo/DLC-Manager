@@ -24,7 +24,16 @@ abstract class DlcFilePageScreen(page: DlcUiPage, parent: Screen?, title: Compon
 
     protected fun fileRowLine(list: Element, name: String, description: String?, checked: Supplier<String>,
                               enabled: BooleanSupplier, select: Runnable, open: Runnable?): Element {
-        val line = node(list, "div", "page-row file-row")
+        return fileRowLine(list, name, description, checked, enabled, select, open, false)
+    }
+
+    protected fun managerRowLine(list: Element, name: String, checked: Supplier<String>, enabled: BooleanSupplier, select: Runnable): Element {
+        return fileRowLine(list, name, null, checked, enabled, select, null, true)
+    }
+
+    private fun fileRowLine(list: Element, name: String, description: String?, checked: Supplier<String>,
+                            enabled: BooleanSupplier, select: Runnable, open: Runnable?, managerStyle: Boolean): Element {
+        val line = if (managerStyle) list.appendChild(pageDocument.createElement("div")) else node(list, "div", "page-row file-row")
         val button = action(line, "") {
             if (enabled.asBoolean) { select.run(); syncSelections() }
         }
@@ -33,9 +42,13 @@ abstract class DlcFilePageScreen(page: DlcUiPage, parent: Screen?, title: Compon
         box.setAttribute("role", "checkbox")
         box.setAttribute("aria-label", tr("dlc_manager.ui.select") + " " + name)
         box.setInnerHTML("<svg class=\"file-checkmark\" viewBox=\"0 0 16 16\"><path d=\"M3 8 L6.5 11.5 L13 4.5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path></svg><span class=\"file-mixed\"></span>")
-        val copy = node(line, "div", "row-copy")
-        text(copy, name, "row-title")
-        if (!description.isNullOrBlank()) text(copy, description, "row-description")
+        if (managerStyle) {
+            DlcUiRows.managerRow(pageDocument, line, name, false, false)
+        } else {
+            val copy = node(line, "div", "row-copy")
+            text(copy, name, "row-title")
+            if (!description.isNullOrBlank()) text(copy, description, "row-description")
+        }
         if (open != null) {
             val document = pageDocument
             val generation = document.refreshGeneration
@@ -64,6 +77,6 @@ abstract class DlcFilePageScreen(page: DlcUiPage, parent: Screen?, title: Compon
         return line
     }
 
-    private fun syncSelections() { selections.forEach { it.run() } }
+    protected fun syncSelections() { selections.forEach { it.run() } }
     override fun updatePage() { syncSelections() }
 }

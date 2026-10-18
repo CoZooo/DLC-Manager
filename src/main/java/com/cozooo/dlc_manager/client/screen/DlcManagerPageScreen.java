@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 public abstract class DlcManagerPageScreen extends DlcApricityScreen {
+    protected DlcUiButton headerBackButton;
     protected DlcManagerPageScreen() { this(DlcUiPage.MANAGER); }
     protected DlcManagerPageScreen(DlcUiPage page) { super(page); }
     protected DlcUiButton searchClearButton;
@@ -31,7 +32,7 @@ public abstract class DlcManagerPageScreen extends DlcApricityScreen {
     private Document layoutDocument;
     private long layoutGeneration = -1;
     private boolean sidebarCollapsed;
-    private double sidebarWidth = 172;
+    private double sidebarWidth = 240;
     private double rowHeight = 40;
     private final DlcUiMotion sidebarMotion = new DlcUiMotion(1);
     private double lastSidebarProgress = Double.NaN;
@@ -55,11 +56,19 @@ public abstract class DlcManagerPageScreen extends DlcApricityScreen {
 
     protected void bindManagerLayout(Document document, String title) {
         Element manager = document.getElementById("manager");
-        sidebarWidth = layoutMetric(manager, "data-sidebar-width", 172);
+        sidebarWidth = layoutMetric(manager, "data-sidebar-width", 240);
         rowHeight = layoutMetric(manager, "data-row-height", 40);
         document.getElementById("manager-header").setAttribute("class", "workspace-header");
         restoreUiClasses(document.getElementById("manager-header"));
         DlcUiText.set(document.getElementById("manager-title"), title);
+        Element back = document.getElementById("manager-back");
+        headerBackButton = null;
+        if (back != null) {
+            clearUiContent(back);
+            headerBackButton = button(document, back, "‹", this::onClose);
+            headerBackButton.getElement().setAttribute("class", "button manager-back");
+            headerBackButton.getElement().setAttribute("aria-label", layoutTranslate("gui.back"));
+        }
         document.getElementById("category-label").setTextContent(layoutTranslate("dlc_manager.ui.categories"));
         document.getElementById("tools-label").setTextContent(layoutTranslate("dlc_manager.ui.tools"));
         if (layoutDocument != document || layoutGeneration != document.getRefreshGeneration()) {
@@ -94,9 +103,7 @@ public abstract class DlcManagerPageScreen extends DlcApricityScreen {
     }
 
     protected Element styleManagerRow(Document document, Element entry, String name, boolean enabled, boolean pending) {
-        entry.setAttribute("class", "dlc-row" + (enabled ? " enabled" : "") + (pending ? " pending" : ""));
-        if (pending || enabled) managerText(document, entry, "span", "", "item-status-dot " + (pending ? "pending" : "enabled")).setAttribute("aria-hidden", "true");
-        return managerText(document, entry, "span", name, "item-name");
+        return DlcUiRows.managerRow(document, entry, name, enabled, pending);
     }
 
     protected DlcUiButton managerToggle(Document document, Element entry, boolean enabled, Runnable action) {
@@ -187,10 +194,7 @@ public abstract class DlcManagerPageScreen extends DlcApricityScreen {
     }
 
     protected static Element managerText(Document document, Element parent, String tag, String value, String className) {
-        Element element = document.createElement(tag);
-        element.setAttribute("class", className);
-        DlcUiText.set(element, value);
-        return parent.appendChild(element);
+        return DlcUiRows.text(document, parent, tag, value, className);
     }
 
 

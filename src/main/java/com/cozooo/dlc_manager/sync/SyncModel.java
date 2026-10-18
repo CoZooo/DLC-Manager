@@ -28,6 +28,9 @@ public final class SyncModel {
         }
     }
     public record Row(String key, Item source, Item target, Direction direction, boolean replacement, boolean stateChanged) {}
+    public record Comparison(List<Row> rows, Map<String, String> statuses) {
+        public String status(Row row) { return statuses.get(row.key()); }
+    }
     public record Result(int completed, boolean canceled, boolean requiresRestart, List<String> errors, List<String> succeeded) {}
     @FunctionalInterface public interface Peer extends AutoCloseable { JsonObject call(JsonObject request) throws IOException; @Override default void close() throws IOException {} }
     @FunctionalInterface public interface Progress { void update(String phase, String resource, long done, long total); }
@@ -85,6 +88,12 @@ public final class SyncModel {
             direction == Direction.PUSH ? Direction.PULL : Direction.PUSH, false, false));
         rows.sort(Comparator.comparing(Row::key));
         return rows;
+    }
+    public static Comparison compare(List<Item> local, List<Item> server, Direction direction, boolean states, Mode mode) {
+        List<Row> rows = plan(local, server, direction, states, mode);
+        Map<String, String> statuses = new HashMap<>();
+        for (Row row : rows) statuses.put(row.key(), status(row, mode));
+        return new Comparison(List.copyOf(rows), Map.copyOf(statuses));
     }
     public static boolean same(File a, File b) {
         return a != null && b != null && a.size() >= 0 && a.size() == b.size() && a.id().equals(b.id()) && a.hash() != null && a.hash().equals(b.hash());

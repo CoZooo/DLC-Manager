@@ -14,6 +14,7 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
     private final DlcServerEntry entry;
     private List<Item> local = List.of(), remote = List.of();
     private List<Row> rows = List.of(), filteredRows = List.of();
+    private Comparison comparison = new Comparison(List.of(), Map.of());
     private final Set<String> selected = new HashSet<>();
     private Mode mode = Mode.CONFIG;
     private Category category = Category.ALL;
@@ -64,14 +65,16 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
         results.appendChild(list);
         showWhen(list, () -> !busy || syncing);
         if (!shown.isEmpty()) selectionRow(list, tr("dlc_manager.sync.select_all"), this::selectionState, this::selectVisible);
+        String language = com.cozooo.dlc_manager.platform.DlcPlatformServices.languageCode();
         for (Row row : shown) {
-            String language = com.cozooo.dlc_manager.platform.DlcPlatformServices.languageCode();
             String name = SyncModel.displayName(row.source(), language);
+            String status = tr("dlc_manager.sync." + comparison.status(row));
+            var tooltip = new DlcUiTooltip.Content(name, SyncModel.tooltip(row.source(), language), List.of(), status);
             var line = selectionRow(list, name, () -> Boolean.toString(selected.contains(row.key())), () -> {
                 if (!selected.add(row.key())) selected.remove(row.key());
             });
-            tip(line, () -> new DlcUiTooltip.Content(name, SyncModel.tooltip(row.source(), language), List.of(), tr("dlc_manager.sync." + SyncModel.status(row, mode))));
-            text(line, tr("dlc_manager.sync." + SyncModel.status(row, mode)), "row-description");
+            tip(line, () -> tooltip);
+            text(line, status, "row-description");
         }
         live(results, () -> message, "page-description");
         showWhen(progress(results, () -> fraction), () -> busy);
@@ -86,7 +89,8 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
         updateExecuteButton();
     }
     private com.sighs.apricityui.init.Element selectionRow(com.sighs.apricityui.init.Element list, String name, java.util.function.Supplier<String> checked, Runnable change) {
-        var line = fileRowLine(list, name, null, checked, () -> !busy, change, null);
+        var line = managerRowLine(list, name, checked, () -> !busy, change);
+        line.setAttribute("class", "dlc-row sync-row");
         var checkbox = line.getChildren().get(0);
         var document = pageDocument;
         long generation = document.getRefreshGeneration();
@@ -94,7 +98,7 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
             if (event instanceof com.sighs.apricityui.event.MouseEvent mouse && mouse.button == 0 && !busy && Minecraft.getInstance().screen == this
                 && document == getLinkedDocument() && document.isCurrentGeneration(generation)
                 && !(event.target instanceof com.sighs.apricityui.init.Element target && checkbox.contains(target))) {
-                event.preventDefault(); change.run(); updatePage();
+                event.preventDefault(); change.run(); syncSelections(); updatePage();
             }
         });
         return line;
@@ -116,7 +120,7 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
         for (Row row : shown) { if (all) selected.remove(row.key()); else selected.add(row.key()); }
     }
     private void updateExecuteButton() {
-        if (executeButton != null) executeButton.setEnabled(busy ? syncing && !cancelRequested : settingsSelected && settingsRow() != null || visibleRows().stream().anyMatch(row -> selected.contains(row.key())));
+        if (executeButton != null) executeButton.setEnabled(busy ? syncing && !cancelRequested : settingsSelected && settingsRow() != null || !selected.isEmpty() && visibleRows().stream().anyMatch(row -> selected.contains(row.key())));
     }
     private SyncModel.Peer peer(DlcServerSession session) {
         return new SyncModel.Peer() {
@@ -143,7 +147,8 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
         });
     }
     private void replan() {
-        rows = SyncModel.plan(local, remote, direction, states, mode);
+        comparison = SyncModel.compare(local, remote, direction, states, mode);
+        rows = comparison.rows();
         selected.clear(); settingsSelected = false; refilter();
         refreshPage();
     }
@@ -222,6 +227,6 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
             finally { Minecraft.getInstance().execute(() -> { busy = false; syncing = false; connecting = null; refreshPage(); if (failureReason != null) showFailure(failureReason); }); }
         });
     }
-    @Override protected void updatePage() { updateExecuteButton(); super.updatePage(); }
+    @Override protected void updatePage() { updateExecuteButton(); }
     @Override public boolean shouldCloseOnEsc() { return !busy; }
 }
