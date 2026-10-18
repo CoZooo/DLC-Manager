@@ -64,6 +64,7 @@ class DlcStartupRequirementsTest {
         var failure = assertThrows(IllegalStateException.class, DlcStartupRequirements::verifyBeforeGameLoad);
         assertTrue(failure.getMessage().contains("Required resource installation failed"));
         assertFalse(Files.exists(game.resolve("mods/main.jar")));
+        assertNull(System.getProperty(DlcStartupRequirements.READY_PROPERTY));
     }
 
     @ParameterizedTest @ValueSource(strings = {"Forge", "NeoForge"})

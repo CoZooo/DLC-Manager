@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -24,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class DlcEarlyInstallerTest {
     @TempDir Path game;
+    private final Locale originalLocale = Locale.getDefault();
 
     @AfterEach void reset() {
         DlcPlatformServices.setProvider(null);
@@ -31,6 +33,7 @@ class DlcEarlyInstallerTest {
         DlcConfig.setMaxSegmentsPerFile(DlcConfig.DEFAULT_MAX_SEGMENTS_PER_FILE);
         DlcConfig.setMinSegmentBytes(DlcConfig.DEFAULT_MIN_SEGMENT_MB * 1024L * 1024L);
         Thread.interrupted();
+        Locale.setDefault(originalLocale);
     }
 
     private void resource(Path root, String id, String target) throws IOException {
@@ -166,6 +169,26 @@ class DlcEarlyInstallerTest {
         Files.createDirectories(required);
         Files.writeString(required.resolve("broken.dc"), "[unterminated\n");
         assertThrows(IOException.class, () -> install(false));
+    }
+
+    @Test void invalidArchiveReportsLocalizedResourceAndConfigurationAndNeverCompletes() throws Exception {
+        Locale.setDefault(Locale.SIMPLIFIED_CHINESE);
+        Files.writeString(game.resolve("options.txt"), "lang:en_us\n");
+        Path required = game.resolve("DLC/required");
+        Files.createDirectories(required);
+        Files.writeString(required.resolve("broken.dc"), "identifier='broken'\nfile_name='broken.zip'\nappliedTarget='config/'\nunzip=true\n");
+        Files.writeString(required.resolve("broken.zip"), "not a zip archive");
+        List<DlcEarlyInstaller.Progress> progress = new ArrayList<>();
+        List<String> log = new ArrayList<>();
+        IOException failure = assertThrows(IOException.class, () -> DlcEarlyInstaller.install(game, game.resolve("config"),
+            "forge", "1.20.1", false, log::add, progress::add, () -> false));
+        assertTrue(failure.getMessage().contains("无法安装必要资源"));
+        assertTrue(failure.getMessage().contains("broken"));
+        assertTrue(failure.getMessage().contains("broken.dc"));
+        assertNotNull(failure.getCause());
+        assertTrue(log.stream().anyMatch(line -> line.contains("正在扫描必要资源")));
+        assertEquals(DlcEarlyInstaller.Stage.FAILED, progress.get(progress.size() - 1).getStage());
+        assertTrue(progress.stream().noneMatch(value -> value.getStage() == DlcEarlyInstaller.Stage.COMPLETE));
     }
 
     @Test void directoryIsBackedUpAndReplacedByTheRequiredFile() throws Exception {

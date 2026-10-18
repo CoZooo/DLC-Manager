@@ -68,6 +68,7 @@ tasks.withType<JavaCompile>().configureEach { options.release.set(17) }
 val sharedClasses = listOf(
     "bootstrap/DlcDistributionPaths",
     "bootstrap/DlcEarlyInstaller",
+    "bootstrap/DlcBootstrapI18n",
     "bootstrap/DlcModpackAutoUpdater",
     "bootstrap/DlcStartupRequirements",
     "client/core/DlcZipUtil",
@@ -171,6 +172,8 @@ if (currentTarget == null) {
         put("neoforge", target.loader == "neoforge")
     }
     val launcher = sourceSets.create("launcher")
+    val launcherJson = configurations.create("launcherJson")
+    launcher.compileClasspath += launcherJson
     val bootstrapLibraries = configurations.create("bootstrapLibraries")
     val neoForgeModLauncher = configurations.create("neoForgeModLauncher")
     val forgeLocatorApi = configurations.create("forgeLocatorApi")
@@ -239,15 +242,26 @@ if (currentTarget == null) {
     }
 
     tasks.named<ProcessResources>("processResources") {
+        from(managerRoot.resolve("src/main/resources/assets/dlc_manager/lang")) {
+            include("en_us.json", "zh_cn.json")
+            into("assets/dlc_manager/lang")
+        }
         from(managerRoot.resolve("src/main/resources/META-INF/dlc-manager/dlc-definition.json")) {
             into("META-INF/dlc-manager")
             rename { "dlc-definition.json" }
         }
     }
 
+    tasks.named<ProcessResources>(launcher.processResourcesTaskName) {
+        from(managerRoot.resolve("src/main/resources/assets/dlc_manager/lang")) {
+            include("en_us.json", "zh_cn.json")
+            into("assets/dlc_manager/lang")
+        }
+    }
+
     sourceSets.test {
         compileClasspath += launcher.output
-        runtimeClasspath += launcher.output
+        runtimeClasspath += launcher.output + launcherJson
         if (stonecutter.current.isActive) {
             java.srcDir(rootProject.layout.projectDirectory.dir("src/test/java"))
         } else {
@@ -260,6 +274,7 @@ if (currentTarget == null) {
     }
 
     dependencies {
+        add(launcherJson.name, "com.google.code.gson:gson:2.10.1")
         if (kotlinEnabled) add(bootstrapLibraries.name, "org.jetbrains.kotlin:kotlin-stdlib:$kotlinStdlibVersion") { isTransitive = false }
         if (kotlinEnabled && target.minecraft == "26.1") {
             add(bootstrapLibraries.name, "org.jetbrains.kotlin:kotlin-reflect:$kotlinStdlibVersion") { isTransitive = false }
@@ -370,7 +385,9 @@ if (currentTarget == null) {
     }
     val runtimeJar = tasks.register<ShadowJar>("runtimeJar") {
         dependsOn(tasks.classes, profile, runtimeServices)
-        from(sourceSets.main.get().output)
+        from(sourceSets.main.get().output) {
+            include("**/*.class", "**/*.kotlin_module", "META-INF/**", "assets/dlc_manager/lang/*.json")
+        }
         from(profileDir)
         from(runtimeServicesDir)
         configurations = listOf(project.configurations.runtimeClasspath.get())
@@ -386,9 +403,22 @@ if (currentTarget == null) {
         relocate("com.google.gson", "com.cozooo.dlc_bootstrap.internal.gson")
         exclude("META-INF/jarjar/**", "META-INF/versions/**", "META-INF/*.SF", "META-INF/*.RSA", "META-INF/*.DSA", "module-info.class", "org/jetbrains/annotations/**")
     }
+    val launcherJar = tasks.register<ShadowJar>("launcherJar") {
+        dependsOn(launcher.classesTaskName)
+        configurations = listOf(launcherJson)
+        relocate("com.google.gson", "com.cozooo.dlc_bootstrap.launch.internal.gson")
+        exclude("META-INF/versions/**", "META-INF/*.SF", "META-INF/*.RSA", "META-INF/*.DSA", "module-info.class")
+        from(launcher.output) {
+            include("**/*.class", "assets/dlc_manager/lang/*.json")
+        }
+        archiveFileName.set("bootstrap-launcher.jar")
+        destinationDirectory.set(layout.buildDirectory.dir("launcher"))
+    }
     val bootstrapJar = tasks.register<org.gradle.jvm.tasks.Jar>("bootstrapJar") {
-        dependsOn(launcher.classesTaskName, runtimeJar, profile)
-        from(launcher.output)
+        dependsOn(launcherJar, runtimeJar, profile)
+        from(zipTree(launcherJar.flatMap { it.archiveFile })) {
+            exclude("META-INF/MANIFEST.MF", "META-INF/dlc-manager/LICENSE")
+        }
         from(profileDir)
         from(rootProject.layout.projectDirectory.dir("src/main/resources")) { include("META-INF/dlc-manager/licenses/**") }
         if (kotlinEnabled) from(rootProject.layout.projectDirectory.dir("src/kotlinRuntime/resources"))
@@ -410,6 +440,7 @@ if (currentTarget == null) {
     tasks.assemble { dependsOn(bootstrapJar) }
     tasks.test {
         useJUnitPlatform()
+        systemProperty("java.awt.headless", "true")
         jvmArgs("--add-opens=java.base/java.lang.invoke=ALL-UNNAMED")
         javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(21)) })
         inputs.files(neoForgeModLauncher, forgeLocatorApi, neoForgeLocatorApi, bootstrapLibraries)

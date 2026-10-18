@@ -23,12 +23,14 @@ public final class DlcStartupRequirements {
         if (!usesEarlyInstallation()) return;
         String game = DlcPlatformServices.gameDir().toAbsolutePath().normalize().toString();
         if (!game.equals(System.getProperty(READY_PROPERTY))) {
-            throw new IllegalStateException(FAILURE_MESSAGE + ": Early installation did not complete");
+            System.clearProperty(READY_PROPERTY);
+            throw new IllegalStateException(DlcBootstrapI18n.text("failure.summary") + " " + DlcBootstrapI18n.text("early_incomplete"));
         }
         try {
             DlcEarlyInstaller.verifyInstalled();
         } catch (IOException | RuntimeException ex) {
-            throw new IllegalStateException(FAILURE_MESSAGE + ": Startup stopped", ex);
+            System.clearProperty(READY_PROPERTY);
+            throw new IllegalStateException(DlcBootstrapI18n.text("failure.summary") + " " + DlcBootstrapI18n.text("verification_failed"), ex);
         }
     }
 }

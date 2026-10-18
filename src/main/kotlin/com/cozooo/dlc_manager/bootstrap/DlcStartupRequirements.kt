@@ -24,14 +24,17 @@ object DlcStartupRequirements {
         if (!usesEarlyInstallation()) return
         val game = DlcPlatformServices.gameDir().toAbsolutePath().normalize().toString()
         if (System.getProperty(READY_PROPERTY) != game) {
-            throw IllegalStateException("$FAILURE_MESSAGE: Early installation did not complete")
+            System.clearProperty(READY_PROPERTY)
+            throw IllegalStateException(DlcBootstrapI18n.text("failure.summary") + " " + DlcBootstrapI18n.text("early_incomplete"))
         }
         try {
             DlcEarlyInstaller.verifyInstalled()
         } catch (ex: IOException) {
-            throw IllegalStateException("$FAILURE_MESSAGE: Startup stopped", ex)
+            System.clearProperty(READY_PROPERTY)
+            throw IllegalStateException(DlcBootstrapI18n.text("failure.summary") + " " + DlcBootstrapI18n.text("verification_failed"), ex)
         } catch (ex: RuntimeException) {
-            throw IllegalStateException("$FAILURE_MESSAGE: Startup stopped", ex)
+            System.clearProperty(READY_PROPERTY)
+            throw IllegalStateException(DlcBootstrapI18n.text("failure.summary") + " " + DlcBootstrapI18n.text("verification_failed"), ex)
         }
     }
 }

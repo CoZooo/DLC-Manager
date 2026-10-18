@@ -15,6 +15,8 @@ import java.util.Properties
 import java.util.UUID
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
 
 plugins {
     application
@@ -54,6 +56,7 @@ val reusedCommonJavaFiles = listOf(
     "com/cozooo/dlc_manager/core/DlcItemFiles.java",
     "com/cozooo/dlc_manager/core/DlcResourceHistory.java",
     "com/cozooo/dlc_manager/bootstrap/DlcEarlyInstaller.java",
+    "com/cozooo/dlc_manager/bootstrap/DlcBootstrapI18n.java",
     "com/cozooo/dlc_manager/bootstrap/DlcModpackAutoUpdater.java",
     "com/cozooo/dlc_manager/client/core/DlcZipUtil.java",
     "com/cozooo/dlc_manager/client/download/DlcCurseForgeClient.java",
@@ -249,7 +252,30 @@ tasks.withType<org.gradle.jvm.tasks.Jar>().configureEach {
     from("../../LICENSE") { into("META-INF/dlc-manager") }
 }
 
+val bootstrapLanguages = tasks.register("bootstrapLanguages") {
+    val sharedDirectory = file("../../src/main/resources/assets/dlc_manager/lang")
+    val localDirectory = file("src/main/resources/assets/dlc_manager/lang")
+    val languages = listOf("en_us", "zh_cn")
+    val outputDirectory = layout.buildDirectory.dir("bootstrap-languages")
+    inputs.files(languages.flatMap { listOf(sharedDirectory.resolve("$it.json"), localDirectory.resolve("$it.json")) })
+    outputs.dir(outputDirectory)
+    doLast {
+        val output = outputDirectory.get().asFile.apply { mkdirs() }
+        languages.forEach { language ->
+            val local = JsonSlurper().parse(localDirectory.resolve("$language.json")) as Map<*, *>
+            val shared = JsonSlurper().parse(sharedDirectory.resolve("$language.json")) as Map<*, *>
+            val merged = local + shared.filterKeys { it.toString().startsWith("dlc_manager.bootstrap.") }
+            output.resolve("$language.json").writeText(JsonOutput.prettyPrint(JsonOutput.toJson(merged)) + "\n")
+        }
+    }
+}
+
+sourceSets.main {
+    resources.exclude("assets/dlc_manager/lang/en_us.json", "assets/dlc_manager/lang/zh_cn.json")
+}
+
 tasks.named<ProcessResources>("processResources") {
+    from(bootstrapLanguages) { into("assets/dlc_manager/lang") }
     from("../../src/main/resources/META-INF/dlc-manager/dlc-definition.json") {
         into("META-INF/dlc-manager")
         rename { "dlc-definition.json" }

@@ -40,7 +40,7 @@ object DlcEarlyInstaller {
             checkCancelled(owner, cancelled)
             DlcPlatformServices.setProvider(EarlyProvider(gameDir.toAbsolutePath().normalize(), configDir.toAbsolutePath().normalize(), loader, minecraftVersion, server))
             advance(reporter, Stage.SCANNING, owner, cancelled)
-            reporter.log("Scanning required resources")
+            reporter.log(DlcBootstrapI18n.text("scanning"))
             if (server) DlcConfig.loadServer() else DlcConfig.loadClient()
             checkCancelled(owner, cancelled)
             com.cozooo.dlc_manager.client.update.DlcPendingUpdate.process({ reporter.log(it) }, false)
@@ -60,7 +60,7 @@ object DlcEarlyInstaller {
                 try {
                     if (!DlcRequiredService.isDownloaded(entry)) {
                         advance(reporter, Stage.DOWNLOADING, owner, cancelled)
-                        reporter.log("Downloading required resource: ${entry.resolveDisplayName()}")
+                        reporter.log(DlcBootstrapI18n.text("downloading", entry.resolveDisplayName()))
                         DlcRequiredService.downloadOne(entry, { bytes, total -> reporter.download(progressEntry, bytes, total) },
                             { cancellationRequested(owner, cancelled) })
                         checkCancelled(owner, cancelled)
@@ -68,23 +68,23 @@ object DlcEarlyInstaller {
                         downloaded++
                     }
                     advance(reporter, Stage.INSTALLING, owner, cancelled)
-                    reporter.log("Applying required resource: ${entry.resolveDisplayName()}")
+                    reporter.log(DlcBootstrapI18n.text("installing", entry.resolveDisplayName()))
                     if (DlcRequiredService.installOne(entry)) installed++
                     checkCancelled(owner, cancelled)
                     reporter.entryComplete()
                     checkCancelled(owner, cancelled)
                 } catch (ex: IOException) {
-                    if (cancellationRequested(owner, cancelled)) throw InterruptedException("Required resource installation interrupted").also { it.initCause(ex) }
-                    throw IOException("Cannot install required resource '${entry.getIdentifier()}' from ${entry.getConfigPath()}", ex)
+                    if (cancellationRequested(owner, cancelled)) throw InterruptedException(DlcBootstrapI18n.text("interrupted")).also { it.initCause(ex) }
+                    throw IOException(DlcBootstrapI18n.text("resource_failed", entry.resolveDisplayName(), entry.getIdentifier(), entry.getConfigPath()), ex)
                 } catch (ex: RuntimeException) {
-                    if (cancellationRequested(owner, cancelled)) throw InterruptedException("Required resource installation interrupted").also { it.initCause(ex) }
-                    throw IOException("Cannot install required resource '${entry.getIdentifier()}' from ${entry.getConfigPath()}", ex)
+                    if (cancellationRequested(owner, cancelled)) throw InterruptedException(DlcBootstrapI18n.text("interrupted")).also { it.initCause(ex) }
+                    throw IOException(DlcBootstrapI18n.text("resource_failed", entry.resolveDisplayName(), entry.getIdentifier(), entry.getConfigPath()), ex)
                 }
             }
             advance(reporter, Stage.VERIFYING, owner, cancelled)
             verifyEntries(entries)
             checkCancelled(owner, cancelled)
-            reporter.log("Required resources ready: ${entries.size} checked, $downloaded downloaded, $installed installed")
+            reporter.log(DlcBootstrapI18n.text("ready", entries.size, downloaded, installed))
             checkCancelled(owner, cancelled)
             reporter.stage(Stage.COMPLETE)
             return Result(entries.size, downloaded, installed)
@@ -100,7 +100,7 @@ object DlcEarlyInstaller {
         owner.isInterrupted || Thread.currentThread().isInterrupted || cancelled?.asBoolean == true
 
     private fun checkCancelled(owner: Thread, cancelled: BooleanSupplier?) {
-        if (cancellationRequested(owner, cancelled)) throw InterruptedException("Required resource installation interrupted")
+        if (cancellationRequested(owner, cancelled)) throw InterruptedException(DlcBootstrapI18n.text("interrupted"))
     }
 
     private fun advance(reporter: Reporter, stage: Stage, owner: Thread, cancelled: BooleanSupplier?) {
@@ -170,7 +170,7 @@ object DlcEarlyInstaller {
         @Synchronized fun failed() {
             if (terminal) return
             stage(Stage.FAILED)
-            log("Required resource installation failed; startup cannot continue")
+            log(DlcBootstrapI18n.text("failed"))
         }
 
         fun log(message: String) {
@@ -179,7 +179,8 @@ object DlcEarlyInstaller {
         }
 
         private fun logBytes() {
-            log("${current.resourceName}: ${current.downloadedBytes}${if (current.totalBytes >= 0) "/${current.totalBytes}" else ""} bytes")
+            log(DlcBootstrapI18n.text("download_bytes", current.resourceName, current.downloadedBytes,
+                if (current.totalBytes >= 0) "/${current.totalBytes}" else ""))
         }
 
         private fun publish() {
@@ -187,7 +188,7 @@ object DlcEarlyInstaller {
             try { listener.accept(current) }
             catch (ex: RuntimeException) {
                 observer = null
-                log("Progress observer unavailable; continuing with bootstrap logging (${ex.javaClass.simpleName})")
+                log(DlcBootstrapI18n.text("observer_unavailable", ex.javaClass.simpleName))
             }
         }
     }
@@ -200,13 +201,14 @@ object DlcEarlyInstaller {
     }
 
     private fun verifyEntries(entries: List<DlcRequiredEntry>) {
-        if (DlcRequiredService.collectMissingOrApply(entries).isNotEmpty()) {
-            throw IOException("Required resource installation incomplete; game loading cannot continue")
+        val missing = DlcRequiredService.collectMissingOrApply(entries)
+        if (missing.isNotEmpty()) {
+            throw IOException(DlcBootstrapI18n.text("incomplete", missing.joinToString(", ") { "${it.resolveDisplayName()} (${it.getIdentifier()})" }))
         }
         for (entry in entries) {
             val fileName = DlcRequiredService.resolveExistingFileName(entry)
             val source = entry.resolveRequiredPath(fileName)
-            if (source == null || !Files.isRegularFile(source)) throw IOException("Required resource is not a regular file: $source")
+            if (source == null || !Files.isRegularFile(source)) throw IOException(DlcBootstrapI18n.text("not_regular", source))
 
         }
     }
@@ -215,12 +217,12 @@ object DlcEarlyInstaller {
         for (root in roots) {
             val required = root.resolve("required")
             if (!Files.exists(required)) continue
-            if (!Files.isDirectory(required)) throw IOException("Required resource directory is not a directory: $required")
+            if (!Files.isDirectory(required)) throw IOException(DlcBootstrapI18n.text("not_directory", required))
             Files.newDirectoryStream(required).use { paths ->
                 for (path in paths) {
                     val name = path.fileName.toString()
                     if (!DlcDcFormatUtil.isDcName(name) || DlcDcFormatUtil.stripConfigExtension(name).equals("notice", ignoreCase = true)) continue
-                    if (DlcRequiredLoader.loadSingle(path, root) == null) throw IOException("Invalid required resource configuration: $path")
+                    if (DlcRequiredLoader.loadSingle(path, root) == null) throw IOException(DlcBootstrapI18n.text("invalid_config", path))
                 }
             }
         }
@@ -233,7 +235,7 @@ object DlcEarlyInstaller {
         override fun mcVersion() = version
         override fun isDedicatedServer() = server
         override fun isModLoaded(modId: String?) = false
-        override fun languageCode() = DlcPlatformServices.readLanguageFromOptions(game) ?: "en_us"
+        override fun languageCode() = DlcBootstrapI18n.languageCode()
         override fun modVersion(modId: String?) = ""
         override fun modFilePath(modId: String?): Path? = null
         override fun playerName() = ""

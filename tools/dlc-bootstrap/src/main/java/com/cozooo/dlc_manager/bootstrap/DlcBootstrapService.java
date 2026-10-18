@@ -44,9 +44,9 @@ public final class DlcBootstrapService implements com.cozooo.dlc_bootstrap.launc
             complete = install(game, loader, minecraft, server, target.toLowerCase(Locale.ROOT).contains("dev"));
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException(DlcStartupRequirements.FAILURE_MESSAGE + ": installation interrupted; startup stopped", ex);
+            throw new IllegalStateException(DlcBootstrapI18n.text("failure.summary") + " " + DlcBootstrapI18n.text("interrupted"), ex);
         } catch (IOException | RuntimeException ex) {
-            throw new IllegalStateException(DlcStartupRequirements.FAILURE_MESSAGE + ": startup stopped. Check the bootstrap log and retry launching.", ex);
+            throw new IllegalStateException(DlcBootstrapI18n.text("failure.summary"), ex);
         } finally {
             if (!complete || isCancelled()) System.clearProperty(DlcStartupRequirements.READY_PROPERTY);
         }
@@ -64,9 +64,9 @@ public final class DlcBootstrapService implements com.cozooo.dlc_bootstrap.launc
             complete = install(game, loader, minecraft, server, development);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            throw new IllegalStateException(DlcStartupRequirements.FAILURE_MESSAGE + ": installation interrupted; startup stopped", ex);
+            throw new IllegalStateException(DlcBootstrapI18n.text("failure.summary") + " " + DlcBootstrapI18n.text("interrupted"), ex);
         } catch (IOException | RuntimeException ex) {
-            throw new IllegalStateException(DlcStartupRequirements.FAILURE_MESSAGE + ": startup stopped. Check the bootstrap log and retry launching.", ex);
+            throw new IllegalStateException(DlcBootstrapI18n.text("failure.summary"), ex);
         } finally {
             if (!complete || isCancelled()) System.clearProperty(DlcStartupRequirements.READY_PROPERTY);
         }
@@ -100,6 +100,6 @@ public final class DlcBootstrapService implements com.cozooo.dlc_bootstrap.launc
     private boolean isCancelled() { return cancelled.getAsBoolean() || Thread.currentThread().isInterrupted(); }
 
     private void checkCancelled() throws InterruptedException {
-        if (isCancelled()) throw new InterruptedException("Required resource installation interrupted");
+        if (isCancelled()) throw new InterruptedException(DlcBootstrapI18n.text("interrupted"));
     }
 }

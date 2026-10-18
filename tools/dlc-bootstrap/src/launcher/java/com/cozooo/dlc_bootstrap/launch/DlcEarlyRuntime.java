@@ -27,22 +27,26 @@ public final class DlcEarlyRuntime {
 
     public static void initialize(IEnvironment environment) {
         System.clearProperty("dlc_manager.early.ready");
+        Path game = null;
+        boolean client = false;
         try {
-            Properties profile = loadProfile();
+            game = environment.getProperty(IEnvironment.Keys.GAMEDIR.get()).orElse(null);
             String target = environment.getProperty(IEnvironment.Keys.LAUNCHTARGET.get())
                 .orElseThrow(() -> new IOException("Launch target is unavailable before mod discovery"));
+            client = target.toLowerCase(java.util.Locale.ROOT).contains("client");
+            Properties profile = loadProfile();
             DlcEarlyProgress.run(target, profile.getProperty("loader"), DlcEarlyRuntime.class.getClassLoader(),
                 (progress, cancelled) -> install(environment, profile, progress, cancelled));
         } catch (InterruptedException ex) {
             System.clearProperty("dlc_manager.early.ready");
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("Required resource installation failed: installation interrupted; startup stopped", ex);
+            throw DlcEarlyFailure.stop(game, client, ex);
         } catch (Exception ex) {
             System.clearProperty("dlc_manager.early.ready");
-            throw new IllegalStateException("Required resource installation failed: startup stopped", ex);
+            throw DlcEarlyFailure.stop(game, client, ex);
         } catch (LinkageError ex) {
             System.clearProperty("dlc_manager.early.ready");
-            throw new IllegalStateException("Required resource installation failed: startup stopped", ex);
+            throw DlcEarlyFailure.stop(game, client, ex);
         }
     }
 
@@ -55,25 +59,24 @@ public final class DlcEarlyRuntime {
     //? if >=26.1 {
     /*public static void initialize(ILaunchContext context) {
         System.clearProperty("dlc_manager.early.ready");
+        Path game = context.gameDirectory();
+        boolean server = String.valueOf(context.getRequiredDistribution()).toLowerCase(java.util.Locale.ROOT).contains("server");
         try {
             Properties profile = loadProfile();
-            Path game = context.gameDirectory();
-            String target = String.valueOf(context.getRequiredDistribution()).toLowerCase(java.util.Locale.ROOT).contains("server")
-                ? "neoforgeserver" : "neoforgeclient";
-            boolean server = target.contains("server");
+            String target = server ? "neoforgeserver" : "neoforgeclient";
             boolean development = developmentLaunch();
             DlcEarlyProgress.run(target, profile.getProperty("loader"), DlcEarlyRuntime.class.getClassLoader(),
                 (progress, cancelled) -> install(game, profile, server, development, progress, cancelled));
         } catch (InterruptedException ex) {
             System.clearProperty("dlc_manager.early.ready");
             Thread.currentThread().interrupt();
-            throw new IllegalStateException("Required resource installation failed: installation interrupted; startup stopped", ex);
+            throw DlcEarlyFailure.stop(game, !server, ex);
         } catch (Exception ex) {
             System.clearProperty("dlc_manager.early.ready");
-            throw new IllegalStateException("Required resource installation failed: startup stopped", ex);
+            throw DlcEarlyFailure.stop(game, !server, ex);
         } catch (LinkageError ex) {
             System.clearProperty("dlc_manager.early.ready");
-            throw new IllegalStateException("Required resource installation failed: startup stopped", ex);
+            throw DlcEarlyFailure.stop(game, !server, ex);
         }
     }
     *///?}

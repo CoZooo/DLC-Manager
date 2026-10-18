@@ -124,7 +124,7 @@ public final class DlcEarlyProgress {
                     interrupted = true;
                     cancelled.set(true);
                     workerThread.get().interrupt();
-                    ui.update(new Frame(0, 0, "Cancelling required resource installation"));
+                    ui.update(new Frame(0, 0, DlcEarlyI18n.nativeText("cancelling")));
                 }
             }
             if (interrupted) throw new InterruptedException("Required resource installation interrupted");
@@ -191,17 +191,10 @@ public final class DlcEarlyProgress {
 
     static Frame frame(Map<String, Object> snapshot) {
         String stage = text(snapshot, "stage");
-        String action = switch (stage) {
-            case "SCANNING" -> "Scanning";
-            case "PLANNED" -> "Resources found";
-            case "DOWNLOADING" -> "Downloading";
-            case "INSTALLING" -> "Installing";
-            case "ENTRY_COMPLETE" -> "Ready";
-            case "VERIFYING" -> "Verifying";
-            case "COMPLETE" -> "Complete";
-            case "FAILED" -> "Failed";
-            default -> "Working";
-        };
+        String action = DlcEarlyI18n.nativeText("stage." + switch (stage) {
+            case "SCANNING", "PLANNED", "DOWNLOADING", "INSTALLING", "ENTRY_COMPLETE", "VERIFYING", "COMPLETE", "FAILED" -> stage;
+            default -> "WORKING";
+        });
         long completed = Math.max(0, number(snapshot, "completed", 0));
         long total = number(snapshot, "total", -1);
         long bytes = Math.max(0, number(snapshot, "bytes", 0));
@@ -284,7 +277,7 @@ public final class DlcEarlyProgress {
         }
 
         private void unavailable(Throwable failure) {
-            System.err.println("[dlc-manager-bootstrap] Native progress display unavailable: " + failure);
+            System.err.println("[dlc-manager-bootstrap] " + new DlcEarlyI18n().text("native_unavailable", failure));
         }
     }
 }

@@ -39,11 +39,11 @@ class DlcBootstrapService(
             complete = install(game, loader, minecraft, server, target.lowercase(Locale.ROOT).contains("dev"))
         } catch (ex: InterruptedException) {
             Thread.currentThread().interrupt()
-            throw IllegalStateException(DlcStartupRequirements.FAILURE_MESSAGE + ": installation interrupted; startup stopped", ex)
+            throw IllegalStateException(DlcBootstrapI18n.text("failure.summary") + " " + DlcBootstrapI18n.text("interrupted"), ex)
         } catch (ex: IOException) {
-            throw IllegalStateException(DlcStartupRequirements.FAILURE_MESSAGE + ": startup stopped. Check the bootstrap log and retry launching.", ex)
+            throw IllegalStateException(DlcBootstrapI18n.text("failure.summary"), ex)
         } catch (ex: RuntimeException) {
-            throw IllegalStateException(DlcStartupRequirements.FAILURE_MESSAGE + ": startup stopped. Check the bootstrap log and retry launching.", ex)
+            throw IllegalStateException(DlcBootstrapI18n.text("failure.summary"), ex)
         } finally {
             if (!complete || isCancelled()) System.clearProperty(DlcStartupRequirements.READY_PROPERTY)
         }
@@ -61,11 +61,11 @@ class DlcBootstrapService(
             complete = install(game, loader, minecraft, server, development)
         } catch (ex: InterruptedException) {
             Thread.currentThread().interrupt()
-            throw IllegalStateException(DlcStartupRequirements.FAILURE_MESSAGE + ": installation interrupted; startup stopped", ex)
+            throw IllegalStateException(DlcBootstrapI18n.text("failure.summary") + " " + DlcBootstrapI18n.text("interrupted"), ex)
         } catch (ex: IOException) {
-            throw IllegalStateException(DlcStartupRequirements.FAILURE_MESSAGE + ": startup stopped. Check the bootstrap log and retry launching.", ex)
+            throw IllegalStateException(DlcBootstrapI18n.text("failure.summary"), ex)
         } catch (ex: RuntimeException) {
-            throw IllegalStateException(DlcStartupRequirements.FAILURE_MESSAGE + ": startup stopped. Check the bootstrap log and retry launching.", ex)
+            throw IllegalStateException(DlcBootstrapI18n.text("failure.summary"), ex)
         } finally {
             if (!complete || isCancelled()) System.clearProperty(DlcStartupRequirements.READY_PROPERTY)
         }
@@ -99,6 +99,6 @@ class DlcBootstrapService(
     private fun isCancelled(): Boolean = cancelled.asBoolean || Thread.currentThread().isInterrupted
 
     private fun checkCancelled() {
-        if (isCancelled()) throw InterruptedException("Required resource installation interrupted")
+        if (isCancelled()) throw InterruptedException(DlcBootstrapI18n.text("interrupted"))
     }
 }

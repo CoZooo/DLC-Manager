@@ -52,7 +52,7 @@ public final class DlcEarlyInstaller {
             checkCancelled(owner, cancelled);
             DlcPlatformServices.setProvider(new EarlyProvider(gameDir.toAbsolutePath().normalize(), configDir.toAbsolutePath().normalize(), loader, minecraftVersion, server));
             advance(reporter, Stage.SCANNING, owner, cancelled);
-            reporter.log("Scanning required resources");
+            reporter.log(DlcBootstrapI18n.text("scanning"));
             if (server) DlcConfig.loadServer(); else DlcConfig.loadClient();
             checkCancelled(owner, cancelled);
             com.cozooo.dlc_manager.client.update.DlcPendingUpdate.process(reporter::log, false);
@@ -72,7 +72,7 @@ public final class DlcEarlyInstaller {
                 try {
                     if (!DlcRequiredService.isDownloaded(entry)) {
                         advance(reporter, Stage.DOWNLOADING, owner, cancelled);
-                        reporter.log("Downloading required resource: " + entry.resolveDisplayName());
+                        reporter.log(DlcBootstrapI18n.text("downloading", entry.resolveDisplayName()));
                         DlcRequiredService.downloadOne(entry, (bytes, total) -> reporter.download(progressEntry, bytes, total),
                             () -> cancellationRequested(owner, cancelled));
                         checkCancelled(owner, cancelled);
@@ -80,24 +80,24 @@ public final class DlcEarlyInstaller {
                         downloaded++;
                     }
                     advance(reporter, Stage.INSTALLING, owner, cancelled);
-                    reporter.log("Applying required resource: " + entry.resolveDisplayName());
+                    reporter.log(DlcBootstrapI18n.text("installing", entry.resolveDisplayName()));
                     if (DlcRequiredService.installOne(entry)) installed++;
                     checkCancelled(owner, cancelled);
                     reporter.entryComplete();
                     checkCancelled(owner, cancelled);
                 } catch (IOException | RuntimeException ex) {
                     if (cancellationRequested(owner, cancelled)) {
-                        InterruptedException interrupted = new InterruptedException("Required resource installation interrupted");
+                        InterruptedException interrupted = new InterruptedException(DlcBootstrapI18n.text("interrupted"));
                         interrupted.initCause(ex);
                         throw interrupted;
                     }
-                    throw new IOException("Cannot install required resource '" + entry.getIdentifier() + "' from " + entry.getConfigPath(), ex);
+                    throw new IOException(DlcBootstrapI18n.text("resource_failed", entry.resolveDisplayName(), entry.getIdentifier(), entry.getConfigPath()), ex);
                 }
             }
             advance(reporter, Stage.VERIFYING, owner, cancelled);
             verifyEntries(entries);
             checkCancelled(owner, cancelled);
-            reporter.log("Required resources ready: " + entries.size() + " checked, " + downloaded + " downloaded, " + installed + " installed");
+            reporter.log(DlcBootstrapI18n.text("ready", entries.size(), downloaded, installed));
             checkCancelled(owner, cancelled);
             reporter.stage(Stage.COMPLETE);
             return new Result(entries.size(), downloaded, installed);
@@ -115,7 +115,7 @@ public final class DlcEarlyInstaller {
     }
 
     private static void checkCancelled(Thread owner, BooleanSupplier cancelled) throws InterruptedException {
-        if (cancellationRequested(owner, cancelled)) throw new InterruptedException("Required resource installation interrupted");
+        if (cancellationRequested(owner, cancelled)) throw new InterruptedException(DlcBootstrapI18n.text("interrupted"));
     }
 
     private static void advance(Reporter reporter, Stage stage, Thread owner, BooleanSupplier cancelled) throws InterruptedException {
@@ -192,7 +192,7 @@ public final class DlcEarlyInstaller {
         synchronized void failed() {
             if (terminal) return;
             stage(Stage.FAILED);
-            log("Required resource installation failed; startup cannot continue");
+            log(DlcBootstrapI18n.text("failed"));
         }
 
         void log(String message) {
@@ -203,8 +203,8 @@ public final class DlcEarlyInstaller {
         }
 
         private void logBytes() {
-            log(current.resourceName() + ": " + current.downloadedBytes()
-                + (current.totalBytes() >= 0 ? "/" + current.totalBytes() : "") + " bytes");
+            log(DlcBootstrapI18n.text("download_bytes", current.resourceName(), current.downloadedBytes(),
+                current.totalBytes() >= 0 ? "/" + current.totalBytes() : ""));
         }
 
         private void publish() {
@@ -212,7 +212,7 @@ public final class DlcEarlyInstaller {
             try { observer.accept(current); }
             catch (RuntimeException ex) {
                 observer = null;
-                log("Progress observer unavailable; continuing with bootstrap logging (" + ex.getClass().getSimpleName() + ")");
+                log(DlcBootstrapI18n.text("observer_unavailable", ex.getClass().getSimpleName()));
             }
         }
     }
@@ -223,14 +223,16 @@ public final class DlcEarlyInstaller {
     }
 
     private static void verifyEntries(List<DlcRequiredEntry> entries) throws IOException {
-        if (!DlcRequiredService.collectMissingOrApply(entries).isEmpty()) {
-            throw new IOException("Required resource installation incomplete; game loading cannot continue");
+        List<DlcRequiredEntry> missing = DlcRequiredService.collectMissingOrApply(entries);
+        if (!missing.isEmpty()) {
+            throw new IOException(DlcBootstrapI18n.text("incomplete", missing.stream()
+                .map(entry -> entry.resolveDisplayName() + " (" + entry.getIdentifier() + ")").collect(java.util.stream.Collectors.joining(", "))));
         }
         for (DlcRequiredEntry entry : entries) {
             String fileName = DlcRequiredService.resolveExistingFileName(entry);
             Path source = entry.resolveRequiredPath(fileName);
             if (source == null || !Files.isRegularFile(source)) {
-                throw new IOException("Required resource is not a regular file: " + source);
+                throw new IOException(DlcBootstrapI18n.text("not_regular", source));
             }
         }
     }
@@ -239,13 +241,13 @@ public final class DlcEarlyInstaller {
         for (Path root : roots) {
             Path required = root.resolve("required");
             if (!Files.exists(required)) continue;
-            if (!Files.isDirectory(required)) throw new IOException("Required resource directory is not a directory: " + required);
+            if (!Files.isDirectory(required)) throw new IOException(DlcBootstrapI18n.text("not_directory", required));
             try (var paths = Files.newDirectoryStream(required)) {
                 for (Path path : paths) {
                     String name = path.getFileName().toString();
                     if (!DlcDcFormatUtil.isDcName(name) || "notice".equalsIgnoreCase(DlcDcFormatUtil.stripConfigExtension(name))) continue;
                     if (DlcRequiredLoader.loadSingle(path, root) == null) {
-                        throw new IOException("Invalid required resource configuration: " + path);
+                        throw new IOException(DlcBootstrapI18n.text("invalid_config", path));
                     }
                 }
             }
@@ -256,8 +258,7 @@ public final class DlcEarlyInstaller {
                                  boolean isDedicatedServer) implements DlcPlatformServices.Provider {
         @Override public boolean isModLoaded(String modId) { return false; }
         @Override public String languageCode() {
-            String language = DlcPlatformServices.readLanguageFromOptions(gameDir);
-            return language == null ? "en_us" : language;
+            return DlcBootstrapI18n.languageCode();
         }
         @Override public String modVersion(String modId) { return ""; }
         @Override public Path modFilePath(String modId) { return null; }
