@@ -17,7 +17,10 @@ object DlcPresetLoader {
     }
 
     @JvmStatic
-    fun loadAll(roots: List<Path>?): List<DlcPresetEntry> {
+    fun loadAll(roots: List<Path>?): List<DlcPresetEntry> = loadAll(roots, true)
+
+    @JvmStatic
+    fun loadAll(roots: List<Path>?, migrate: Boolean): List<DlcPresetEntry> {
         val entries = ArrayList<DlcPresetEntry>()
         if (roots.isNullOrEmpty()) {
             return entries
@@ -36,7 +39,7 @@ object DlcPresetLoader {
                 Files.walk(presetRoot).use { stream ->
                     stream.filter { path -> path.fileName != null && DlcDcConfigIO.isDc(path) }
                         .forEach { path ->
-                            val entry = readEntry(path)
+                            val entry = readEntry(path, migrate)
                             if (entry != null) {
                                 entries.add(entry)
                             }
@@ -64,7 +67,7 @@ object DlcPresetLoader {
         return presetRoot
     }
 
-    private fun readEntry(path: Path): DlcPresetEntry? {
+    private fun readEntry(path: Path, migrate: Boolean): DlcPresetEntry? {
         val obj = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC) ?: return null
         val basic = DlcDcConfigIO.getObjectIgnoreCase(obj, "basic")
         val displayName = readLangMap(DlcDcConfigIO.getObjectIgnoreCase(obj, "DisplayName"))
@@ -77,7 +80,7 @@ object DlcPresetLoader {
 
         val fileName = stripExtension(path.fileName.toString())
         val id = readIdentifier(basic, obj, fileName)
-        migrateIfNeeded(path, obj, id, alarm, enable, conflicts)
+        if (migrate) migrateIfNeeded(path, obj, id, alarm, enable, conflicts)
         return DlcPresetEntry(id, fileName, path, displayName, tip, alarmTip, enable, conflicts, alarm, DlcPresetStatus.OFF)
     }
 

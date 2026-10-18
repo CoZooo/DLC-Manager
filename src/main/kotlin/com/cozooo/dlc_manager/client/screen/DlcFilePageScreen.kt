@@ -19,6 +19,11 @@ abstract class DlcFilePageScreen(page: DlcUiPage, parent: Screen?, title: Compon
 
     protected fun fileRow(list: Element, name: String, description: String?, checked: Supplier<String>,
                           enabled: BooleanSupplier, select: Runnable, open: Runnable?) {
+        fileRowLine(list, name, description, checked, enabled, select, open)
+    }
+
+    protected fun fileRowLine(list: Element, name: String, description: String?, checked: Supplier<String>,
+                              enabled: BooleanSupplier, select: Runnable, open: Runnable?): Element {
         val line = node(list, "div", "page-row file-row")
         val button = action(line, "") {
             if (enabled.asBoolean) { select.run(); syncSelections() }
@@ -56,6 +61,7 @@ abstract class DlcFilePageScreen(page: DlcUiPage, parent: Screen?, title: Compon
         }
         selections.add(sync)
         sync.run()
+        return line
     }
 
     private fun syncSelections() { selections.forEach { it.run() } }

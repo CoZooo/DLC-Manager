@@ -160,6 +160,55 @@ object DlcConfig {
         return root
     }
 
+    @JvmStatic fun buildSyncConfigJson(source: JsonObject?): JsonObject {
+        val defaults = JsonObject()
+        val paths = JsonObject()
+        paths.addProperty("dlcRoot", DEFAULT_DLC_ROOT)
+        paths.addProperty("taczRoot", DEFAULT_TACZ_ROOT)
+        paths.addProperty("resourcepackRoot", DEFAULT_RESOURCEPACK_ROOT)
+        paths.addProperty("datapackRoot", DEFAULT_DATAPACK_ROOT)
+        defaults.add("paths", paths)
+        val ui = JsonObject()
+        ui.addProperty("isEnableAllButtonShown", DEFAULT_ENABLE_ALL_SHOWN)
+        ui.addProperty("isUpdateManagerOn", DEFAULT_UPDATE_MANAGER_ON)
+        ui.addProperty("isSelfUpdateAutoCheckOn", DEFAULT_SELF_UPDATE_AUTO_CHECK_ON)
+        ui.addProperty("isPresetFuncOn", DEFAULT_PRESET_FUNC_ON)
+        ui.addProperty("WaitingTime", DEFAULT_ALARM_WAITING_TIME)
+        defaults.add("ui", ui)
+        val downloads = JsonObject()
+        downloads.addProperty("maxConcurrentDownloads", DEFAULT_MAX_CONCURRENT_DOWNLOADS)
+        downloads.addProperty("maxSegmentsPerFile", DEFAULT_MAX_SEGMENTS_PER_FILE)
+        downloads.addProperty("minSegmentMB", DEFAULT_MIN_SEGMENT_MB)
+        downloads.addProperty("maxRetryCount", DEFAULT_MAX_RETRY)
+        downloads.addProperty("connectTimeoutSeconds", DEFAULT_CONNECT_TIMEOUT_SECONDS)
+        downloads.addProperty("taskTimeoutSeconds", DEFAULT_TASK_TIMEOUT_SECONDS)
+        downloads.addProperty("downloadMirrorMode", DEFAULT_DOWNLOAD_MIRROR_MODE)
+        downloads.addProperty("downloadMirrorProbeCount", DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT)
+        downloads.addProperty("downloadMirrorProbeStrategy", DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY)
+        defaults.add("downloads", downloads)
+        val modpack = JsonObject()
+        modpack.addProperty("modpack", DEFAULT_MODPACK)
+        modpack.addProperty("modpackUrl", DEFAULT_MODPACK_URL)
+        modpack.addProperty("updateGitRepo", DEFAULT_UPDATE_GIT_REPO_URL)
+        modpack.addProperty("autoUpdate", DEFAULT_MODPACK_AUTO_UPDATE)
+        modpack.addProperty("forceUpdate", DEFAULT_MODPACK_FORCE_UPDATE)
+        defaults.add("modpack", modpack)
+        for ((section, entries) in defaults.entrySet()) {
+            val incoming = DlcDcConfigIO.getObjectIgnoreCase(source, section)
+            val values = entries.asJsonObject
+            for (key in values.keySet().toList()) {
+                val value = DlcDcConfigIO.getIgnoreCase(incoming, key)
+                    ?: (if (section == "modpack" && key == "updateGitRepo") DlcDcConfigIO.getIgnoreCase(incoming, "updateGithubRepo") else null) ?: continue
+                if (!value.isJsonPrimitive) continue
+                val expected = values.getAsJsonPrimitive(key)
+                val actual = value.asJsonPrimitive
+                if (expected.isNumber && actual.isNumber) values.addProperty(key, value.asInt)
+                else if (expected.isBoolean && actual.isBoolean || expected.isString && actual.isString) values.add(key, value.deepCopy())
+            }
+        }
+        return defaults
+    }
+
     @JvmStatic
     fun buildSharedConfigJson(): JsonObject {
         val root = JsonObject()
@@ -290,7 +339,7 @@ object DlcConfig {
 
     @JvmStatic fun getMaxConcurrentDownloads(): Int = if (maxConcurrentDownloads < 1) DEFAULT_MAX_CONCURRENT_DOWNLOADS else maxConcurrentDownloads
     @JvmStatic fun getMaxSegmentsPerFile(): Int = if (maxSegmentsPerFile < 1) DEFAULT_MAX_SEGMENTS_PER_FILE else maxSegmentsPerFile
-    @JvmStatic fun getMinSegmentBytes(): Long = (if (minSegmentMb < 1) DEFAULT_MIN_SEGMENT_MB else minSegmentMb).toLong() * 1024L * 1024L
+    @JvmStatic fun getMinSegmentBytes(): Long = (if (minSegmentMb < 1) DEFAULT_MIN_SEGMENT_MB else minSegmentMb).toLong() * DlcFileSize.MIB
     @JvmStatic fun getMaxRetryCount(): Int = if (maxRetryCount < 1) DEFAULT_MAX_RETRY else maxRetryCount
     @JvmStatic fun getConnectTimeoutMs(): Int = (if (connectTimeoutSeconds < 1) DEFAULT_CONNECT_TIMEOUT_SECONDS else connectTimeoutSeconds) * 1000
     @JvmStatic fun getTaskTimeoutMs(): Int = (if (taskTimeoutSeconds < 1) DEFAULT_TASK_TIMEOUT_SECONDS else taskTimeoutSeconds) * 1000
@@ -347,7 +396,7 @@ object DlcConfig {
     @JvmStatic fun setMaxConcurrentDownloads(value: Int) { maxConcurrentDownloads = maxOf(1, value) }
     @JvmStatic fun setMaxSegmentsPerFile(value: Int) { maxSegmentsPerFile = maxOf(1, value) }
     @JvmStatic fun setMinSegmentBytes(value: Long) {
-        val mb = maxOf(1L, (value + (1024L * 1024L - 1)) / (1024L * 1024L))
+        val mb = maxOf(1L, DlcFileSize.ceilMiB(value))
         minSegmentMb = minOf(Int.MAX_VALUE.toLong(), mb).toInt()
     }
     @JvmStatic fun setMaxRetryCount(value: Int) { maxRetryCount = maxOf(1, value) }

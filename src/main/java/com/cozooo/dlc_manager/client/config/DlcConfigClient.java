@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.config;
 
+import com.cozooo.dlc_manager.core.DlcFileSize;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import java.util.List;
 
@@ -238,7 +239,7 @@ public final class DlcConfigClient {
 
         DlcConfig.setMaxConcurrentDownloads(MAX_CONCURRENT_DOWNLOADS.getIntegerValue());
         DlcConfig.setMaxSegmentsPerFile(MAX_SEGMENTS_PER_FILE.getIntegerValue());
-        DlcConfig.setMinSegmentBytes((long) Math.max(1, MIN_SEGMENT_MB.getIntegerValue()) * 1024L * 1024L);
+        DlcConfig.setMinSegmentBytes((long) Math.max(1, MIN_SEGMENT_MB.getIntegerValue()) * DlcFileSize.MIB);
         DlcConfig.setMaxRetryCount(MAX_RETRY.getIntegerValue());
         DlcConfig.setConnectTimeoutMs(CONNECT_TIMEOUT_SECONDS.getIntegerValue() * 1000);
         DlcConfig.setTaskTimeoutMs(TASK_TIMEOUT_SECONDS.getIntegerValue() * 1000);
@@ -248,7 +249,7 @@ public final class DlcConfigClient {
     }
 
     private static int toMb(long bytes) {
-        long mb = (bytes + 1024L * 1024L - 1) / (1024L * 1024L);
+        long mb = DlcFileSize.ceilMiB(bytes);
         if (mb < 1) {
             return 1;
         }

@@ -6,6 +6,14 @@ import com.sighs.apricityui.layout.Box;
 final class DlcUiScroll {
     private DlcUiScroll() {}
 
+    record State(double top, double target, double height) {}
+    static State capture(Element element) { return new State(element.getScrollTop(), element.getTargetScrollTop(), element.scrollHeight); }
+    static void restore(Element element, State state) {
+        element.scrollHeight = state.height();
+        element.scrollTop = state.top();
+        element.setScrollTop(state.target());
+    }
+
     static void scrollToEnd(Element element) {
         element.setScrollTop(limit(element));
     }

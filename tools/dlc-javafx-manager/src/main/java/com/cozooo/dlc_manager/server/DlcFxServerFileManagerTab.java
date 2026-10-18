@@ -186,7 +186,7 @@ public final class DlcFxServerFileManagerTab {
                             java.util.function.BooleanSupplier gameDirSelectedSupplier,
                             Runnable chooseGameDirAction,
                             Runnable readLocalFilesAction) {
-        syncTab = new DlcFxServerSyncTab(gameDirTextSupplier, gameDirSelectedSupplier, chooseGameDirAction, readLocalFilesAction);
+        syncTab = new DlcFxServerSyncTab(conn, gameDirTextSupplier, gameDirSelectedSupplier, chooseGameDirAction, readLocalFilesAction);
         return syncTab.build();
     }
 
@@ -210,6 +210,8 @@ public final class DlcFxServerFileManagerTab {
                 ? DlcFxI18n.tr("dlc_manager.status.no_data")
                 : DlcFxI18n.tr("dlc_manager.status.disconnected"));
     }
+
+    public boolean isSyncBusy() { return syncTab != null && syncTab.isBusy(); }
 
     public void onStorageContextChanged() {
         if (syncTab != null) {
@@ -456,12 +458,7 @@ public final class DlcFxServerFileManagerTab {
         return normalized.substring(0, slash);
     }
 
-    private static String formatSize(long bytes) {
-        if (bytes < 1024) return bytes + " B";
-        if (bytes < 1024 * 1024) return String.format("%.1f KB", bytes / 1024.0);
-        if (bytes < 1024 * 1024 * 1024) return String.format("%.1f MB", bytes / (1024.0 * 1024));
-        return String.format("%.2f GB", bytes / (1024.0 * 1024 * 1024));
-    }
+    private static String formatSize(long bytes) { return com.cozooo.dlc_manager.core.DlcFileSize.format(bytes); }
 
     private void showDeleteConfirm(List<String> remotePaths) {
         DlcFxModalOverlay.show(

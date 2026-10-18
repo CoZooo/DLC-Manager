@@ -23,6 +23,11 @@ public abstract class DlcFilePageScreen extends DlcPageScreen {
 
     protected final void fileRow(Element list, String name, String description, Supplier<String> checked,
                                  BooleanSupplier enabled, Runnable select, Runnable open) {
+        fileRowLine(list, name, description, checked, enabled, select, open);
+    }
+
+    protected final Element fileRowLine(Element list, String name, String description, Supplier<String> checked,
+                                        BooleanSupplier enabled, Runnable select, Runnable open) {
         Element line = node(list, "div", "page-row file-row");
         var button = action(line, "", () -> {
             if (enabled.getAsBoolean()) { select.run(); syncSelections(); }
@@ -59,6 +64,7 @@ public abstract class DlcFilePageScreen extends DlcPageScreen {
         };
         selections.add(sync);
         sync.run();
+        return line;
     }
 
     private void syncSelections() { selections.forEach(Runnable::run); }

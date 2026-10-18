@@ -40,28 +40,38 @@ public final class DlcServerSession implements AutoCloseable {
     }
 
     public static DlcServerSession connect(DlcServerEntry entry, int timeoutMs) throws IOException {
+        return connect(entry, timeoutMs, connection -> {});
+    }
+
+    public static DlcServerSession connect(DlcServerEntry entry, int timeoutMs, java.util.function.Consumer<AutoCloseable> opened) throws IOException {
         if (entry == null) {
             throw new IOException("missing server entry");
         }
         return connect(entry.host, entry.port, entry.password, timeoutMs,
-                DlcPlatformServices.languageCode(), DlcPlatformServices.playerName(), DlcPlatformServices.playerUuid());
+                DlcPlatformServices.languageCode(), DlcPlatformServices.playerName(), DlcPlatformServices.playerUuid(), opened);
     }
 
     public static DlcServerSession connect(String host, int port, String password, int timeoutMs,
                                            String lang, String player, String uuid) throws IOException {
+        return connect(host, port, password, timeoutMs, lang, player, uuid, connection -> {});
+    }
+
+    private static DlcServerSession connect(String host, int port, String password, int timeoutMs,
+                                           String lang, String player, String uuid, java.util.function.Consumer<AutoCloseable> opened) throws IOException {
         Socket socket = new Socket();
-        String actualHost = host == null ? "" : host;
-        socket.connect(new InetSocketAddress(actualHost, port), timeoutMs);
-        socket.setSoTimeout(timeoutMs);
-        DlcServerSession session = new DlcServerSession(socket);
         try {
+            opened.accept(socket);
+            String actualHost = host == null ? "" : host;
+            socket.connect(new InetSocketAddress(actualHost, port), timeoutMs);
+            socket.setSoTimeout(timeoutMs);
+            DlcServerSession session = new DlcServerSession(socket);
             socket.getOutputStream().write(PORT_MULTIPLEXER_PREFACE);
             socket.getOutputStream().flush();
             session.hello(password, lang, player, uuid);
             return session;
         } catch (IOException | RuntimeException error) {
             try {
-                session.close();
+                socket.close();
             } catch (IOException ignored) {
             }
             throw error;
@@ -427,6 +437,18 @@ public final class DlcServerSession implements AutoCloseable {
         addIfNotBlank(finish, "id", id);
         JsonObject finishResponse = rawRequest("push_finish", finish);
         return bool(finishResponse, "ok");
+    }
+
+    public synchronized JsonObject syncRequest(JsonObject payload) throws IOException {
+        String id = UUID.randomUUID().toString();
+        payload.addProperty("requestId", id);
+        send(withType("dlc_sync", payload));
+        while (true) {
+            JsonObject response = readObject();
+            if ("dlc_sync_progress".equals(string(response, "type"))) continue;
+            if (!id.equals(string(response, "requestId"))) throw new com.cozooo.dlc_manager.sync.SyncFailure("unsupported");
+            return response;
+        }
     }
 
     public JsonObject rawRequest(String type, JsonObject payload) throws IOException {

@@ -18,6 +18,8 @@ import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
 import org.gradle.api.tasks.bundling.Jar
+import org.gradle.api.tasks.testing.Test
+import org.gradle.process.CommandLineArgumentProvider
 import org.gradle.api.tasks.compile.JavaCompile
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -482,6 +484,22 @@ if (stoneNodes.contains(project.name)) {
             from(rootProject.layout.projectDirectory.file("LICENSE")) { into("META-INF/dlc-manager") }
         }
     }
+    val mixinTestJar = tasks.named<Jar>("jar").flatMap { it.archiveFile }
+    tasks.withType<Test>().configureEach {
+        dependsOn(mixinTestJar)
+        inputs.file(mixinTestJar)
+        systemProperty("dlc_manager.test.loader", loaderName)
+        jvmArgumentProviders.add(CommandLineArgumentProvider {
+            listOf("-Ddlc_manager.test.jar=${mixinTestJar.get().asFile.absolutePath}")
+        })
+        if (loaderName == "forge") {
+            dependsOn("generateDLIConfig")
+            val launchConfig = rootProject.layout.projectDirectory.file(".gradle/loom-cache/projects/$nodeName/launch.cfg")
+            inputs.file(launchConfig)
+            systemProperty("dlc_manager.test.launchConfig", launchConfig.asFile.absolutePath)
+        }
+    }
+
     tasks.withType<ProcessResources>().configureEach {
         notCompatibleWithConfigurationCache("StoneCraft processResources actions capture Project.")
         if (name == "processResources") {
@@ -612,6 +630,9 @@ if (stoneNodes.contains(project.name)) {
     }
 
     extensions.configure<LoomGradleExtensionAPI> {
+        if (loaderName == "forge") {
+            forge.mixinConfig("dlc_manager.mixins.json")
+        }
         runs.named("server") {
             runDirectory.set(rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/server"))
         }
@@ -828,6 +849,9 @@ if (stoneNodes.contains(project.name)) {
                     it.name.startsWith("DLC-Manager-bootstrap-$loaderName-$minecraftVersion-") && it.name.endsWith(".jar")
                 }?.forEach(File::delete)
             }
+        }
+        if (remappedJar.name == "jar") {
+            tasks.withType<Test>().configureEach { dependsOn(packageDistribution) }
         }
         remappedJar.configure { finalizedBy(packageDistribution) }
     }

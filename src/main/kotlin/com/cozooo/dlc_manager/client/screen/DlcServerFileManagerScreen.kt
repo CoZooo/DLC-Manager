@@ -341,18 +341,7 @@ class DlcServerFileManagerScreen(
     private val selectedEntry: DlcServerFileEntry?
         get() = if (selectedIndex >= 0 && selectedIndex < entries.size) entries[selectedIndex] else null
 
-    private fun formatSize(size: Long): String {
-        if (size <= 0) {
-            return ""
-        }
-        if (size > 1024 * 1024) {
-            return String.format("%.1f MB", size / 1024.0 / 1024.0)
-        }
-        if (size > 1024) {
-            return String.format("%.1f KB", size / 1024.0)
-        }
-        return "$size B"
-    }
+    private fun formatSize(size: Long): String = com.cozooo.dlc_manager.core.DlcFileSize.format(size)
 
     companion object {
 

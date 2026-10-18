@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.download
 
+import com.cozooo.dlc_manager.core.DlcFileSize
 import com.cozooo.dlc_manager.core.DlcConfig
 import java.io.BufferedInputStream
 import java.io.IOException
@@ -28,7 +29,7 @@ object DlcDownloadService {
     private const val MIRROR_COMPARE_WINDOW_MS = 3000L
     private const val MIRROR_DISABLE_FAILURES = 2
     private const val SPEED_WINDOW_MS = 1000L
-    private const val BYTES_PER_MIB = 1024L * 1024L
+    private const val BYTES_PER_MIB = DlcFileSize.MIB
     private const val MIN_MIRROR_SPEED_CHECK_BYTES = BYTES_PER_MIB
     private const val SEGMENT_SPEED_DROP_RETRY_RATIO = 0.25
     private const val CURSEFORGE_PROBE_PROJECT_ID = "678295"
@@ -94,6 +95,8 @@ object DlcDownloadService {
         }
         val target = outputDir.resolve(fileName)
         val temp = outputDir.resolve("$fileName.part")
+        com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeSyncWrite(target)
+        com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeSyncWrite(temp)
 
         listener?.onProgress(0L, probe.totalBytes)
         if (probe.supportsRanges
@@ -151,6 +154,8 @@ object DlcDownloadService {
         }
         val target = outputDir.resolve(fileName)
         val temp = outputDir.resolve("$fileName.part")
+        com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeSyncWrite(target)
+        com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeSyncWrite(temp)
         val total = if (expectedSize > 0) expectedSize else -1L
         val mode = DownloadMirrorMode.fromConfig(DlcConfig.getDownloadMirrorMode())
         val mirrorPlan = mirrorPlan(url, fileName, total)

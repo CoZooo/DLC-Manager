@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.config
 
+import com.cozooo.dlc_manager.core.DlcFileSize
 import com.cozooo.dlc_manager.core.DlcConfig
 
 object DlcConfigClient {
@@ -226,7 +227,7 @@ object DlcConfigClient {
 
         DlcConfig.setMaxConcurrentDownloads(MAX_CONCURRENT_DOWNLOADS.integerValue)
         DlcConfig.setMaxSegmentsPerFile(MAX_SEGMENTS_PER_FILE.integerValue)
-        DlcConfig.setMinSegmentBytes(kotlin.math.max(1, MIN_SEGMENT_MB.integerValue).toLong() * 1024L * 1024L)
+        DlcConfig.setMinSegmentBytes(kotlin.math.max(1, MIN_SEGMENT_MB.integerValue).toLong() * DlcFileSize.MIB)
         DlcConfig.setMaxRetryCount(MAX_RETRY.integerValue)
         DlcConfig.setConnectTimeoutMs(CONNECT_TIMEOUT_SECONDS.integerValue * 1000)
         DlcConfig.setTaskTimeoutMs(TASK_TIMEOUT_SECONDS.integerValue * 1000)
@@ -236,7 +237,7 @@ object DlcConfigClient {
     }
 
     private fun toMb(bytes: Long): Int {
-        val mb = (bytes + 1024L * 1024L - 1) / (1024L * 1024L)
+        val mb = DlcFileSize.ceilMiB(bytes)
         if (mb < 1) {
             return 1
         }

@@ -30,6 +30,18 @@ class DlcUiScrollTest {
         assertEquals(440, element.getTargetScrollTop());
     }
 
+    @Test void rebuildingAnInnerListPreservesItsCurrentAndPendingScrollBeforeLayout() {
+        Element previous = output(900);
+        previous.scrollTop = 200;
+        previous.setScrollTop(350);
+        var state = DlcUiScroll.capture(previous);
+        Element rebuilt = output(0);
+        DlcUiScroll.restore(rebuilt, state);
+        assertEquals(200, rebuilt.getScrollTop());
+        assertEquals(350, rebuilt.getTargetScrollTop());
+        assertEquals(900, rebuilt.scrollHeight);
+    }
+
     @Test void shortOutputRemainsVisibleAndUserScrollingDisablesFollowing() {
         Element element = output(40);
         DlcUiScroll.scrollToEnd(element);

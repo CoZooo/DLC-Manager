@@ -285,6 +285,7 @@ object DlcResourceHistory {
 
     @JvmStatic @Throws(IOException::class)
     fun copy(source: Path, target: Path) {
+        com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeSyncWrite(target)
         if (Files.isSymbolicLink(source)) throw IOException("Cannot copy symbolic link: $source")
         if (Files.isDirectory(source)) {
             Files.createDirectories(target)

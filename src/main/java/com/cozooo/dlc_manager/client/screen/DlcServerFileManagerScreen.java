@@ -320,18 +320,7 @@ public class DlcServerFileManagerScreen extends DlcFilePageScreen {
         return null;
     }
 
-    private String formatSize(long size) {
-        if (size <= 0) {
-            return "";
-        }
-        if (size > 1024 * 1024) {
-            return String.format("%.1f MB", size / 1024.0 / 1024.0);
-        }
-        if (size > 1024) {
-            return String.format("%.1f KB", size / 1024.0);
-        }
-        return size + " B";
-    }
+    private String formatSize(long size) { return com.cozooo.dlc_manager.core.DlcFileSize.format(size); }
 
     private boolean controlsReady;
     private int pageRevision;

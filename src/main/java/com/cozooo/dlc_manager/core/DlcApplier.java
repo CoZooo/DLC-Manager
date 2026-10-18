@@ -97,6 +97,39 @@ public class DlcApplier {
         return new ApplyResult(messages, requiresRestart, attemptedHotReload, context.helperScheduled);
     }
 
+    public static void applySynced(DlcItem item) throws IOException {
+        ApplyContext context = new ApplyContext(new ArrayList<>());
+        CURRENT_APPLY_CONTEXT.set(context);
+        try {
+            List<DlcItem> all = new DlcScanner().scan(false).values().stream().flatMap(List::stream).map(candidate -> candidate.getId().equals(item.getId()) ? item : candidate).toList();
+            DlcRuntimeState.updateItemIndex(all);
+            applyDlcConflictPaths(all);
+            DlcStateConfig.DlcState previous = DlcStateConfig.getState(item.getId());
+            List<Path> targets;
+            if (item.isEnabled()) targets = applyItem(item);
+            else { RemovalResult removed = removeItem(item, previous); if (!removed.messages().isEmpty()) throw new IOException(String.join("; ", removed.messages())); targets = List.of(); }
+            if (!context.messages.isEmpty()) throw new IOException(String.join("; ", context.messages));
+            DlcStateConfig.DlcState state = new DlcStateConfig.DlcState();
+            state.root = DlcPathUtil.toGameRelativePath(item.getDlcRoot());
+            state.mode = item.getMatchMode();
+            state.enabled = item.isEnabled();
+            state.appliedTargets = targets.stream().map(DlcPathUtil::toGameRelativePath).toList();
+            DlcStateConfig.setState(item.getId(), state);
+            DlcStateConfig.save();
+        } finally { CURRENT_APPLY_CONTEXT.remove(); }
+    }
+
+    public static boolean applyPresetConflictsSynced() throws IOException {
+        ApplyContext context = new ApplyContext(new ArrayList<>());
+        CURRENT_APPLY_CONTEXT.set(context);
+        try {
+            PresetConflictPathResult result = applyPresetConflictPaths();
+            if (!result.messages().isEmpty()) throw new IOException(String.join("; ", result.messages()));
+            if (!context.messages.isEmpty()) throw new IOException(String.join("; ", context.messages));
+            return result.changed();
+        } finally { CURRENT_APPLY_CONTEXT.remove(); }
+    }
+
     private static DlcConflictPathResult applyDlcConflictPaths(Collection<DlcItem> items) {
         List<String> messages = new ArrayList<>();
         Set<String> desiredPatterns = collectEnabledDlcConflictPathPatterns(items);
@@ -663,6 +696,7 @@ public class DlcApplier {
     }
 
     private static void copyWithHelperFallback(Path source, Path target) throws IOException {
+        com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeSyncWrite(target);
         if (source == null || target == null) {
             return;
         }
@@ -689,6 +723,8 @@ public class DlcApplier {
     }
 
     private static void moveWithHelperFallback(Path source, Path target, boolean replaceExisting) throws IOException {
+        com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeSyncWrite(target);
+        com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeSyncWrite(source);
         if (source == null || target == null) {
             return;
         }
@@ -720,6 +756,7 @@ public class DlcApplier {
     }
 
     private static void deleteWithHelperFallback(Path path) throws IOException {
+        com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeSyncWrite(path);
         if (path == null) {
             return;
         }

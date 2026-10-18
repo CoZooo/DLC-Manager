@@ -89,6 +89,39 @@ object DlcApplier {
         return ApplyResult(messages, requiresRestart, attemptedHotReload, context.helperScheduled)
     }
 
+    @JvmStatic @Throws(IOException::class)
+    fun applySynced(item: DlcItem) {
+        val context = ApplyContext(mutableListOf())
+        CURRENT_APPLY_CONTEXT.set(context)
+        try {
+            val all = DlcScanner().scan(false).values.filterNotNull().flatMap { it.filterNotNull() }.map { if (it.getId() == item.getId()) item else it }
+            DlcRuntimeState.updateItemIndex(all)
+            applyDlcConflictPaths(all)
+            val previous = DlcStateConfig.getState(item.getId())
+            val targets = if (item.isEnabled()) applyItem(item) else { val removed = removeItem(item, previous); if (removed.messages.isNotEmpty()) throw IOException(removed.messages.joinToString("; ")); emptyList() }
+            if (context.messages.isNotEmpty()) throw IOException(context.messages.joinToString("; "))
+            val state = DlcStateConfig.DlcState()
+            state.root = DlcPathUtil.toGameRelativePath(item.getDlcRoot())
+            state.mode = item.getMatchMode()
+            state.enabled = item.isEnabled()
+            state.appliedTargets = targets.map { DlcPathUtil.toGameRelativePath(it) }
+            DlcStateConfig.setState(item.getId(), state)
+            DlcStateConfig.save()
+        } finally { CURRENT_APPLY_CONTEXT.remove() }
+    }
+
+    @JvmStatic @Throws(IOException::class)
+    fun applyPresetConflictsSynced(): Boolean {
+        val context = ApplyContext(mutableListOf())
+        CURRENT_APPLY_CONTEXT.set(context)
+        try {
+            val result = applyPresetConflictPaths()
+            if (result.messages.isNotEmpty()) throw IOException(result.messages.joinToString("; "))
+            if (context.messages.isNotEmpty()) throw IOException(context.messages.joinToString("; "))
+            return result.changed
+        } finally { CURRENT_APPLY_CONTEXT.remove() }
+    }
+
     private fun applyDlcConflictPaths(items: Collection<DlcItem>?): DlcConflictPathResult {
         val messages = ArrayList<String>()
         val desiredPatterns = collectEnabledDlcConflictPathPatterns(items)
@@ -654,6 +687,7 @@ object DlcApplier {
 
     @Throws(IOException::class)
     private fun copyWithHelperFallback(source: Path?, target: Path?) {
+        com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeSyncWrite(target)
         if (source == null || target == null) {
             return
         }
@@ -681,6 +715,8 @@ object DlcApplier {
 
     @Throws(IOException::class)
     private fun moveWithHelperFallback(source: Path?, target: Path?, replaceExisting: Boolean) {
+        com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeSyncWrite(target)
+        com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeSyncWrite(source)
         if (source == null || target == null) {
             return
         }
@@ -713,6 +749,7 @@ object DlcApplier {
 
     @Throws(IOException::class)
     private fun deleteWithHelperFallback(path: Path?) {
+        com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeSyncWrite(path)
         if (path == null) {
             return
         }

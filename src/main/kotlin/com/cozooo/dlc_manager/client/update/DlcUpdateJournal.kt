@@ -80,15 +80,23 @@ class DlcUpdateJournal private constructor(game: Path, directory: Path, private 
     }
 
     override fun close() {
+        SYNC.remove()
         ACTIVE.remove()
         com.cozooo.dlc_manager.client.helper.DlcFileOpsHelperClient.requireImmediateOperations(false)
     }
 
     companion object {
         private val ACTIVE = ThreadLocal<DlcUpdateJournal>()
+        private val SYNC = ThreadLocal<Boolean>()
+
+        @JvmStatic @Throws(IOException::class)
+        fun openSync(game: Path, directory: Path): DlcUpdateJournal = open(game, directory).also { SYNC.set(true) }
+
+        @JvmStatic fun beforeSyncWrite(target: Path?) { if (SYNC.get() == true) beforeWrite(target) }
 
         @JvmStatic
         fun open(game: Path, directory: Path): DlcUpdateJournal {
+            SYNC.remove()
             val log = directory.resolve("recovery.dc")
             val saved = if (Files.exists(log)) DcDocuments.read(log).toJson() else JsonObject()
             val entries = if (saved.has("entries")) saved.getAsJsonArray("entries") else JsonArray()
