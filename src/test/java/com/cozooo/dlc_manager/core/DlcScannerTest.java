@@ -43,6 +43,46 @@ class DlcScannerTest {
     }
 
     @Test
+    void gunpacksUseExplicitTypesWithoutScanningInstalledTargets() throws Exception {
+        PlatformServices.setProvider(new TestPlatformProvider(gameDir, tempDir.resolve("config"), true));
+        Path installed = gameDir.resolve("installed-gunpacks");
+        DlcConfig.setTaczRoot(installed.toString());
+        Files.createDirectories(installed);
+        writeZip(installed.resolve("installed.zip"), "guns/installed.json", "{}");
+        Files.createDirectories(dlcRoot.resolve("info"));
+        Files.createDirectories(dlcRoot.resolve("tacz/directory-pack"));
+        writeZip(dlcRoot.resolve("tacz/source.zip"), "guns/source.json", "{}");
+        writeZip(dlcRoot.resolve("tacz/untyped.zip"), "guns/untyped.json", "{}");
+        Files.writeString(dlcRoot.resolve("tacz/ordinary.jar"), "mod");
+        Files.writeString(dlcRoot.resolve("tacz/directory-pack/content.jar"), "gunpack-content");
+        Files.writeString(dlcRoot.resolve("info/source.dc"), "[basic]\nidentifier='source'\nfile_name='source.zip'\ntype='gunpack'\n");
+        Files.writeString(dlcRoot.resolve("info/directory.dc"), "[basic]\nidentifier='directory'\nfile_name='directory-pack'\ntype='gunpack'\n");
+
+        var grouped = new DlcScanner().scan(true);
+
+        assertEquals(java.util.Set.of("source.zip", "directory-pack"), new java.util.HashSet<>(names(grouped.get(DlcType.TACZ_PACK))));
+        assertEquals(List.of("ordinary.jar"), names(grouped.get(DlcType.MOD)));
+        assertTrue(grouped.values().stream().flatMap(List::stream).noneMatch(item -> item.getSourcePath().startsWith(installed)));
+        assertTrue(grouped.get(DlcType.TACZ_PACK).stream().allMatch(item -> item.getSourcePath().startsWith(dlcRoot)));
+    }
+
+    @Test
+    void remoteGunpackDirectoriesUseRemoteTypeMetadata() throws Exception {
+        Files.createDirectories(dlcRoot.resolve("remote/A"));
+        Path source = dlcRoot.resolve("downloaded/DLCs/A/gunpack");
+        Files.createDirectories(source);
+        Files.writeString(source.resolve("gun.json"), "{}");
+        Files.writeString(dlcRoot.resolve("remote/A/pack.dc"), "[basic]\nidentifier='remote-guns'\nfile_name='gunpack'\ntype='gunpack'\n");
+
+        var items = new DlcScanner().scan().get(DlcType.TACZ_PACK);
+
+        assertEquals(1, items.size());
+        assertEquals(source, items.get(0).getSourcePath());
+        assertEquals("remote-guns", items.get(0).getIdentifier());
+        assertEquals(dlcRoot.resolve("remote/A"), items.get(0).getGroupDirectory());
+    }
+
+    @Test
     void scanClassifiesArchivesDirectoriesAndSkipsMetadataRoots() throws Exception {
         Files.createDirectories(dlcRoot.resolve("info"));
         Files.writeString(dlcRoot.resolve("mod-a.jar"), "jar");

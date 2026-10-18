@@ -47,7 +47,7 @@ public class DlcPaths {
     }
 
     public static Path taczDir() {
-        return gameDir().resolve("tacz");
+        return DlcConfig.getTaczRoot();
     }
 
     public static Path datapackStagingDir() {

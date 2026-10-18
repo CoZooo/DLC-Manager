@@ -10,7 +10,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -22,7 +21,7 @@ public class DlcConfig {
     private static final String CONFIG_SERVER_NAME = "config-server";
 
     public static final String DEFAULT_DLC_ROOT = "DLC";
-    public static final String DEFAULT_TACZ_DLC_ROOT = "tacz";
+    public static final String DEFAULT_TACZ_ROOT = "tacz";
     public static final String DEFAULT_RESOURCEPACK_ROOT = "resourcepacks";
     public static final String DEFAULT_DATAPACK_ROOT = "datapacks";
     public static final boolean DEFAULT_ENABLE_ALL_SHOWN = true;
@@ -87,7 +86,7 @@ public class DlcConfig {
     public static final boolean DEFAULT_MODPACK_FORCE_UPDATE = false;
 
     private static String dlcRoot = DEFAULT_DLC_ROOT;
-    private static String taczRoot = DEFAULT_TACZ_DLC_ROOT;
+    private static String taczRoot = DEFAULT_TACZ_ROOT;
     private static String resourcepackRoot = DEFAULT_RESOURCEPACK_ROOT;
     private static String datapackRoot = DEFAULT_DATAPACK_ROOT;
 
@@ -216,7 +215,7 @@ public class DlcConfig {
     }
 
     public static Path getTaczRoot() {
-        return getTaczDlcRoots().get(0);
+        return getTaczRoots().get(0);
     }
 
     public static Path getResourcepackRoot() {
@@ -231,8 +230,8 @@ public class DlcConfig {
         return resolvePaths(getDlcRootRaw(), DEFAULT_DLC_ROOT);
     }
 
-    public static List<Path> getTaczDlcRoots() {
-        return resolvePathsRelativeToDlc(getTaczRootRaw(), DEFAULT_TACZ_DLC_ROOT);
+    public static List<Path> getTaczRoots() {
+        return resolvePaths(getTaczRootRaw(), DEFAULT_TACZ_ROOT);
     }
 
     public static List<Path> getResourcepackRoots() {
@@ -248,7 +247,7 @@ public class DlcConfig {
     }
 
     public static String getTaczRootRaw() {
-        return stringOrDefault(taczRoot, DEFAULT_TACZ_DLC_ROOT);
+        return stringOrDefault(taczRoot, DEFAULT_TACZ_ROOT);
     }
 
     public static String getResourcepackRootRaw() {
@@ -830,7 +829,7 @@ public class DlcConfig {
 
     private static void resetDefaults() {
         dlcRoot = DEFAULT_DLC_ROOT;
-        taczRoot = DEFAULT_TACZ_DLC_ROOT;
+        taczRoot = DEFAULT_TACZ_ROOT;
         resourcepackRoot = DEFAULT_RESOURCEPACK_ROOT;
         datapackRoot = DEFAULT_DATAPACK_ROOT;
         enableAllButtonShown = DEFAULT_ENABLE_ALL_SHOWN;
@@ -1111,7 +1110,7 @@ public class DlcConfig {
     private static Map<String, Consumer<JsonElement>> buildPathReaders() {
         Map<String, Consumer<JsonElement>> map = new HashMap<>();
         map.put("dlcRoot", value -> dlcRoot = asString(value, DEFAULT_DLC_ROOT));
-        map.put("taczRoot", value -> taczRoot = asString(value, DEFAULT_TACZ_DLC_ROOT));
+        map.put("taczRoot", value -> taczRoot = asString(value, DEFAULT_TACZ_ROOT));
         map.put("resourcepackRoot", value -> resourcepackRoot = asString(value, DEFAULT_RESOURCEPACK_ROOT));
         map.put("datapackRoot", value -> datapackRoot = asString(value, DEFAULT_DATAPACK_ROOT));
         return map;
@@ -1315,52 +1314,6 @@ public class DlcConfig {
             paths.add(resolvePath(fallback, fallback));
         }
         return paths;
-    }
-
-    private static List<Path> resolvePathsRelativeToDlc(String value, String fallback) {
-        String raw = value == null || value.isBlank() ? fallback : value;
-        String[] parts = raw.split(",");
-        LinkedHashSet<Path> paths = new LinkedHashSet<>();
-        List<Path> dlcRoots = getDlcRoots();
-        for (String part : parts) {
-            String trimmed = part.trim();
-            if (trimmed.isEmpty()) {
-                continue;
-            }
-            Path candidate = DlcPaths.parsePathLenient(trimmed);
-            if (candidate == null) {
-                continue;
-            }
-            if (candidate.isAbsolute()) {
-                paths.add(candidate.normalize());
-            } else {
-                boolean added = false;
-                for (Path dlcRootPath : dlcRoots) {
-                    Path resolved = dlcRootPath.resolve(trimmed).normalize();
-                    if (Files.exists(resolved)) {
-                        paths.add(resolved);
-                        added = true;
-                    }
-                }
-                if (!added && !dlcRoots.isEmpty()) {
-                    paths.add(dlcRoots.get(0).resolve(trimmed).normalize());
-                }
-            }
-        }
-        if (paths.isEmpty()) {
-            boolean added = false;
-            for (Path dlcRootPath : dlcRoots) {
-                Path resolved = dlcRootPath.resolve(fallback).normalize();
-                if (Files.exists(resolved)) {
-                    paths.add(resolved);
-                    added = true;
-                }
-            }
-            if (!added && !dlcRoots.isEmpty()) {
-                paths.add(dlcRoots.get(0).resolve(fallback).normalize());
-            }
-        }
-        return new ArrayList<>(paths);
     }
 
     private static void migrateKnownConfigsToDc() {

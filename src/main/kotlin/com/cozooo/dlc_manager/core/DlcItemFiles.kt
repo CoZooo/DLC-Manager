@@ -25,7 +25,7 @@ object DlcItemFiles {
                 DlcType.MOD -> listOf(DlcPaths.modsDir())
                 DlcType.RESOURCE_PACK -> DlcConfig.getResourcepackRoots()
                 DlcType.DATA_PACK -> DlcConfig.getDatapackRoots()
-                DlcType.TACZ_PACK -> listOf(DlcPaths.taczDir())
+                DlcType.TACZ_PACK -> DlcConfig.getTaczRoots()
                 else -> emptyList()
             }
             for (directory in directories) result.add(Target(source, directory.resolve(source.fileName), true))

@@ -55,7 +55,7 @@ public final class DlcFxConfigModel {
         this.source = source == null ? localSource() : source;
         register(Tab.PATHS,
                 string("dlcRoot", "paths", "dlcRoot", "dlc_manager.config.paths.dlcRoot", "dlc_manager.config.comment.paths.dlcRoot", DlcConfig.DEFAULT_DLC_ROOT),
-                string("taczRoot", "paths", "taczRoot", "dlc_manager.config.paths.taczRoot", "dlc_manager.config.comment.paths.taczRoot", DlcConfig.DEFAULT_TACZ_DLC_ROOT),
+                string("taczRoot", "paths", "taczRoot", "dlc_manager.config.paths.taczRoot", "dlc_manager.config.comment.paths.taczRoot", DlcConfig.DEFAULT_TACZ_ROOT),
                 string("resourcepackRoot", "paths", "resourcepackRoot", "dlc_manager.config.paths.resourcepackRoot", "dlc_manager.config.comment.paths.resourcepackRoot", DlcConfig.DEFAULT_RESOURCEPACK_ROOT),
                 string("datapackRoot", "paths", "datapackRoot", "dlc_manager.config.paths.datapackRoot", "dlc_manager.config.comment.paths.datapackRoot", DlcConfig.DEFAULT_DATAPACK_ROOT));
 

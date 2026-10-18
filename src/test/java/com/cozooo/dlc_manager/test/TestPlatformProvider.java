@@ -7,10 +7,16 @@ import java.nio.file.Path;
 public final class TestPlatformProvider implements PlatformServices.Provider {
     private final Path gameDir;
     private final Path configDir;
+    private final boolean taczLoaded;
 
     public TestPlatformProvider(Path gameDir, Path configDir) {
+        this(gameDir, configDir, false);
+    }
+
+    public TestPlatformProvider(Path gameDir, Path configDir, boolean taczLoaded) {
         this.gameDir = gameDir;
         this.configDir = configDir;
+        this.taczLoaded = taczLoaded;
     }
 
     @Override
@@ -25,7 +31,7 @@ public final class TestPlatformProvider implements PlatformServices.Provider {
 
     @Override
     public boolean isModLoaded(String modId) {
-        return false;
+        return taczLoaded && "tacz".equals(modId);
     }
 
     @Override

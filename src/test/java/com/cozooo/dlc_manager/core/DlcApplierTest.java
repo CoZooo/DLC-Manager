@@ -41,6 +41,37 @@ class DlcApplierTest {
     }
 
     @Test
+    void gunpacksDeployDetectAndDisableUsingConfiguredTaczTargets() throws Exception {
+        DlcConfig.setTaczRoot("custom/gunpacks,second-gunpacks");
+        Files.createDirectories(dlcRoot.resolve("sources/directory-pack"));
+        Path archive = dlcRoot.resolve("sources/guns.zip");
+        Path directory = dlcRoot.resolve("sources/directory-pack");
+        Files.writeString(archive, "archive-content");
+        Files.writeString(directory.resolve("guns.json"), "directory-content");
+        DlcItem zipItem = item("gun-archive", DlcType.TACZ_PACK, archive, null, false);
+        DlcItem directoryItem = item("gun-directory", DlcType.TACZ_PACK, directory, null, false);
+        List<DlcItem> items = List.of(zipItem, directoryItem);
+        items.forEach(item -> item.setEnabled(true));
+
+        DlcApplier.apply(items, DlcApplyMode.RESTART_ONLY);
+
+        assertEquals(List.of(gameDir.resolve("custom/gunpacks/guns.zip"), gameDir.resolve("second-gunpacks/guns.zip")), DlcItemFiles.installed(zipItem));
+        assertEquals(List.of(gameDir.resolve("custom/gunpacks/directory-pack"), gameDir.resolve("second-gunpacks/directory-pack")), DlcItemFiles.installed(directoryItem));
+        assertEquals("directory-content", Files.readString(gameDir.resolve("custom/gunpacks/directory-pack/guns.json")));
+        assertEquals(List.of("custom/gunpacks/guns.zip", "second-gunpacks/guns.zip"), DlcStateConfig.getState(zipItem.getId()).appliedTargets);
+        assertFalse(Files.exists(gameDir.resolve("tacz")));
+        assertEquals("archive-content", Files.readString(archive));
+
+        DlcConfig.setTaczRoot("changed-target");
+        items.forEach(item -> item.setEnabled(false));
+        DlcApplier.apply(items, DlcApplyMode.RESTART_ONLY);
+
+        assertFalse(Files.exists(gameDir.resolve("custom/gunpacks/guns.zip")));
+        assertFalse(Files.exists(gameDir.resolve("second-gunpacks/directory-pack")));
+        assertEquals("directory-content", Files.readString(directory.resolve("guns.json")));
+    }
+
+    @Test
     void applyCopiesAndRemovesModFilesAndPersistsRelativeState() throws Exception {
         Files.createDirectories(dlcRoot);
         Path source = dlcRoot.resolve("mod-a.jar");

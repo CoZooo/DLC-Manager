@@ -40,7 +40,7 @@ public final class DlcServerConfigClient {
 
     private static final DlcConfigValue.StringValue DLC_ROOT = new DlcConfigValue.StringValue("dlcRoot", DlcConfig.DEFAULT_DLC_ROOT,
         "dlc_manager.config.comment.paths.dlcRoot", "dlc_manager.config.paths.dlcRoot");
-    private static final DlcConfigValue.StringValue TACZ_ROOT = new DlcConfigValue.StringValue("taczRoot", DlcConfig.DEFAULT_TACZ_DLC_ROOT,
+    private static final DlcConfigValue.StringValue TACZ_ROOT = new DlcConfigValue.StringValue("taczRoot", DlcConfig.DEFAULT_TACZ_ROOT,
         "dlc_manager.config.comment.paths.taczRoot", "dlc_manager.config.paths.taczRoot");
     private static final DlcConfigValue.StringValue RESOURCEPACK_ROOT = new DlcConfigValue.StringValue("resourcepackRoot", DlcConfig.DEFAULT_RESOURCEPACK_ROOT,
         "dlc_manager.config.comment.paths.resourcepackRoot", "dlc_manager.config.paths.resourcepackRoot");

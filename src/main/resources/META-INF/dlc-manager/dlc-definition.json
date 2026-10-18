@@ -1426,7 +1426,7 @@
               "name": "taczRoot",
               "type": "string",
               "required": false,
-              "description": "TACZ pack directory name.",
+              "description": "TACZ deployment directory, relative to the game directory. DLC source packs use type=gunpack.",
               "enumValues": [],
               "constraints": {}
             },

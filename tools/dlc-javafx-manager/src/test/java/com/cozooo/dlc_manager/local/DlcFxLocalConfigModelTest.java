@@ -64,12 +64,14 @@ final class DlcFxLocalConfigModelTest {
         DlcFxConfigModel model = new DlcFxConfigModel();
         model.loadFromConfig();
         assertTrue(model.find("dlcRoot").setValueFromString("CustomDLC"));
+        assertTrue(model.find("taczRoot").setValueFromString("custom/gunpacks"));
         assertTrue(model.find("noticeDisplayMode").setValueFromString("main_menu_panel"));
         assertTrue(model.find("maxConcurrentDownloads").setValueFromString("7"));
 
         model.applyToConfig();
 
         assertEquals("CustomDLC", DlcConfig.getDlcRootRaw());
+        assertEquals(tempDir.resolve("game/custom/gunpacks"), DlcConfig.getTaczRoot());
         assertTrue(DlcConfig.isNoticeDisplayModeMainMenuPanel());
         assertEquals(7, DlcConfig.getMaxConcurrentDownloads());
     }

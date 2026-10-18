@@ -32,6 +32,28 @@ class DlcConfigTest {
     }
 
     @Test
+    void taczTargetsResolveAgainstGameDirIndependentlyOfDlcSources() throws Exception {
+        Path gameDir = tempDir.resolve("game");
+        DlcConfig.setDlcRoot("optional,other-dlc");
+        Files.createDirectories(gameDir.resolve("other-dlc/tacz"));
+        assertEquals(gameDir.resolve("tacz"), DlcConfig.getTaczRoot());
+        assertEquals(DlcConfig.getTaczRoot(), DlcPaths.taczDir());
+
+        Path external = tempDir.resolve("external-gunpacks");
+        DlcConfig.setTaczRoot("custom\\guns," + external);
+        assertEquals(java.util.List.of(gameDir.resolve("custom/guns"), external), DlcConfig.getTaczRoots());
+        assertEquals(gameDir.resolve("custom/guns"), DlcPaths.taczDir());
+
+        DlcConfig.saveShared();
+        DlcConfig.loadClient();
+        assertEquals("custom\\guns," + external, DlcConfig.getTaczRootRaw());
+        assertEquals(java.util.List.of(gameDir.resolve("custom/guns"), external), DlcConfig.getTaczRoots());
+
+        DlcConfig.setTaczRoot(" , ");
+        assertEquals(java.util.List.of(gameDir.resolve("tacz")), DlcConfig.getTaczRoots());
+    }
+
+    @Test
     void anchoredPositionsUseConfiguredAnchorAndOffsets() {
         DlcConfig.setTitleAnchor("bottom_right");
         DlcConfig.setTitleOffsetX(-5);

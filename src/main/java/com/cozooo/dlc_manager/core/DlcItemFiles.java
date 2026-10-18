@@ -25,7 +25,7 @@ public final class DlcItemFiles {
                 case MOD -> List.of(DlcPaths.modsDir());
                 case RESOURCE_PACK -> DlcConfig.getResourcepackRoots();
                 case DATA_PACK -> DlcConfig.getDatapackRoots();
-                case TACZ_PACK -> List.of(DlcPaths.taczDir());
+                case TACZ_PACK -> DlcConfig.getTaczRoots();
                 default -> List.of();
             };
             for (Path directory : directories) result.add(new Target(item.getSourcePath(), directory.resolve(item.getSourcePath().getFileName()), true));

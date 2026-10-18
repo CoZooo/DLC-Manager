@@ -55,7 +55,7 @@ object DlcPaths {
 
     @JvmStatic
     fun taczDir(): Path {
-        return gameDir().resolve("tacz")
+        return DlcConfig.getTaczRoot()
     }
 
     @JvmStatic

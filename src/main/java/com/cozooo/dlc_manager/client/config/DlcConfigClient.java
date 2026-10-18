@@ -5,7 +5,7 @@ import java.util.List;
 
 public final class DlcConfigClient {
     private static final DlcConfigValue.StringValue DLC_ROOT = new DlcConfigValue.StringValue("dlcRoot", DlcConfig.DEFAULT_DLC_ROOT, "dlc_manager.config.comment.paths.dlcRoot", "dlc_manager.config.paths.dlcRoot");
-    private static final DlcConfigValue.StringValue TACZ_ROOT = new DlcConfigValue.StringValue("taczRoot", DlcConfig.DEFAULT_TACZ_DLC_ROOT, "dlc_manager.config.comment.paths.taczRoot", "dlc_manager.config.paths.taczRoot");
+    private static final DlcConfigValue.StringValue TACZ_ROOT = new DlcConfigValue.StringValue("taczRoot", DlcConfig.DEFAULT_TACZ_ROOT, "dlc_manager.config.comment.paths.taczRoot", "dlc_manager.config.paths.taczRoot");
     private static final DlcConfigValue.StringValue RESOURCEPACK_ROOT = new DlcConfigValue.StringValue("resourcepackRoot", DlcConfig.DEFAULT_RESOURCEPACK_ROOT, "dlc_manager.config.comment.paths.resourcepackRoot", "dlc_manager.config.paths.resourcepackRoot");
     private static final DlcConfigValue.StringValue DATAPACK_ROOT = new DlcConfigValue.StringValue("datapackRoot", DlcConfig.DEFAULT_DATAPACK_ROOT, "dlc_manager.config.comment.paths.datapackRoot", "dlc_manager.config.paths.datapackRoot");
 

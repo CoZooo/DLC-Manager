@@ -4,7 +4,7 @@ import com.cozooo.dlc_manager.core.DlcConfig
 
 object DlcConfigClient {
     private val DLC_ROOT = DlcConfigValue.StringValue("dlcRoot", DlcConfig.DEFAULT_DLC_ROOT, "dlc_manager.config.comment.paths.dlcRoot", "dlc_manager.config.paths.dlcRoot")
-    private val TACZ_ROOT = DlcConfigValue.StringValue("taczRoot", DlcConfig.DEFAULT_TACZ_DLC_ROOT, "dlc_manager.config.comment.paths.taczRoot", "dlc_manager.config.paths.taczRoot")
+    private val TACZ_ROOT = DlcConfigValue.StringValue("taczRoot", DlcConfig.DEFAULT_TACZ_ROOT, "dlc_manager.config.comment.paths.taczRoot", "dlc_manager.config.paths.taczRoot")
     private val RESOURCEPACK_ROOT = DlcConfigValue.StringValue("resourcepackRoot", DlcConfig.DEFAULT_RESOURCEPACK_ROOT, "dlc_manager.config.comment.paths.resourcepackRoot", "dlc_manager.config.paths.resourcepackRoot")
     private val DATAPACK_ROOT = DlcConfigValue.StringValue("datapackRoot", DlcConfig.DEFAULT_DATAPACK_ROOT, "dlc_manager.config.comment.paths.datapackRoot", "dlc_manager.config.paths.datapackRoot")
 

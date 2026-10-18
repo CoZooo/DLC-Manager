@@ -15,7 +15,7 @@ object DlcConfig {
     private const val CONFIG_SERVER_NAME: String = "config-server"
 
     const val DEFAULT_DLC_ROOT: String = "DLC"
-    const val DEFAULT_TACZ_DLC_ROOT: String = "tacz"
+    const val DEFAULT_TACZ_ROOT: String = "tacz"
     const val DEFAULT_RESOURCEPACK_ROOT: String = "resourcepacks"
     const val DEFAULT_DATAPACK_ROOT: String = "datapacks"
     const val DEFAULT_ENABLE_ALL_SHOWN: Boolean = true
@@ -80,7 +80,7 @@ object DlcConfig {
     const val DEFAULT_MODPACK_FORCE_UPDATE: Boolean = false
 
     private var dlcRoot = DEFAULT_DLC_ROOT
-    private var taczRoot = DEFAULT_TACZ_DLC_ROOT
+    private var taczRoot = DEFAULT_TACZ_ROOT
     private var resourcepackRoot = DEFAULT_RESOURCEPACK_ROOT
     private var datapackRoot = DEFAULT_DATAPACK_ROOT
     private var enableAllButtonShown = DEFAULT_ENABLE_ALL_SHOWN
@@ -184,15 +184,15 @@ object DlcConfig {
     }
 
     @JvmStatic fun getDlcRoot(): Path = getDlcRoots()[0]
-    @JvmStatic fun getTaczRoot(): Path = getTaczDlcRoots()[0]
+    @JvmStatic fun getTaczRoot(): Path = getTaczRoots()[0]
     @JvmStatic fun getResourcepackRoot(): Path = getResourcepackRoots()[0]
     @JvmStatic fun getDatapackRoot(): Path = getDatapackRoots()[0]
     @JvmStatic fun getDlcRoots(): List<Path> = resolvePaths(getDlcRootRaw(), DEFAULT_DLC_ROOT)
-    @JvmStatic fun getTaczDlcRoots(): List<Path> = resolvePathsRelativeToDlc(getTaczRootRaw(), DEFAULT_TACZ_DLC_ROOT)
+    @JvmStatic fun getTaczRoots(): List<Path> = resolvePaths(getTaczRootRaw(), DEFAULT_TACZ_ROOT)
     @JvmStatic fun getResourcepackRoots(): List<Path> = resolvePaths(getResourcepackRootRaw(), DEFAULT_RESOURCEPACK_ROOT)
     @JvmStatic fun getDatapackRoots(): List<Path> = resolvePaths(getDatapackRootRaw(), DEFAULT_DATAPACK_ROOT)
     @JvmStatic fun getDlcRootRaw(): String = stringOrDefault(dlcRoot, DEFAULT_DLC_ROOT)
-    @JvmStatic fun getTaczRootRaw(): String = stringOrDefault(taczRoot, DEFAULT_TACZ_DLC_ROOT)
+    @JvmStatic fun getTaczRootRaw(): String = stringOrDefault(taczRoot, DEFAULT_TACZ_ROOT)
     @JvmStatic fun getResourcepackRootRaw(): String = stringOrDefault(resourcepackRoot, DEFAULT_RESOURCEPACK_ROOT)
     @JvmStatic fun getDatapackRootRaw(): String = stringOrDefault(datapackRoot, DEFAULT_DATAPACK_ROOT)
     @JvmStatic fun isEnableAllButtonShown(): Boolean = enableAllButtonShown
@@ -359,7 +359,7 @@ object DlcConfig {
 
     private fun resetDefaults() {
         dlcRoot = DEFAULT_DLC_ROOT
-        taczRoot = DEFAULT_TACZ_DLC_ROOT
+        taczRoot = DEFAULT_TACZ_ROOT
         resourcepackRoot = DEFAULT_RESOURCEPACK_ROOT
         datapackRoot = DEFAULT_DATAPACK_ROOT
         enableAllButtonShown = DEFAULT_ENABLE_ALL_SHOWN
@@ -626,7 +626,7 @@ object DlcConfig {
 
     private fun buildPathReaders(): Map<String, (JsonElement) -> Unit> = mapOf(
         "dlcRoot" to { value -> dlcRoot = asString(value, DEFAULT_DLC_ROOT) },
-        "taczRoot" to { value -> taczRoot = asString(value, DEFAULT_TACZ_DLC_ROOT) },
+        "taczRoot" to { value -> taczRoot = asString(value, DEFAULT_TACZ_ROOT) },
         "resourcepackRoot" to { value -> resourcepackRoot = asString(value, DEFAULT_RESOURCEPACK_ROOT) },
         "datapackRoot" to { value -> datapackRoot = asString(value, DEFAULT_DATAPACK_ROOT) },
     )
@@ -801,48 +801,6 @@ object DlcConfig {
             paths.add(resolvePath(fallback, fallback))
         }
         return paths
-    }
-
-    private fun resolvePathsRelativeToDlc(value: String?, fallback: String): List<Path> {
-        val raw = if (value.isNullOrBlank()) fallback else value
-        val paths = LinkedHashSet<Path>()
-        val dlcRoots = getDlcRoots()
-        for (part in raw.split(",")) {
-            val trimmed = part.trim()
-            if (trimmed.isEmpty()) {
-                continue
-            }
-            val candidate = DlcPaths.parsePathLenient(trimmed) ?: continue
-            if (candidate.isAbsolute) {
-                paths.add(candidate.normalize())
-            } else {
-                var added = false
-                for (dlcRootPath in dlcRoots) {
-                    val resolved = dlcRootPath.resolve(trimmed).normalize()
-                    if (Files.exists(resolved)) {
-                        paths.add(resolved)
-                        added = true
-                    }
-                }
-                if (!added && dlcRoots.isNotEmpty()) {
-                    paths.add(dlcRoots[0].resolve(trimmed).normalize())
-                }
-            }
-        }
-        if (paths.isEmpty()) {
-            var added = false
-            for (dlcRootPath in dlcRoots) {
-                val resolved = dlcRootPath.resolve(fallback).normalize()
-                if (Files.exists(resolved)) {
-                    paths.add(resolved)
-                    added = true
-                }
-            }
-            if (!added && dlcRoots.isNotEmpty()) {
-                paths.add(dlcRoots[0].resolve(fallback).normalize())
-            }
-        }
-        return ArrayList(paths)
     }
 
     private fun migrateKnownConfigsToDc() {

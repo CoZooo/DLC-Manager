@@ -2,7 +2,6 @@ package com.cozooo.dlc_manager.core
 
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry
 import com.cozooo.dlc_manager.client.remote.DlcRemoteLoader
-import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import java.io.IOException
 import java.nio.file.FileVisitResult
 import java.nio.file.Files
@@ -27,7 +26,6 @@ class DlcScanner {
             }
 
             val roots = DlcConfig.getDlcRoots()
-            val taczRoots = DlcConfig.getTaczDlcRoots()
             val tooltipLoader = DlcTooltipLoader()
             val mainDlcRoot = if (DlcConfig.getDlcRoots().isEmpty()) null else DlcConfig.getDlcRoots()[0]
             val mainInfoDir = mainDlcRoot?.resolve("info")
@@ -38,11 +36,7 @@ class DlcScanner {
                     continue
                 }
                 seen.add(root)
-                scanRoot(grouped, root, taczRoots, tooltips, tooltipLoader, mainInfoDir, detectInstalledState)
-            }
-
-            if (DlcPlatformServices.isModLoaded("tacz")) {
-                scanTaczRoots(grouped, tooltipLoader, detectInstalledState)
+                scanRoot(grouped, root, tooltips, tooltipLoader, mainInfoDir, detectInstalledState)
             }
 
             return grouped
@@ -52,7 +46,6 @@ class DlcScanner {
     private fun scanRoot(
         grouped: MutableMap<DlcType?, MutableList<DlcItem?>?>,
         root: Path,
-        taczRoots: List<Path>,
         tooltips: Map<String, DlcTooltipLoader.TooltipData>,
         tooltipLoader: DlcTooltipLoader,
         infoDir: Path?,
@@ -91,11 +84,10 @@ class DlcScanner {
                         if (isUnderUpdateDir(dir, localUpdateDir) || isUnderUpdateDir(dir, localTmpDir) || isUnderUpdateDir(dir, localLegacyTmpDir)) {
                             return FileVisitResult.SKIP_SUBTREE
                         }
-                        if (isUnderTaczRoot(dir, taczRoots)) {
-                            return FileVisitResult.SKIP_SUBTREE
-                        }
 
-                        val type = classifyDirectory(dir)
+                        val relative = root.relativize(dir).toString().replace('\\', '/').removePrefix("downloaded/DLCs/")
+                        val metadata = findTooltip(relative, dir.fileName.toString(), tooltips, remoteMetadata)
+                        val type = if (metadata?.isTypeValid() == true && metadata.getType() == DlcType.TACZ_PACK) DlcType.TACZ_PACK else classifyDirectory(dir)
                         if (type != null) {
                             addItem(grouped, root, dir, type, tooltips, remoteMetadata, tooltipLoader, infoDir, detectInstalledState)
                             return FileVisitResult.SKIP_SUBTREE
@@ -117,9 +109,6 @@ class DlcScanner {
                             return FileVisitResult.CONTINUE
                         }
                         if (isUnderUpdateDir(file, localUpdateDir) || isUnderUpdateDir(file, localTmpDir) || isUnderUpdateDir(file, localLegacyTmpDir)) {
-                            return FileVisitResult.CONTINUE
-                        }
-                        if (isUnderTaczRoot(file, taczRoots)) {
                             return FileVisitResult.CONTINUE
                         }
                         val name = file.fileName.toString()
@@ -147,17 +136,6 @@ class DlcScanner {
             )
         } catch (_: IOException) {
         }
-    }
-
-    private fun isUnderTaczRoot(path: Path, taczRoots: List<Path>): Boolean {
-        val normalized = path.normalize()
-        for (taczRoot in taczRoots) {
-            val root = taczRoot.normalize()
-            if (normalized.startsWith(root)) {
-                return true
-            }
-        }
-        return false
     }
 
     private fun isUnderInfoDir(path: Path, infoDir: Path?): Boolean {
@@ -195,6 +173,13 @@ class DlcScanner {
         return path.normalize().startsWith(presetDir.normalize())
     }
 
+    private fun findTooltip(
+        relative: String,
+        name: String,
+        tooltips: Map<String, DlcTooltipLoader.TooltipData>,
+        remoteMetadata: RemoteMetadataLookup,
+    ): DlcTooltipLoader.TooltipData? = remoteMetadata.get(relative) ?: remoteMetadata.get(name) ?: tooltips[name]
+
     private fun addItem(
         grouped: MutableMap<DlcType?, MutableList<DlcItem?>?>,
         root: Path,
@@ -210,10 +195,7 @@ class DlcScanner {
         val relative = root.relativize(source).toString().replace('\\', '/').removePrefix("downloaded/DLCs/")
         val rootId = DlcPathUtil.toGameRelativePath(root).replace('\\', '/')
         val name = source.fileName.toString()
-        var tooltipData = remoteMetadata.get(relative) ?: remoteMetadata.get(name)
-        if (tooltipData == null) {
-            tooltipData = tooltips[name]
-        }
+        val tooltipData = findTooltip(relative, name, tooltips, remoteMetadata)
         var fileNames = tooltipData?.getFileNames() ?: emptyList()
         if (fileNames.isNotEmpty() && fileNames.none { it == name }) {
             val merged = ArrayList(fileNames)
@@ -362,35 +344,6 @@ class DlcScanner {
 
     private fun hasZipPrefix(zipFile: ZipFile, prefix: String): Boolean {
         return zipFile.stream().map(ZipEntry::getName).anyMatch { name -> name.startsWith(prefix) }
-    }
-
-    private fun scanTaczRoots(
-        grouped: MutableMap<DlcType?, MutableList<DlcItem?>?>,
-        tooltipLoader: DlcTooltipLoader,
-        detectInstalledState: Boolean,
-    ) {
-        val mainDlcRoot = if (DlcConfig.getDlcRoots().isEmpty()) null else DlcConfig.getDlcRoots()[0]
-        val mainInfoDir = mainDlcRoot?.resolve("info")
-        val tooltips = if (mainDlcRoot == null) emptyMap() else tooltipLoader.loadTooltips(mainDlcRoot)
-
-        for (root in DlcConfig.getTaczDlcRoots()) {
-            if (!Files.exists(root) || !Files.isDirectory(root)) {
-                continue
-            }
-            try {
-                Files.list(root).use { stream ->
-                    stream.forEach { path ->
-                        val name = path.fileName.toString()
-                        if (Files.isDirectory(path)) {
-                            addItem(grouped, root, path, DlcType.TACZ_PACK, emptyMap(), RemoteMetadataLookup.empty(), tooltipLoader, mainInfoDir, detectInstalledState)
-                        } else if (name.endsWith(".zip")) {
-                            addItem(grouped, root, path, DlcType.TACZ_PACK, emptyMap(), RemoteMetadataLookup.empty(), tooltipLoader, mainInfoDir, detectInstalledState)
-                        }
-                    }
-                }
-            } catch (_: IOException) {
-            }
-        }
     }
 
     private fun buildRemoteMetadata(root: Path?): RemoteMetadataLookup {

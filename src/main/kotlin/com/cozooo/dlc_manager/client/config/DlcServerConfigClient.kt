@@ -63,7 +63,7 @@ object DlcServerConfigClient {
         "dlc_manager.config.comment.paths.dlcRoot", "dlc_manager.config.paths.dlcRoot"
     )
     private val TACZ_ROOT = DlcConfigValue.StringValue(
-        "taczRoot", DlcConfig.DEFAULT_TACZ_DLC_ROOT,
+        "taczRoot", DlcConfig.DEFAULT_TACZ_ROOT,
         "dlc_manager.config.comment.paths.taczRoot", "dlc_manager.config.paths.taczRoot"
     )
     private val RESOURCEPACK_ROOT = DlcConfigValue.StringValue(
