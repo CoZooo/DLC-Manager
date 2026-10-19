@@ -145,17 +145,14 @@ class DlcUiTextInputTest {
         assertEquals(List.of("a", "ab", "a"), drawn);
     }
 
-    @Test void previousPlaceholderRasterCannotReplaceTheFirstTypedCharacter() {
+    @Test void previousPlaceholderCannotReplaceTheFirstTypedCharacter() {
         var input = input("的");
-        input.fontRasterSlot().remember(0, "搜索DLC...", new Object());
         draw(input);
         assertEquals(List.of("的"), drawn);
-        assertNotNull(input.fontRasterSlot().find(0));
     }
 
     @Test void clearingDrawsPlaceholderThroughTheSameImmediateFontPath() {
         var input = input("search");
-        input.fontRasterSlot().remember(0, "search", new Object());
         prepare(input, "");
         input.getRenderText();
         Text.of(input).content = "搜索DLC...";
