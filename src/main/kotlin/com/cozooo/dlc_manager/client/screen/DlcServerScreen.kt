@@ -410,6 +410,7 @@ class DlcServerScreen(
         }
         apply.setEnabled(dirty && !applying)
         backButton?.setEnabled(!applying && requiredMissingCount <= 0)
+        headerBackButton?.setEnabled(!applying && requiredMissingCount <= 0)
     }
 
     fun isDirty(item: DlcServerItem?): Boolean {
@@ -1156,10 +1157,10 @@ class DlcServerScreen(
         managerText(document, connection, "span", listOf(serverBaseVersion, serverDlcVersion).filter { it.isNotBlank() }.joinToString(" · "), "connection-version")
         val context = document.getElementById("manager-context")
         clearUiContent(context)
-        if (entry != null) button(document, context, tr("dlc_manager.server.config")) { openConfig() }
         val tools = document.getElementById("manager-tools")
         clearUiContent(tools)
         if (DlcConfig.isPresetFuncOn()) button(document, tools, tr("dlc_manager.preset.manager")) { openPreset() }
+        if (entry != null) button(document, tools, tr("dlc_manager.server.config")) { openConfig() }
         button(document, tools, tr("dlc_manager.server.tab.servers")) { openServerTools() }
         for (tool in tools.children) tool.setAttribute("class", "button nav-button")
         val batch = document.getElementById("batch-actions")
@@ -1307,7 +1308,7 @@ class DlcServerScreen(
     private fun updateManagerControls(document: Document) {
         if (controlsLocked != applying) {
             controlsLocked = applying
-            val managed = listOfNotNull(applyButton, backButton, enableAllButton, disableAllButton, searchClearButton).map { it.getElement() }
+            val managed = listOfNotNull(applyButton, backButton, headerBackButton, enableAllButton, disableAllButton, searchClearButton).map { it.getElement() }
             for (element in document.querySelectorAll("#manager button, #manager input")) {
                 if (element in managed) continue
                 if (applying) element.setAttribute("disabled", "") else element.removeAttribute("disabled")

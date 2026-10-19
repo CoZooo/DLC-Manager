@@ -435,6 +435,7 @@ public class DlcServerScreen extends DlcManagerPageScreen implements DlcReturnPo
         if (backButton != null) {
             backButton.setEnabled(!applying && requiredMissingCount <= 0);
         }
+        if (headerBackButton != null) headerBackButton.setEnabled(!applying && requiredMissingCount <= 0);
     }
 
     boolean isDirty(DlcServerItem item) {
@@ -1328,10 +1329,10 @@ public class DlcServerScreen extends DlcManagerPageScreen implements DlcReturnPo
         managerText(document, connection, "span", String.join(" · ", java.util.stream.Stream.of(serverBaseVersion, serverDlcVersion).filter(v -> !v.isBlank()).toList()), "connection-version");
         Element context = document.getElementById("manager-context");
         clearUiContent(context);
-        if (entry != null) button(document, context, tr("dlc_manager.server.config"), this::openConfig);
         Element tools = document.getElementById("manager-tools");
         clearUiContent(tools);
         if (DlcConfig.isPresetFuncOn()) button(document, tools, tr("dlc_manager.preset.manager"), this::openPreset);
+        if (entry != null) button(document, tools, tr("dlc_manager.server.config"), this::openConfig);
         button(document, tools, tr("dlc_manager.server.tab.servers"), this::openServerTools);
         for (Element tool : tools.children) tool.setAttribute("class", "button nav-button");
         Element batch = document.getElementById("batch-actions");
@@ -1488,7 +1489,7 @@ public class DlcServerScreen extends DlcManagerPageScreen implements DlcReturnPo
     private void updateManagerControls(Document document) {
         if (!java.util.Objects.equals(controlsLocked, applying)) {
             controlsLocked = applying;
-            var managed = java.util.Arrays.asList(applyButton, backButton, enableAllButton, disableAllButton, searchClearButton).stream().filter(java.util.Objects::nonNull).map(DlcUiButton::getElement).toList();
+            var managed = java.util.Arrays.asList(applyButton, backButton, headerBackButton, enableAllButton, disableAllButton, searchClearButton).stream().filter(java.util.Objects::nonNull).map(DlcUiButton::getElement).toList();
             for (Element element : document.querySelectorAll("#manager button, #manager input")) {
                 if (managed.contains(element)) continue;
                 if (applying) element.setAttribute("disabled", ""); else element.removeAttribute("disabled");

@@ -79,6 +79,9 @@ public class DlcServerService {
     private static final Object PACK_APPLY_LOCK = new Object();
     private static volatile PackApplyJob packApplyJob;
     private static volatile MinecraftServer currentServer;
+    private static final java.util.concurrent.ScheduledExecutorService SYNC_HEARTBEATS = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(task -> {
+        Thread thread = new Thread(task, "dlc-sync-heartbeat"); thread.setDaemon(true); return thread;
+    });
 
     public static void updateServerStatus(MinecraftServer server) {
         if (!DlcConfig.isServerSupportOnServer()) {
@@ -122,7 +125,15 @@ public class DlcServerService {
     }
 
     public static void handleClient(Socket socket) {
-        try (Socket client = socket;
+        try (com.cozooo.dlc_manager.sync.SyncEndpoint sync = new com.cozooo.dlc_manager.sync.SyncEndpoint(new com.cozooo.dlc_manager.client.sync.DlcSyncAdapter(canceled -> {
+                 DlcServerDownloadService.cancelRemoteDownload(); DlcServerDownloadService.cancelRequiredDownload();
+                 long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(30);
+                 while (DlcServerDownloadService.getRemoteDownloadStatus().running || DlcServerDownloadService.getRequiredDownloadStatus().running) {
+                     if (canceled.getAsBoolean() || System.nanoTime() > deadline) throw new com.cozooo.dlc_manager.sync.SyncFailure("server_downloads_stop");
+                     Thread.sleep(50);
+                 }
+             }));
+             Socket client = socket;
              BufferedReader reader = new BufferedReader(new InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8));
              BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(client.getOutputStream(), StandardCharsets.UTF_8))) {
 
@@ -157,111 +168,140 @@ public class DlcServerService {
                     writeError(writer, "unauthorized");
                     continue;
                 }
-                if ("list".equals(type)) {
-                    writeList(writer, clientLang);
-                } else if ("remote_list".equals(type)) {
-                    handleRemoteList(writer, clientLang);
-                } else if ("remote_download_start".equals(type)) {
-                    handleRemoteDownloadStart(request, writer, clientLang);
-                } else if ("remote_download_status".equals(type)) {
-                    handleRemoteDownloadStatus(writer, clientLang);
-                } else if ("remote_download_cancel".equals(type)) {
-                    handleRemoteDownloadCancel(writer);
-                } else if ("remote_download".equals(type)) {
-                    handleRemoteDownload(writer);
-                } else if ("required_list".equals(type)) {
-                    handleRequiredList(writer, clientLang);
-                } else if ("required_download_start".equals(type)) {
-                    handleRequiredDownloadStart(request, writer, clientLang);
-                } else if ("required_download_status".equals(type)) {
-                    handleRequiredDownloadStatus(writer, clientLang);
-                } else if ("required_download_cancel".equals(type)) {
-                    handleRequiredDownloadCancel(writer);
-                } else if ("required_uninstall".equals(type)) {
-                    handleRequiredUninstall(request, writer);
-                } else if ("required_apply".equals(type)) {
-                    handleRequiredApply(request, writer);
-                } else if ("update_state".equals(type)) {
-                    writeUpdateState(writer);
-                } else if ("update_list".equals(type)) {
-                    writeUpdateList(writer);
-                } else if ("update_apply".equals(type)) {
-                    handleUpdateApply(request, writer);
-                } else if ("update_rollback".equals(type)) {
-                    handleUpdateRollback(request, writer);
-                } else if ("update_import".equals(type)) {
-                    handleUpdateImport(request, writer);
-                } else if ("update_import_url".equals(type)) {
-                    handleUpdateImportUrl(request, writer);
-                } else if ("pack_list".equals(type)) {
-                    handlePackList(writer, clientLang);
-                } else if ("pack_install".equals(type)) {
-                    handlePackInstall(request, writer);
-                } else if ("pack_uninstall".equals(type)) {
-                    handlePackUninstall(request, writer);
-                } else if ("pack_delete".equals(type)) {
-                    handlePackDelete(request, writer);
-                } else if ("pack_import".equals(type)) {
-                    handlePackImport(request, writer);
-                } else if ("pack_import_url".equals(type)) {
-                    handlePackImportUrl(request, writer);
-                } else if ("pack_order".equals(type)) {
-                    handlePackOrder(request, writer);
-                } else if ("pack_apply_start".equals(type)) {
-                    handlePackApplyStart(request, writer);
-                } else if ("pack_apply_status".equals(type)) {
-                    handlePackApplyStatus(writer);
-                } else if ("pack_apply_pause".equals(type)) {
-                    handlePackApplyPause(writer);
-                } else if ("pack_apply_resume".equals(type)) {
-                    handlePackApplyResume(writer);
-                } else if ("pack_apply_cancel".equals(type)) {
-                    handlePackApplyCancel(writer);
-                } else if ("set".equals(type)) {
-                    handleSet(request, overrides, writer);
-                } else if ("apply".equals(type)) {
-                    handleApply(overrides, writer);
-                    overrides.clear();
-                } else if ("push_init".equals(type)) {
-                    pushState = handlePushInit(request, writer);
-                } else if ("push_chunk".equals(type)) {
-                    handlePushChunk(request, pushState, writer);
-                } else if ("push_finish".equals(type)) {
-                    handlePushFinish(pushState, writer);
-                    pushState = null;
-                } else if ("file_list".equals(type)) {
-                    handleFileList(request, writer);
-                } else if ("file_delete".equals(type)) {
-                    handleFileDelete(request, writer);
-                } else if ("file_upload_init".equals(type)) {
-                    uploadState = handleFileUploadInit(request, writer);
-                } else if ("file_upload_chunk".equals(type)) {
-                    handleFileUploadChunk(request, uploadState, writer);
-                } else if ("file_upload_finish".equals(type)) {
-                    handleFileUploadFinish(uploadState, writer);
-                    uploadState = null;
-                } else if ("file_download_init".equals(type)) {
-                    handleFileDownload(request, writer);
-                } else if ("config_get".equals(type)) {
-                    handleConfigGet(writer);
-                } else if ("config_set".equals(type)) {
-                    handleConfigSet(request, writer);
-                } else if ("rcon_info".equals(type)) {
-                    handleRconInfo(writer);
-                } else if ("rcon_get".equals(type)) {
-                    handleRconGet(writer);
-                } else if ("rcon_set".equals(type)) {
-                    handleRconSet(request, writer);
-                } else if ("rcon_exec".equals(type)) {
-                    handleRconExec(request, writer);
-                } else if ("server_restart".equals(type)) {
-                    handleServerRestart(writer);
-                } else {
-                    writeError(writer, "unknown request");
+                if ("dlc_sync".equals(type)) {
+                    handleSync(sync, request, writer);
+                    continue;
+                }
+                com.cozooo.dlc_manager.sync.SyncEndpoint.OperationGuard guard;
+                try { guard = com.cozooo.dlc_manager.sync.SyncEndpoint.guard(DlcConfig.getDlcRoot().resolve("tmp/sync")); }
+                catch (IOException busy) { writeError(writer, busy.getMessage()); continue; }
+                try (guard) {
+                    if ("list".equals(type)) {
+                        writeList(writer, clientLang);
+                    } else if ("remote_list".equals(type)) {
+                        handleRemoteList(writer, clientLang);
+                    } else if ("remote_download_start".equals(type)) {
+                        handleRemoteDownloadStart(request, writer, clientLang);
+                    } else if ("remote_download_status".equals(type)) {
+                        handleRemoteDownloadStatus(writer, clientLang);
+                    } else if ("remote_download_cancel".equals(type)) {
+                        handleRemoteDownloadCancel(writer);
+                    } else if ("remote_download".equals(type)) {
+                        handleRemoteDownload(writer);
+                    } else if ("required_list".equals(type)) {
+                        handleRequiredList(writer, clientLang);
+                    } else if ("required_download_start".equals(type)) {
+                        handleRequiredDownloadStart(request, writer, clientLang);
+                    } else if ("required_download_status".equals(type)) {
+                        handleRequiredDownloadStatus(writer, clientLang);
+                    } else if ("required_download_cancel".equals(type)) {
+                        handleRequiredDownloadCancel(writer);
+                    } else if ("required_uninstall".equals(type)) {
+                        handleRequiredUninstall(request, writer);
+                    } else if ("required_apply".equals(type)) {
+                        handleRequiredApply(request, writer);
+                    } else if ("update_state".equals(type)) {
+                        writeUpdateState(writer);
+                    } else if ("update_list".equals(type)) {
+                        writeUpdateList(writer);
+                    } else if ("update_apply".equals(type)) {
+                        handleUpdateApply(request, writer);
+                    } else if ("update_rollback".equals(type)) {
+                        handleUpdateRollback(request, writer);
+                    } else if ("update_import".equals(type)) {
+                        handleUpdateImport(request, writer);
+                    } else if ("update_import_url".equals(type)) {
+                        handleUpdateImportUrl(request, writer);
+                    } else if ("pack_list".equals(type)) {
+                        handlePackList(writer, clientLang);
+                    } else if ("pack_install".equals(type)) {
+                        handlePackInstall(request, writer);
+                    } else if ("pack_uninstall".equals(type)) {
+                        handlePackUninstall(request, writer);
+                    } else if ("pack_delete".equals(type)) {
+                        handlePackDelete(request, writer);
+                    } else if ("pack_import".equals(type)) {
+                        handlePackImport(request, writer);
+                    } else if ("pack_import_url".equals(type)) {
+                        handlePackImportUrl(request, writer);
+                    } else if ("pack_order".equals(type)) {
+                        handlePackOrder(request, writer);
+                    } else if ("pack_apply_start".equals(type)) {
+                        handlePackApplyStart(request, writer);
+                    } else if ("pack_apply_status".equals(type)) {
+                        handlePackApplyStatus(writer);
+                    } else if ("pack_apply_pause".equals(type)) {
+                        handlePackApplyPause(writer);
+                    } else if ("pack_apply_resume".equals(type)) {
+                        handlePackApplyResume(writer);
+                    } else if ("pack_apply_cancel".equals(type)) {
+                        handlePackApplyCancel(writer);
+                    } else if ("set".equals(type)) {
+                        handleSet(request, overrides, writer);
+                    } else if ("apply".equals(type)) {
+                        handleApply(overrides, writer);
+                        overrides.clear();
+                    } else if ("push_init".equals(type)) {
+                        pushState = handlePushInit(request, writer);
+                    } else if ("push_chunk".equals(type)) {
+                        handlePushChunk(request, pushState, writer);
+                    } else if ("push_finish".equals(type)) {
+                        handlePushFinish(pushState, writer);
+                        pushState = null;
+                    } else if ("file_list".equals(type)) {
+                        handleFileList(request, writer);
+                    } else if ("file_delete".equals(type)) {
+                        handleFileDelete(request, writer);
+                    } else if ("file_upload_init".equals(type)) {
+                        uploadState = handleFileUploadInit(request, writer);
+                    } else if ("file_upload_chunk".equals(type)) {
+                        handleFileUploadChunk(request, uploadState, writer);
+                    } else if ("file_upload_finish".equals(type)) {
+                        handleFileUploadFinish(uploadState, writer);
+                        uploadState = null;
+                    } else if ("file_download_init".equals(type)) {
+                        handleFileDownload(request, writer);
+                    } else if ("config_get".equals(type)) {
+                        handleConfigGet(writer);
+                    } else if ("config_set".equals(type)) {
+                        handleConfigSet(request, writer);
+                    } else if ("rcon_info".equals(type)) {
+                        handleRconInfo(writer);
+                    } else if ("rcon_get".equals(type)) {
+                        handleRconGet(writer);
+                    } else if ("rcon_set".equals(type)) {
+                        handleRconSet(request, writer);
+                    } else if ("rcon_exec".equals(type)) {
+                        handleRconExec(request, writer);
+                    } else if ("server_restart".equals(type)) {
+                        handleServerRestart(writer);
+                    } else {
+                        writeError(writer, "unknown request");
+                    }
                 }
             }
         } catch (IOException ignored) {
         }
+    }
+
+    private static void handleSync(com.cozooo.dlc_manager.sync.SyncEndpoint sync, JsonObject request, BufferedWriter writer) throws IOException {
+        Thread actor = Thread.currentThread();
+        Object gate = new Object();
+        boolean[] finished = {false};
+        java.util.concurrent.ScheduledFuture<?> heartbeat = null;
+        String action = request.has("action") ? request.get("action").getAsString() : "";
+        if (Set.of("prepare", "read", "read_end", "write_end", "apply", "rollback", "recover", "recover_operation").contains(action)) {
+            heartbeat = SYNC_HEARTBEATS.scheduleWithFixedDelay(() -> {
+                JsonObject progress = new JsonObject(); progress.addProperty("type", "dlc_sync_progress");
+                if (request.has("requestId")) progress.add("requestId", request.get("requestId"));
+                try { synchronized (writer) { writeLine(writer, progress); } }
+                catch (IOException disconnected) { synchronized (gate) { if (!finished[0]) { sync.disconnectCurrent(); actor.interrupt(); } } }
+            }, 1, 1, java.util.concurrent.TimeUnit.SECONDS);
+        }
+        JsonObject response;
+        try { response = sync.call(request); }
+        finally { synchronized (gate) { finished[0] = true; } if (heartbeat != null) heartbeat.cancel(false); }
+        synchronized (writer) { writeLine(writer, response); }
     }
 
     private static boolean handleHello(JsonObject request, BufferedWriter writer, String remoteAddress) throws IOException {

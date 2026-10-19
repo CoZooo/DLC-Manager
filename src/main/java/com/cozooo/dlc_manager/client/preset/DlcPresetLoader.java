@@ -26,7 +26,9 @@ public final class DlcPresetLoader {
         return loadAll(DlcConfig.getDlcRoots());
     }
 
-    public static List<DlcPresetEntry> loadAll(List<Path> roots) {
+    public static List<DlcPresetEntry> loadAll(List<Path> roots) { return loadAll(roots, true); }
+
+    public static List<DlcPresetEntry> loadAll(List<Path> roots, boolean migrate) {
         List<DlcPresetEntry> entries = new ArrayList<>();
         if (roots == null || roots.isEmpty()) {
             return entries;
@@ -44,7 +46,7 @@ public final class DlcPresetLoader {
             try (var stream = Files.walk(presetRoot)) {
                 stream.filter(path -> path.getFileName() != null && DlcDcFormatUtil.isDcName(path.getFileName().toString()))
                     .forEach(path -> {
-                        DlcPresetEntry entry = readEntry(path);
+                        DlcPresetEntry entry = readEntry(path, migrate);
                         if (entry != null) {
                             entries.add(entry);
                         }
@@ -70,7 +72,7 @@ public final class DlcPresetLoader {
         return presetRoot;
     }
 
-    private static DlcPresetEntry readEntry(Path path) {
+    private static DlcPresetEntry readEntry(Path path, boolean migrate) {
         JsonObject obj = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC);
         if (obj == null) {
             return null;
@@ -87,7 +89,7 @@ public final class DlcPresetLoader {
 
         String fileName = stripExtension(path.getFileName().toString());
         String id = readIdentifier(basic, obj, fileName);
-        migrateIfNeeded(path, obj, id, alarm, enable, conflicts);
+        if (migrate) migrateIfNeeded(path, obj, id, alarm, enable, conflicts);
         return new DlcPresetEntry(id, fileName, path, displayName, tip, alarmTip, enable, conflicts, alarm, DlcPresetStatus.OFF);
     }
 

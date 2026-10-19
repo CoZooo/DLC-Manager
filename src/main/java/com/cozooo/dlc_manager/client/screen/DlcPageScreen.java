@@ -58,6 +58,7 @@ public abstract class DlcPageScreen extends DlcApricityScreen {
         clearUiContent(back);
         backAction = null;
         back.setAttribute("style", showHeaderBackButton() ? "" : "display:none");
+        back.parentElement.setAttribute("data-has-back", Boolean.toString(showHeaderBackButton()));
         if (showHeaderBackButton()) {
             backAction = action(back, "‹", this::onClose);
             backAction.getElement().setAttribute("aria-label", tr("gui.back"));
@@ -242,18 +243,7 @@ public abstract class DlcPageScreen extends DlcApricityScreen {
         Element track = node(parent, "div", "progress-track");
         track.setAttribute("role", "progressbar"); track.setAttribute("aria-valuemin", "0"); track.setAttribute("aria-valuemax", "100");
         Element fill = node(track, "div", "progress-fill");
-        int[] previous = {-1};
-        Runnable binding = () -> {
-            double fraction = value.getAsDouble();
-            if (fraction < 0) {
-                double phase = (System.nanoTime() % 1200000000L) / 1200000000.0;
-                fill.setAttribute("style", "width:25%;transform:translateX(" + (track.getOffsetWidth() * 0.75 * phase) + "px)");
-                track.removeAttribute("aria-valuenow"); track.setAttribute("aria-busy", "true"); previous[0] = -1; return;
-            }
-            track.removeAttribute("aria-busy");
-            int percent = (int) Math.round(Math.max(0, Math.min(1, fraction)) * 100);
-            if (percent != previous[0]) { previous[0] = percent; fill.setAttribute("style", "width:" + percent + "%"); track.setAttribute("aria-valuenow", String.valueOf(percent)); }
-        };
+        Runnable binding = DlcUiProgress.binding(track, fill, value);
         bindings.add(binding); binding.run(); return track;
     }
 

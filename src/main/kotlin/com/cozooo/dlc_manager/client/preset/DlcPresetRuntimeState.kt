@@ -17,9 +17,12 @@ object DlcPresetRuntimeState {
     private var baselineDisabledRelativePathsInitialized = false
 
     @JvmStatic
-    fun reload() {
+    fun reload() = reload(true)
+
+    @JvmStatic
+    fun reload(migrate: Boolean) {
         val previousEnabled = if (presetDirty) LinkedHashSet(ENABLED_PRESETS) else null
-        val entries = DlcPresetLoader.loadAll()
+        val entries = DlcPresetLoader.loadAll(com.cozooo.dlc_manager.core.DlcConfig.getDlcRoots(), migrate)
         PRESETS_BY_ID.clear()
         for (entry in entries) {
             val id = entry.getId()

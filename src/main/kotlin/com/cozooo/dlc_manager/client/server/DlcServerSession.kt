@@ -345,6 +345,19 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
         return bool(finishResponse, "ok")
     }
 
+    @Synchronized @Throws(IOException::class)
+    fun syncRequest(payload: JsonObject): JsonObject {
+        val id = UUID.randomUUID().toString()
+        payload.addProperty("requestId", id)
+        send(withType("dlc_sync", payload))
+        while (true) {
+            val response = readObject()
+            if (string(response, "type") == "dlc_sync_progress") continue
+            if (string(response, "requestId") != id) throw com.cozooo.dlc_manager.sync.SyncFailure("unsupported")
+            return response
+        }
+    }
+
     @Throws(IOException::class)
     fun rawRequest(type: String, payload: JsonObject?): JsonObject {
         send(withType(type, payload))
@@ -422,7 +435,10 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
 
         @JvmStatic
         @Throws(IOException::class)
-        fun connect(entry: DlcServerEntry?, timeoutMs: Int): DlcServerSession {
+        fun connect(entry: DlcServerEntry?, timeoutMs: Int): DlcServerSession = connect(entry, timeoutMs) {}
+
+        @JvmStatic @Throws(IOException::class)
+        fun connect(entry: DlcServerEntry?, timeoutMs: Int, opened: java.util.function.Consumer<AutoCloseable>): DlcServerSession {
             if (entry == null) throw IOException("missing server entry")
             return connect(
                 entry.host,
@@ -432,25 +448,31 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
                 DlcPlatformServices.languageCode(),
                 DlcPlatformServices.playerName(),
                 DlcPlatformServices.playerUuid(),
+                opened,
             )
         }
 
         @JvmStatic
         @Throws(IOException::class)
         fun connect(host: String?, port: Int, password: String?, timeoutMs: Int, lang: String?, player: String?, uuid: String?): DlcServerSession {
+            return connect(host, port, password, timeoutMs, lang, player, uuid) {}
+        }
+
+        private fun connect(host: String?, port: Int, password: String?, timeoutMs: Int, lang: String?, player: String?, uuid: String?, opened: java.util.function.Consumer<AutoCloseable>): DlcServerSession {
             val socket = Socket()
-            val actualHost = host ?: ""
-            socket.connect(InetSocketAddress(actualHost, port), timeoutMs)
-            socket.soTimeout = timeoutMs
-            val session = DlcServerSession(socket)
             try {
+                opened.accept(socket)
+                val actualHost = host ?: ""
+                socket.connect(InetSocketAddress(actualHost, port), timeoutMs)
+                socket.soTimeout = timeoutMs
+                val session = DlcServerSession(socket)
                 socket.getOutputStream().write(PORT_MULTIPLEXER_PREFACE)
                 socket.getOutputStream().flush()
                 session.hello(password, lang, player, uuid)
                 return session
             } catch (error: Throwable) {
                 try {
-                    session.close()
+                    socket.close()
                 } catch (_: IOException) {
                 }
                 throw error

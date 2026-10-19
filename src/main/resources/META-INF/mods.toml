@@ -2,9 +2,6 @@ modLoader="javafml"
 loaderVersion="${forge_loader_version_range}"
 license="LicenseRef-DLC-Manager-Source-1.0"
 
-[[mixins]]
-config="dlc_manager.mixins.json"
-
 [[mods]]
 modId="${mod_id}"
 version="${mod_version}"

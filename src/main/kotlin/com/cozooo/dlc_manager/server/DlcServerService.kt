@@ -117,9 +117,19 @@ object DlcServerService {
         return "$base+$dlc"
     }
 
+    private val SYNC_HEARTBEATS = java.util.concurrent.Executors.newSingleThreadScheduledExecutor { task -> Thread(task, "dlc-sync-heartbeat").also { it.isDaemon = true } }
+
     @JvmStatic
     fun handleClient(socket: Socket) {
         try {
+            com.cozooo.dlc_manager.sync.SyncEndpoint(com.cozooo.dlc_manager.client.sync.DlcSyncAdapter { canceled ->
+                DlcServerDownloadService.cancelRemoteDownload(); DlcServerDownloadService.cancelRequiredDownload()
+                val deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(30)
+                while (DlcServerDownloadService.getRemoteDownloadStatus().running || DlcServerDownloadService.getRequiredDownloadStatus().running) {
+                    if (canceled.asBoolean || System.nanoTime() > deadline) throw com.cozooo.dlc_manager.sync.SyncFailure("server_downloads_stop")
+                    Thread.sleep(50)
+                }
+            }).use { sync ->
             socket.use { client ->
                 BufferedReader(InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8)).use { reader ->
                     BufferedWriter(OutputStreamWriter(client.getOutputStream(), StandardCharsets.UTF_8)).use { writer ->
@@ -153,75 +163,98 @@ object DlcServerService {
                                 writeError(writer, "unauthorized")
                                 continue
                             }
-                            when (type) {
-                                "list" -> writeList(writer, clientLang)
-                                "remote_list" -> handleRemoteList(writer, clientLang)
-                                "remote_download_start" -> handleRemoteDownloadStart(request, writer, clientLang)
-                                "remote_download_status" -> handleRemoteDownloadStatus(writer, clientLang)
-                                "remote_download_cancel" -> handleRemoteDownloadCancel(writer)
-                                "remote_download" -> handleRemoteDownload(writer)
-                                "required_list" -> handleRequiredList(writer, clientLang)
-                                "required_download_start" -> handleRequiredDownloadStart(request, writer, clientLang)
-                                "required_download_status" -> handleRequiredDownloadStatus(writer, clientLang)
-                                "required_download_cancel" -> handleRequiredDownloadCancel(writer)
-                                "required_uninstall" -> handleRequiredUninstall(request, writer)
-                                "required_apply" -> handleRequiredApply(request, writer)
-                                "update_state" -> writeUpdateState(writer)
-                                "update_list" -> writeUpdateList(writer)
-                                "update_apply" -> handleUpdateApply(request, writer)
-                                "update_rollback" -> handleUpdateRollback(request, writer)
-                                "update_import" -> handleUpdateImport(request, writer)
-                                "update_import_url" -> handleUpdateImportUrl(request, writer)
-                                "pack_list" -> handlePackList(writer, clientLang)
-                                "pack_install" -> handlePackInstall(request, writer)
-                                "pack_uninstall" -> handlePackUninstall(request, writer)
-                                "pack_delete" -> handlePackDelete(request, writer)
-                                "pack_import" -> handlePackImport(request, writer)
-                                "pack_import_url" -> handlePackImportUrl(request, writer)
-                                "pack_order" -> handlePackOrder(request, writer)
-                                "pack_apply_start" -> handlePackApplyStart(request, writer)
-                                "pack_apply_status" -> handlePackApplyStatus(writer)
-                                "pack_apply_pause" -> handlePackApplyPause(writer)
-                                "pack_apply_resume" -> handlePackApplyResume(writer)
-                                "pack_apply_cancel" -> handlePackApplyCancel(writer)
-                                "set" -> handleSet(request, overrides, writer)
-                                "apply" -> {
-                                    handleApply(overrides, writer)
-                                    overrides.clear()
+                            if (type == "dlc_sync") { handleSync(sync, request, writer); continue }
+                            val guard = try { com.cozooo.dlc_manager.sync.SyncEndpoint.guard(DlcConfig.getDlcRoot().resolve("tmp/sync")) }
+                            catch (busy: IOException) { writeError(writer, busy.message ?: "DLC synchronization is in progress"); continue }
+                            guard.use {
+                                when (type) {
+                                    "list" -> writeList(writer, clientLang)
+                                    "remote_list" -> handleRemoteList(writer, clientLang)
+                                    "remote_download_start" -> handleRemoteDownloadStart(request, writer, clientLang)
+                                    "remote_download_status" -> handleRemoteDownloadStatus(writer, clientLang)
+                                    "remote_download_cancel" -> handleRemoteDownloadCancel(writer)
+                                    "remote_download" -> handleRemoteDownload(writer)
+                                    "required_list" -> handleRequiredList(writer, clientLang)
+                                    "required_download_start" -> handleRequiredDownloadStart(request, writer, clientLang)
+                                    "required_download_status" -> handleRequiredDownloadStatus(writer, clientLang)
+                                    "required_download_cancel" -> handleRequiredDownloadCancel(writer)
+                                    "required_uninstall" -> handleRequiredUninstall(request, writer)
+                                    "required_apply" -> handleRequiredApply(request, writer)
+                                    "update_state" -> writeUpdateState(writer)
+                                    "update_list" -> writeUpdateList(writer)
+                                    "update_apply" -> handleUpdateApply(request, writer)
+                                    "update_rollback" -> handleUpdateRollback(request, writer)
+                                    "update_import" -> handleUpdateImport(request, writer)
+                                    "update_import_url" -> handleUpdateImportUrl(request, writer)
+                                    "pack_list" -> handlePackList(writer, clientLang)
+                                    "pack_install" -> handlePackInstall(request, writer)
+                                    "pack_uninstall" -> handlePackUninstall(request, writer)
+                                    "pack_delete" -> handlePackDelete(request, writer)
+                                    "pack_import" -> handlePackImport(request, writer)
+                                    "pack_import_url" -> handlePackImportUrl(request, writer)
+                                    "pack_order" -> handlePackOrder(request, writer)
+                                    "pack_apply_start" -> handlePackApplyStart(request, writer)
+                                    "pack_apply_status" -> handlePackApplyStatus(writer)
+                                    "pack_apply_pause" -> handlePackApplyPause(writer)
+                                    "pack_apply_resume" -> handlePackApplyResume(writer)
+                                    "pack_apply_cancel" -> handlePackApplyCancel(writer)
+                                    "set" -> handleSet(request, overrides, writer)
+                                    "apply" -> {
+                                        handleApply(overrides, writer)
+                                        overrides.clear()
+                                    }
+                                    "push_init" -> pushState = handlePushInit(request, writer)
+                                    "push_chunk" -> handlePushChunk(request, pushState, writer)
+                                    "push_finish" -> {
+                                        handlePushFinish(pushState, writer)
+                                        pushState = null
+                                    }
+                                    "file_list" -> handleFileList(request, writer)
+                                    "file_delete" -> handleFileDelete(request, writer)
+                                    "file_upload_init" -> uploadState = handleFileUploadInit(request, writer)
+                                    "file_upload_chunk" -> handleFileUploadChunk(request, uploadState, writer)
+                                    "file_upload_finish" -> {
+                                        handleFileUploadFinish(uploadState, writer)
+                                        uploadState = null
+                                    }
+                                    "file_download_init" -> handleFileDownload(request, writer)
+                                    "config_get" -> handleConfigGet(writer)
+                                    "config_set" -> handleConfigSet(request, writer)
+                                    "rcon_info" -> handleRconInfo(writer)
+                                    "rcon_get" -> handleRconGet(writer)
+                                    "rcon_set" -> handleRconSet(request, writer)
+                                    "rcon_exec" -> handleRconExec(request, writer)
+                                    "server_restart" -> handleServerRestart(writer)
+                                    else -> writeError(writer, "unknown request")
                                 }
-                                "push_init" -> pushState = handlePushInit(request, writer)
-                                "push_chunk" -> handlePushChunk(request, pushState, writer)
-                                "push_finish" -> {
-                                    handlePushFinish(pushState, writer)
-                                    pushState = null
-                                }
-                                "file_list" -> handleFileList(request, writer)
-                                "file_delete" -> handleFileDelete(request, writer)
-                                "file_upload_init" -> uploadState = handleFileUploadInit(request, writer)
-                                "file_upload_chunk" -> handleFileUploadChunk(request, uploadState, writer)
-                                "file_upload_finish" -> {
-                                    handleFileUploadFinish(uploadState, writer)
-                                    uploadState = null
-                                }
-                                "file_download_init" -> handleFileDownload(request, writer)
-                                "config_get" -> handleConfigGet(writer)
-                                "config_set" -> handleConfigSet(request, writer)
-                                "rcon_info" -> handleRconInfo(writer)
-                                "rcon_get" -> handleRconGet(writer)
-                                "rcon_set" -> handleRconSet(request, writer)
-                                "rcon_exec" -> handleRconExec(request, writer)
-                                "server_restart" -> handleServerRestart(writer)
-                                else -> writeError(writer, "unknown request")
                             }
                         }
                     }
                 }
+            }
             }
         } catch (_: IOException) {
         }
     }
 
     @Throws(IOException::class)
+    private fun handleSync(sync: com.cozooo.dlc_manager.sync.SyncEndpoint, request: JsonObject, writer: BufferedWriter) {
+        val actor = Thread.currentThread()
+        val gate = Any()
+        var finished = false
+        val action = if (request.has("action")) request.get("action").asString else ""
+        val heartbeat = if (action in setOf("prepare", "read", "read_end", "write_end", "apply", "rollback", "recover", "recover_operation")) {
+            SYNC_HEARTBEATS.scheduleWithFixedDelay({
+                val progress = JsonObject(); progress.addProperty("type", "dlc_sync_progress")
+                if (request.has("requestId")) progress.add("requestId", request.get("requestId"))
+                try { synchronized(writer) { writeLine(writer, progress) } }
+                catch (_: IOException) { synchronized(gate) { if (!finished) { sync.disconnectCurrent(); actor.interrupt() } } }
+            }, 1, 1, java.util.concurrent.TimeUnit.SECONDS)
+        } else null
+        val response = try { sync.call(request) } finally { synchronized(gate) { finished = true }; heartbeat?.cancel(false) }
+        synchronized(writer) { writeLine(writer, response) }
+    }
+
     private fun handleHello(request: JsonObject, writer: BufferedWriter, remoteAddress: String): Boolean {
         val expected = DlcConfig.getServerPassword()
         val provided = if (request.has("password")) request.get("password").asString else ""

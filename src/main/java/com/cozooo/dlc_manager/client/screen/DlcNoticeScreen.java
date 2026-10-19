@@ -29,8 +29,10 @@ public class DlcNoticeScreen extends DlcPageScreen {
         }
         var body = node(content, "article", "page-prose");
         markdown(body, resolvedContents);
-        if (config.getShowFrequency() != DlcNoticeConfig.ShowFrequency.ONCE)
-            toggle(footer, tr("dlc_manager.notice.never_show"), neverShow, value -> { neverShow = value; refreshPage(); });
+        if (config.getShowFrequency() != DlcNoticeConfig.ShowFrequency.ONCE) {
+            footerLeading.setAttribute("style", "display:flex");
+            toggle(footerLeading, tr("dlc_manager.notice.never_show"), neverShow, value -> { neverShow = value; refreshPage(); });
+        }
         primary(tr("dlc_manager.notice.read"), this::onClose);
         status(future == null ? "" : tr("dlc_manager.notice.loading"));
     }

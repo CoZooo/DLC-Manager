@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.download;
 
+import com.cozooo.dlc_manager.core.DlcFileSize;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -30,7 +31,7 @@ public final class DlcDownloadService {
     private static final long MIRROR_COMPARE_WINDOW_MS = 3000L;
     private static final int MIRROR_DISABLE_FAILURES = 2;
     private static final long SPEED_WINDOW_MS = 1000L;
-    private static final long BYTES_PER_MIB = 1024L * 1024L;
+    private static final long BYTES_PER_MIB = DlcFileSize.MIB;
     private static final long MIN_MIRROR_SPEED_CHECK_BYTES = BYTES_PER_MIB;
     private static final double SEGMENT_SPEED_DROP_RETRY_RATIO = 0.25;
     private static final String CURSEFORGE_PROBE_PROJECT_ID = "678295";
@@ -92,6 +93,8 @@ public final class DlcDownloadService {
         }
         Path target = outputDir.resolve(fileName);
         Path temp = outputDir.resolve(fileName + ".part");
+        com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeSyncWrite(target);
+        com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeSyncWrite(temp);
 
         if (listener != null) {
             listener.onProgress(0L, probe.totalBytes);
@@ -142,6 +145,8 @@ public final class DlcDownloadService {
         }
         Path target = outputDir.resolve(fileName);
         Path temp = outputDir.resolve(fileName + ".part");
+        com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeSyncWrite(target);
+        com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeSyncWrite(temp);
         long total = expectedSize > 0 ? expectedSize : -1L;
         DownloadMirrorMode mode = DownloadMirrorMode.fromConfig(DlcConfig.getDownloadMirrorMode());
         MirrorPlan mirrorPlan = mirrorPlan(url, fileName, total);

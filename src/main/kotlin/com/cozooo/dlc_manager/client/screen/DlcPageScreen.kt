@@ -51,6 +51,7 @@ abstract class DlcPageScreen(
         clearUiContent(back)
         backAction = null
         back.setAttribute("style", if (showHeaderBackButton()) "" else "display:none")
+        back.parentElement.setAttribute("data-has-back", showHeaderBackButton().toString())
         if (showHeaderBackButton()) {
             backAction = action(back, "‹") { onClose() }
             backAction!!.getElement().setAttribute("aria-label", tr("gui.back"))
@@ -198,19 +199,7 @@ abstract class DlcPageScreen(
         val track = node(parent, "div", "progress-track")
         track.setAttribute("role", "progressbar"); track.setAttribute("aria-valuemin", "0"); track.setAttribute("aria-valuemax", "100")
         val fill = node(track, "div", "progress-fill")
-        var previous = -1
-        val binding = Runnable {
-            val fraction = value.asDouble
-            if (fraction < 0) {
-                val phase = (System.nanoTime() % 1200000000L) / 1200000000.0
-                fill.setAttribute("style", "width:25%;transform:translateX(${track.offsetWidth * 0.75 * phase}px)")
-                track.removeAttribute("aria-valuenow"); track.setAttribute("aria-busy", "true"); previous = -1
-            } else {
-                track.removeAttribute("aria-busy")
-                val percent = (fraction.coerceIn(0.0, 1.0) * 100).toInt()
-            if (percent != previous) { previous = percent; fill.setAttribute("style", "width:$percent%"); track.setAttribute("aria-valuenow", percent.toString()) }
-            }
-        }
+        val binding = DlcUiProgress.binding(track, fill, value)
         bindings.add(binding); binding.run(); return track
     }
 

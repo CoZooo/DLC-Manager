@@ -26,9 +26,11 @@ public final class DlcPresetRuntimeState {
     private DlcPresetRuntimeState() {
     }
 
-    public static void reload() {
+    public static void reload() { reload(true); }
+
+    public static void reload(boolean migrate) {
         Set<String> previousEnabled = presetDirty ? new LinkedHashSet<>(ENABLED_PRESETS) : null;
-        List<DlcPresetEntry> entries = DlcPresetLoader.loadAll();
+        List<DlcPresetEntry> entries = DlcPresetLoader.loadAll(com.cozooo.dlc_manager.core.DlcConfig.getDlcRoots(), migrate);
         PRESETS_BY_ID.clear();
         for (DlcPresetEntry entry : entries) {
             if (entry != null && entry.getId() != null && !entry.getId().isBlank()) {

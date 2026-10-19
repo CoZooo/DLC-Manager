@@ -1,401 +1,232 @@
 package com.cozooo.dlc_manager.client.screen;
 
-import com.cozooo.dlc_manager.client.screen.DlcScreenCompat;
-
+import com.cozooo.dlc_manager.client.server.*;
+import com.cozooo.dlc_manager.client.sync.DlcSyncAdapter;
+import com.cozooo.dlc_manager.sync.*;
+import com.cozooo.dlc_manager.sync.SyncModel.*;
 import com.cozooo.dlc_manager.platform.DlcTextCompat;
-
-import com.cozooo.dlc_manager.platform.DlcPlatformServices;
-import com.cozooo.dlc_manager.client.server.DlcServerEntry;
-import com.cozooo.dlc_manager.client.server.DlcServerConnection;
-import com.cozooo.dlc_manager.core.DlcPaths;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
-import java.nio.file.DirectoryStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 public class DlcServerPushScreen extends DlcFilePageScreen {
-
-
-
-
-    private final Screen parent;
     private final DlcServerEntry entry;
-    private final Path rootDir;
-    private Path currentDir;
-
-    private Button modeButton;
-    private Button pushButton;
-    private Button backButton;
-    private Button upButton;
-    private Button clearButton;
-
-    private boolean overwriteMode = true;
-    private boolean pushing;
-    private String statusText;
-    private String errorText;
-    private final Set<String> selectedFiles = new LinkedHashSet<>();
-    private final Map<Path, List<String>> dirFilesCache = new HashMap<>();
-    private List<FileEntry> entries = List.of();
-
-    private int scrollIndex;
-    private boolean draggingScrollBar;
+    private List<Item> local = List.of(), remote = List.of();
+    private List<Row> rows = List.of(), filteredRows = List.of();
+    private Comparison comparison = new Comparison(List.of(), Map.of());
+    private final Set<String> selected = new HashSet<>();
+    private Mode mode = Mode.CONFIG;
+    private Category category = Category.ALL;
+    private Direction direction = Direction.PUSH;
+    private boolean states = true, loaded, settingsSelected;
+    private volatile boolean busy;
+    private volatile String message = "";
+    private volatile double fraction = -1;
+    private volatile SyncClient active;
+    private volatile AutoCloseable connecting;
+    private volatile boolean cancelRequested;
+    private volatile DlcServerSession previewSession;
+    private volatile SyncClient rollbackClient;
+    private volatile String failureReason;
+    private boolean syncing;
+    private DlcUiButton executeButton;
+    private com.sighs.apricityui.init.Element results;
+    private Category renderedCategory = Category.ALL;
+    private final Map<Category, DlcUiScroll.State> scrolls = new EnumMap<>(Category.class);
 
     public DlcServerPushScreen(Screen parent, DlcServerEntry entry) {
-        super(DlcUiPage.SERVER_PUSH, parent, DlcTextCompat.translatable("dlc_manager.server.push_title"));
-        this.parent = parent;
+        super(DlcUiPage.SERVER_PUSH, parent, DlcTextCompat.translatable("dlc_manager.sync.title"));
         this.entry = entry;
-        this.rootDir = DlcPaths.gameDir().toAbsolutePath().normalize();
-        this.currentDir = rootDir;
     }
-
-    private void initControls() {
-        int buttonHeight = 20;
-        int bottomY = this.height - 28;
-        int modeWidth = 96;
-        int pushWidth = 96;
-        int backWidth = 96;
-        int gap = 6;
-
-        Component modeLabel = DlcTextCompat.translatable("dlc_manager.server.push_mode");
-        int modeLabelWidth = this.font.width(modeLabel);
-        int modeX = 20 + modeLabelWidth + 6;
-        modeButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.empty(), btn -> toggleMode())
-            .bounds(modeX, bottomY, modeWidth, buttonHeight)
-            .build();
-
-        int rightMargin = 10;
-        int backX = this.width - rightMargin - backWidth;
-        int pushX = backX - gap - pushWidth;
-        pushButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.push_start"), btn -> confirmPush())
-            .bounds(pushX, bottomY, pushWidth, buttonHeight)
-            .build();
-        backButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
-            .bounds(backX, bottomY, backWidth, buttonHeight)
-            .build();
-
-        int topButtonY = 56;
-        upButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.push_up"), btn -> goUp())
-            .bounds(20, topButtonY, 70, buttonHeight)
-            .build();
-        clearButton = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.push_clear_selection", 0), btn -> clearSelection())
-            .bounds(this.width - 20 - 140, topButtonY, 140, buttonHeight)
-            .build();
-
-        addRenderableWidget(modeButton);
-        addRenderableWidget(pushButton);
-        addRenderableWidget(backButton);
-        addRenderableWidget(upButton);
-        addRenderableWidget(clearButton);
-        refreshEntries();
-        updateLabels();
-    }
-
-    private void toggleMode() {
-        if (pushing) {
-            return;
-        }
-        overwriteMode = !overwriteMode;
-        updateLabels();
-    }
-
-    private void updateLabels() {
-        if (modeButton != null) {
-            Component modeLabel = overwriteMode
-                ? DlcTextCompat.translatable("dlc_manager.server.push_mode_overwrite")
-                : DlcTextCompat.translatable("dlc_manager.server.push_mode_diff");
-            modeButton.setMessage(modeLabel);
-            modeButton.active = !pushing;
-        }
-        if (pushButton != null) {
-            pushButton.active = !pushing;
-        }
-        if (backButton != null) {
-            backButton.active = !pushing;
-        }
-        if (clearButton != null) {
-            clearButton.setMessage(DlcTextCompat.translatable("dlc_manager.server.push_clear_selection", selectedFiles.size()));
-            clearButton.active = !pushing && !selectedFiles.isEmpty();
-        }
-        if (upButton != null) {
-            upButton.active = !pushing && !currentDir.equals(rootDir);
-        }
-    }
-
-    private void confirmPush() {
-        if (selectedFiles.isEmpty()) {
-            DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(Minecraft.getInstance()),
-                DlcTextCompat.translatable("dlc_manager.server.push_no_selection"), DlcTextCompat.empty());
-            return;
-        }
-        Component title = DlcTextCompat.translatable("dlc_manager.server.push_title");
-        Component message = DlcTextCompat.translatable("dlc_manager.server.push_confirm", buildTargetLabel(), getModeLabel());
-        Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
-            if (accepted) {
-                confirmPushAgain();
-            } else {
-                Minecraft.getInstance().setScreen(this);
-            }
-        }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
-    }
-
-    private void confirmPushAgain() {
-        Component title = DlcTextCompat.translatable("dlc_manager.server.push_title");
-        Component message = DlcTextCompat.translatable("dlc_manager.server.push_confirm_again");
-        Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
-            if (accepted) {
-                startPush();
-            } else {
-                Minecraft.getInstance().setScreen(this);
-            }
-        }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
-    }
-
-    private void startPush() {
-        if (pushing) {
-            return;
-        }
-        pushing = true;
-        statusText = DlcTextCompat.translatable("dlc_manager.server.pushing").getString();
-        updateLabels();
-        CompletableFuture
-            .supplyAsync(this::doPush)
-            .whenComplete((ok, throwable) -> Minecraft.getInstance().execute(() -> {
-                pushing = false;
-                if (ok != null && ok) {
-                    DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(Minecraft.getInstance()),
-                        DlcTextCompat.translatable("dlc_manager.server.push_success"), DlcTextCompat.empty());
-                } else {
-                    DlcScreenCompat.addOrUpdatePeriodicNotification(DlcScreenCompat.toastManager(Minecraft.getInstance()),
-                        DlcTextCompat.translatable("dlc_manager.server.push_failed"), DlcTextCompat.empty());
-                }
-                updateLabels();
-            }));
-    }
-
-    private boolean doPush() {
-        try {
-            List<String> files = new ArrayList<>(selectedFiles);
-            if (files.isEmpty()) {
-                return false;
-            }
-            return DlcServerConnection.push(entry, 20000, List.of(), files, overwriteMode ? "overwrite" : "diff",
-                DlcPlatformServices.playerName(), DlcPlatformServices.playerUuid());
-        } catch (Exception ignored) {
-            return false;
-        }
-    }
-
-    private String buildTargetLabel() {
-        return DlcTextCompat.translatable("dlc_manager.server.push_selected_count", selectedFiles.size()).getString();
-    }
-
-    private String getModeLabel() {
-        return overwriteMode
-            ? DlcTextCompat.translatable("dlc_manager.server.push_mode_overwrite").getString()
-            : DlcTextCompat.translatable("dlc_manager.server.push_mode_diff").getString();
-    }
-
-    private void refreshEntries() {
-        entries = listEntries(currentDir);
-        scrollIndex = 0;
-        updateLabels();
-    }
-
-    private List<FileEntry> listEntries(Path dir) {
-        List<FileEntry> result = new ArrayList<>();
-        if (dir == null || !Files.isDirectory(dir)) {
-            return result;
-        }
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
-            for (Path path : stream) {
-                if (path == null) {
-                    continue;
-                }
-                boolean isDir = Files.isDirectory(path);
-                String name = path.getFileName() == null ? path.toString() : path.getFileName().toString();
-                result.add(new FileEntry(path, name, isDir));
-            }
-        } catch (Exception ignored) {
-        }
-        result.sort(Comparator.comparing((FileEntry entry) -> !entry.isDir).thenComparing(entry -> entry.name.toLowerCase()));
-        return result;
-    }
-
-    private void openDirectory(Path dir) {
-        if (dir == null) {
-            return;
-        }
-        Path normalized = dir.toAbsolutePath().normalize();
-        if (!normalized.startsWith(rootDir) || !Files.isDirectory(normalized)) {
-            return;
-        }
-        currentDir = normalized;
-        refreshEntries();
-    }
-
-    private void goUp() {
-        if (currentDir == null || currentDir.equals(rootDir)) {
-            return;
-        }
-        Path parentDir = currentDir.getParent();
-        if (parentDir == null || !parentDir.startsWith(rootDir)) {
-            return;
-        }
-        currentDir = parentDir;
-        refreshEntries();
-    }
-
-    private SelectionState getEntryState(FileEntry entry) {
-        if (entry == null) {
-            return SelectionState.NONE;
-        }
-        if (!entry.isDir) {
-            String rel = toRelative(entry.path);
-            return rel != null && selectedFiles.contains(rel) ? SelectionState.ALL : SelectionState.NONE;
-        }
-        List<String> files = getDirFiles(entry.path);
-        if (files.isEmpty()) {
-            return SelectionState.NONE;
-        }
-        long count = files.stream().filter(selectedFiles::contains).count();
-        return count == 0 ? SelectionState.NONE : count == files.size() ? SelectionState.ALL : SelectionState.PARTIAL;
-    }
-
-    private void toggleEntry(FileEntry entry) {
-        if (entry == null) {
-            return;
-        }
-        if (!entry.isDir) {
-            String rel = toRelative(entry.path);
-            if (rel == null || rel.isBlank()) {
-                return;
-            }
-            if (!selectedFiles.add(rel)) {
-                selectedFiles.remove(rel);
-            }
-            updateLabels();
-            return;
-        }
-        List<String> files = getDirFiles(entry.path);
-        if (files.isEmpty()) {
-            return;
-        }
-        boolean allSelected = true;
-        for (String file : files) {
-            if (!selectedFiles.contains(file)) {
-                allSelected = false;
-                break;
-            }
-        }
-        if (allSelected) {
-            selectedFiles.removeAll(files);
-        } else {
-            selectedFiles.addAll(files);
-        }
-        updateLabels();
-    }
-
-    private List<String> getDirFiles(Path dir) {
-        if (dir == null) {
-            return List.of();
-        }
-        List<String> cached = dirFilesCache.get(dir);
-        if (cached != null) {
-            return cached;
-        }
-        List<String> files = new ArrayList<>();
-        try (var stream = Files.walk(dir)) {
-            stream.filter(Files::isRegularFile).forEach(path -> {
-                String rel = toRelative(path);
-                if (rel != null && !rel.isBlank()) {
-                    files.add(rel);
-                }
-            });
-        } catch (Exception ignored) {
-        }
-        dirFilesCache.put(dir, files);
-        return files;
-    }
-
-    private String toRelative(Path path) {
-        if (path == null) {
-            return null;
-        }
-        Path normalized = path.toAbsolutePath().normalize();
-        if (!normalized.startsWith(rootDir)) {
-            return null;
-        }
-        Path relative = rootDir.relativize(normalized);
-        String rel = relative.toString();
-        if (rel.isBlank()) {
-            return null;
-        }
-        return rel.replace('\\', '/');
-    }
-
-    private void clearSelection() {
-        selectedFiles.clear();
-        updateLabels();
-    }
-
-    private String getCurrentDirLabel() {
-        if (currentDir == null || currentDir.equals(rootDir)) {
-            return "/";
-        }
-        String rel = rootDir.relativize(currentDir).toString().replace('\\', '/');
-        return "/" + rel;
-    }
-
-    private static final class FileEntry {
-        private final Path path;
-        private final String name;
-        private final boolean isDir;
-
-        private FileEntry(Path path, String name, boolean isDir) {
-            this.path = path;
-            this.name = name;
-            this.isDir = isDir;
-        }
-    }
-
-    private enum SelectionState {
-        NONE,
-        PARTIAL,
-        ALL
-    }
-
-    private boolean controlsReady;
-    private int pageRevision;
     @Override protected void buildPage() {
-        if (!controlsReady) { controlsReady = true; initControls(); }
-        pageRevision = java.util.Objects.hash(entries, pushing);
-
-        mount(toolbar, upButton); mount(toolbar, clearButton);
-        var list = fileList(getCurrentDirLabel());
-        for (var file : entries) {
-            fileRow(list, file.name + (file.isDir ? "/" : ""), null,
-                () -> switch (getEntryState(file)) { case ALL -> "true"; case PARTIAL -> "mixed"; case NONE -> "false"; },
-                () -> !pushing, () -> toggleEntry(file), file.isDir ? () -> openDirectory(file.path) : null);
+        footerLeading.setAttribute("style", "display:flex");
+        action(footerLeading, tr("dlc_manager.sync.mode_" + mode.name().toLowerCase(Locale.ROOT)), () -> { mode = mode == Mode.FILES ? Mode.CONFIG : Mode.FILES; replan(); }).setEnabled(!busy);
+        action(toolbar, tr("dlc_manager.sync." + direction.name().toLowerCase(Locale.ROOT)), () -> { direction = direction == Direction.PUSH ? Direction.PULL : Direction.PUSH; replan(); }).setEnabled(!busy);
+        if (SyncModel.hasStateDifferences(local, remote)) toggle(footerLeading, tr("dlc_manager.sync.states"), states, value -> { states = value; replan(); }).setEnabled(!busy);
+        if (settingsRow() != null) toggle(footerLeading, tr("dlc_manager.sync.manager_config"), settingsSelected, value -> { settingsSelected = value; refreshPage(); }).setEnabled(!busy);
+        action(toolbar, tr("dlc_manager.sync.compare"), this::compare).setEnabled(!busy);
+        content.parentElement.setAttribute("class", "page-shell sync-page");
+        var layout = node(content, "div", "sync-layout");
+        var types = node(layout, "aside", "sync-types");
+        for (Category type : Category.values()) {
+            if (type == Category.MANAGER_CONFIG) continue;
+            var button = action(types, tr("dlc_manager.sync.type_" + type.name().toLowerCase(Locale.ROOT)), () -> { category = type; refilter(); refreshPage(); });
+            button.getElement().setAttribute("class", "button filter" + (category == type ? " active" : ""));
+            button.setEnabled(!busy);
         }
-        live(content, () -> statusText, "page-description"); live(content, () -> errorText, "page-error"); mount(footer, modeButton); mount(footer, pushButton).getElement().setAttribute("class", "button primary");
-
+        if (results != null) scrolls.put(renderedCategory, DlcUiScroll.capture(results));
+        results = node(layout, "div", "sync-results");
+        renderedCategory = category;
+        DlcUiScroll.State savedScroll = scrolls.get(category);
+        if (savedScroll != null) DlcUiScroll.restore(results, savedScroll);
+        List<Row> shown = visibleRows();
+        var list = fileList(loaded && shown.isEmpty() ? tr("dlc_manager.sync.empty") : tr("dlc_manager.sync.differences"));
+        results.appendChild(list);
+        showWhen(list, () -> !busy || syncing);
+        if (!shown.isEmpty()) selectionRow(list, tr("dlc_manager.sync.select_all"), this::selectionState, this::selectVisible);
+        String language = com.cozooo.dlc_manager.platform.DlcPlatformServices.languageCode();
+        for (Row row : shown) {
+            String name = SyncModel.displayName(row.source(), language);
+            String status = tr("dlc_manager.sync." + comparison.status(row));
+            var tooltip = new DlcUiTooltip.Content(name, SyncModel.tooltip(row.source(), language), List.of(), status);
+            var line = selectionRow(list, name, () -> Boolean.toString(selected.contains(row.key())), () -> {
+                if (!selected.add(row.key())) selected.remove(row.key());
+            });
+            tip(line, () -> tooltip);
+            text(line, status, "row-description");
+        }
+        live(results, () -> message, "page-description");
+        showWhen(progress(results, () -> fraction), () -> busy);
+        if (rollbackClient != null && rollbackClient.canRollback()) {
+            var undo = action(footer, tr("dlc_manager.sync.rollback"), this::rollback);
+            undo.getElement().setAttribute("class", "button danger"); undo.setEnabled(!busy);
+        }
+        executeButton = primary(tr(syncing ? "dlc_manager.sync.cancel" : "dlc_manager.sync.execute"), () -> {
+            if (syncing) cancel(); else confirm();
+        });
+        executeButton.getElement().setAttribute("class", syncing ? "button danger" : "button primary");
+        updateExecuteButton();
     }
-    @Override protected void updatePage() {
-        updateLabels();
-        if (pageRevision != java.util.Objects.hash(entries, pushing)) refreshPage();
-        super.updatePage();
+    private com.sighs.apricityui.init.Element selectionRow(com.sighs.apricityui.init.Element list, String name, java.util.function.Supplier<String> checked, Runnable change) {
+        var line = managerRowLine(list, name, checked, () -> !busy, change);
+        line.setAttribute("class", "dlc-row sync-row");
+        var checkbox = line.getChildren().get(0);
+        var document = pageDocument;
+        long generation = document.getRefreshGeneration();
+        line.addEventListener("mousedown", event -> {
+            if (event instanceof com.sighs.apricityui.event.MouseEvent mouse && mouse.button == 0 && !busy && Minecraft.getInstance().screen == this
+                && document == getLinkedDocument() && document.isCurrentGeneration(generation)
+                && !(event.target instanceof com.sighs.apricityui.init.Element target && checkbox.contains(target))) {
+                event.preventDefault(); change.run(); syncSelections(); updatePage();
+            }
+        });
+        return line;
+    }
+    private Row settingsRow() { return rows.stream().filter(row -> SyncModel.category(row.source()) == Category.MANAGER_CONFIG).findFirst().orElse(null); }
+    private void refilter() { filteredRows = rows.stream().filter(row -> SyncModel.category(row.source()) != Category.MANAGER_CONFIG && (category == Category.ALL || SyncModel.category(row.source()) == category)).toList(); }
+    private List<Row> visibleRows() { return filteredRows; }
+    private List<Row> selectedRows() {
+        List<Row> chosen = new ArrayList<>(visibleRows().stream().filter(row -> selected.contains(row.key())).toList());
+        if (settingsSelected && settingsRow() != null) chosen.add(settingsRow());
+        return chosen;
+    }
+    private String selectionState() {
+        List<Row> shown = visibleRows(); long count = shown.stream().filter(row -> selected.contains(row.key())).count();
+        return count == 0 ? "false" : count == shown.size() ? "true" : "mixed";
+    }
+    private void selectVisible() {
+        List<Row> shown = visibleRows(); boolean all = shown.stream().allMatch(row -> selected.contains(row.key()));
+        for (Row row : shown) { if (all) selected.remove(row.key()); else selected.add(row.key()); }
+    }
+    private void updateExecuteButton() {
+        if (executeButton != null) executeButton.setEnabled(busy ? syncing && !cancelRequested : settingsSelected && settingsRow() != null || !selected.isEmpty() && visibleRows().stream().anyMatch(row -> selected.contains(row.key())));
+    }
+    private SyncModel.Peer peer(DlcServerSession session) {
+        return new SyncModel.Peer() {
+            public com.google.gson.JsonObject call(com.google.gson.JsonObject request) throws java.io.IOException {
+                try { return session.syncRequest(request); } catch (java.io.IOException error) { session.close(); throw error; }
+            }
+            public void close() throws java.io.IOException { session.close(); }
+        };
+    }
+    private SyncModel.Peer control() {
+        return request -> { try (DlcServerSession session = DlcServerSession.connect(entry, 10000)) { return peer(session).call(request); } };
+    }
+    private void compare() {
+        if (busy) return;
+        loaded = false; local = List.of(); remote = List.of(); rows = List.of(); filteredRows = List.of(); settingsSelected = false; selected.clear();
+        run(() -> {
+            List<Item> left, right;
+            try (SyncEndpoint endpoint = new SyncEndpoint(new DlcSyncAdapter()); DlcServerSession session = connect(entry)) {
+                previewSession = session;
+                left = SyncClient.manifest(endpoint, () -> cancelRequested);
+                right = SyncClient.manifest(peer(session), () -> cancelRequested);
+            } finally { previewSession = null; }
+            Minecraft.getInstance().execute(() -> { local = left; remote = right; loaded = true; message = ""; replan(); });
+        });
+    }
+    private void replan() {
+        comparison = SyncModel.compare(local, remote, direction, states, mode);
+        rows = comparison.rows();
+        selected.clear(); settingsSelected = false; refilter();
+        refreshPage();
+    }
+    private void confirm() {
+        if (busy) return;
+        List<Row> chosen = selectedRows();
+        if (chosen.isEmpty()) return;
+        Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
+            Minecraft.getInstance().setScreen(this);
+            if (accepted) execute(chosen);
+        }, DlcTextCompat.translatable("dlc_manager.sync.title"), DlcTextCompat.translatable("dlc_manager.sync.confirm", chosen.size()), DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
+    }
+    private void execute(List<Row> chosen) {
+        run(() -> {
+            rollbackClient = null;
+            try (SyncEndpoint endpoint = new SyncEndpoint(new DlcSyncAdapter()); DlcServerSession session = connect(entry)) {
+                SyncClient client = new SyncClient(endpoint, peer(session), control()); active = client; rollbackClient = client;
+                if (cancelRequested) client.cancel();
+                Result result = client.execute(chosen, mode, states, (phase, resource, done, total) -> {
+                    fraction = total > 0 && !phase.equals("restoring") ? done / (double) total : -1;
+                    String amount = phase.equals("transferring") || phase.equals("downloading") ? com.cozooo.dlc_manager.core.DlcFileSize.formatProgress(done, total) : done + (total >= 0 ? "/" + total : "");
+                    message = DlcTextCompat.translatable("dlc_manager.sync." + phase).getString() + " " + resource.substring(resource.lastIndexOf('/') + 1) + " " + amount;
+                });
+                message = DlcTextCompat.translatable(result.canceled() ? "dlc_manager.sync.canceled" : "dlc_manager.sync.finished", result.completed(), result.errors().size()).getString()
+                    + (result.requiresRestart() ? " " + DlcTextCompat.translatable("dlc_manager.sync.restart").getString() : "") + "\n" + String.join("\n", result.succeeded().stream().map(key -> tr("dlc_manager.sync.succeeded_item", key)).toList()) + "\n" + String.join("\n", result.errors());
+                if (chosen.stream().anyMatch(row -> SyncModel.category(row.source()) == Category.UPDATE && result.succeeded().contains(row.key()))) message += "\n" + tr("dlc_manager.sync.updates_ready");
+                if (result.canceled()) return;
+                if (!result.errors().isEmpty()) failureReason = String.join("\n", result.errors());
+                List<Item> left = SyncClient.manifest(endpoint, () -> cancelRequested), right = SyncClient.manifest(peer(session), () -> cancelRequested);
+                Minecraft.getInstance().execute(() -> { local = left; remote = right; replan(); });
+            } finally { active = null; }
+        }, true);
+    }
+    private void rollback() {
+        SyncClient client = rollbackClient;
+        if (busy || client == null || !client.canRollback()) return;
+        run(() -> {
+            message = tr("dlc_manager.sync.restoring");
+            try (SyncEndpoint endpoint = new SyncEndpoint(new DlcSyncAdapter()); DlcServerSession session = connect(entry)) {
+                client.rollback(endpoint, peer(session));
+                List<Item> left = SyncClient.manifest(endpoint), right = SyncClient.manifest(peer(session));
+                Minecraft.getInstance().execute(() -> { local = left; remote = right; replan(); });
+            }
+            message = tr("dlc_manager.sync.restored");
+        });
+    }
+    private void showFailure(String reason) {
+        Minecraft.getInstance().setScreen(new DlcSyncFailureScreen(restore -> {
+            Minecraft.getInstance().setScreen(this);
+            if (restore) rollback();
+        }, reason));
+    }
+    private DlcServerSession connect(DlcServerEntry entry) throws java.io.IOException {
+        return DlcServerSession.connect(entry, 120000, socket -> {
+            connecting = socket;
+            if (cancelRequested) try { socket.close(); } catch (Exception ignored) {}
+        });
+    }
+    private void cancel() {
+        if (!busy || cancelRequested) return;
+        cancelRequested = true;
+        if (active != null) { if (!active.cancel()) { cancelRequested = false; return; } message = tr("dlc_manager.sync.restoring"); fraction = -1; }
+        else try { if (connecting != null) connecting.close(); } catch (Exception ignored) {}
+        refreshPage();
     }
 
-    @Override public boolean shouldCloseOnEsc() { return !pushing; }
+    @FunctionalInterface private interface Work { void run() throws Exception; }
+    private void run(Work work) { run(work, false); }
+    private void run(Work work, boolean synchronizing) {
+        if (busy) return;
+        failureReason = null; cancelRequested = false; syncing = synchronizing; busy = true; fraction = -1;
+        message = tr("dlc_manager.sync.working"); refreshPage();
+        CompletableFuture.runAsync(() -> {
+            try { work.run(); }
+            catch (Exception error) { message = cancelRequested && (error instanceof java.net.SocketException || SyncFailure.is(error, "canceled")) ? DlcTextCompat.translatable("dlc_manager.sync.canceled").getString() : error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage(); if (synchronizing && !cancelRequested) failureReason = failureReason == null ? message : failureReason + "\n" + message; }
+            finally { Minecraft.getInstance().execute(() -> { busy = false; syncing = false; connecting = null; refreshPage(); if (failureReason != null) showFailure(failureReason); }); }
+        });
+    }
+    @Override protected void updatePage() { updateExecuteButton(); }
+    @Override public boolean shouldCloseOnEsc() { return !busy; }
 }

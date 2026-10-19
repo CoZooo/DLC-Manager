@@ -14,6 +14,7 @@ import java.util.List;
 
 public final class DlcUpdateJournal implements AutoCloseable {
     private static final ThreadLocal<DlcUpdateJournal> ACTIVE = new ThreadLocal<>();
+    private static final ThreadLocal<Boolean> SYNC = new ThreadLocal<>();
     private final Path game;
     private final Path directory;
     private final JsonArray entries;
@@ -26,7 +27,14 @@ public final class DlcUpdateJournal implements AutoCloseable {
         this.roots = List.copyOf(roots);
     }
 
+    public static DlcUpdateJournal openSync(Path game, Path directory) throws IOException {
+        DlcUpdateJournal journal = open(game, directory); SYNC.set(true); return journal;
+    }
+
+    public static void beforeSyncWrite(Path target) { if (Boolean.TRUE.equals(SYNC.get())) beforeWrite(target); }
+
     public static DlcUpdateJournal open(Path game, Path directory) throws IOException {
+        SYNC.remove();
         Path log = directory.resolve("recovery.dc");
         JsonObject saved = Files.exists(log) ? DcDocuments.read(log).toJson() : new JsonObject();
         JsonArray entries = saved.has("entries") ? saved.getAsJsonArray("entries") : new JsonArray();
@@ -183,6 +191,7 @@ public final class DlcUpdateJournal implements AutoCloseable {
     }
 
     @Override public void close() {
+        SYNC.remove();
         ACTIVE.remove();
         com.cozooo.dlc_manager.client.helper.DlcFileOpsHelperClient.requireImmediateOperations(false);
     }

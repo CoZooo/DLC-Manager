@@ -460,13 +460,21 @@ public final class DlcFxManagerApp extends Application {
         return root;
     }
 
+    private boolean syncBusy() {
+        if (remoteFileManagerTab == null || !remoteFileManagerTab.isSyncBusy()) return false;
+        DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.sync.busy"));
+        return true;
+    }
+
     private void showHome() {
+        if (syncBusy()) return;
         currentView = ViewMode.HOME;
         shellContent.setCenter(homeView);
         refreshStatusForCurrentView();
     }
 
     private void showLocalWorkspace() {
+        if (syncBusy()) return;
         currentView = ViewMode.LOCAL;
         shellContent.setCenter(localView);
         refreshStatusForCurrentView();
@@ -827,6 +835,7 @@ public final class DlcFxManagerApp extends Application {
     }
 
     private void showLocalConfigOverlay() {
+        if (syncBusy()) return;
         if (!localGameDirSelected) {
             refreshStatusForCurrentView();
             return;
@@ -1112,6 +1121,10 @@ public final class DlcFxManagerApp extends Application {
     }
 
     private void setLocalGameDirectory(Path gameDir, boolean checkRequired, boolean showInvalidDialog) {
+        if (remoteFileManagerTab != null && remoteFileManagerTab.isSyncBusy()) {
+            DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.sync.busy"));
+            return;
+        }
         if (gameDir == null) {
             return;
         }
@@ -1163,7 +1176,7 @@ public final class DlcFxManagerApp extends Application {
         button.setMinSize(36, 36);
         button.setPrefSize(36, 36);
         button.setMaxSize(36, 36);
-        button.setOnAction(event -> new DlcFxManagerSettingsOverlay(scene(), PROVIDER, this::rebuildForLanguageChange).show());
+        button.setOnAction(event -> { if (!syncBusy()) new DlcFxManagerSettingsOverlay(scene(), PROVIDER, this::rebuildForLanguageChange).show(); });
         DlcFxStyle.add(button, "dlc-manager-settings-button");
         return button;
     }
@@ -1191,6 +1204,7 @@ public final class DlcFxManagerApp extends Application {
     }
 
     private void rebuildForLanguageChange() {
+        if (syncBusy()) return;
         ViewMode target = currentView;
         primaryStage.setTitle(DlcFxI18n.tr("dlc_manager.window_title"));
         if (remoteConnection != null) {

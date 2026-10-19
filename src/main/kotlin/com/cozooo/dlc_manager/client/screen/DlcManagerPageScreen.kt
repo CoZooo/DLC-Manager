@@ -25,7 +25,7 @@ abstract class DlcManagerPageScreen(page: DlcUiPage = DlcUiPage.MANAGER) : DlcAp
     private var layoutDocument: Document? = null
     private var layoutGeneration = -1L
     private var sidebarCollapsed = false
-    private var sidebarWidth = 172.0
+    private var sidebarWidth = 240.0
     private var rowHeight = 40.0
     private val sidebarMotion = DlcUiMotion(1.0)
     private var lastSidebarProgress = Double.NaN
@@ -38,13 +38,24 @@ abstract class DlcManagerPageScreen(page: DlcUiPage = DlcUiPage.MANAGER) : DlcAp
         var lastProgress = Double.NaN
     }
 
+    protected var headerBackButton: DlcUiButton? = null
+
     protected fun bindManagerLayout(document: Document, title: String) {
         val manager = document.getElementById("manager")
-        sidebarWidth = layoutMetric(manager, "data-sidebar-width", 172.0)
+        sidebarWidth = layoutMetric(manager, "data-sidebar-width", 240.0)
         rowHeight = layoutMetric(manager, "data-row-height", 40.0)
         document.getElementById("manager-header").setAttribute("class", "workspace-header")
         restoreUiClasses(document.getElementById("manager-header"))
         DlcUiText.set(document.getElementById("manager-title"), title)
+        val back = document.getElementById("manager-back")
+        headerBackButton = null
+        if (back != null) {
+            clearUiContent(back)
+            headerBackButton = button(document, back, "‹", ::onClose).also {
+                it.getElement().setAttribute("class", "button manager-back")
+                it.getElement().setAttribute("aria-label", layoutTranslate("gui.back"))
+            }
+        }
         document.getElementById("category-label").setTextContent(layoutTranslate("dlc_manager.ui.categories"))
         document.getElementById("tools-label").setTextContent(layoutTranslate("dlc_manager.ui.tools"))
         if (layoutDocument !== document || layoutGeneration != document.refreshGeneration) {
@@ -80,9 +91,7 @@ abstract class DlcManagerPageScreen(page: DlcUiPage = DlcUiPage.MANAGER) : DlcAp
     }
 
     protected fun styleManagerRow(document: Document, entry: Element, name: String, enabled: Boolean, pending: Boolean): Element {
-        entry.setAttribute("class", "dlc-row" + (if (enabled) " enabled" else "") + (if (pending) " pending" else ""))
-        if (pending || enabled) managerText(document, entry, "span", "", "item-status-dot " + if (pending) "pending" else "enabled").setAttribute("aria-hidden", "true")
-        return managerText(document, entry, "span", name, "item-name")
+        return DlcUiRows.managerRow(document, entry, name, enabled, pending)
     }
 
     protected fun managerToggle(document: Document, entry: Element, enabled: Boolean, action: Runnable): DlcUiButton {
@@ -174,10 +183,7 @@ abstract class DlcManagerPageScreen(page: DlcUiPage = DlcUiPage.MANAGER) : DlcAp
     }
 
     protected fun managerText(document: Document, parent: Element, tag: String, value: String?, className: String): Element {
-        val element = document.createElement(tag)
-        element.setAttribute("class", className)
-        DlcUiText.set(element, value)
-        return parent.appendChild(element)
+        return DlcUiRows.text(document, parent, tag, value, className)
     }
 
 

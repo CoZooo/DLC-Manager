@@ -288,6 +288,7 @@ public final class DlcResourceHistory {
     }
 
     public static void copy(Path source, Path target) throws IOException {
+        com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeSyncWrite(target);
         if (Files.isSymbolicLink(source)) throw new IOException("Cannot copy symbolic link: " + source);
         if (Files.isDirectory(source)) {
             Files.createDirectories(target);

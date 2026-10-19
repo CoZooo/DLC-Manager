@@ -186,6 +186,55 @@ public class DlcConfig {
         return root;
     }
 
+    public static JsonObject buildSyncConfigJson(JsonObject source) {
+        JsonObject defaults = new JsonObject();
+        JsonObject paths = new JsonObject();
+        paths.addProperty("dlcRoot", DEFAULT_DLC_ROOT);
+        paths.addProperty("taczRoot", DEFAULT_TACZ_ROOT);
+        paths.addProperty("resourcepackRoot", DEFAULT_RESOURCEPACK_ROOT);
+        paths.addProperty("datapackRoot", DEFAULT_DATAPACK_ROOT);
+        defaults.add("paths", paths);
+        JsonObject ui = new JsonObject();
+        ui.addProperty("isEnableAllButtonShown", DEFAULT_ENABLE_ALL_SHOWN);
+        ui.addProperty("isUpdateManagerOn", DEFAULT_UPDATE_MANAGER_ON);
+        ui.addProperty("isSelfUpdateAutoCheckOn", DEFAULT_SELF_UPDATE_AUTO_CHECK_ON);
+        ui.addProperty("isPresetFuncOn", DEFAULT_PRESET_FUNC_ON);
+        ui.addProperty("WaitingTime", DEFAULT_ALARM_WAITING_TIME);
+        defaults.add("ui", ui);
+        JsonObject downloads = new JsonObject();
+        downloads.addProperty("maxConcurrentDownloads", DEFAULT_MAX_CONCURRENT_DOWNLOADS);
+        downloads.addProperty("maxSegmentsPerFile", DEFAULT_MAX_SEGMENTS_PER_FILE);
+        downloads.addProperty("minSegmentMB", DEFAULT_MIN_SEGMENT_MB);
+        downloads.addProperty("maxRetryCount", DEFAULT_MAX_RETRY);
+        downloads.addProperty("connectTimeoutSeconds", DEFAULT_CONNECT_TIMEOUT_SECONDS);
+        downloads.addProperty("taskTimeoutSeconds", DEFAULT_TASK_TIMEOUT_SECONDS);
+        downloads.addProperty("downloadMirrorMode", DEFAULT_DOWNLOAD_MIRROR_MODE);
+        downloads.addProperty("downloadMirrorProbeCount", DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT);
+        downloads.addProperty("downloadMirrorProbeStrategy", DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY);
+        defaults.add("downloads", downloads);
+        JsonObject modpack = new JsonObject();
+        modpack.addProperty("modpack", DEFAULT_MODPACK);
+        modpack.addProperty("modpackUrl", DEFAULT_MODPACK_URL);
+        modpack.addProperty("updateGitRepo", DEFAULT_UPDATE_GIT_REPO_URL);
+        modpack.addProperty("autoUpdate", DEFAULT_MODPACK_AUTO_UPDATE);
+        modpack.addProperty("forceUpdate", DEFAULT_MODPACK_FORCE_UPDATE);
+        defaults.add("modpack", modpack);
+        for (var section : defaults.entrySet()) {
+            JsonObject incoming = DlcDcConfigIO.getObjectIgnoreCase(source, section.getKey());
+            JsonObject values = section.getValue().getAsJsonObject();
+            for (String key : new java.util.ArrayList<>(values.keySet())) {
+                JsonElement value = DlcDcConfigIO.getIgnoreCase(incoming, key);
+                if (value == null && section.getKey().equals("modpack") && key.equals("updateGitRepo")) value = DlcDcConfigIO.getIgnoreCase(incoming, "updateGithubRepo");
+                if (value == null || !value.isJsonPrimitive()) continue;
+                var expected = values.getAsJsonPrimitive(key);
+                var actual = value.getAsJsonPrimitive();
+                if (expected.isNumber() && actual.isNumber()) values.addProperty(key, value.getAsInt());
+                else if (expected.isBoolean() && actual.isBoolean() || expected.isString() && actual.isString()) values.add(key, value.deepCopy());
+            }
+        }
+        return defaults;
+    }
+
     public static JsonObject buildSharedConfigJson() {
         JsonObject root = new JsonObject();
         writeShared(root);
@@ -557,7 +606,7 @@ public class DlcConfig {
         if (value < 1) {
             value = DEFAULT_MIN_SEGMENT_MB;
         }
-        return (long) value * 1024L * 1024L;
+        return (long) value * DlcFileSize.MIB;
     }
 
     public static int getMaxRetryCount() {
@@ -796,7 +845,7 @@ public class DlcConfig {
     }
 
     public static void setMinSegmentBytes(long value) {
-        long mb = Math.max(1L, (value + (1024L * 1024L - 1)) / (1024L * 1024L));
+        long mb = Math.max(1L, DlcFileSize.ceilMiB(value));
         long clamped = Math.min(Integer.MAX_VALUE, mb);
         minSegmentMb = (int) clamped;
     }

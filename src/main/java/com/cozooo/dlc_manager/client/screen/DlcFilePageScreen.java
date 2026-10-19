@@ -23,7 +23,21 @@ public abstract class DlcFilePageScreen extends DlcPageScreen {
 
     protected final void fileRow(Element list, String name, String description, Supplier<String> checked,
                                  BooleanSupplier enabled, Runnable select, Runnable open) {
-        Element line = node(list, "div", "page-row file-row");
+        fileRowLine(list, name, description, checked, enabled, select, open);
+    }
+
+    protected final Element fileRowLine(Element list, String name, String description, Supplier<String> checked,
+                                        BooleanSupplier enabled, Runnable select, Runnable open) {
+        return fileRowLine(list, name, description, checked, enabled, select, open, false);
+    }
+
+    protected final Element managerRowLine(Element list, String name, Supplier<String> checked, BooleanSupplier enabled, Runnable select) {
+        return fileRowLine(list, name, null, checked, enabled, select, null, true);
+    }
+
+    private Element fileRowLine(Element list, String name, String description, Supplier<String> checked,
+                                BooleanSupplier enabled, Runnable select, Runnable open, boolean managerStyle) {
+        Element line = managerStyle ? list.appendChild(pageDocument.createElement("div")) : node(list, "div", "page-row file-row");
         var button = action(line, "", () -> {
             if (enabled.getAsBoolean()) { select.run(); syncSelections(); }
         });
@@ -32,9 +46,13 @@ public abstract class DlcFilePageScreen extends DlcPageScreen {
         box.setAttribute("role", "checkbox");
         box.setAttribute("aria-label", tr("dlc_manager.ui.select") + " " + name);
         box.setInnerHTML("<svg class=\"file-checkmark\" viewBox=\"0 0 16 16\"><path d=\"M3 8 L6.5 11.5 L13 4.5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path></svg><span class=\"file-mixed\"></span>");
-        Element copy = node(line, "div", "row-copy");
-        text(copy, name, "row-title");
-        if (description != null && !description.isBlank()) text(copy, description, "row-description");
+        if (managerStyle) {
+            DlcUiRows.managerRow(pageDocument, line, name, false, false);
+        } else {
+            Element copy = node(line, "div", "row-copy");
+            text(copy, name, "row-title");
+            if (description != null && !description.isBlank()) text(copy, description, "row-description");
+        }
         if (open != null) {
             Document document = pageDocument;
             long generation = document.getRefreshGeneration();
@@ -59,8 +77,9 @@ public abstract class DlcFilePageScreen extends DlcPageScreen {
         };
         selections.add(sync);
         sync.run();
+        return line;
     }
 
-    private void syncSelections() { selections.forEach(Runnable::run); }
+    protected final void syncSelections() { selections.forEach(Runnable::run); }
     @Override protected void updatePage() { syncSelections(); }
 }

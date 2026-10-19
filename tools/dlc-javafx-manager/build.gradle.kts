@@ -52,7 +52,10 @@ java {
 }
 
 val reusedCommonJavaFiles = listOf(
+    "com/cozooo/dlc_manager/sync/**",
+    "com/cozooo/dlc_manager/client/sync/**",
     "com/cozooo/dlc_manager/core/DlcFileMatch.java",
+    "com/cozooo/dlc_manager/core/DlcFileSize.java",
     "com/cozooo/dlc_manager/core/DlcItemFiles.java",
     "com/cozooo/dlc_manager/core/DlcResourceHistory.java",
     "com/cozooo/dlc_manager/bootstrap/DlcEarlyInstaller.java",

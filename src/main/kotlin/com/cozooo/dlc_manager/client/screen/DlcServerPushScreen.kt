@@ -1,410 +1,220 @@
 package com.cozooo.dlc_manager.client.screen
 
-import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
-
+import com.cozooo.dlc_manager.client.server.*
+import com.cozooo.dlc_manager.client.sync.DlcSyncAdapter
+import com.cozooo.dlc_manager.sync.*
+import com.cozooo.dlc_manager.sync.SyncModel.*
 import com.cozooo.dlc_manager.platform.DlcTextCompat
-
-import com.cozooo.dlc_manager.client.server.DlcServerConnection
-import com.cozooo.dlc_manager.client.server.DlcServerEntry
-import com.cozooo.dlc_manager.core.DlcPaths
-import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.screens.Screen
-import net.minecraft.network.chat.Component
-import java.nio.file.DirectoryStream
-import java.nio.file.Files
-import java.nio.file.Path
+import java.util.Locale
 import java.util.concurrent.CompletableFuture
 
-class DlcServerPushScreen(
-    private val parent: Screen?,
-    private val entry: DlcServerEntry?,
-) : DlcFilePageScreen(DlcUiPage.SERVER_PUSH, parent, DlcTextCompat.translatable("dlc_manager.server.push_title")) {
-    private val rootDir: Path = DlcPaths.gameDir().toAbsolutePath().normalize()
-    private var currentDir: Path = rootDir
+class DlcServerPushScreen(parent: Screen, private val entry: DlcServerEntry?) :
+    DlcFilePageScreen(DlcUiPage.SERVER_PUSH, parent, DlcTextCompat.translatable("dlc_manager.sync.title")) {
+    private var local = emptyList<Item>()
+    private var remote = emptyList<Item>()
+    private var rows = emptyList<Row>()
+    private var filteredRows = emptyList<Row>()
+    private var comparison = Comparison(emptyList(), emptyMap())
+    private val selected = mutableSetOf<String>()
+    private var mode = Mode.CONFIG
+    private var category = Category.ALL
+    private var direction = Direction.PUSH
+    private var settingsSelected = false
+    private var states = true
+    private var loaded = false
+    @Volatile private var busy = false
+    @Volatile private var message = ""
+    @Volatile private var fraction = -1.0
+    @Volatile private var connecting: AutoCloseable? = null
+    @Volatile private var cancelRequested = false
+    @Volatile private var active: SyncClient? = null
+    @Volatile private var previewSession: DlcServerSession? = null
+    @Volatile private var rollbackClient: SyncClient? = null
+    @Volatile private var failureReason: String? = null
+    private var syncing = false
+    private var results: com.sighs.apricityui.init.Element? = null
+    private var renderedCategory = Category.ALL
+    private val scrolls = java.util.EnumMap<Category, DlcUiScroll.State>(Category::class.java)
+    private var executeButton: DlcUiButton? = null
 
-    private var modeButton: Button? = null
-    private var pushButton: Button? = null
-    private var backButton: Button? = null
-    private var upButton: Button? = null
-    private var clearButton: Button? = null
-
-    private var overwriteMode = true
-    private var pushing = false
-    private var statusText: String? = null
-    private var errorText: String? = null
-    private val selectedFiles: MutableSet<String> = LinkedHashSet()
-    private val dirFilesCache: MutableMap<Path, List<String>> = HashMap()
-    private var entries: List<FileEntry> = emptyList()
-
-    private var scrollIndex = 0
-    private var draggingScrollBar = false
-
-    private fun initControls() {
-        val buttonHeight = 20
-        val bottomY = height - 28
-        val modeWidth = 96
-        val pushWidth = 96
-        val backWidth = 96
-        val gap = 6
-
-        val modeLabel = DlcTextCompat.translatable("dlc_manager.server.push_mode")
-        val modeLabelWidth = font.width(modeLabel)
-        val modeX = 20 + modeLabelWidth + 6
-        val mode = DlcScreenCompat.buttonBuilder(DlcTextCompat.empty()) { toggleMode() }
-            .bounds(modeX, bottomY, modeWidth, buttonHeight)
-            .build()
-
-        val rightMargin = 10
-        val backX = width - rightMargin - backWidth
-        val pushX = backX - gap - pushWidth
-        val push = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.push_start")) { confirmPush() }
-            .bounds(pushX, bottomY, pushWidth, buttonHeight)
-            .build()
-        val back = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("gui.back")) { Minecraft.getInstance().setScreen(parent) }
-            .bounds(backX, bottomY, backWidth, buttonHeight)
-            .build()
-
-        val topButtonY = 56
-        val up = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.push_up")) { goUp() }
-            .bounds(20, topButtonY, 70, buttonHeight)
-            .build()
-        val clear = DlcScreenCompat.buttonBuilder(DlcTextCompat.translatable("dlc_manager.server.push_clear_selection", 0)) { clearSelection() }
-            .bounds(width - 20 - 140, topButtonY, 140, buttonHeight)
-            .build()
-
-        modeButton = mode
-        pushButton = push
-        backButton = back
-        upButton = up
-        clearButton = clear
-
-        addRenderableWidget(mode)
-        addRenderableWidget(push)
-        addRenderableWidget(back)
-        addRenderableWidget(up)
-        addRenderableWidget(clear)
-        refreshEntries()
-        updateLabels()
-    }
-
-    private fun toggleMode() {
-        if (pushing) {
-            return
-        }
-        overwriteMode = !overwriteMode
-        updateLabels()
-    }
-
-    private fun updateLabels() {
-        modeButton?.let {
-            val modeLabel = if (overwriteMode) {
-                DlcTextCompat.translatable("dlc_manager.server.push_mode_overwrite")
-            } else {
-                DlcTextCompat.translatable("dlc_manager.server.push_mode_diff")
-            }
-            it.message = modeLabel
-            it.active = !pushing
-        }
-        pushButton?.active = !pushing
-        backButton?.active = !pushing
-        clearButton?.let {
-            it.message = DlcTextCompat.translatable("dlc_manager.server.push_clear_selection", selectedFiles.size)
-            it.active = !pushing && selectedFiles.isNotEmpty()
-        }
-        upButton?.active = !pushing && currentDir != rootDir
-    }
-
-    private fun confirmPush() {
-        if (selectedFiles.isEmpty()) {
-            DlcScreenCompat.addOrUpdatePeriodicNotification(
-                DlcScreenCompat.toastManager(Minecraft.getInstance()),
-                DlcTextCompat.translatable("dlc_manager.server.push_no_selection"),
-                DlcTextCompat.empty(),
-            )
-            return
-        }
-        val title = DlcTextCompat.translatable("dlc_manager.server.push_title")
-        val message = DlcTextCompat.translatable("dlc_manager.server.push_confirm", buildTargetLabel(), modeLabel)
-        Minecraft.getInstance().setScreen(
-            DlcConfirmScreen({ accepted ->
-                if (accepted) {
-                    confirmPushAgain()
-                } else {
-                    Minecraft.getInstance().setScreen(this)
-                }
-            }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()),
-        )
-    }
-
-    private fun confirmPushAgain() {
-        val title = DlcTextCompat.translatable("dlc_manager.server.push_title")
-        val message = DlcTextCompat.translatable("dlc_manager.server.push_confirm_again")
-        Minecraft.getInstance().setScreen(
-            DlcConfirmScreen({ accepted ->
-                if (accepted) {
-                    startPush()
-                } else {
-                    Minecraft.getInstance().setScreen(this)
-                }
-            }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()),
-        )
-    }
-
-    private fun startPush() {
-        if (pushing) {
-            return
-        }
-        pushing = true
-        statusText = DlcTextCompat.translatable("dlc_manager.server.pushing").string
-        updateLabels()
-        CompletableFuture
-            .supplyAsync { doPush() }
-            .whenComplete { ok, _ ->
-                Minecraft.getInstance().execute {
-                    pushing = false
-                    if (ok == true) {
-                        DlcScreenCompat.addOrUpdatePeriodicNotification(
-                            DlcScreenCompat.toastManager(Minecraft.getInstance()),
-                            DlcTextCompat.translatable("dlc_manager.server.push_success"),
-                            DlcTextCompat.empty(),
-                        )
-                    } else {
-                        DlcScreenCompat.addOrUpdatePeriodicNotification(
-                            DlcScreenCompat.toastManager(Minecraft.getInstance()),
-                            DlcTextCompat.translatable("dlc_manager.server.push_failed"),
-                            DlcTextCompat.empty(),
-                        )
-                    }
-                    updateLabels()
-                }
-            }
-    }
-
-    private fun doPush(): Boolean {
-        return try {
-            val files = ArrayList(selectedFiles)
-            if (files.isEmpty()) {
-                return false
-            }
-            DlcServerConnection.push(
-                entry,
-                20000,
-                emptyList(),
-                files,
-                if (overwriteMode) "overwrite" else "diff",
-                DlcPlatformServices.playerName(),
-                DlcPlatformServices.playerUuid(),
-            )
-        } catch (_: Exception) {
-            false
-        }
-    }
-
-    private fun buildTargetLabel(): String {
-        return DlcTextCompat.translatable("dlc_manager.server.push_selected_count", selectedFiles.size).string
-    }
-
-    private val modeLabel: String
-        get() = if (overwriteMode) {
-            DlcTextCompat.translatable("dlc_manager.server.push_mode_overwrite").string
-        } else {
-            DlcTextCompat.translatable("dlc_manager.server.push_mode_diff").string
-        }
-
-    private fun refreshEntries() {
-        entries = listEntries(currentDir)
-        scrollIndex = 0
-        updateLabels()
-    }
-
-    private fun listEntries(dir: Path?): List<FileEntry> {
-        val result: MutableList<FileEntry> = ArrayList()
-        if (dir == null || !Files.isDirectory(dir)) {
-            return result
-        }
-        try {
-            Files.newDirectoryStream(dir).use { stream: DirectoryStream<Path> ->
-                for (path in stream) {
-                    val isDir = Files.isDirectory(path)
-                    val name = path.fileName?.toString() ?: path.toString()
-                    result.add(FileEntry(path, name, isDir))
-                }
-            }
-        } catch (_: Exception) {
-        }
-        result.sortWith(compareBy<FileEntry> { !it.isDir }.thenBy { it.name.lowercase() })
-        return result
-    }
-
-    private fun openDirectory(dir: Path?) {
-        if (dir == null) {
-            return
-        }
-        val normalized = dir.toAbsolutePath().normalize()
-        if (!normalized.startsWith(rootDir) || !Files.isDirectory(normalized)) {
-            return
-        }
-        currentDir = normalized
-        refreshEntries()
-    }
-
-    private fun goUp() {
-        if (currentDir == rootDir) {
-            return
-        }
-        val parentDir = currentDir.parent
-        if (parentDir == null || !parentDir.startsWith(rootDir)) {
-            return
-        }
-        currentDir = parentDir
-        refreshEntries()
-    }
-
-    private fun getEntryState(entry: FileEntry?): SelectionState {
-        if (entry == null) {
-            return SelectionState.NONE
-        }
-        if (!entry.isDir) {
-            val rel = toRelative(entry.path)
-            return if (rel != null && selectedFiles.contains(rel)) SelectionState.ALL else SelectionState.NONE
-        }
-        val files = getDirFiles(entry.path)
-        if (files.isEmpty()) {
-            return SelectionState.NONE
-        }
-        val count = files.count { it in selectedFiles }
-        return if (count == 0) SelectionState.NONE else if (count == files.size) SelectionState.ALL else SelectionState.PARTIAL
-    }
-
-    private fun toggleEntry(entry: FileEntry?) {
-        if (entry == null) {
-            return
-        }
-        if (!entry.isDir) {
-            val rel = toRelative(entry.path)
-            if (rel.isNullOrBlank()) {
-                return
-            }
-            if (!selectedFiles.add(rel)) {
-                selectedFiles.remove(rel)
-            }
-            updateLabels()
-            return
-        }
-        val files = getDirFiles(entry.path)
-        if (files.isEmpty()) {
-            return
-        }
-        var allSelected = true
-        for (file in files) {
-            if (!selectedFiles.contains(file)) {
-                allSelected = false
-                break
-            }
-        }
-        if (allSelected) {
-            selectedFiles.removeAll(files.toSet())
-        } else {
-            selectedFiles.addAll(files)
-        }
-        updateLabels()
-    }
-
-    private fun getDirFiles(dir: Path?): List<String> {
-        if (dir == null) {
-            return emptyList()
-        }
-        val cached = dirFilesCache[dir]
-        if (cached != null) {
-            return cached
-        }
-        val files: MutableList<String> = ArrayList()
-        try {
-            Files.walk(dir).use { stream ->
-                stream.filter(Files::isRegularFile).forEach { path ->
-                    val rel = toRelative(path)
-                    if (!rel.isNullOrBlank()) {
-                        files.add(rel)
-                    }
-                }
-            }
-        } catch (_: Exception) {
-        }
-        dirFilesCache[dir] = files
-        return files
-    }
-
-    private fun toRelative(path: Path?): String? {
-        if (path == null) {
-            return null
-        }
-        val normalized = path.toAbsolutePath().normalize()
-        if (!normalized.startsWith(rootDir)) {
-            return null
-        }
-        val relative = rootDir.relativize(normalized)
-        val rel = relative.toString()
-        if (rel.isBlank()) {
-            return null
-        }
-        return rel.replace('\\', '/')
-    }
-
-    private fun clearSelection() {
-        selectedFiles.clear()
-        updateLabels()
-    }
-
-    private val currentDirLabel: String
-        get() {
-            if (currentDir == rootDir) {
-                return "/"
-            }
-            val rel = rootDir.relativize(currentDir).toString().replace('\\', '/')
-            return "/$rel"
-        }
-
-    private class FileEntry(
-        val path: Path,
-        val name: String,
-        val isDir: Boolean,
-    )
-
-    private enum class SelectionState {
-        NONE,
-        PARTIAL,
-        ALL,
-    }
-
-    companion object {
-
-
-
-    }
-
-    private var controlsReady = false
-    private var pageRevision = 0
     override fun buildPage() {
-        if (!controlsReady) { controlsReady = true; initControls() }
-        pageRevision = 31 * entries.hashCode() + pushing.hashCode()
-
-        upButton?.let { mount(toolbar, it) }; clearButton?.let { mount(toolbar, it) }
-        val list = fileList(currentDirLabel)
-        for (file in entries) {
-            fileRow(list, file.name + if (file.isDir) "/" else "", null,
-                { when (getEntryState(file)) { SelectionState.ALL -> "true"; SelectionState.PARTIAL -> "mixed"; SelectionState.NONE -> "false" } },
-                { !pushing }, { toggleEntry(file) }, if (file.isDir) Runnable { openDirectory(file.path) } else null)
+        footerLeading.setAttribute("style", "display:flex")
+        action(footerLeading, tr("dlc_manager.sync.mode_" + mode.name.lowercase(Locale.ROOT))) { mode = if (mode == Mode.FILES) Mode.CONFIG else Mode.FILES; replan() }.setEnabled(!busy)
+        action(toolbar, tr("dlc_manager.sync." + direction.name.lowercase(Locale.ROOT))) { direction = if (direction == Direction.PUSH) Direction.PULL else Direction.PUSH; replan() }.setEnabled(!busy)
+        if (SyncModel.hasStateDifferences(local, remote)) toggle(footerLeading, tr("dlc_manager.sync.states"), states) { states = it; replan() }.setEnabled(!busy)
+        if (settingsRow() != null) toggle(footerLeading, tr("dlc_manager.sync.manager_config"), settingsSelected) { settingsSelected = it; refreshPage() }.setEnabled(!busy)
+        action(toolbar, tr("dlc_manager.sync.compare"), ::compare).setEnabled(!busy)
+        content.parentElement.setAttribute("class", "page-shell sync-page")
+        val layout = node(content, "div", "sync-layout")
+        val types = node(layout, "aside", "sync-types")
+        for (type in Category.entries) {
+            if (type == Category.MANAGER_CONFIG) continue
+            val button = action(types, tr("dlc_manager.sync.type_" + type.name.lowercase(Locale.ROOT))) { category = type; refilter(); refreshPage() }
+            button.getElement().setAttribute("class", "button filter" + if (category == type) " active" else "")
+            button.setEnabled(!busy)
         }
-        live(content, { statusText }, "page-description"); live(content, { errorText }, "page-error"); modeButton?.let { mount(footer, it) }; pushButton?.let { mount(footer, it).getElement().setAttribute("class", "button primary") }
-
+        results?.let { scrolls[renderedCategory] = DlcUiScroll.capture(it) }
+        val results = node(layout, "div", "sync-results")
+        this.results = results
+        renderedCategory = category
+        scrolls[category]?.let { DlcUiScroll.restore(results, it) }
+        val shown = visibleRows()
+        val list = fileList(if (loaded && shown.isEmpty()) tr("dlc_manager.sync.empty") else tr("dlc_manager.sync.differences"))
+        results.appendChild(list)
+        showWhen(list) { !busy || syncing }
+        if (shown.isNotEmpty()) selectionRow(list, tr("dlc_manager.sync.select_all"), ::selectionState, ::selectVisible)
+        val language = com.cozooo.dlc_manager.platform.DlcPlatformServices.languageCode()
+        for (row in shown) {
+            val name = SyncModel.displayName(row.source, language)
+            val status = tr("dlc_manager.sync." + comparison.status(row))
+            val tooltip = DlcUiTooltip.Content(name, SyncModel.tooltip(row.source, language), emptyList(), status)
+            val line = selectionRow(list, name, { selected.contains(row.key).toString() }) { if (!selected.add(row.key)) selected.remove(row.key) }
+            tip(line) { tooltip }
+            text(line, status, "row-description")
+        }
+        live(results, { message }, "page-description")
+        showWhen(progress(results) { fraction }) { busy }
+        if (rollbackClient?.canRollback() == true) {
+            val undo = action(footer, tr("dlc_manager.sync.rollback"), ::rollback)
+            undo.getElement().setAttribute("class", "button danger"); undo.setEnabled(!busy)
+        }
+        executeButton = primary(tr(if (syncing) "dlc_manager.sync.cancel" else "dlc_manager.sync.execute")) {
+            if (syncing) cancel() else confirm()
+        }
+        executeButton?.getElement()?.setAttribute("class", if (syncing) "button danger" else "button primary")
+        updateExecuteButton()
     }
-    override fun updatePage() {
-        updateLabels()
-        if (pageRevision != 31 * entries.hashCode() + pushing.hashCode()) refreshPage()
-        super.updatePage()
+    private fun selectionRow(list: com.sighs.apricityui.init.Element, name: String, checked: java.util.function.Supplier<String>, change: Runnable): com.sighs.apricityui.init.Element {
+        val line = managerRowLine(list, name, checked, { !busy }, change)
+        line.setAttribute("class", "dlc-row sync-row")
+        val checkbox = line.getChildren()[0]
+        val document = pageDocument
+        val generation = document.getRefreshGeneration()
+        line.addEventListener("mousedown") { event ->
+            val target = event.target
+            if (event is com.sighs.apricityui.event.MouseEvent && event.button == 0 && !busy && Minecraft.getInstance().screen === this && document === getLinkedDocument() && document.isCurrentGeneration(generation) && !(target is com.sighs.apricityui.init.Element && checkbox.contains(target))) {
+                event.preventDefault(); change.run(); syncSelections(); updatePage()
+            }
+        }
+        return line
     }
-
-    override fun shouldCloseOnEsc() = !pushing
+    private fun settingsRow() = rows.firstOrNull { SyncModel.category(it.source) == Category.MANAGER_CONFIG }
+    private fun refilter() { filteredRows = rows.filter { SyncModel.category(it.source) != Category.MANAGER_CONFIG && (category == Category.ALL || SyncModel.category(it.source) == category) } }
+    private fun visibleRows(): List<Row> = filteredRows
+    private fun selectedRows(): List<Row> = visibleRows().filter { it.key in selected } + if (settingsSelected) listOfNotNull(settingsRow()) else emptyList()
+    private fun selectionState(): String {
+        val shown = visibleRows()
+        val count = shown.count { selected.contains(it.key) }
+        return if (count == 0) "false" else if (count == shown.size) "true" else "mixed"
+    }
+    private fun selectVisible() {
+        val shown = visibleRows()
+        val all = shown.all { selected.contains(it.key) }
+        shown.forEach { if (all) selected.remove(it.key) else selected.add(it.key) }
+    }
+    private fun updateExecuteButton() {
+        executeButton?.setEnabled(if (busy) syncing && !cancelRequested else settingsSelected && settingsRow() != null || selected.isNotEmpty() && visibleRows().any { it.key in selected })
+    }
+    private fun peer(session: DlcServerSession) = object : Peer {
+        override fun call(request: com.google.gson.JsonObject): com.google.gson.JsonObject = try { session.syncRequest(request) }
+            catch (error: java.io.IOException) { session.close(); throw error }
+        override fun close() = session.close()
+    }
+    private fun control() = Peer { request -> DlcServerSession.connect(entry, 10000).use { peer(it).call(request) } }
+    private fun compare() {
+        if (busy) return
+        loaded = false; local = emptyList(); remote = emptyList(); rows = emptyList(); filteredRows = emptyList(); settingsSelected = false; selected.clear()
+        run {
+            val manifests = try {
+                SyncEndpoint(DlcSyncAdapter()).use { endpoint -> connect().use { session ->
+                    previewSession = session
+                    val left = SyncClient.manifest(endpoint) { cancelRequested }
+                    val right = SyncClient.manifest(peer(session)) { cancelRequested }
+                    left to right
+                } }
+            } finally { previewSession = null }
+            Minecraft.getInstance().execute { local = manifests.first; remote = manifests.second; loaded = true; message = ""; replan() }
+        }
+    }
+    private fun replan() {
+        comparison = SyncModel.compare(local, remote, direction, states, mode)
+        rows = comparison.rows
+        selected.clear(); settingsSelected = false; refilter()
+        refreshPage()
+    }
+    private fun confirm() {
+        if (busy) return
+        val chosen = selectedRows()
+        if (chosen.isEmpty()) return
+        Minecraft.getInstance().setScreen(DlcConfirmScreen({ accepted ->
+            Minecraft.getInstance().setScreen(this)
+            if (accepted) execute(chosen)
+        }, DlcTextCompat.translatable("dlc_manager.sync.title"), DlcTextCompat.translatable("dlc_manager.sync.confirm", chosen.size), DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()))
+    }
+    private fun execute(chosen: List<Row>) = run(synchronizing = true) {
+        rollbackClient = null
+        try {
+            SyncEndpoint(DlcSyncAdapter()).use { endpoint -> connect().use { session ->
+                val client = SyncClient(endpoint, peer(session), control()); active = client; rollbackClient = client
+                if (cancelRequested) client.cancel()
+                val result = client.execute(chosen, mode, states) { phase, resource, done, total ->
+                    fraction = if (total > 0 && phase != "restoring") done.toDouble() / total else -1.0
+                    val amount = if (phase == "transferring" || phase == "downloading") com.cozooo.dlc_manager.core.DlcFileSize.formatProgress(done, total) else "$done" + if (total >= 0) "/$total" else ""
+                    message = DlcTextCompat.translatable("dlc_manager.sync.$phase").string + " ${resource.substringAfterLast('/')} $amount"
+                }
+                message = DlcTextCompat.translatable(if (result.canceled) "dlc_manager.sync.canceled" else "dlc_manager.sync.finished", result.completed, result.errors.size).string +
+                    (if (result.requiresRestart) " " + DlcTextCompat.translatable("dlc_manager.sync.restart").string else "") + "\n" + result.succeeded.joinToString("\n") { tr("dlc_manager.sync.succeeded_item", it) } + "\n" + result.errors.joinToString("\n")
+                if (chosen.any { SyncModel.category(it.source) == Category.UPDATE && it.key in result.succeeded }) message += "\n" + tr("dlc_manager.sync.updates_ready")
+                if (result.canceled) return@run
+                if (result.errors.isNotEmpty()) failureReason = result.errors.joinToString("\n")
+                val left = SyncClient.manifest(endpoint) { cancelRequested }
+                val right = SyncClient.manifest(peer(session)) { cancelRequested }
+                Minecraft.getInstance().execute { local = left; remote = right; replan() }
+            } }
+        } finally { active = null }
+    }
+    private fun rollback() {
+        val client = rollbackClient ?: return
+        if (busy || !client.canRollback()) return
+        run {
+            message = tr("dlc_manager.sync.restoring")
+            SyncEndpoint(DlcSyncAdapter()).use { endpoint -> connect().use { session ->
+                client.rollback(endpoint, peer(session))
+                val left = SyncClient.manifest(endpoint)
+                val right = SyncClient.manifest(peer(session))
+                Minecraft.getInstance().execute { local = left; remote = right; replan() }
+            } }
+            message = tr("dlc_manager.sync.restored")
+        }
+    }
+    private fun showFailure(reason: String) {
+        Minecraft.getInstance().setScreen(DlcSyncFailureScreen({ restore ->
+            Minecraft.getInstance().setScreen(this)
+            if (restore) rollback()
+        }, reason))
+    }
+    private fun connect(): DlcServerSession = DlcServerSession.connect(entry, 120000) { socket ->
+        connecting = socket
+        if (cancelRequested) try { socket.close() } catch (_: Exception) {}
+    }
+    private fun cancel() {
+        if (!busy || cancelRequested) return
+        cancelRequested = true
+        if (active != null) { if (active?.cancel() != true) { cancelRequested = false; return }; message = tr("dlc_manager.sync.restoring"); fraction = -1.0 }
+        else try { connecting?.close() } catch (_: Exception) {}
+        refreshPage()
+    }
+    private fun run(synchronizing: Boolean = false, work: () -> Unit) {
+        if (busy) return
+        failureReason = null; cancelRequested = false; syncing = synchronizing; busy = true; fraction = -1.0
+        message = tr("dlc_manager.sync.working"); refreshPage()
+        CompletableFuture.runAsync {
+            try { work() } catch (error: Exception) { message = if (cancelRequested && (error is java.net.SocketException || SyncFailure.`is`(error, "canceled"))) DlcTextCompat.translatable("dlc_manager.sync.canceled").string else error.message ?: error.javaClass.simpleName; if (synchronizing && !cancelRequested) failureReason = failureReason?.let { "$it\n$message" } ?: message }
+            finally { Minecraft.getInstance().execute { busy = false; syncing = false; connecting = null; refreshPage(); failureReason?.let(::showFailure) } }
+        }
+    }
+    override fun updatePage() { updateExecuteButton() }
+    override fun shouldCloseOnEsc() = !busy
 }
