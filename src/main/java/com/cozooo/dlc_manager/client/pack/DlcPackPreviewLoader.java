@@ -55,7 +55,7 @@ public final class DlcPackPreviewLoader {
                 }
                 List<Preview> previews = new ArrayList<>();
                 List<Path> archives = DlcPackArchive.findArchives(dlcRoot).stream()
-                    .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".zip"))
+                    .filter(path -> DlcPackArchive.isArchiveFileName(path.getFileName().toString()))
                     .sorted(Comparator.comparing(path -> path.getFileName().toString().toLowerCase(Locale.ROOT))).toList();
                 for (Path archive : archives) {
                     if (generation.get() != request) return;

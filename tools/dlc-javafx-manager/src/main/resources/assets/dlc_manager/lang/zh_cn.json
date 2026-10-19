@@ -87,6 +87,7 @@
   "dlc_manager.local.select_all": "全选",
   "dlc_manager.local.select_none": "全不选",
   "dlc_manager.local.type": "类型",
+  "dlc_manager.pack.package_filter": "拓展包 (*.zip, *.mrpack)",
   "dlc_manager.pack.apply_start": "开始应用",
   "dlc_manager.pack.apply_start_confirm": "将开始在服务器应用拓展包，是否继续？",
   "dlc_manager.pack.apply_start_title": "开始应用拓展包",

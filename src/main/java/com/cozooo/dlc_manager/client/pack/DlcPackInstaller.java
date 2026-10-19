@@ -134,7 +134,7 @@ public class DlcPackInstaller {
             }
             applyRuntimeChanges(dependencies, conflicts, txn, txnPath);
             moveConfiguredConflicts(metadata.conflicts, packDir, txn, txnPath);
-            java.util.List<DlcPackInstallPlan.FileEntry> manifestFiles = DlcPackCFResolver.downloadManifestFiles(
+            java.util.List<DlcPackInstallPlan.FileEntry> manifestFiles = DlcPackManifestResolver.downloadManifestFiles(
                 pack,
                 staging,
                 packDir,

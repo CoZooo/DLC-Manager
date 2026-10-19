@@ -12,10 +12,14 @@ public final class DlcFilePicker {
     private DlcFilePicker() {
     }
 
-    public static Path pickUpdateZip(String title) {
+    public static Path pickUpdateZip(String title) { return pickArchive(title, false); }
+
+    public static Path pickPackArchive(String title) { return pickArchive(title, true); }
+
+    private static Path pickArchive(String title, boolean pack) {
         try {
             String osName = System.getProperty("os.name", "").toLowerCase();
-            PickResult tiny = tryTinyFileDialog(title);
+            PickResult tiny = tryTinyFileDialog(title, pack);
             if (tiny.canceled) {
                 return null;
             }
@@ -23,7 +27,7 @@ public final class DlcFilePicker {
                 return tiny.path;
             }
             if (osName.contains("mac")) {
-                PickResult apple = tryAppleScriptFileDialog(title);
+                PickResult apple = tryAppleScriptFileDialog(title, pack);
                 if (apple.canceled) {
                     return null;
                 }
@@ -149,7 +153,7 @@ public final class DlcFilePicker {
         }
     }
 
-    private static PickResult tryTinyFileDialog(String title) {
+    private static PickResult tryTinyFileDialog(String title, boolean pack) {
         try {
             Path gameDir = DlcPaths.gameDir();
             String defaultPath = gameDir.toString() + File.separator;
@@ -159,10 +163,13 @@ public final class DlcFilePicker {
             Class<?> tinyClass = Class.forName("org.lwjgl.util.tinyfd.TinyFileDialogs");
             Object stack = stackClass.getMethod("stackPush").invoke(null);
             try {
-                Object filters = stackClass.getMethod("mallocPointer", int.class).invoke(stack, 1);
-                Object utf8Buffer = stackClass.getMethod("UTF8", CharSequence.class).invoke(stack, "*.zip");
-                long addr = (long) memUtilClass.getMethod("memAddress", Buffer.class).invoke(null, utf8Buffer);
-                pbClass.getMethod("put", long.class).invoke(filters, addr);
+                String[] patterns = pack ? new String[] {"*.zip", "*.mrpack"} : new String[] {"*.zip"};
+                Object filters = stackClass.getMethod("mallocPointer", int.class).invoke(stack, patterns.length);
+                for (String pattern : patterns) {
+                    Object utf8Buffer = stackClass.getMethod("UTF8", CharSequence.class).invoke(stack, pattern);
+                    long addr = (long) memUtilClass.getMethod("memAddress", Buffer.class).invoke(null, utf8Buffer);
+                    pbClass.getMethod("put", long.class).invoke(filters, addr);
+                }
                 pbClass.getMethod("flip").invoke(filters);
                 java.lang.reflect.Method target = null;
                 for (java.lang.reflect.Method method : tinyClass.getMethods()) {
@@ -197,7 +204,7 @@ public final class DlcFilePicker {
                     title == null ? "" : title,
                     defaultPath,
                     filters,
-                    "zip",
+                    pack ? "zip, mrpack" : "zip",
                     allowMulti
                 );
                 if (result instanceof String value && !value.isBlank()) {
@@ -355,16 +362,17 @@ public final class DlcFilePicker {
         }
     }
 
-    private static PickResult tryAppleScriptFileDialog(String title) {
+    private static PickResult tryAppleScriptFileDialog(String title, boolean pack) {
+        String types = pack ? "{\"zip\", \"mrpack\"}" : "{\"zip\"}";
         try {
             String defaultLocation = DlcPaths.gameDir().toString();
             String safeTitle = escapeAppleScript(title == null ? "Import Update" : title);
             String safeDefault = escapeAppleScript(defaultLocation);
             String script;
             if (safeDefault.isBlank()) {
-                script = "POSIX path of (choose file of type {\"zip\"} with prompt \"" + safeTitle + "\")";
+                script = "POSIX path of (choose file of type " + types + " with prompt \"" + safeTitle + "\")";
             } else {
-                script = "POSIX path of (choose file of type {\"zip\"} with prompt \"" + safeTitle
+                script = "POSIX path of (choose file of type " + types + " with prompt \"" + safeTitle
                     + "\" default location POSIX file \"" + safeDefault + "\")";
             }
             Process process = new ProcessBuilder("/usr/bin/osascript", "-e", script)

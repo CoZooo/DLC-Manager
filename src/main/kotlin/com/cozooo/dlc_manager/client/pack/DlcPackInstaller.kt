@@ -127,7 +127,7 @@ class DlcPackInstaller(
             effectiveOptions.progressListener?.onProgress("Applying runtime changes", 0.05f)
             applyRuntimeChanges(dependencies, conflicts, txn, txnPath)
             moveConfiguredConflicts(metadata.conflicts, packDir, txn, txnPath)
-            val manifestFiles = DlcPackCFResolver.downloadManifestFiles(pack, staging, packDir, effectiveOptions.cancelChecker) { status, progress ->
+            val manifestFiles = DlcPackManifestResolver.downloadManifestFiles(pack, staging, packDir, effectiveOptions.cancelChecker) { status, progress ->
                 val normalized = if (progress < 0f) -1f else 0.05f + progress.coerceIn(0f, 1f) * 0.9f
                 effectiveOptions.progressListener?.onProgress(status, normalized)
             }

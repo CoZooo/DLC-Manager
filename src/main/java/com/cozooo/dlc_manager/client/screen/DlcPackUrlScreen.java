@@ -165,7 +165,7 @@ public class DlcPackUrlScreen extends DlcUrlPageScreen {
         }
         if (fileName == null || fileName.isBlank()) {
             fileName = "pack.zip";
-        } else if (!fileName.toLowerCase(Locale.ROOT).endsWith(".zip")) {
+        } else if (!com.cozooo.dlc_manager.client.pack.DlcPackArchive.isArchiveFileName(fileName)) {
             fileName = fileName + ".zip";
         }
         fileName = uniqueFileName(outputDir, fileName);

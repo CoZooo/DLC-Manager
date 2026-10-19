@@ -15,6 +15,10 @@ import java.util.zip.ZipEntry;
 
 public final class DlcPackArchive {
     private static final String[] METADATA_PATHS = {
+        "client-overrides/metadata/pack.dc",
+        "client-overrides/dlcpack_metadata/pack.dc",
+        "server-overrides/metadata/pack.dc",
+        "server-overrides/dlcpack_metadata/pack.dc",
         "overrides/metadata/pack.dc",
         "overrides/dlcpack_metadata/pack.dc",
         "metadata/pack.dc",
@@ -23,6 +27,12 @@ public final class DlcPackArchive {
     private static final Set<String> PREVIEW_PATHS = previewPaths();
 
     private DlcPackArchive() {
+    }
+
+    public static boolean isArchiveFileName(String name) {
+        if (name == null) return false;
+        String normalized = name.toLowerCase(Locale.ROOT);
+        return normalized.endsWith(".zip") || normalized.endsWith(".mrpack");
     }
 
     public static List<Path> findArchives(Path dlcRoot) throws IOException {
@@ -38,7 +48,7 @@ public final class DlcPackArchive {
         Path local = dlcRoot.resolve("pack");
         if (Files.isDirectory(local)) {
             try (var paths = Files.list(local)) {
-                paths.filter(Files::isRegularFile).filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".zip"))
+                paths.filter(Files::isRegularFile).filter(path -> isArchiveFileName(path.getFileName().toString()))
                     .map(path -> path.toAbsolutePath().normalize()).filter(path -> !shadowed.contains(path)).forEach(archives::add);
             }
         }
@@ -107,7 +117,8 @@ public final class DlcPackArchive {
 
     private static boolean isManifestEntry(String name) {
         int slash = name.indexOf('/');
-        return name.equals("manifest.json") || (slash > 0 && name.substring(slash + 1).equals("manifest.json"));
+        String manifest = slash > 0 ? name.substring(slash + 1) : name;
+        return manifest.equals("manifest.json") || manifest.equals("modrinth.index.json");
     }
 
     private static Set<String> previewPaths() {

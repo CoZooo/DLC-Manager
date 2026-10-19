@@ -24,7 +24,8 @@ class DlcPackInstallPlan private constructor(
             "DLC-Manager-",
             "architectury-",
             "kotlinforforge-",
-            "fabric-language-kotlin-"
+            "fabric-language-kotlin-",
+            "ApricityUI-"
         )
         private val GAME_ROOT_FORBIDDEN_PATHS = listOf(
             "config/dlc_manager/",
@@ -45,30 +46,32 @@ class DlcPackInstallPlan private constructor(
 
         @JvmStatic
         fun build(pack: DlcPackPackage?, instanceRoot: Path?, dlcRoot: Path?): DlcPackInstallPlan {
-            if (pack == null || !Files.isDirectory(pack.installRoot)) {
-                return DlcPackInstallPlan(emptyList(), emptyList())
-            }
-            val files = ArrayList<FileEntry>()
+            if (pack == null) return DlcPackInstallPlan(emptyList(), emptyList())
+            val layered = LinkedHashMap<String, FileEntry>()
             val forbidden = ArrayList<String>()
-            try {
-                Files.walk(pack.installRoot).use { stream: Stream<Path> ->
-                    stream.filter { Files.isRegularFile(it) }.forEach { source ->
-                        val relative = normalizeRelative(pack.installRoot.relativize(source)) ?: return@forEach
-                        if (isMetadataFile(relative)) {
-                            return@forEach
+            for (installRoot in pack.installRoots()) {
+                if (!Files.isDirectory(installRoot)) continue
+                try {
+                    Files.walk(installRoot).use { stream: Stream<Path> ->
+                        stream.filter { Files.isRegularFile(it) }.forEach { source ->
+                            val relative = normalizeRelative(installRoot.relativize(source)) ?: return@forEach
+                            if (isMetadataFile(relative) || isIgnoredModpackJarPath(relative)) return@forEach
+                            if (isForbiddenPath(relative, instanceRoot, dlcRoot)) {
+                                forbidden.add(relative)
+                                return@forEach
+                            }
+                            layered[relative] = FileEntry(source, relative)
                         }
-                        if (isIgnoredModpackJarPath(relative)) {
-                            return@forEach
-                        }
-                        if (isForbiddenPath(relative, instanceRoot, dlcRoot)) {
-                            forbidden.add(relative)
-                            return@forEach
-                        }
-                        files.add(FileEntry(source, relative))
                     }
+                } catch (_: IOException) {
                 }
-            } catch (_: IOException) {
             }
+            if (pack.format == DlcPackPackage.Format.MODRINTH) {
+                for (file in DlcPackModrinthManifest.filesForEnvironment(pack)) {
+                    if (isForbiddenPath(file.path, instanceRoot, dlcRoot)) forbidden.add(file.path)
+                }
+            }
+            val files = ArrayList(layered.values)
             files.sortBy { it.relativePath.lowercase(Locale.ROOT) }
             forbidden.sort()
             return DlcPackInstallPlan(files, forbidden)
@@ -162,7 +165,7 @@ class DlcPackInstallPlan private constructor(
             return DlcPackMeta.normalizeRelativePath(path.toString())
         }
 
-        private fun isMetadataFile(relative: String): Boolean {
+        fun isMetadataFile(relative: String): Boolean {
             val first = relative.substringBefore('/').lowercase(Locale.ROOT)
             return METADATA_DIR_NAMES.contains(first)
         }

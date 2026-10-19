@@ -9,6 +9,10 @@ import java.util.zip.ZipFile
 
 object DlcPackArchive {
     private val METADATA_PATHS = arrayOf(
+        "client-overrides/metadata/pack.dc",
+        "client-overrides/dlcpack_metadata/pack.dc",
+        "server-overrides/metadata/pack.dc",
+        "server-overrides/dlcpack_metadata/pack.dc",
         "overrides/metadata/pack.dc",
         "overrides/dlcpack_metadata/pack.dc",
         "metadata/pack.dc",
@@ -20,6 +24,12 @@ object DlcPackArchive {
             val dir = metadata.substringBeforeLast('/') + "/"
             for (extension in arrayOf("png", "jpg", "jpeg", "icn", "ico", "webp")) add("${dir}icon.$extension")
         }
+    }
+
+    @JvmStatic
+    fun isArchiveFileName(name: String?): Boolean {
+        val normalized = name?.lowercase(Locale.ROOT) ?: return false
+        return normalized.endsWith(".zip") || normalized.endsWith(".mrpack")
     }
 
     @JvmStatic @Throws(IOException::class)
@@ -36,7 +46,7 @@ object DlcPackArchive {
         val local = dlcRoot.resolve("pack")
         if (Files.isDirectory(local)) {
             Files.list(local).use { paths ->
-                paths.filter(Files::isRegularFile).filter { it.fileName.toString().lowercase(java.util.Locale.ROOT).endsWith(".zip") }
+                paths.filter(Files::isRegularFile).filter { isArchiveFileName(it.fileName.toString()) }
                     .map { it.toAbsolutePath().normalize() }.filter { it !in shadowed }.forEach { archives.add(it) }
             }
         }
@@ -99,7 +109,8 @@ object DlcPackArchive {
 
     private fun isManifestEntry(name: String): Boolean {
         val slash = name.indexOf('/')
-        return name == "manifest.json" || (slash > 0 && name.substring(slash + 1) == "manifest.json")
+        val manifest = if (slash > 0) name.substring(slash + 1) else name
+        return manifest == "manifest.json" || manifest == "modrinth.index.json"
     }
 
     private fun isPreviewEntry(name: String): Boolean {

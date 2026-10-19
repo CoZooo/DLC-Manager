@@ -306,8 +306,10 @@ class DlcEarlyInstallerTest {
             assertEquals(1, failedObserverCalls.get());
             assertEquals(1, result.getInstalledCount());
             assertArrayEquals(data, Files.readAllBytes(game.resolve("mods/download.jar")));
-            assertTrue(warnings.stream().anyMatch(message -> message.contains("Progress observer unavailable")));
-            assertTrue(warnings.stream().anyMatch(message -> message.startsWith("Required resources ready:")));
+            assertTrue(warnings.stream().anyMatch(message -> message.equals(
+                DlcBootstrapI18n.text("observer_unavailable", "IllegalStateException"))));
+            assertTrue(warnings.stream().anyMatch(message -> message.equals(
+                DlcBootstrapI18n.text("ready", 1, 1, 1))));
             assertSame(previous, DlcPlatformServices.get());
         }
     }
@@ -367,7 +369,8 @@ class DlcEarlyInstallerTest {
         var cancelled = new AtomicBoolean();
         var events = new ArrayList<DlcEarlyInstaller.Progress>();
         assertThrows(InterruptedException.class, () -> DlcEarlyInstaller.install(game, game.resolve("config"), "forge", "1.20.1", false,
-            message -> { if (message.startsWith("Required resources ready:")) cancelled.set(true); }, events::add, cancelled::get));
+            message -> { if (message.equals(DlcBootstrapI18n.text("ready", 1, 0, 1))) cancelled.set(true); },
+                events::add, cancelled::get));
         assertFailedOnce(events);
         assertEquals(1, events.get(events.size() - 1).getCompletedCount());
     }

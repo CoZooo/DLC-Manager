@@ -39,7 +39,7 @@ class DlcPackPreviewLoader @JvmOverloads constructor(private val worker: Executo
                 }
                 val previews = ArrayList<Preview>()
                 val archives = DlcPackArchive.findArchives(dlcRoot)
-                    .filter { it.fileName.toString().lowercase(Locale.ROOT).endsWith(".zip") }
+                    .filter { DlcPackArchive.isArchiveFileName(it.fileName.toString()) }
                     .sortedBy { it.fileName.toString().lowercase(Locale.ROOT) }
                 for (archive in archives) {
                     if (generation.get() != request) return@submit

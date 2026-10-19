@@ -11,7 +11,7 @@ import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.pack.DlcPackArchive;
 import com.cozooo.dlc_manager.client.pack.DlcPackPreviewLoader;
-import com.cozooo.dlc_manager.client.pack.DlcPackCFResolver;
+import com.cozooo.dlc_manager.client.pack.DlcPackManifestResolver;
 import com.cozooo.dlc_manager.client.pack.DlcPackInstaller;
 import com.cozooo.dlc_manager.client.pack.DlcPackInstallPlan;
 import com.cozooo.dlc_manager.client.pack.DlcPackMeta;
@@ -420,7 +420,7 @@ public class DlcPackManagerScreen extends DlcPackPageScreen {
             status = DlcTextCompat.translatable("dlc_manager.pack.disabled");
             return;
         }
-        Path zip = DlcFilePicker.pickUpdateZip(DlcTextCompat.translatable("dlc_manager.pack.import").getString());
+        Path zip = DlcFilePicker.pickPackArchive(DlcTextCompat.translatable("dlc_manager.pack.import").getString());
         if (zip == null) {
             return;
         }
@@ -459,7 +459,7 @@ public class DlcPackManagerScreen extends DlcPackPageScreen {
         Path packRoot = DlcPaths.dlcRoot().resolve("pack");
         Files.createDirectories(packRoot);
         String fileName = source.getFileName() == null ? "pack.zip" : source.getFileName().toString();
-        if (!fileName.toLowerCase(Locale.ROOT).endsWith(".zip")) {
+        if (!com.cozooo.dlc_manager.client.pack.DlcPackArchive.isArchiveFileName(fileName)) {
             fileName = fileName + ".zip";
         }
         Path target = packRoot.resolve(fileName);
@@ -738,7 +738,7 @@ public class DlcPackManagerScreen extends DlcPackPageScreen {
             Set<String> files = new HashSet<>();
             DlcPackInstallPlan plan = DlcPackInstallPlan.build(result.pack, DlcPaths.gameDir(), DlcPaths.dlcRoot());
             try {
-                plan = DlcPackInstallPlan.merge(plan, DlcPackCFResolver.resolveManifestTargets(result.pack), DlcPaths.gameDir(), DlcPaths.dlcRoot());
+                plan = DlcPackInstallPlan.merge(plan, DlcPackManifestResolver.resolveManifestTargets(result.pack), DlcPaths.gameDir(), DlcPaths.dlcRoot());
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 throw new IOException("interrupted", ex);

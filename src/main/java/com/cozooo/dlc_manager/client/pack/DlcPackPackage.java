@@ -22,10 +22,16 @@ public class DlcPackPackage {
     public final Path iconFile;
     public final Path manifestFile;
     public final List<DlcPackManifest.FileRef> manifestFiles;
+    public final List<DlcPackModrinthManifest.FileRef> modrinthFiles;
     public final DlcPackMetadata metadata;
 
     public DlcPackPackage(Path root, Format format, Path contentRoot, Path installRoot, Path metadataDir, Path packFile, Path iconFile, Path manifestFile,
                           List<DlcPackManifest.FileRef> manifestFiles, DlcPackMetadata metadata) {
+        this(root, format, contentRoot, installRoot, metadataDir, packFile, iconFile, manifestFile, manifestFiles, metadata, List.of());
+    }
+
+    public DlcPackPackage(Path root, Format format, Path contentRoot, Path installRoot, Path metadataDir, Path packFile, Path iconFile, Path manifestFile,
+                          List<DlcPackManifest.FileRef> manifestFiles, DlcPackMetadata metadata, List<DlcPackModrinthManifest.FileRef> modrinthFiles) {
         this.root = root;
         this.format = format;
         this.contentRoot = contentRoot;
@@ -36,6 +42,12 @@ public class DlcPackPackage {
         this.manifestFile = manifestFile;
         this.manifestFiles = manifestFiles == null ? List.of() : List.copyOf(manifestFiles);
         this.metadata = metadata;
+        this.modrinthFiles = List.copyOf(modrinthFiles);
+    }
+
+    public List<Path> installRoots() {
+        if (format != Format.MODRINTH) return List.of(installRoot);
+        return List.of(installRoot, contentRoot.resolve(com.cozooo.dlc_manager.platform.DlcPlatformServices.isDedicatedServer() ? "server-overrides" : "client-overrides"));
     }
 
     public static Result inspect(Path path) {
@@ -51,11 +63,33 @@ public class DlcPackPackage {
             return Result.invalid("package root is not a directory");
         }
         Path root = path.toAbsolutePath().normalize();
+        Result modrinth = detectModrinth(root, manifestPaths);
+        if (modrinth != null) return modrinth;
         Result cf = detectCurseForge(root, manifestPaths);
         if (cf.valid) {
             return cf;
         }
         return detectStandard(root);
+    }
+
+    private static Result detectModrinth(Path root, Set<String> manifestPaths) {
+        for (Path candidate : contentRootCandidates(root)) {
+            Path index = candidate.resolve("modrinth.index.json");
+            boolean present = manifestPaths == null ? Files.isRegularFile(index) : manifestPaths.contains(root.relativize(index).toString().replace('\\', '/'));
+            if (!present) continue;
+            String side = com.cozooo.dlc_manager.platform.DlcPlatformServices.isDedicatedServer() ? "server-overrides" : "client-overrides";
+            MetadataLocation location = findMetadata(candidate.resolve(side));
+            if (location == null) location = findCurseForgeMetadata(candidate);
+            if (location == null) return Result.invalid("missing metadata/pack.dc");
+            DlcPackMetadata.Result metadata = readMetadata(location.packFile);
+            if (!metadata.valid || metadata.metadata == null) return Result.invalid(metadata.error == null ? "invalid pack.dc" : metadata.error);
+            try {
+                return Result.valid(new DlcPackPackage(root, Format.MODRINTH, candidate, candidate.resolve("overrides"), location.dir,
+                    location.packFile, location.iconFile, index, List.of(), metadata.metadata,
+                    manifestPaths == null ? DlcPackModrinthManifest.read(index) : List.of()));
+            } catch (IOException error) { return Result.invalid(error.getMessage()); }
+        }
+        return null;
     }
 
     private static Result detectCurseForge(Path root, Set<String> manifestPaths) {
@@ -150,7 +184,8 @@ public class DlcPackPackage {
 
     public enum Format {
         STANDARD,
-        CURSEFORGE
+        CURSEFORGE,
+        MODRINTH
     }
 
     private static class MetadataLocation {

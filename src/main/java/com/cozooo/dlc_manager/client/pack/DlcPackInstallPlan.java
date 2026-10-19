@@ -16,7 +16,8 @@ public class DlcPackInstallPlan {
         "DLC-Manager-",
         "architectury-",
         "kotlinforforge-",
-        "fabric-language-kotlin-"
+        "fabric-language-kotlin-",
+        "ApricityUI-"
     );
     private static final List<String> GAME_ROOT_FORBIDDEN_PATHS = List.of(
         "config/dlc_manager/"
@@ -47,28 +48,30 @@ public class DlcPackInstallPlan {
     }
 
     public static DlcPackInstallPlan build(DlcPackPackage pack, Path instanceRoot, Path dlcRoot) {
-        if (pack == null || !Files.isDirectory(pack.installRoot)) {
-            return new DlcPackInstallPlan(List.of(), List.of());
-        }
-        List<FileEntry> files = new ArrayList<>();
+        if (pack == null) return new DlcPackInstallPlan(List.of(), List.of());
+        var layered = new java.util.LinkedHashMap<String, FileEntry>();
         List<String> forbidden = new ArrayList<>();
-        try (Stream<Path> stream = Files.walk(pack.installRoot)) {
-            stream.filter(Files::isRegularFile).forEach(source -> {
-                String relative = normalizeRelative(pack.installRoot.relativize(source));
-                if (relative == null || isMetadataFile(relative)) {
-                    return;
-                }
-                if (isIgnoredModpackJarPath(relative)) {
-                    return;
-                }
-                if (isForbiddenPath(relative, instanceRoot, dlcRoot)) {
-                    forbidden.add(relative);
-                    return;
-                }
-                files.add(new FileEntry(source, relative));
-            });
-        } catch (IOException ignored) {
+        for (Path installRoot : pack.installRoots()) {
+            if (!Files.isDirectory(installRoot)) continue;
+            try (Stream<Path> stream = Files.walk(installRoot)) {
+                stream.filter(Files::isRegularFile).forEach(source -> {
+                    String relative = normalizeRelative(installRoot.relativize(source));
+                    if (relative == null || isMetadataFile(relative) || isIgnoredModpackJarPath(relative)) return;
+                    if (isForbiddenPath(relative, instanceRoot, dlcRoot)) {
+                        forbidden.add(relative);
+                        return;
+                    }
+                    layered.put(relative, new FileEntry(source, relative));
+                });
+            } catch (IOException ignored) {
+            }
         }
+        if (pack.format == DlcPackPackage.Format.MODRINTH) {
+            for (var file : DlcPackModrinthManifest.filesForEnvironment(pack)) {
+                if (isForbiddenPath(file.path, instanceRoot, dlcRoot)) forbidden.add(file.path);
+            }
+        }
+        List<FileEntry> files = new ArrayList<>(layered.values());
         files.sort(Comparator.comparing(entry -> entry.relativePath.toLowerCase(Locale.ROOT)));
         forbidden.sort(String::compareTo);
         return new DlcPackInstallPlan(files, forbidden);
@@ -183,7 +186,7 @@ public class DlcPackInstallPlan {
         return DlcPackMeta.normalizeRelativePath(path.toString());
     }
 
-    private static boolean isMetadataFile(String relative) {
+    static boolean isMetadataFile(String relative) {
         String first = relative.contains("/") ? relative.substring(0, relative.indexOf('/')) : relative;
         return METADATA_DIR_NAMES.contains(first.toLowerCase(Locale.ROOT));
     }

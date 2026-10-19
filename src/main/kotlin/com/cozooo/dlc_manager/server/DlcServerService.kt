@@ -984,7 +984,7 @@ object DlcServerService {
         try {
             DlcPackArchive.findArchives(DlcConfig.getDlcRoot()).stream().use { stream ->
                 stream.filter(Files::isRegularFile)
-                    .filter { it.fileName.toString().lowercase(Locale.ROOT).endsWith(".zip") }
+                    .filter { DlcPackArchive.isArchiveFileName(it.fileName.toString()) }
                     .sorted(Comparator.comparing { it.fileName.toString().lowercase(Locale.ROOT) })
                     .forEach { path ->
                         inspectServerPackArchive(path, packRoot, installed, lang)?.let(out::add)

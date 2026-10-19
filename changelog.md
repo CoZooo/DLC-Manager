@@ -10,6 +10,8 @@
 - Redesigned the in-game UI with ApricityUI.
 - Added early installation of required resources on Forge and NeoForge. Fabric installs required resources after startup.
 - Added content-based resource matching with SHA-256 and a `mode` option for choosing hash or filename matching. Resource installation and removal now keep history and backups for recovery.
+- Added bidirectional DLC Sync between the in-game manager and servers, supports DLC and enabled-state synchronization.
+- DLC Packs now support Modrinth `.mrpack` files.
 - Added a choice when an update contains unknown parameters: cancel, ignore the parameters and continue, or update DLC Manager before retrying. The latter will attempt to complete the update during the loading phase of the next game launch.
 - Added save backups before hot updates.
 - Added `[modpack].autoUpdate` and `forceUpdate`, both disabled by default. Automatic updates will be finished during loading. Client-side forced updates cannot be skipped or ignored, while unavailable update versions can be bypassed.
@@ -72,6 +74,8 @@
 - 使用 ApricityUI 重新设计游戏内界面。
 - Forge 和 NeoForge 支持在早期加载阶段安装必要资源；Fabric 在启动后安装必要资源。
 - 新增基于 SHA-256 的资源内容匹配，通过 `mode` 选择哈希匹配或文件名匹配。资源安装与移除操作会保留历史记录和备份，以便恢复。
+- 新增游戏内管理器与服务端之间的双向 DLC 同步，支持同步 DLC 和预设的启用状态。
+- 拓展包新增 Modrinth `.mrpack` 支持。
 - 热更新遇到未知参数时，可选择取消更新、忽略参数并继续，或更新 DLC 管理器后重试。后者将在下一次游戏启动时的加载阶段尝试完成更新。
 - 新增热更新前的存档备份功能。
 - 新增 `[modpack].autoUpdate` 和 `forceUpdate`，默认均为关闭。自动更新会在加载期间完成。客户端的强制更新不能跳过或忽略，但无法更新的版本可以跳过。

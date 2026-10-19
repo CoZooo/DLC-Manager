@@ -48,7 +48,7 @@ class DlcStartupRequirementsTest {
         platform(loader);
         assertTrue(DlcStartupRequirements.usesEarlyInstallation());
         var failure = assertThrows(IllegalStateException.class, DlcStartupRequirements::verifyBeforeGameLoad);
-        assertTrue(failure.getMessage().contains("Required resource installation failed"));
+        assertTrue(failure.getMessage().startsWith(DlcBootstrapI18n.text("failure.summary")));
         DlcStartupRequirements.markComplete(game.resolve("other-instance"));
         assertThrows(IllegalStateException.class, DlcStartupRequirements::verifyBeforeGameLoad);
     }
@@ -62,7 +62,7 @@ class DlcStartupRequirementsTest {
         assertDoesNotThrow(DlcStartupRequirements::verifyBeforeGameLoad);
         Files.delete(game.resolve("mods/main.jar"));
         var failure = assertThrows(IllegalStateException.class, DlcStartupRequirements::verifyBeforeGameLoad);
-        assertTrue(failure.getMessage().contains("Required resource installation failed"));
+        assertTrue(failure.getMessage().startsWith(DlcBootstrapI18n.text("failure.summary")));
         assertFalse(Files.exists(game.resolve("mods/main.jar")));
         assertNull(System.getProperty(DlcStartupRequirements.READY_PROPERTY));
     }

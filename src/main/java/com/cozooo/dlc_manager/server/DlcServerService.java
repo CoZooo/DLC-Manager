@@ -1080,7 +1080,7 @@ public class DlcServerService {
         List<DlcServerPackInfo> out = new ArrayList<>();
         try (var stream = DlcPackArchive.findArchives(DlcConfig.getDlcRoot()).stream()) {
             stream.filter(Files::isRegularFile)
-                .filter(path -> path.getFileName().toString().toLowerCase(java.util.Locale.ROOT).endsWith(".zip"))
+                .filter(path -> DlcPackArchive.isArchiveFileName(path.getFileName().toString()))
                 .sorted(java.util.Comparator.comparing(path -> path.getFileName().toString().toLowerCase(java.util.Locale.ROOT)))
                 .forEach(path -> {
                     DlcServerPackInfo info = inspectServerPackArchive(path, packRoot, installed, lang);

@@ -11,10 +11,15 @@ import java.nio.file.Path
 
 object DlcFilePicker {
     @JvmStatic
-    fun pickUpdateZip(title: String?): Path? {
+    fun pickUpdateZip(title: String?): Path? = pickArchive(title, false)
+
+    @JvmStatic
+    fun pickPackArchive(title: String?): Path? = pickArchive(title, true)
+
+    private fun pickArchive(title: String?, pack: Boolean): Path? {
         return try {
             val osName = System.getProperty("os.name", "").lowercase()
-            val tiny = tryTinyFileDialog(title)
+            val tiny = tryTinyFileDialog(title, pack)
             if (tiny.canceled) {
                 return null
             }
@@ -22,7 +27,7 @@ object DlcFilePicker {
                 return tiny.path
             }
             if (osName.contains("mac")) {
-                val apple = tryAppleScriptFileDialog(title)
+                val apple = tryAppleScriptFileDialog(title, pack)
                 if (apple.canceled) {
                     return null
                 }
@@ -152,7 +157,7 @@ object DlcFilePicker {
         }
     }
 
-    private fun tryTinyFileDialog(title: String?): PickResult {
+    private fun tryTinyFileDialog(title: String?, pack: Boolean): PickResult {
         return try {
             val gameDir = DlcPaths.gameDir()
             val defaultPath = gameDir.toString() + File.separator
@@ -162,10 +167,13 @@ object DlcFilePicker {
             val tinyClass = Class.forName("org.lwjgl.util.tinyfd.TinyFileDialogs")
             val stack = stackClass.getMethod("stackPush").invoke(null)
             try {
-                val filters = stackClass.getMethod("mallocPointer", Int::class.javaPrimitiveType).invoke(stack, 1)
-                val utf8Buffer = stackClass.getMethod("UTF8", CharSequence::class.java).invoke(stack, "*.zip")
-                val addr = memUtilClass.getMethod("memAddress", Buffer::class.java).invoke(null, utf8Buffer) as Long
-                pbClass.getMethod("put", Long::class.javaPrimitiveType).invoke(filters, addr)
+                val patterns = if (pack) arrayOf("*.zip", "*.mrpack") else arrayOf("*.zip")
+                val filters = stackClass.getMethod("mallocPointer", Int::class.javaPrimitiveType).invoke(stack, patterns.size)
+                for (pattern in patterns) {
+                    val utf8Buffer = stackClass.getMethod("UTF8", CharSequence::class.java).invoke(stack, pattern)
+                    val addr = memUtilClass.getMethod("memAddress", Buffer::class.java).invoke(null, utf8Buffer) as Long
+                    pbClass.getMethod("put", Long::class.javaPrimitiveType).invoke(filters, addr)
+                }
                 pbClass.getMethod("flip").invoke(filters)
                 val target = findOpenFileDialog(tinyClass, pbClass) ?: return PickResult.unavailable()
                 val allowMulti = allowMultiValue(target.parameterTypes[4])
@@ -174,7 +182,7 @@ object DlcFilePicker {
                     title ?: "",
                     defaultPath,
                     filters,
-                    "zip",
+                    if (pack) "zip, mrpack" else "zip",
                     allowMulti
                 )
                 if (result is String && result.isNotBlank()) {
@@ -280,15 +288,16 @@ object DlcFilePicker {
         }
     }
 
-    private fun tryAppleScriptFileDialog(title: String?): PickResult {
+    private fun tryAppleScriptFileDialog(title: String?, pack: Boolean): PickResult {
+        val types = if (pack) "{\"zip\", \"mrpack\"}" else "{\"zip\"}"
         return try {
             val defaultLocation = DlcPaths.gameDir().toString()
             val safeTitle = escapeAppleScript(title ?: "Import Update")
             val safeDefault = escapeAppleScript(defaultLocation)
             val script = if (safeDefault.isBlank()) {
-                "POSIX path of (choose file of type {\"zip\"} with prompt \"$safeTitle\")"
+                "POSIX path of (choose file of type $types with prompt \"$safeTitle\")"
             } else {
-                "POSIX path of (choose file of type {\"zip\"} with prompt \"$safeTitle\" default location POSIX file \"$safeDefault\")"
+                "POSIX path of (choose file of type $types with prompt \"$safeTitle\" default location POSIX file \"$safeDefault\")"
             }
             val process = ProcessBuilder("/usr/bin/osascript", "-e", script)
                 .redirectErrorStream(true)

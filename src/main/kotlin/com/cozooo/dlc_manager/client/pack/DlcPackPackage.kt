@@ -6,7 +6,7 @@ import java.nio.file.Path
 import java.util.Comparator
 import java.util.Locale
 
-class DlcPackPackage(
+class DlcPackPackage @JvmOverloads constructor(
     @JvmField val root: Path,
     @JvmField val format: Format,
     @JvmField val contentRoot: Path,
@@ -17,10 +17,16 @@ class DlcPackPackage(
     @JvmField val manifestFile: Path?,
     @JvmField val manifestFiles: List<DlcPackManifest.FileRef>,
     @JvmField val metadata: DlcPackMetadata,
+    modrinthFiles: List<DlcPackModrinthManifest.FileRef> = emptyList(),
 ) {
+    @JvmField val modrinthFiles: List<DlcPackModrinthManifest.FileRef> = java.util.List.copyOf(modrinthFiles)
+    fun installRoots(): List<Path> = if (format != Format.MODRINTH) listOf(installRoot) else listOf(installRoot,
+        contentRoot.resolve(if (com.cozooo.dlc_manager.platform.DlcPlatformServices.isDedicatedServer()) "server-overrides" else "client-overrides"))
+
     enum class Format {
         STANDARD,
         CURSEFORGE,
+        MODRINTH,
     }
 
     companion object {
@@ -38,11 +44,30 @@ class DlcPackPackage(
                 return Result.invalid("package root is not a directory")
             }
             val root = path.toAbsolutePath().normalize()
+            detectModrinth(root, manifestPaths)?.let { return it }
             val cf = detectCurseForge(root, manifestPaths)
             if (cf.valid) {
                 return cf
             }
             return detectStandard(root)
+        }
+
+        private fun detectModrinth(root: Path, manifestPaths: Set<String>?): Result? {
+            for (candidate in contentRootCandidates(root)) {
+                val index = candidate.resolve("modrinth.index.json")
+                val present = manifestPaths?.contains(root.relativize(index).toString().replace('\\', '/')) ?: Files.isRegularFile(index)
+                if (!present) continue
+                val side = if (com.cozooo.dlc_manager.platform.DlcPlatformServices.isDedicatedServer()) "server-overrides" else "client-overrides"
+                val location = findMetadata(candidate.resolve(side)) ?: findCurseForgeMetadata(candidate) ?: return Result.invalid("missing metadata/pack.dc")
+                val metadata = readMetadata(location.packFile)
+                if (!metadata.valid || metadata.metadata == null) return Result.invalid(metadata.error ?: "invalid pack.dc")
+                return try {
+                    Result.valid(DlcPackPackage(root, Format.MODRINTH, candidate, candidate.resolve("overrides"), location.dir,
+                        location.packFile, location.iconFile, index, emptyList(), metadata.metadata,
+                        if (manifestPaths == null) DlcPackModrinthManifest.read(index) else emptyList()))
+                } catch (error: IOException) { Result.invalid(error.message ?: "Invalid modrinth.index.json") }
+            }
+            return null
         }
 
         private fun detectCurseForge(root: Path, manifestPaths: Set<String>?): Result {

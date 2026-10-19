@@ -78,6 +78,8 @@ val reusedCommonJavaFiles = listOf(
     "com/cozooo/dlc_manager/client/pack/DlcPackInstallPlan.java",
     "com/cozooo/dlc_manager/client/pack/DlcPackInstaller.java",
     "com/cozooo/dlc_manager/client/pack/DlcPackManifest.java",
+    "com/cozooo/dlc_manager/client/pack/DlcPackManifestResolver.java",
+    "com/cozooo/dlc_manager/client/pack/DlcPackModrinthManifest.java",
     "com/cozooo/dlc_manager/client/pack/DlcPackMeta.java",
     "com/cozooo/dlc_manager/client/pack/DlcPackMetadata.java",
     "com/cozooo/dlc_manager/client/pack/DlcPackOrder.java",

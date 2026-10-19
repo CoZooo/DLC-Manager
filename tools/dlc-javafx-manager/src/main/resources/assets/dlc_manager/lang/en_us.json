@@ -87,6 +87,7 @@
   "dlc_manager.local.select_all": "Select All",
   "dlc_manager.local.select_none": "Select None",
   "dlc_manager.local.type": "Type",
+  "dlc_manager.pack.package_filter": "DLC Pack (*.zip, *.mrpack)",
   "dlc_manager.pack.apply_start": "Start Apply",
   "dlc_manager.pack.apply_start_confirm": "Start applying DLC Pack on the server. Continue?",
   "dlc_manager.pack.apply_start_title": "Start DLC Pack Apply",

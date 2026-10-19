@@ -3,7 +3,7 @@ package com.cozooo.dlc_manager.local;
 import com.cozooo.dlc_manager.app.DlcFxManagerApp;
 
 import com.cozooo.dlc_manager.client.pack.DlcPackArchive;
-import com.cozooo.dlc_manager.client.pack.DlcPackCFResolver;
+import com.cozooo.dlc_manager.client.pack.DlcPackManifestResolver;
 import com.cozooo.dlc_manager.client.pack.DlcPackInstaller;
 import com.cozooo.dlc_manager.client.pack.DlcPackInstallPlan;
 import com.cozooo.dlc_manager.client.pack.DlcPackManifest;
@@ -336,7 +336,7 @@ public final class DlcFxLocalPackTab {
         List<PackArchiveEntry> found = new ArrayList<>();
         try (var stream = DlcPackArchive.findArchives(DlcPaths.dlcRoot()).stream()) {
             stream.filter(Files::isRegularFile)
-                .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".zip"))
+                .filter(path -> DlcPackArchive.isArchiveFileName(path.getFileName().toString()))
                 .sorted(Comparator.comparing(path -> path.getFileName().toString().toLowerCase(Locale.ROOT)))
                 .forEach(path -> {
                     PackArchiveEntry entry = inspectArchive(path);
@@ -701,7 +701,7 @@ public final class DlcFxLocalPackTab {
             Set<String> files = new LinkedHashSet<>();
             DlcPackInstallPlan plan = DlcPackInstallPlan.build(result.pack, DlcPaths.gameDir(), DlcPaths.dlcRoot());
             try {
-                plan = DlcPackInstallPlan.merge(plan, DlcPackCFResolver.resolveManifestTargets(result.pack), DlcPaths.gameDir(), DlcPaths.dlcRoot());
+                plan = DlcPackInstallPlan.merge(plan, DlcPackManifestResolver.resolveManifestTargets(result.pack), DlcPaths.gameDir(), DlcPaths.dlcRoot());
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
                 throw new IOException("interrupted", ex);
@@ -1109,7 +1109,7 @@ public final class DlcFxLocalPackTab {
         }
         if (fileName == null || fileName.isBlank()) {
             fileName = "pack.zip";
-        } else if (!fileName.toLowerCase(Locale.ROOT).endsWith(".zip")) {
+        } else if (!com.cozooo.dlc_manager.client.pack.DlcPackArchive.isArchiveFileName(fileName)) {
             fileName = fileName + ".zip";
         }
         fileName = uniqueFileName(outputDir, fileName);
@@ -1155,7 +1155,7 @@ public final class DlcFxLocalPackTab {
     private Path chooseZip(String title) {
         FileChooser chooser = new FileChooser();
         chooser.setTitle(title);
-        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(DlcFxI18n.tr("dlc_manager.update.package_filter"), "*.zip"));
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(DlcFxI18n.tr("dlc_manager.pack.package_filter"), "*.zip", "*.mrpack"));
         File file = chooser.showOpenDialog(primaryStage());
         return file == null ? null : file.toPath();
     }
@@ -1164,7 +1164,7 @@ public final class DlcFxLocalPackTab {
         Path packRoot = DlcPaths.dlcRoot().resolve("pack");
         Files.createDirectories(packRoot);
         String fileName = source.getFileName() == null ? "pack.zip" : source.getFileName().toString();
-        if (!fileName.toLowerCase(Locale.ROOT).endsWith(".zip")) {
+        if (!com.cozooo.dlc_manager.client.pack.DlcPackArchive.isArchiveFileName(fileName)) {
             fileName = fileName + ".zip";
         }
         Path defaultTarget = packRoot.resolve(fileName);

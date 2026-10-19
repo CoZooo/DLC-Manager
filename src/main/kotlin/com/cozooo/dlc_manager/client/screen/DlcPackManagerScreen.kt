@@ -11,7 +11,7 @@ import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.client.download.DlcDownloadService
 import com.cozooo.dlc_manager.client.pack.DlcPackArchive
 import com.cozooo.dlc_manager.client.pack.DlcPackPreviewLoader
-import com.cozooo.dlc_manager.client.pack.DlcPackCFResolver
+import com.cozooo.dlc_manager.client.pack.DlcPackManifestResolver
 import com.cozooo.dlc_manager.client.pack.DlcPackInstaller
 import com.cozooo.dlc_manager.client.pack.DlcPackInstallPlan
 import com.cozooo.dlc_manager.client.pack.DlcPackMeta
@@ -383,7 +383,7 @@ class DlcPackManagerScreen(
             status = DlcTextCompat.translatable("dlc_manager.pack.disabled")
             return
         }
-        val zip = DlcFilePicker.pickUpdateZip(DlcTextCompat.translatable("dlc_manager.pack.import").string) ?: return
+        val zip = DlcFilePicker.pickPackArchive(DlcTextCompat.translatable("dlc_manager.pack.import").string) ?: return
         setBusy(true, DlcTextCompat.translatable("dlc_manager.pack.importing"), BusyOperation.IMPORT)
         updateOperationProgress(DlcTextCompat.translatable("dlc_manager.pack.importing"), -1f)
         Thread({
@@ -420,7 +420,7 @@ class DlcPackManagerScreen(
         val packRoot = DlcPaths.dlcRoot().resolve("pack")
         Files.createDirectories(packRoot)
         var fileName = source.fileName?.toString() ?: "pack.zip"
-        if (!fileName.lowercase(Locale.ROOT).endsWith(".zip")) fileName += ".zip"
+        if (!com.cozooo.dlc_manager.client.pack.DlcPackArchive.isArchiveFileName(fileName)) fileName += ".zip"
         val target = packRoot.resolve(fileName)
         if (source.toAbsolutePath().normalize() == target.toAbsolutePath().normalize()) return target
         Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
@@ -664,7 +664,7 @@ class DlcPackManagerScreen(
                 throw IOException(result.error ?: "invalid DLC Pack")
             }
             val plan = DlcPackInstallPlan.build(pack, DlcPaths.gameDir(), DlcPaths.dlcRoot())
-            DlcPackInstallPlan.merge(plan, DlcPackCFResolver.resolveManifestTargets(pack), DlcPaths.gameDir(), DlcPaths.dlcRoot())
+            DlcPackInstallPlan.merge(plan, DlcPackManifestResolver.resolveManifestTargets(pack), DlcPaths.gameDir(), DlcPaths.dlcRoot())
                 .files
                 .mapTo(LinkedHashSet()) { it.relativePath }
         } finally {

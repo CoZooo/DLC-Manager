@@ -166,7 +166,7 @@ class DlcPackUrlScreen(
         }
         if (fileName.isNullOrBlank()) {
             fileName = "pack.zip"
-        } else if (!fileName.lowercase(Locale.ROOT).endsWith(".zip")) {
+        } else if (!com.cozooo.dlc_manager.client.pack.DlcPackArchive.isArchiveFileName(fileName)) {
             fileName += ".zip"
         }
         fileName = uniqueFileName(outputDir, fileName)
