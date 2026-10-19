@@ -58,7 +58,6 @@ public class DlcUiTextInput extends Input {
     @Override protected String getRenderText() {
         String value = super.getRenderText();
         Text text = Text.of(this);
-        text.fontFamily = "unset";
         text.lineHeight = text.renderedFontSize();
         text.content = value;
         return value;

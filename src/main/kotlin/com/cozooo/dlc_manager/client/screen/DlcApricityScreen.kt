@@ -166,7 +166,7 @@ abstract class DlcApricityScreen private constructor(
         val document = linkedDocument ?: return
         if (document.isActive) {
             val viewport = document.viewport
-            val cssToGuiScale = 0.6
+            val cssToGuiScale = 0.5
             document.setViewportZoom(viewport.zoom() * cssToGuiScale / viewport.renderScale())
         }
     }

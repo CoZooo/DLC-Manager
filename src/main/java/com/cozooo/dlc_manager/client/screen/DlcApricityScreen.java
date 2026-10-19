@@ -209,7 +209,7 @@ public abstract class DlcApricityScreen extends ApricityScreen {
         Document document = getLinkedDocument();
         if (document != null && document.isActive()) {
             var viewport = document.getViewport();
-            double cssToGuiScale = 0.6;
+            double cssToGuiScale = 0.5;
             document.setViewportZoom(viewport.zoom() * cssToGuiScale / viewport.renderScale());
         }
     }

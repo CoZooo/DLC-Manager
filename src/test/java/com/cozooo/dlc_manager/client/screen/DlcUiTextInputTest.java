@@ -51,6 +51,21 @@ class DlcUiTextInputTest {
     private void prepare(DlcUiTextInput input, String value) {
         input.value = value;
         Text text = new Text();
+        text.fontFamily = "unset";
+        text.fontSize = 13;
+        text.lineHeight = 18;
+        input.getRenderer().text.set(text);
+    }
+
+    private DlcUiTextInput customInput(String value) {
+        var input = new DlcUiTextInput(null);
+        prepareCustom(input, value);
+        return input;
+    }
+
+    private void prepareCustom(DlcUiTextInput input, String value) {
+        input.value = value;
+        Text text = new Text();
         text.fontFamily = "DlcInter";
         text.fontSize = 13;
         text.lineHeight = 18;
@@ -160,13 +175,13 @@ class DlcUiTextInputTest {
         assertEquals(List.of("搜索DLC..."), drawn);
     }
 
-    @Test void caretAndSelectionMeasureWithTheFontUsedForDrawing() {
-        var input = input("的de");
-        draw(input);
+    @Test void inputKeepsItsCustomFontForDrawingAndMeasurement() {
+        var input = customInput("的de");
+        input.getRenderText();
         Text text = Text.of(input);
-        assertEquals("unset", text.fontFamily);
-        assertEquals(24 * text.defaultFontScale(), Size.measureText(input, "的de"), 0.001);
-        assertEquals(8 * text.defaultFontScale(), Size.measureText(input, "的"), 0.001);
+        assertEquals("DlcInter", text.fontFamily);
+        assertTrue(Size.measureText(input, "的de") > Size.measureText(input, "de"));
+        assertTrue(Size.measureText(input, "的") > 0);
     }
 
     @Test void adaptingHtmlInputPreservesItsAttributesValueAndDocumentIdentity() {

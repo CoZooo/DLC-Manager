@@ -53,7 +53,6 @@ open class DlcUiTextInput(document: Document?) : Input(document) {
     override fun getRenderText(): String {
         val value = super.getRenderText()
         Text.of(this).also {
-            it.fontFamily = "unset"
             it.lineHeight = it.renderedFontSize()
             it.content = value
         }
