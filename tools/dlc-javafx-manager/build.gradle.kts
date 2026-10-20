@@ -176,7 +176,7 @@ val javafxRuntimeVersion = "25.0.3"
 
 javafx {
     version = javafxRuntimeVersion
-    modules = listOf("javafx.controls", "javafx.fxml", "javafx.graphics")
+    modules = listOf("javafx.controls", "javafx.fxml", "javafx.graphics", "javafx.web")
 }
 
 data class JavaFxFatJarPlatform(
@@ -185,7 +185,7 @@ data class JavaFxFatJarPlatform(
     val label: String,
 )
 
-val javafxRuntimeModules = listOf("javafx-base", "javafx-graphics", "javafx-controls", "javafx-fxml")
+val javafxRuntimeModules = listOf("javafx-base", "javafx-graphics", "javafx-controls", "javafx-fxml", "javafx-web")
 val javafxFatJarPlatforms = mapOf(
     "win" to JavaFxFatJarPlatform("win", "windows", "Windows"),
     "linux" to JavaFxFatJarPlatform("linux", "linux", "Linux x64"),
@@ -236,7 +236,7 @@ if (javafxRuntimeJdkVersion >= 24) {
     appJvmArgs += "--sun-misc-unsafe-memory-access=allow"
 }
 val classpathJvmArgs = appJvmArgs + listOf("--enable-native-access=ALL-UNNAMED")
-val hybridJvmArgs = appJvmArgs + listOf("--enable-native-access=javafx.graphics,ALL-UNNAMED")
+val hybridJvmArgs = appJvmArgs + listOf("--enable-native-access=javafx.graphics,javafx.web,ALL-UNNAMED")
 
 application {
     applicationDefaultJvmArgs = classpathJvmArgs
@@ -279,7 +279,26 @@ sourceSets.main {
     resources.exclude("assets/dlc_manager/lang/en_us.json", "assets/dlc_manager/lang/zh_cn.json")
 }
 
+val dcEditorDirectory = file("../dc-editor")
+val dcEditorDist = layout.buildDirectory.dir("dc-editor-frontend")
+val buildDcEditorFrontend = tasks.register<Exec>("buildDcEditorFrontend") {
+    group = "build"
+    description = "Build the DC Editor frontend for the embedded JavaFX author tools page."
+    workingDir(dcEditorDirectory)
+    inputs.files(fileTree(dcEditorDirectory.resolve("src")), fileTree(dcEditorDirectory.resolve("public")),
+        dcEditorDirectory.resolve("package.json"), dcEditorDirectory.resolve("package-lock.json"),
+        dcEditorDirectory.resolve("index.html"), dcEditorDirectory.resolve("vite.config.ts"),
+        dcEditorDirectory.resolve("tsconfig.json"), dcEditorDirectory.resolve("tsconfig.node.json"),
+        fileTree(file("../dclanguage/js")), file("../../src/main/resources/META-INF/dlc-manager/dlc-definition.json"))
+    outputs.dir(dcEditorDist)
+    environment("DC_EDITOR_EMBEDDED", "true")
+    commandLine(if (System.getProperty("os.name", "").lowercase(Locale.ROOT).contains("windows")) "npm.cmd" else "npm",
+        "run", "build", "--", "--outDir", dcEditorDist.get().asFile.absolutePath, "--emptyOutDir")
+}
+
 tasks.named<ProcessResources>("processResources") {
+    dependsOn(buildDcEditorFrontend)
+    from(dcEditorDist) { into("author-tools/dc-editor") }
     from(bootstrapLanguages) { into("assets/dlc_manager/lang") }
     from("../../src/main/resources/META-INF/dlc-manager/dlc-definition.json") {
         into("META-INF/dlc-manager")
@@ -430,7 +449,7 @@ fun nativePackageArguments(type: String): List<String> {
         "--vendor", "CoZooo",
         "--description", "DLC Manager External Manager",
         "--module-path", appDir.resolve("lib").absolutePath,
-        "--add-modules", "java.se,jdk.unsupported,jdk.crypto.ec,jdk.localedata,javafx.controls,javafx.fxml,javafx.graphics",
+        "--add-modules", "java.se,jdk.unsupported,jdk.crypto.ec,jdk.localedata,jdk.jsobject,javafx.controls,javafx.fxml,javafx.graphics,javafx.web",
         "--jlink-options", "--strip-debug --no-man-pages --no-header-files --bind-services",
     )
     if (icon.exists()) arguments += listOf("--icon", icon.absolutePath)

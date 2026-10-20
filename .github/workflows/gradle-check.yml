@@ -36,5 +36,16 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
+    - name: Set up Node for embedded DC Editor
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: npm
+        cache-dependency-path: tools/dc-editor/package-lock.json
+
+    - name: Install DC Editor dependencies
+      working-directory: tools/dc-editor
+      run: npm ci
+
     - name: Run check and test pipeline
       run: ./gradlew check test --parallel

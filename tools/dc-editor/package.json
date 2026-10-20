@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "node scripts/tauri-version-config.mjs && tauri build --config src-tauri/tauri.generated.conf.json"
   },
   "dependencies": {
     "@codemirror/commands": "^6.8.1",

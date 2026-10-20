@@ -10,6 +10,7 @@ Manage DLC in a standalone window without starting Minecraft. Work with local in
 - Download missing content, apply presets, and manage DLC Packs and updates.
 - Read announcements and adjust an instance's DLC Manager settings.
 - Manage remote DLC, downloads, presets, DLC Packs, updates, and files.
+- Use the embedded DC Editor in Modpack Author Tools to create, validate, and export `.dc` configurations.
 - Choose an English or Chinese interface.
 
 ## Download and launch
@@ -62,7 +63,7 @@ From the repository root, build both installer formats supported by the current 
 
 `jpackageInstaller` builds only the default format (Windows EXE, macOS DMG, Linux DEB). Individual tasks are `jpackageExe`, `jpackageMsi`, `jpackageDmg`, `jpackagePkg`, `jpackageDeb`, and `jpackageRpm`. The root project also exposes `javafxManagerInstaller` and `javafxManagerInstallers`.
 
-Build on the target operating system and processor architecture using JDK 25. Windows also needs WiX 3.14's `bin` directory on PATH; Linux needs `fakeroot` and `rpm`. The version comes from the main project's `mod_version`, and outputs use `output/<version>/DLC-Manager-<version>-<platform>.<format>`. Installer metadata uses the numeric version without a prerelease suffix; filenames and application JARs retain the full version.
+Build on the target operating system and processor architecture using JDK 25. The build also needs Node.js 22 or newer; run `npm ci` in `tools/dc-editor` first to build the embedded DC Editor page. Windows also needs WiX 3.14's `bin` directory on PATH; Linux needs `fakeroot` and `rpm`. The version comes from the main project's `mod_version`, and outputs use `output/<version>/DLC-Manager-<version>-<platform>.<format>`. Installer metadata uses the numeric version without a prerelease suffix; filenames and application JARs retain the full version.
 
 The **Build External Manager Installers** GitHub Actions workflow supports manual builds and builds/uploads installers when a Release is published. It covers Windows x64, Linux x64/ARM64, and macOS Intel/Apple Silicon. macOS builds must pass Developer ID signing, notarization, and ticket stapling before upload. Windows signing is not configured.
 

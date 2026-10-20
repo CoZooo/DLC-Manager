@@ -28,13 +28,17 @@ jobs:
         run: npm ci
         working-directory: tools/dc-editor
 
+      - name: Generate Tauri metadata
+        run: node scripts/tauri-version-config.mjs
+        working-directory: tools/dc-editor
+
       - name: Build Windows bundle
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: tools/dc-editor
-          args: --bundles nsis
+          args: --bundles nsis --config src-tauri/tauri.generated.conf.json
 
       - name: Upload Windows installer artifact
         uses: actions/upload-artifact@v4

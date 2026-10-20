@@ -12,7 +12,7 @@ import { documentSchemas } from "../../schemas/documentSchemas";
 import { createEmptyTemplate } from "../document/templates";
 import { parseStructuredDocument, serializeStructuredDocument, validateStructuredModel } from "../document/simpleDc";
 import { detectDocumentType } from "../document/typeDetection";
-import { isTauriRuntime } from "../../runtime/tauri";
+import { embeddedHost, isTauriRuntime } from "../../runtime/tauri";
 import { EditorBackend, ParsedDocumentResult } from "./EditorBackend";
 import { invoke } from "@tauri-apps/api/core";
 import { open as tauriOpen, save as tauriSave } from "@tauri-apps/plugin-dialog";
@@ -34,6 +34,10 @@ export class LocalBackend implements EditorBackend {
   }
 
   async openManyWithPicker(): Promise<OpenDocumentResult[]> {
+    const host = embeddedHost();
+    if (host) {
+      return JSON.parse(host.openFiles()) as OpenDocumentResult[];
+    }
     if (isTauriRuntime()) {
       return this.openManyWithTauriDialog();
     }
@@ -60,6 +64,10 @@ export class LocalBackend implements EditorBackend {
   }
 
   async pickFile(): Promise<PickedFileResult | null> {
+    const host = embeddedHost();
+    if (host) {
+      return JSON.parse(host.pickFile()) as PickedFileResult | null;
+    }
     if (isTauriRuntime()) {
       return this.pickWithTauriDialog();
     }
@@ -119,6 +127,10 @@ export class LocalBackend implements EditorBackend {
   }
 
   async save(request: SaveDocumentRequest): Promise<SaveDocumentResult> {
+    const host = embeddedHost();
+    if (host) {
+      return JSON.parse(host.saveFile(request.suggestedName, request.text, request.path)) as SaveDocumentResult;
+    }
     if (isTauriRuntime()) {
       return this.saveWithTauriDialog(request);
     }
@@ -140,6 +152,15 @@ export class LocalBackend implements EditorBackend {
   }
 
   async saveArchive(request: SaveArchiveRequest): Promise<SaveDocumentResult> {
+    const host = embeddedHost();
+    if (host) {
+      let binary = "";
+      for (const byte of request.data) {
+        binary += String.fromCharCode(byte);
+      }
+      const base64 = btoa(binary);
+      return JSON.parse(host.saveArchive(request.suggestedName, base64)) as SaveDocumentResult;
+    }
     const archiveBytes = Uint8Array.from(request.data);
     if (isTauriRuntime()) {
       return this.saveArchiveWithTauriDialog({

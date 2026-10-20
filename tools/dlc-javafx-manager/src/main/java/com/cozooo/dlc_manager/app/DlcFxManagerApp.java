@@ -32,8 +32,10 @@ import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
 import com.cozooo.dlc_manager.ui.config.DlcFxConfigModel;
 import com.cozooo.dlc_manager.ui.config.DlcFxConfigOverlay;
 import com.cozooo.dlc_manager.ui.settings.DlcFxManagerSettingsOverlay;
+import com.cozooo.dlc_manager.author.DlcFxAuthorToolsPage;
 import com.google.gson.JsonObject;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -108,6 +110,8 @@ public final class DlcFxManagerApp extends Application {
     private Node homeView;
     private Node localView;
     private Node remoteView;
+    private Node authorView;
+    private DlcFxAuthorToolsPage authorToolsPage;
     private ViewMode currentView = ViewMode.HOME;
     private TabPane localTabPane;
     private TabPane remoteTabPane;
@@ -148,6 +152,13 @@ public final class DlcFxManagerApp extends Application {
         homeView = buildHomeView();
         localView = buildLocalWorkspace();
         remoteView = buildRemoteWorkspace();
+        if (currentView == ViewMode.AUTHOR) {
+            if (authorView instanceof BorderPane oldAuthorRoot && oldAuthorRoot.getCenter() instanceof TabPane oldTools) {
+                oldTools.getTabs().clear();
+            }
+            shellContent.setCenter(null);
+        }
+        authorView = buildAuthorWorkspace();
         showHome();
 
         Scene scene = new Scene(shell, 1100, 720);
@@ -234,9 +245,16 @@ public final class DlcFxManagerApp extends Application {
                 DlcFxI18n.tr("dlc_manager.home.enter_remote"),
                 "server",
                 this::showRemoteWorkspace);
-        VBox choices = new VBox(16, localChoice, remoteChoice);
+        Node authorChoice = modeChoice(
+                DlcFxI18n.tr("dlc_manager.home.author_title"),
+                DlcFxI18n.tr("dlc_manager.home.author_desc"),
+                DlcFxI18n.tr("dlc_manager.home.enter_author"),
+                "author",
+                this::showAuthorWorkspace);
+        VBox choices = new VBox(16, localChoice, remoteChoice, authorChoice);
         VBox.setVgrow(localChoice, Priority.ALWAYS);
         VBox.setVgrow(remoteChoice, Priority.ALWAYS);
+        VBox.setVgrow(authorChoice, Priority.ALWAYS);
 
         VBox content = new VBox(10, title, subtitle, choices);
         VBox.setVgrow(choices, Priority.ALWAYS);
@@ -249,7 +267,7 @@ public final class DlcFxManagerApp extends Application {
         HBox box = new HBox(16);
         box.getStyleClass().add("dlc-mode-panel");
         box.setPadding(new Insets(18, 18, 18, 18));
-        box.setMinHeight(160);
+        box.setMinHeight(132);
         box.setMaxWidth(Double.MAX_VALUE);
         box.setAlignment(Pos.CENTER_LEFT);
 
@@ -259,7 +277,7 @@ public final class DlcFxManagerApp extends Application {
         Label desc = new Label(descText);
         DlcFxStyle.add(title, "dlc-mode-title");
         DlcFxStyle.muted(desc);
-        desc.setWrapText(false);
+        desc.setWrapText(true);
         desc.setTextOverrun(OverrunStyle.CLIP);
         desc.setMaxWidth(Double.MAX_VALUE);
         textBox.getChildren().addAll(title, desc);
@@ -289,6 +307,8 @@ public final class DlcFxManagerApp extends Application {
         icon.setMaxSize(58, 58);
         if ("server".equals(style)) {
             icon.getChildren().add(serverModeCanvas());
+        } else if ("author".equals(style)) {
+            icon.getChildren().add(authorModeCanvas());
         } else {
             icon.getChildren().add(localModeCanvas());
         }
@@ -338,6 +358,24 @@ public final class DlcFxManagerApp extends Application {
 
     private Node workspaceHeader(String titleText, Runnable backAction) {
         return workspaceHeader(titleText, backAction, null);
+    }
+
+    private Canvas authorModeCanvas() {
+        Canvas canvas = new Canvas(58, 58);
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        g.setFill(Color.web("#fff7ed"));
+        g.fillRoundRect(1, 1, 56, 56, 18, 18);
+        g.setStroke(Color.web("#ead5bd"));
+        g.setLineWidth(1.2);
+        g.strokeRoundRect(1.5, 1.5, 55, 55, 18, 18);
+        g.setStroke(Color.web("#b86b00"));
+        g.setLineWidth(2.2);
+        g.strokeRoundRect(15, 12, 25, 34, 4, 4);
+        g.strokeLine(21, 21, 33, 21);
+        g.strokeLine(21, 28, 31, 28);
+        g.strokeLine(29, 40, 43, 26);
+        g.strokeLine(29, 40, 34, 39);
+        return canvas;
     }
 
     private Node workspaceHeader(String titleText, Runnable backAction, Node extraRight) {
@@ -464,6 +502,37 @@ public final class DlcFxManagerApp extends Application {
         if (remoteFileManagerTab == null || !remoteFileManagerTab.isSyncBusy()) return false;
         DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.sync.busy"));
         return true;
+    }
+
+    private Node buildAuthorWorkspace() {
+        BorderPane root = new BorderPane();
+        root.setTop(workspaceHeader(DlcFxI18n.tr("dlc_manager.home.author_title"), this::showHome));
+        TabPane tools = new TabPane();
+        tools.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+        if (authorToolsPage == null) {
+            authorToolsPage = new DlcFxAuthorToolsPage(this::scene);
+        }
+        Tab dcEditor = new Tab(DlcFxI18n.tr("dlc_manager.author.tab.dc_editor"),
+                authorToolsPage.build());
+        tools.getTabs().add(dcEditor);
+        root.setCenter(tools);
+        DlcFxStyle.add(root, "dlc-workspace-root");
+        return root;
+    }
+
+    private void showAuthorWorkspace() {
+        if (syncBusy()) {
+            if (authorToolsPage != null) {
+                Platform.runLater(() -> authorToolsPage.setLocale(DlcPlatformServices.languageCode()));
+            }
+            return;
+        }
+        currentView = ViewMode.AUTHOR;
+        shellContent.setCenter(authorView);
+        if (authorToolsPage != null) {
+            Platform.runLater(() -> authorToolsPage.setLocale(DlcPlatformServices.languageCode()));
+        }
+        refreshStatusForCurrentView();
     }
 
     private void showHome() {
@@ -1204,7 +1273,12 @@ public final class DlcFxManagerApp extends Application {
     }
 
     private void rebuildForLanguageChange() {
-        if (syncBusy()) return;
+        if (syncBusy()) {
+            if (authorToolsPage != null) {
+                Platform.runLater(() -> authorToolsPage.setLocale(DlcPlatformServices.languageCode()));
+            }
+            return;
+        }
         ViewMode target = currentView;
         primaryStage.setTitle(DlcFxI18n.tr("dlc_manager.window_title"));
         if (remoteConnection != null) {
@@ -1237,9 +1311,17 @@ public final class DlcFxManagerApp extends Application {
         remoteSyncTabNode = null;
         remoteConfigButton = null;
         remoteNoticeButton = null;
+        if (authorView instanceof BorderPane oldAuthorRoot
+                && oldAuthorRoot.getCenter() instanceof TabPane oldAuthorTools) {
+            oldAuthorTools.getTabs().clear();
+            if (target == ViewMode.AUTHOR) {
+                shellContent.setCenter(null);
+            }
+        }
         homeView = buildHomeView();
         localView = buildLocalWorkspace();
         remoteView = buildRemoteWorkspace();
+        authorView = buildAuthorWorkspace();
         if (localGameDirSelected) {
             onLocalGameDirChanged();
         }
@@ -1247,6 +1329,7 @@ public final class DlcFxManagerApp extends Application {
         switch (target) {
             case LOCAL -> showLocalWorkspace();
             case REMOTE -> showRemoteWorkspace();
+            case AUTHOR -> showAuthorWorkspace();
             case HOME -> showHome();
         }
     }
@@ -1300,7 +1383,8 @@ public final class DlcFxManagerApp extends Application {
     private enum ViewMode {
         HOME,
         LOCAL,
-        REMOTE
+        REMOTE,
+        AUTHOR
     }
 
     public static void main(String[] args) {

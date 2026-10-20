@@ -23,6 +23,12 @@ import { deriveDocumentNaming, documentSavePath, effectiveDocumentName } from ".
 import { formatPresetListFieldsInRaw, serializeStructuredDocumentWithPreservedRaw } from "../services/document/simpleDc";
 import { EDITOR_LOCALE_STORAGE_KEY, EditorLocale, t, translateStaticText } from "../i18n/editorI18n";
 
+declare global {
+  interface Window {
+    __dlcEditorSetLocale?: (locale: EditorLocale) => void;
+  }
+}
+
 const APP_STATE_STORAGE_KEY = "dlc-manager-dc-editor-state-v1";
 
 function makeDocumentId(): string {
@@ -129,6 +135,17 @@ function loadPersistedLocale(): EditorLocale {
   }
   const value = window.localStorage.getItem(EDITOR_LOCALE_STORAGE_KEY);
   return value === "en_us" ? "en_us" : "zh_cn";
+}
+
+function loadInitialLocale(): EditorLocale {
+  if (typeof window !== "undefined") {
+    const params = new URLSearchParams(window.location.search);
+    const embeddedLocale = params.get("locale");
+    if (params.get("embedded") === "1" && (embeddedLocale === "zh_cn" || embeddedLocale === "en_us")) {
+      return embeddedLocale;
+    }
+  }
+  return loadPersistedLocale();
 }
 
 function getIssueSeverityLabel(locale: EditorLocale, severity: "error" | "warning" | "info") {
@@ -282,7 +299,7 @@ function isEditableFocusTarget(target: EventTarget | null): boolean {
 }
 
 export function App() {
-  const initialLocale = loadPersistedLocale();
+  const initialLocale = loadInitialLocale();
   const mainPanelRef = useRef<HTMLElement | null>(null);
   const scrollPositionsRef = useRef<Record<EditorView, number>>({
     form: 0,
@@ -310,6 +327,21 @@ export function App() {
     past: [],
     future: []
   });
+
+  useEffect(() => {
+    const onHostLocale = (event: Event) => {
+      const nextLocale = (event as CustomEvent<unknown>).detail;
+      if (nextLocale === "zh_cn" || nextLocale === "en_us") {
+        setLocale(nextLocale);
+      }
+    };
+    window.addEventListener("dlc-editor-locale", onHostLocale);
+    window.__dlcEditorSetLocale = (nextLocale) => setLocale(nextLocale);
+    return () => {
+      window.removeEventListener("dlc-editor-locale", onHostLocale);
+      delete window.__dlcEditorSetLocale;
+    };
+  }, []);
 
   const editingDocument = useMemo(() => {
     if (homeVisible) {
@@ -368,7 +400,10 @@ export function App() {
     if (typeof window === "undefined") {
       return;
     }
-    window.localStorage.setItem(EDITOR_LOCALE_STORAGE_KEY, locale);
+    const embedded = new URLSearchParams(window.location.search).get("embedded") === "1";
+    if (!embedded) {
+      window.localStorage.setItem(EDITOR_LOCALE_STORAGE_KEY, locale);
+    }
   }, [locale]);
 
   useEffect(() => {

@@ -62,6 +62,7 @@ tools/dc-editor/node_modules/
 tools/dc-editor/dist/
 tools/dc-editor/vite.config.js
 tools/dc-editor/vite.config.d.ts
+tools/dc-editor/src-tauri/tauri.generated.conf.json
 tools/dc-editor/tsconfig.tsbuildinfo
 tools/dc-editor/tsconfig.node.tsbuildinfo
 **/rebel.xml

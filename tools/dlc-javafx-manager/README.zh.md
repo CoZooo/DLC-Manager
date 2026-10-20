@@ -10,6 +10,7 @@
 - 补全可下载内容，应用预设，管理拓展包和更新。
 - 查看公告，调整实例的 DLC Manager 设置。
 - 连接服务器，管理远程 DLC、下载、预设、拓展包、更新和文件。
+- 在整合包作者工具中内嵌 DC Editor，创建、校验和导出 `.dc` 配置。
 - 使用中文或英文界面。
 
 ## 获取与启动
@@ -62,7 +63,7 @@ java -jar DLC-Manager-<版本>-<平台>.jar
 
 `jpackageInstaller` 只生成当前系统的默认格式（Windows EXE、macOS DMG、Linux DEB）。也可以单独执行 `jpackageExe`、`jpackageMsi`、`jpackageDmg`、`jpackagePkg`、`jpackageDeb` 或 `jpackageRpm`。根项目提供 `javafxManagerInstaller` 和 `javafxManagerInstallers` 两个入口。
 
-安装包必须在对应操作系统和处理器架构上构建。需要 JDK 25；Windows 还需将 WiX 3.14 的 `bin` 目录加入 PATH，Linux 需要 `fakeroot` 和 `rpm` 打包工具。版本读取主项目的 `mod_version`，输出为 `output/<版本>/DLC-Manager-<版本>-<平台>.<格式>`。安装器内部使用不含预发布后缀的数字版本，文件名和应用 JAR 保留完整版本号。
+安装包必须在对应操作系统和处理器架构上构建。需要 JDK 25，以及 Node.js 22 或更高版本；先在 `tools/dc-editor` 执行 `npm ci`，用于生成内嵌的 DC Editor 页面。Windows 还需将 WiX 3.14 的 `bin` 目录加入 PATH，Linux 需要 `fakeroot` 和 `rpm` 打包工具。版本读取主项目的 `mod_version`，输出为 `output/<版本>/DLC-Manager-<版本>-<平台>.<格式>`。安装器内部使用不含预发布后缀的数字版本，文件名和应用 JAR 保留完整版本号。
 
 GitHub Actions 的 **Build External Manager Installers** 工作流支持手动构建，并在发布 Release 时构建和上传安装包。覆盖 Windows x64、Linux x64/ARM64、macOS Intel/Apple Silicon。macOS 构建须通过 Developer ID 签名、公证和票据装订后才能上传。Windows 暂未配置签名。
 

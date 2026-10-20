@@ -131,7 +131,7 @@ const dcHighlightStyle = HighlightStyle.define([
 const dcTheme = EditorView.theme({
   "&": {
     minHeight: "62vh",
-    fontFamily: '"SF Mono", "JetBrains Mono", monospace',
+    fontFamily: "var(--code-font-family)",
     fontSize: "13px",
     backgroundColor: "#fcfbf8",
     color: "#1d2a32"
