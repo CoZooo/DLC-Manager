@@ -61,9 +61,6 @@ object DlcConfig {
     const val DEFAULT_MAX_RETRY: Int = 2
     const val DEFAULT_CONNECT_TIMEOUT_SECONDS: Int = 5
     const val DEFAULT_TASK_TIMEOUT_SECONDS: Int = 60
-    const val DOWNLOAD_MIRROR_SMART_OFFICIAL: String = "smart_official"
-    const val DOWNLOAD_MIRROR_SMART_MIRROR: String = "smart_mirror"
-    const val DOWNLOAD_MIRROR_SMART_PRECHECK: String = "smart_precheck"
     const val DOWNLOAD_MIRROR_OFFICIAL_ONLY: String = "official_only"
     const val DOWNLOAD_MIRROR_MIRROR_ONLY: String = "mirror_only"
     const val DOWNLOAD_MIRROR_OFFICIAL_FIRST: String = "official_first"

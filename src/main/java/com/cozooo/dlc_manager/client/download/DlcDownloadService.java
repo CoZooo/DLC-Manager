@@ -203,32 +203,7 @@ public final class DlcDownloadService {
     }
 
     public static void precheckDownloadSources(List<DlcDownloadCandidate> candidates, ProgressListener listener) {
-        if (candidates == null || candidates.isEmpty()) {
-            return;
-        }
-        DownloadMirrorMode mode = DownloadMirrorMode.fromConfig(DlcConfig.getDownloadMirrorMode());
-        if (mode != DownloadMirrorMode.SMART_PRECHECK) {
-            return;
-        }
-        for (DlcDownloadCandidate candidate : candidates) {
-            if (candidate == null || candidate.url == null || candidate.url.isBlank()) {
-                continue;
-            }
-            String fileName = DlcDownloadUtil.sanitizeFileName(candidate.fileNameOverride);
-            long total = candidate.expectedSize > 0 ? candidate.expectedSize : -1L;
-            MirrorPlan mirrorPlan = mirrorPlan(candidate.url, fileName, total);
-            if (mirrorPlan == null) {
-                continue;
-            }
-            notifyStatus(listener, "selecting_source", mode, mirrorPlan);
-            try {
-                primaryDownloadUrl(candidate.url, mirrorPlan, mode);
-            } catch (IOException ignored) {
-            } finally {
-                notifyStatus(listener, "downloading", mode, mirrorPlan);
-            }
-            return;
-        }
+        // Smart source preselection has been removed; keep this entry point for callers.
     }
 
     public static void checkCanceled(CancelChecker cancelChecker) throws DownloadCanceledException {
@@ -267,49 +242,6 @@ public final class DlcDownloadService {
                 throw new IOException("mirror download source unavailable");
             }
             case MIRROR_FIRST -> mirrorPlan != null ? mirrorPlan.mirrorUrl : isMirrorUrl(url) ? url : url;
-            case SMART_OFFICIAL -> {
-                if (mirrorPlan == null) {
-                    yield url;
-                }
-                PlatformProbeState state = mirrorPlan.probeState();
-                synchronized (state.lock) {
-                    if (state.mirrorDisabled) {
-                        yield url;
-                    }
-                    if (state.selectedMirror != null) {
-                        yield state.selectedMirror ? mirrorPlan.mirrorUrl : url;
-                    }
-                }
-                yield url;
-            }
-            case SMART_MIRROR -> {
-                if (mirrorPlan == null) {
-                    yield url;
-                }
-                PlatformProbeState state = mirrorPlan.probeState();
-                synchronized (state.lock) {
-                    if (state.mirrorDisabled) {
-                        yield url;
-                    }
-                    if (state.selectedMirror != null) {
-                        yield state.selectedMirror ? mirrorPlan.mirrorUrl : url;
-                    }
-                }
-                yield mirrorPlan.mirrorUrl;
-            }
-            case SMART_PRECHECK -> {
-                if (mirrorPlan == null) {
-                    yield url;
-                }
-                Boolean selected = selectedSourceFromCache(mirrorPlan);
-                if (selected == null) {
-                    ProbeUrlPair probePair = dedicatedProbePair(url);
-                    if (probePair != null) {
-                        selected = precheckDownloadSource(mirrorPlan, probePair.officialUrl, probePair.mirrorUrl);
-                    }
-                }
-                yield selected != null && selected ? mirrorPlan.mirrorUrl : url;
-            }
         };
     }
 
@@ -318,21 +250,6 @@ public final class DlcDownloadService {
             return null;
         }
         return switch (mode) {
-            case SMART_OFFICIAL -> primaryUrl.equals(officialUrl) && mirrorPlan.canSpeedCompare
-                ? new SourceSwitchPlan(mirrorPlan.mirrorUrl, false, true, SourceSwitchMode.SPEED_COMPARE, mirrorPlan)
-                : null;
-            case SMART_MIRROR -> primaryUrl.equals(mirrorPlan.mirrorUrl) && mirrorPlan.canSpeedCompare
-                ? new SourceSwitchPlan(officialUrl, true, false, SourceSwitchMode.SPEED_COMPARE, mirrorPlan)
-                : null;
-            case SMART_PRECHECK -> {
-                if (primaryUrl.equals(mirrorPlan.mirrorUrl)) {
-                    yield new SourceSwitchPlan(officialUrl, true, false, SourceSwitchMode.RETRY_FALLBACK, mirrorPlan);
-                }
-                if (primaryUrl.equals(officialUrl) && isMirrorFallbackAllowed(mirrorPlan)) {
-                    yield new SourceSwitchPlan(mirrorPlan.mirrorUrl, false, true, SourceSwitchMode.RETRY_FALLBACK, mirrorPlan);
-                }
-                yield null;
-            }
             case OFFICIAL_FIRST -> primaryUrl.equals(officialUrl)
                 ? new SourceSwitchPlan(mirrorPlan.mirrorUrl, false, true, SourceSwitchMode.EARLY_TIMEOUT, mirrorPlan)
                 : null;
@@ -344,46 +261,13 @@ public final class DlcDownloadService {
     }
 
     private static void notifyStatus(ProgressListener listener, String statusKey, DownloadMirrorMode mode, MirrorPlan mirrorPlan) {
-        if (listener instanceof StatusProgressListener statusListener
-            && mode == DownloadMirrorMode.SMART_PRECHECK
-            && mirrorPlan != null) {
-            statusListener.onStatusKey(statusKey);
-        }
     }
 
     private static SourceProbe startSourceProbe(double primarySpeed, SourceSwitchPlan switchPlan, CancelChecker cancelChecker) {
         if (switchPlan.mode == SourceSwitchMode.EARLY_TIMEOUT) {
             return primarySpeed >= switchPlan.mirrorPlan.timeoutSpeed ? null : SourceProbe.selected(switchPlan);
         }
-        if (primarySpeed >= switchPlan.mirrorPlan.requiredSpeed) {
-            recordPrimaryFastIfStable(primarySpeed, switchPlan);
-            return null;
-        }
-        PlatformProbeState state = switchPlan.mirrorPlan.probeState();
-        synchronized (state.lock) {
-            if (state.mirrorDisabled && switchPlan.alternateIsMirror) {
-                return null;
-            }
-            if (state.selectedMirror != null) {
-                return state.selectedMirror == switchPlan.primaryIsMirror ? null : SourceProbe.selected(switchPlan);
-            }
-            if (state.mirrorComparisons >= maxMirrorProbeAttempts()) {
-                return null;
-            }
-            state.mirrorComparisons++;
-        }
-        ExecutorService executor = Executors.newSingleThreadExecutor();
-        AtomicReference<Double> primarySpeedRef = new AtomicReference<>(primarySpeed);
-        return new SourceProbe(
-            switchPlan.alternateUrl,
-            switchPlan.primaryIsMirror,
-            switchPlan.alternateIsMirror,
-            executor.submit(() -> probeDownloadSpeed(switchPlan.alternateUrl, MIRROR_COMPARE_WINDOW_MS, cancelChecker, primarySpeedRef)),
-            executor,
-            primarySpeedRef,
-            false,
-            switchPlan.mirrorPlan.probeState()
-        );
+        return null;
     }
 
     private static boolean finishSourceProbe(double primarySpeed, SourceProbe probe) {
@@ -1477,9 +1361,6 @@ public final class DlcDownloadService {
     }
 
     private enum DownloadMirrorMode {
-        SMART_OFFICIAL,
-        SMART_MIRROR,
-        SMART_PRECHECK,
         OFFICIAL_ONLY,
         MIRROR_ONLY,
         OFFICIAL_FIRST,
@@ -1487,13 +1368,11 @@ public final class DlcDownloadService {
 
         private static DownloadMirrorMode fromConfig(String value) {
             return switch (DlcConfig.normalizeDownloadMirrorMode(value)) {
-                case DlcConfig.DOWNLOAD_MIRROR_SMART_MIRROR -> SMART_MIRROR;
-                case DlcConfig.DOWNLOAD_MIRROR_SMART_PRECHECK -> SMART_PRECHECK;
                 case DlcConfig.DOWNLOAD_MIRROR_OFFICIAL_ONLY -> OFFICIAL_ONLY;
                 case DlcConfig.DOWNLOAD_MIRROR_MIRROR_ONLY -> MIRROR_ONLY;
                 case DlcConfig.DOWNLOAD_MIRROR_OFFICIAL_FIRST -> OFFICIAL_FIRST;
                 case DlcConfig.DOWNLOAD_MIRROR_MIRROR_FIRST -> MIRROR_FIRST;
-                default -> SMART_OFFICIAL;
+                default -> OFFICIAL_ONLY;
             };
         }
     }

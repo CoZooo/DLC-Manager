@@ -213,29 +213,7 @@ object DlcDownloadService {
 
     @JvmStatic
     fun precheckDownloadSources(candidates: List<DlcDownloadCandidate>?, listener: ProgressListener?) {
-        if (candidates.isNullOrEmpty()) {
-            return
-        }
-        val mode = DownloadMirrorMode.fromConfig(DlcConfig.getDownloadMirrorMode())
-        if (mode != DownloadMirrorMode.SMART_PRECHECK) {
-            return
-        }
-        for (candidate in candidates) {
-            if (candidate.url.isBlank()) {
-                continue
-            }
-            val fileName = DlcDownloadUtil.sanitizeFileName(candidate.fileNameOverride)
-            val total = if (candidate.expectedSize > 0) candidate.expectedSize else -1L
-            val mirrorPlan = mirrorPlan(candidate.url, fileName, total) ?: continue
-            notifyStatus(listener, "selecting_source", mode, mirrorPlan)
-            try {
-                primaryDownloadUrl(candidate.url, mirrorPlan, mode)
-            } catch (_: IOException) {
-            } finally {
-                notifyStatus(listener, "downloading", mode, mirrorPlan)
-            }
-            return
-        }
+        // Smart source preselection has been removed; keep this entry point for callers.
     }
 
     @JvmStatic
@@ -262,45 +240,6 @@ object DlcDownloadService {
             DownloadMirrorMode.OFFICIAL_FIRST -> url
             DownloadMirrorMode.MIRROR_ONLY -> mirrorPlan?.mirrorUrl ?: if (isMirrorUrl(url)) url else throw IOException("mirror download source unavailable")
             DownloadMirrorMode.MIRROR_FIRST -> mirrorPlan?.mirrorUrl ?: if (isMirrorUrl(url)) url else url
-            DownloadMirrorMode.SMART_OFFICIAL -> {
-                if (mirrorPlan == null) {
-                    return url
-                }
-                val state = mirrorPlan.probeState()
-                synchronized(state.lock) {
-                    if (state.mirrorDisabled) {
-                        return url
-                    }
-                    state.selectedMirror?.let { return if (it) mirrorPlan.mirrorUrl else url }
-                }
-                url
-            }
-            DownloadMirrorMode.SMART_MIRROR -> {
-                if (mirrorPlan == null) {
-                    return url
-                }
-                val state = mirrorPlan.probeState()
-                synchronized(state.lock) {
-                    if (state.mirrorDisabled) {
-                        return url
-                    }
-                    state.selectedMirror?.let { return if (it) mirrorPlan.mirrorUrl else url }
-                }
-                mirrorPlan.mirrorUrl
-            }
-            DownloadMirrorMode.SMART_PRECHECK -> {
-                if (mirrorPlan == null) {
-                    return url
-                }
-                var selected = selectedSourceFromCache(mirrorPlan)
-                if (selected == null) {
-                    val probePair = dedicatedProbePair(url)
-                    if (probePair != null) {
-                        selected = precheckDownloadSource(mirrorPlan, probePair.officialUrl, probePair.mirrorUrl)
-                    }
-                }
-                if (selected == true) mirrorPlan.mirrorUrl else url
-            }
         }
     }
 
@@ -309,21 +248,6 @@ object DlcDownloadService {
             return null
         }
         return when (mode) {
-            DownloadMirrorMode.SMART_OFFICIAL -> if (primaryUrl == officialUrl && mirrorPlan.canSpeedCompare) {
-                SourceSwitchPlan(mirrorPlan.mirrorUrl, primaryIsMirror = false, alternateIsMirror = true, mode = SourceSwitchMode.SPEED_COMPARE, mirrorPlan = mirrorPlan)
-            } else null
-            DownloadMirrorMode.SMART_MIRROR -> if (primaryUrl == mirrorPlan.mirrorUrl && mirrorPlan.canSpeedCompare) {
-                SourceSwitchPlan(officialUrl, primaryIsMirror = true, alternateIsMirror = false, mode = SourceSwitchMode.SPEED_COMPARE, mirrorPlan = mirrorPlan)
-            } else null
-            DownloadMirrorMode.SMART_PRECHECK -> when (primaryUrl) {
-                mirrorPlan.mirrorUrl -> SourceSwitchPlan(officialUrl, primaryIsMirror = true, alternateIsMirror = false, mode = SourceSwitchMode.RETRY_FALLBACK, mirrorPlan = mirrorPlan)
-                officialUrl -> if (isMirrorFallbackAllowed(mirrorPlan)) {
-                    SourceSwitchPlan(mirrorPlan.mirrorUrl, primaryIsMirror = false, alternateIsMirror = true, mode = SourceSwitchMode.RETRY_FALLBACK, mirrorPlan = mirrorPlan)
-                } else {
-                    null
-                }
-                else -> null
-            }
             DownloadMirrorMode.OFFICIAL_FIRST -> if (primaryUrl == officialUrl) {
                 SourceSwitchPlan(mirrorPlan.mirrorUrl, primaryIsMirror = false, alternateIsMirror = true, mode = SourceSwitchMode.EARLY_TIMEOUT, mirrorPlan = mirrorPlan)
             } else null
@@ -336,41 +260,13 @@ object DlcDownloadService {
     }
 
     private fun notifyStatus(listener: ProgressListener?, statusKey: String, mode: DownloadMirrorMode, mirrorPlan: MirrorPlan?) {
-        if (listener is StatusProgressListener && mode == DownloadMirrorMode.SMART_PRECHECK && mirrorPlan != null) {
-            listener.onStatusKey(statusKey)
-        }
     }
 
     private fun startSourceProbe(primarySpeed: Double, switchPlan: SourceSwitchPlan, cancelChecker: CancelChecker?): SourceProbe? {
         if (switchPlan.mode == SourceSwitchMode.EARLY_TIMEOUT) {
             return if (primarySpeed >= switchPlan.mirrorPlan.timeoutSpeed) null else SourceProbe.selected(switchPlan)
         }
-        if (primarySpeed >= switchPlan.mirrorPlan.requiredSpeed) {
-            recordPrimaryFastIfStable(primarySpeed, switchPlan)
-            return null
-        }
-        val state = switchPlan.mirrorPlan.probeState()
-        synchronized(state.lock) {
-            if (state.mirrorDisabled && switchPlan.alternateIsMirror) {
-                return null
-            }
-            state.selectedMirror?.let { return if (it == switchPlan.primaryIsMirror) null else SourceProbe.selected(switchPlan) }
-            if (state.mirrorComparisons >= maxMirrorProbeAttempts()) {
-                return null
-            }
-            state.mirrorComparisons++
-        }
-        val executor = Executors.newSingleThreadExecutor()
-        val primarySpeedRef = AtomicReference(primarySpeed)
-        return SourceProbe(
-            switchPlan.alternateUrl,
-            switchPlan.primaryIsMirror,
-            switchPlan.alternateIsMirror,
-            executor.submit<ProbeSpeedResult> { probeDownloadSpeed(switchPlan.alternateUrl, MIRROR_COMPARE_WINDOW_MS, cancelChecker, primarySpeedRef) },
-            executor,
-            primarySpeedRef,
-            state = switchPlan.mirrorPlan.probeState(),
-        )
+        return null
     }
 
     private fun finishSourceProbe(primarySpeed: Double, probe: SourceProbe): Boolean {
@@ -1523,9 +1419,6 @@ object DlcDownloadService {
     }
 
     private enum class DownloadMirrorMode {
-        SMART_OFFICIAL,
-        SMART_MIRROR,
-        SMART_PRECHECK,
         OFFICIAL_ONLY,
         MIRROR_ONLY,
         OFFICIAL_FIRST,
@@ -1534,13 +1427,11 @@ object DlcDownloadService {
         companion object {
             fun fromConfig(value: String?): DownloadMirrorMode {
                 return when (DlcConfig.normalizeDownloadMirrorMode(value)) {
-                    DlcConfig.DOWNLOAD_MIRROR_SMART_MIRROR -> SMART_MIRROR
-                    DlcConfig.DOWNLOAD_MIRROR_SMART_PRECHECK -> SMART_PRECHECK
                     DlcConfig.DOWNLOAD_MIRROR_OFFICIAL_ONLY -> OFFICIAL_ONLY
                     DlcConfig.DOWNLOAD_MIRROR_MIRROR_ONLY -> MIRROR_ONLY
                     DlcConfig.DOWNLOAD_MIRROR_OFFICIAL_FIRST -> OFFICIAL_FIRST
                     DlcConfig.DOWNLOAD_MIRROR_MIRROR_FIRST -> MIRROR_FIRST
-                    else -> SMART_OFFICIAL
+                    else -> OFFICIAL_ONLY
                 }
             }
         }

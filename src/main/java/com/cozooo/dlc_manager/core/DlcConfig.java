@@ -67,9 +67,6 @@ public class DlcConfig {
     public static final int DEFAULT_MAX_RETRY = 2;
     public static final int DEFAULT_CONNECT_TIMEOUT_SECONDS = 5;
     public static final int DEFAULT_TASK_TIMEOUT_SECONDS = 60;
-    public static final String DOWNLOAD_MIRROR_SMART_OFFICIAL = "smart_official";
-    public static final String DOWNLOAD_MIRROR_SMART_MIRROR = "smart_mirror";
-    public static final String DOWNLOAD_MIRROR_SMART_PRECHECK = "smart_precheck";
     public static final String DOWNLOAD_MIRROR_OFFICIAL_ONLY = "official_only";
     public static final String DOWNLOAD_MIRROR_MIRROR_ONLY = "mirror_only";
     public static final String DOWNLOAD_MIRROR_OFFICIAL_FIRST = "official_first";
