@@ -30,17 +30,10 @@ public final class DlcFxConfigModel {
             "manager_button", "main_menu_button", "main_menu_panel"
     );
     private static final List<String> DOWNLOAD_MIRROR_MODE_VALUES = List.of(
-            DlcConfig.DOWNLOAD_MIRROR_SMART_OFFICIAL,
-            DlcConfig.DOWNLOAD_MIRROR_SMART_MIRROR,
-            DlcConfig.DOWNLOAD_MIRROR_SMART_PRECHECK,
-            DlcConfig.DOWNLOAD_MIRROR_OFFICIAL_ONLY,
+                        DlcConfig.DOWNLOAD_MIRROR_OFFICIAL_ONLY,
             DlcConfig.DOWNLOAD_MIRROR_MIRROR_ONLY,
             DlcConfig.DOWNLOAD_MIRROR_OFFICIAL_FIRST,
             DlcConfig.DOWNLOAD_MIRROR_MIRROR_FIRST
-    );
-    private static final List<String> DOWNLOAD_MIRROR_PROBE_STRATEGY_VALUES = List.of(
-            DlcConfig.DOWNLOAD_MIRROR_PROBE_SINGLE,
-            DlcConfig.DOWNLOAD_MIRROR_PROBE_MAJORITY
     );
 
     private final ConfigSource source;
@@ -114,9 +107,7 @@ public final class DlcFxConfigModel {
                 integer("maxRetryCount", "downloads", "maxRetryCount", "dlc_manager.config.download.maxRetryCount", "dlc_manager.config.comment.download.maxRetryCount", DlcConfig.DEFAULT_MAX_RETRY, 1, 100),
                 integer("connectTimeoutSeconds", "downloads", "connectTimeoutSeconds", "dlc_manager.config.download.connectTimeoutSeconds", "dlc_manager.config.comment.download.connectTimeoutSeconds", DlcConfig.DEFAULT_CONNECT_TIMEOUT_SECONDS, 1, 36000),
                 integer("taskTimeoutSeconds", "downloads", "taskTimeoutSeconds", "dlc_manager.config.download.taskTimeoutSeconds", "dlc_manager.config.comment.download.taskTimeoutSeconds", DlcConfig.DEFAULT_TASK_TIMEOUT_SECONDS, 1, 36000),
-                choice("downloadMirrorMode", "downloads", "downloadMirrorMode", "dlc_manager.config.download.downloadMirrorMode", "dlc_manager.config.comment.download.downloadMirrorMode", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_MODE, DOWNLOAD_MIRROR_MODE_VALUES, "dlc_manager.config.download.downloadMirrorMode."),
-                integer("downloadMirrorProbeCount", "downloads", "downloadMirrorProbeCount", "dlc_manager.config.download.downloadMirrorProbeCount", "dlc_manager.config.comment.download.downloadMirrorProbeCount", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT, 1, 10),
-                choice("downloadMirrorProbeStrategy", "downloads", "downloadMirrorProbeStrategy", "dlc_manager.config.download.downloadMirrorProbeStrategy", "dlc_manager.config.comment.download.downloadMirrorProbeStrategy", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY, DOWNLOAD_MIRROR_PROBE_STRATEGY_VALUES, "dlc_manager.config.download.downloadMirrorProbeStrategy."));
+                choice("downloadMirrorMode", "downloads", "downloadMirrorMode", "dlc_manager.config.download.downloadMirrorMode", "dlc_manager.config.comment.download.downloadMirrorMode", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_MODE, DOWNLOAD_MIRROR_MODE_VALUES, "dlc_manager.config.download.downloadMirrorMode."));
         loadFromConfig();
     }
 

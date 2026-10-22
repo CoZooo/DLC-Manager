@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.core;
 
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.cozooo.dlc_manager.test.TestPlatformProvider;
+import com.google.gson.JsonObject;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -118,6 +119,22 @@ class DlcConfigTest {
         assertEquals(2L * 1024L * 1024L, DlcConfig.getMinSegmentBytes());
         assertEquals(2000, DlcConfig.getConnectTimeoutMs());
         assertEquals(1000, DlcConfig.getTaskTimeoutMs());
+    }
+
+    @Test
+    void downloadSourceModeKeepsMirrorsAndProbeOptionsAreNotPersisted() {
+        DlcConfig.setDownloadMirrorMode(null);
+        assertEquals(DlcConfig.DOWNLOAD_MIRROR_OFFICIAL_ONLY, DlcConfig.getDownloadMirrorMode());
+        DlcConfig.setDownloadMirrorMode("smart_precheck");
+        assertEquals(DlcConfig.DOWNLOAD_MIRROR_OFFICIAL_ONLY, DlcConfig.getDownloadMirrorMode());
+
+        DlcConfig.setDownloadMirrorMode("mirror_only");
+
+        assertEquals(DlcConfig.DOWNLOAD_MIRROR_MIRROR_ONLY, DlcConfig.getDownloadMirrorMode());
+        JsonObject downloads = DlcConfig.buildSharedConfigJson().getAsJsonObject("downloads");
+        assertEquals(DlcConfig.DOWNLOAD_MIRROR_MIRROR_ONLY, downloads.get("downloadMirrorMode").getAsString());
+        assertFalse(downloads.has("downloadMirrorProbeCount"));
+        assertFalse(downloads.has("downloadMirrorProbeStrategy"));
     }
 
     @Test

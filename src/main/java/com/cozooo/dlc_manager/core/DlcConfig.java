@@ -74,11 +74,7 @@ public class DlcConfig {
     public static final String DOWNLOAD_MIRROR_MIRROR_ONLY = "mirror_only";
     public static final String DOWNLOAD_MIRROR_OFFICIAL_FIRST = "official_first";
     public static final String DOWNLOAD_MIRROR_MIRROR_FIRST = "mirror_first";
-    public static final String DEFAULT_DOWNLOAD_MIRROR_MODE = DOWNLOAD_MIRROR_SMART_PRECHECK;
-    public static final int DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT = 3;
-    public static final String DOWNLOAD_MIRROR_PROBE_SINGLE = "single";
-    public static final String DOWNLOAD_MIRROR_PROBE_MAJORITY = "majority";
-    public static final String DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY = DOWNLOAD_MIRROR_PROBE_SINGLE;
+    public static final String DEFAULT_DOWNLOAD_MIRROR_MODE = DOWNLOAD_MIRROR_OFFICIAL_ONLY;
     public static final String DEFAULT_MODPACK = "";
     public static final String DEFAULT_MODPACK_URL = "";
     public static final String DEFAULT_UPDATE_GIT_REPO_URL = "";
@@ -136,8 +132,6 @@ public class DlcConfig {
     private static int connectTimeoutSeconds = DEFAULT_CONNECT_TIMEOUT_SECONDS;
     private static int taskTimeoutSeconds = DEFAULT_TASK_TIMEOUT_SECONDS;
     private static String downloadMirrorMode = DEFAULT_DOWNLOAD_MIRROR_MODE;
-    private static int downloadMirrorProbeCount = DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT;
-    private static String downloadMirrorProbeStrategy = DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY;
 
     public static void load() {
         loadClient();
@@ -209,8 +203,6 @@ public class DlcConfig {
         downloads.addProperty("connectTimeoutSeconds", DEFAULT_CONNECT_TIMEOUT_SECONDS);
         downloads.addProperty("taskTimeoutSeconds", DEFAULT_TASK_TIMEOUT_SECONDS);
         downloads.addProperty("downloadMirrorMode", DEFAULT_DOWNLOAD_MIRROR_MODE);
-        downloads.addProperty("downloadMirrorProbeCount", DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT);
-        downloads.addProperty("downloadMirrorProbeStrategy", DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY);
         defaults.add("downloads", downloads);
         JsonObject modpack = new JsonObject();
         modpack.addProperty("modpack", DEFAULT_MODPACK);
@@ -637,13 +629,6 @@ public class DlcConfig {
         return normalizeDownloadMirrorMode(downloadMirrorMode);
     }
 
-    public static int getDownloadMirrorProbeCount() {
-        return Math.max(1, Math.min(10, downloadMirrorProbeCount));
-    }
-
-    public static String getDownloadMirrorProbeStrategy() {
-        return normalizeDownloadMirrorProbeStrategy(downloadMirrorProbeStrategy);
-    }
 
     public static void setDlcRoot(String value) {
         if (value != null) {
@@ -868,13 +853,6 @@ public class DlcConfig {
         downloadMirrorMode = normalizeDownloadMirrorMode(value);
     }
 
-    public static void setDownloadMirrorProbeCount(int value) {
-        downloadMirrorProbeCount = Math.max(1, Math.min(10, value));
-    }
-
-    public static void setDownloadMirrorProbeStrategy(String value) {
-        downloadMirrorProbeStrategy = normalizeDownloadMirrorProbeStrategy(value);
-    }
 
     private static void resetDefaults() {
         dlcRoot = DEFAULT_DLC_ROOT;
@@ -927,8 +905,6 @@ public class DlcConfig {
         connectTimeoutSeconds = DEFAULT_CONNECT_TIMEOUT_SECONDS;
         taskTimeoutSeconds = DEFAULT_TASK_TIMEOUT_SECONDS;
         downloadMirrorMode = DEFAULT_DOWNLOAD_MIRROR_MODE;
-        downloadMirrorProbeCount = DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT;
-        downloadMirrorProbeStrategy = DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY;
     }
 
     private static void loadClientFromDisk() {
@@ -1114,8 +1090,6 @@ public class DlcConfig {
         obj.addProperty("connectTimeoutSeconds", connectTimeoutSeconds);
         obj.addProperty("taskTimeoutSeconds", taskTimeoutSeconds);
         obj.addProperty("downloadMirrorMode", getDownloadMirrorMode());
-        obj.addProperty("downloadMirrorProbeCount", getDownloadMirrorProbeCount());
-        obj.addProperty("downloadMirrorProbeStrategy", getDownloadMirrorProbeStrategy());
         root.add("downloads", obj);
     }
 
@@ -1236,17 +1210,12 @@ public class DlcConfig {
         map.put("connectTimeoutSeconds", value -> connectTimeoutSeconds = Math.max(1, asInt(value, DEFAULT_CONNECT_TIMEOUT_SECONDS)));
         map.put("taskTimeoutSeconds", value -> taskTimeoutSeconds = Math.max(1, asInt(value, DEFAULT_TASK_TIMEOUT_SECONDS)));
         map.put("downloadMirrorMode", value -> downloadMirrorMode = normalizeDownloadMirrorMode(asString(value, DEFAULT_DOWNLOAD_MIRROR_MODE)));
-        map.put("downloadMirrorProbeCount", value -> downloadMirrorProbeCount = Math.max(1, Math.min(10, asInt(value, DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT))));
-        map.put("downloadMirrorProbeStrategy", value -> downloadMirrorProbeStrategy = normalizeDownloadMirrorProbeStrategy(asString(value, DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY)));
         return map;
     }
 
     public static String normalizeDownloadMirrorMode(String value) {
         String normalized = value == null ? "" : value.trim().toLowerCase(Locale.ROOT).replace('-', '_');
         return switch (normalized) {
-            case DOWNLOAD_MIRROR_SMART_OFFICIAL -> DOWNLOAD_MIRROR_SMART_OFFICIAL;
-            case DOWNLOAD_MIRROR_SMART_MIRROR -> DOWNLOAD_MIRROR_SMART_MIRROR;
-            case DOWNLOAD_MIRROR_SMART_PRECHECK -> DOWNLOAD_MIRROR_SMART_PRECHECK;
             case DOWNLOAD_MIRROR_OFFICIAL_ONLY -> DOWNLOAD_MIRROR_OFFICIAL_ONLY;
             case DOWNLOAD_MIRROR_MIRROR_ONLY -> DOWNLOAD_MIRROR_MIRROR_ONLY;
             case DOWNLOAD_MIRROR_OFFICIAL_FIRST -> DOWNLOAD_MIRROR_OFFICIAL_FIRST;
@@ -1255,14 +1224,6 @@ public class DlcConfig {
         };
     }
 
-    public static String normalizeDownloadMirrorProbeStrategy(String value) {
-        String normalized = value == null ? "" : value.trim().toLowerCase(Locale.ROOT).replace('-', '_');
-        return switch (normalized) {
-            case DOWNLOAD_MIRROR_PROBE_SINGLE -> DOWNLOAD_MIRROR_PROBE_SINGLE;
-            case DOWNLOAD_MIRROR_PROBE_MAJORITY -> DOWNLOAD_MIRROR_PROBE_MAJORITY;
-            default -> DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY;
-        };
-    }
 
     private static String stringOrDefault(String value, String fallback) {
         if (value == null || value.isBlank()) {

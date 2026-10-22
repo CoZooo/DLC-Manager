@@ -189,9 +189,7 @@ export function createEmptyTemplate(type: DocumentType): string {
         "maxRetryCount = 2",
         "connectTimeoutSeconds = 10",
         "taskTimeoutSeconds = 60",
-        'downloadMirrorMode = "smart_precheck"',
-        "downloadMirrorProbeCount = 1",
-        'downloadMirrorProbeStrategy = "single_best"',
+        'downloadMirrorMode = "official_only"',
         ""
       ].join("\n");
     case "pack":

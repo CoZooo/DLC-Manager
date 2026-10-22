@@ -1858,34 +1858,10 @@
               "required": false,
               "description": "Download mirror mode.",
               "enumValues": [
-                "smart_precheck",
-                "smart_official_first",
-                "smart_mirror_first",
                 "official_only",
                 "mirror_only",
                 "official_first",
                 "mirror_first"
-              ],
-              "constraints": {}
-            },
-            {
-              "name": "downloadMirrorProbeCount",
-              "type": "number",
-              "required": false,
-              "description": "Download source probe count.",
-              "enumValues": [],
-              "constraints": {
-                "min": 0
-              }
-            },
-            {
-              "name": "downloadMirrorProbeStrategy",
-              "type": "string",
-              "required": false,
-              "description": "Download source probe selection strategy.",
-              "enumValues": [
-                "single_best",
-                "best_of_three"
               ],
               "constraints": {}
             }

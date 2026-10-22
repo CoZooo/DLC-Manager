@@ -23,18 +23,10 @@ const priorityOptions = [
 ];
 
 const downloadMirrorModeOptions = [
-  { value: "smart_precheck", label: "smart_precheck" },
-  { value: "smart_official_first", label: "smart_official_first" },
-  { value: "smart_mirror_first", label: "smart_mirror_first" },
   { value: "official_only", label: "official_only" },
   { value: "mirror_only", label: "mirror_only" },
   { value: "official_first", label: "official_first" },
   { value: "mirror_first", label: "mirror_first" }
-];
-
-const downloadMirrorProbeStrategyOptions = [
-  { value: "single_best", label: "single_best" },
-  { value: "best_of_three", label: "best_of_three" }
 ];
 
 const basicFields = (options?: { includeType?: boolean; includeDlcPackType?: boolean; includeAppliedTarget?: boolean; appliedTargetOnlyFor?: string[] }): SectionSchema => ({
@@ -359,9 +351,7 @@ const configDownloadsSection: SectionSchema = {
     { key: "maxRetryCount", label: "maxRetryCount", kind: "number", help: "static.help.configMaxRetryCount" },
     { key: "connectTimeoutSeconds", label: "connectTimeoutSeconds", kind: "number", help: "static.help.configConnectTimeoutSeconds" },
     { key: "taskTimeoutSeconds", label: "taskTimeoutSeconds", kind: "number", help: "static.help.configTaskTimeoutSeconds" },
-    { key: "downloadMirrorMode", label: "downloadMirrorMode", kind: "select", options: downloadMirrorModeOptions, help: "static.help.configDownloadMirrorMode" },
-    { key: "downloadMirrorProbeCount", label: "downloadMirrorProbeCount", kind: "number", help: "static.help.configDownloadMirrorProbeCount" },
-    { key: "downloadMirrorProbeStrategy", label: "downloadMirrorProbeStrategy", kind: "select", options: downloadMirrorProbeStrategyOptions, help: "static.help.configDownloadMirrorProbeStrategy" }
+    { key: "downloadMirrorMode", label: "downloadMirrorMode", kind: "select", options: downloadMirrorModeOptions, help: "static.help.configDownloadMirrorMode" }
   ]
 };
 

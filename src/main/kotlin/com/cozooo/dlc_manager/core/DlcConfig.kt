@@ -68,11 +68,7 @@ object DlcConfig {
     const val DOWNLOAD_MIRROR_MIRROR_ONLY: String = "mirror_only"
     const val DOWNLOAD_MIRROR_OFFICIAL_FIRST: String = "official_first"
     const val DOWNLOAD_MIRROR_MIRROR_FIRST: String = "mirror_first"
-    const val DEFAULT_DOWNLOAD_MIRROR_MODE: String = DOWNLOAD_MIRROR_SMART_PRECHECK
-    const val DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT: Int = 3
-    const val DOWNLOAD_MIRROR_PROBE_SINGLE: String = "single"
-    const val DOWNLOAD_MIRROR_PROBE_MAJORITY: String = "majority"
-    const val DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY: String = DOWNLOAD_MIRROR_PROBE_SINGLE
+    const val DEFAULT_DOWNLOAD_MIRROR_MODE: String = DOWNLOAD_MIRROR_OFFICIAL_ONLY
     const val DEFAULT_MODPACK: String = ""
     const val DEFAULT_MODPACK_URL: String = ""
     const val DEFAULT_UPDATE_GIT_REPO_URL: String = ""
@@ -129,8 +125,6 @@ object DlcConfig {
     private var connectTimeoutSeconds = DEFAULT_CONNECT_TIMEOUT_SECONDS
     private var taskTimeoutSeconds = DEFAULT_TASK_TIMEOUT_SECONDS
     private var downloadMirrorMode = DEFAULT_DOWNLOAD_MIRROR_MODE
-    private var downloadMirrorProbeCount = DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT
-    private var downloadMirrorProbeStrategy = DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY
 
     @JvmStatic fun load() = loadClient()
     @JvmStatic fun loadClient() {
@@ -183,8 +177,6 @@ object DlcConfig {
         downloads.addProperty("connectTimeoutSeconds", DEFAULT_CONNECT_TIMEOUT_SECONDS)
         downloads.addProperty("taskTimeoutSeconds", DEFAULT_TASK_TIMEOUT_SECONDS)
         downloads.addProperty("downloadMirrorMode", DEFAULT_DOWNLOAD_MIRROR_MODE)
-        downloads.addProperty("downloadMirrorProbeCount", DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT)
-        downloads.addProperty("downloadMirrorProbeStrategy", DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY)
         defaults.add("downloads", downloads)
         val modpack = JsonObject()
         modpack.addProperty("modpack", DEFAULT_MODPACK)
@@ -344,8 +336,6 @@ object DlcConfig {
     @JvmStatic fun getConnectTimeoutMs(): Int = (if (connectTimeoutSeconds < 1) DEFAULT_CONNECT_TIMEOUT_SECONDS else connectTimeoutSeconds) * 1000
     @JvmStatic fun getTaskTimeoutMs(): Int = (if (taskTimeoutSeconds < 1) DEFAULT_TASK_TIMEOUT_SECONDS else taskTimeoutSeconds) * 1000
     @JvmStatic fun getDownloadMirrorMode(): String = normalizeDownloadMirrorMode(downloadMirrorMode)
-    @JvmStatic fun getDownloadMirrorProbeCount(): Int = downloadMirrorProbeCount.coerceIn(1, 10)
-    @JvmStatic fun getDownloadMirrorProbeStrategy(): String = normalizeDownloadMirrorProbeStrategy(downloadMirrorProbeStrategy)
 
     @JvmStatic fun setDlcRoot(value: String?) { if (value != null) dlcRoot = value }
     @JvmStatic fun setTaczRoot(value: String?) { if (value != null) taczRoot = value }
@@ -403,8 +393,6 @@ object DlcConfig {
     @JvmStatic fun setConnectTimeoutMs(value: Int) { connectTimeoutSeconds = maxOf(1, kotlin.math.ceil(value / 1000.0).toInt()) }
     @JvmStatic fun setTaskTimeoutMs(value: Int) { taskTimeoutSeconds = maxOf(1, kotlin.math.ceil(value / 1000.0).toInt()) }
     @JvmStatic fun setDownloadMirrorMode(value: String?) { downloadMirrorMode = normalizeDownloadMirrorMode(value) }
-    @JvmStatic fun setDownloadMirrorProbeCount(value: Int) { downloadMirrorProbeCount = value.coerceIn(1, 10) }
-    @JvmStatic fun setDownloadMirrorProbeStrategy(value: String?) { downloadMirrorProbeStrategy = normalizeDownloadMirrorProbeStrategy(value) }
 
     private fun resetDefaults() {
         dlcRoot = DEFAULT_DLC_ROOT
@@ -457,8 +445,6 @@ object DlcConfig {
         connectTimeoutSeconds = DEFAULT_CONNECT_TIMEOUT_SECONDS
         taskTimeoutSeconds = DEFAULT_TASK_TIMEOUT_SECONDS
         downloadMirrorMode = DEFAULT_DOWNLOAD_MIRROR_MODE
-        downloadMirrorProbeCount = DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT
-        downloadMirrorProbeStrategy = DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY
     }
 
     private fun resetServerDefaults() {
@@ -634,8 +620,6 @@ object DlcConfig {
         obj.addProperty("connectTimeoutSeconds", connectTimeoutSeconds)
         obj.addProperty("taskTimeoutSeconds", taskTimeoutSeconds)
         obj.addProperty("downloadMirrorMode", getDownloadMirrorMode())
-        obj.addProperty("downloadMirrorProbeCount", getDownloadMirrorProbeCount())
-        obj.addProperty("downloadMirrorProbeStrategy", getDownloadMirrorProbeStrategy())
         root.add("downloads", obj)
     }
 
@@ -742,16 +726,11 @@ object DlcConfig {
         "connectTimeoutSeconds" to { value -> connectTimeoutSeconds = maxOf(1, asInt(value, DEFAULT_CONNECT_TIMEOUT_SECONDS)) },
         "taskTimeoutSeconds" to { value -> taskTimeoutSeconds = maxOf(1, asInt(value, DEFAULT_TASK_TIMEOUT_SECONDS)) },
         "downloadMirrorMode" to { value -> downloadMirrorMode = normalizeDownloadMirrorMode(asString(value, DEFAULT_DOWNLOAD_MIRROR_MODE)) },
-        "downloadMirrorProbeCount" to { value -> downloadMirrorProbeCount = asInt(value, DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT).coerceIn(1, 10) },
-        "downloadMirrorProbeStrategy" to { value -> downloadMirrorProbeStrategy = normalizeDownloadMirrorProbeStrategy(asString(value, DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY)) },
     )
 
     @JvmStatic
     fun normalizeDownloadMirrorMode(value: String?): String {
         return when (value?.trim()?.lowercase(Locale.ROOT)?.replace('-', '_')) {
-            DOWNLOAD_MIRROR_SMART_OFFICIAL -> DOWNLOAD_MIRROR_SMART_OFFICIAL
-            DOWNLOAD_MIRROR_SMART_MIRROR -> DOWNLOAD_MIRROR_SMART_MIRROR
-            DOWNLOAD_MIRROR_SMART_PRECHECK -> DOWNLOAD_MIRROR_SMART_PRECHECK
             DOWNLOAD_MIRROR_OFFICIAL_ONLY -> DOWNLOAD_MIRROR_OFFICIAL_ONLY
             DOWNLOAD_MIRROR_MIRROR_ONLY -> DOWNLOAD_MIRROR_MIRROR_ONLY
             DOWNLOAD_MIRROR_OFFICIAL_FIRST -> DOWNLOAD_MIRROR_OFFICIAL_FIRST
@@ -760,14 +739,6 @@ object DlcConfig {
         }
     }
 
-    @JvmStatic
-    fun normalizeDownloadMirrorProbeStrategy(value: String?): String {
-        return when (value?.trim()?.lowercase(Locale.ROOT)?.replace('-', '_')) {
-            DOWNLOAD_MIRROR_PROBE_SINGLE -> DOWNLOAD_MIRROR_PROBE_SINGLE
-            DOWNLOAD_MIRROR_PROBE_MAJORITY -> DOWNLOAD_MIRROR_PROBE_MAJORITY
-            else -> DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY
-        }
-    }
 
     private fun stringOrDefault(value: String?, fallback: String): String {
         return if (value.isNullOrBlank()) fallback else value

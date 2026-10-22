@@ -530,22 +530,12 @@ public final class DlcDownloadService {
         }
     }
 
-    private static int maxMirrorProbeCount() {
-        return Math.max(1, DlcConfig.getDownloadMirrorProbeCount());
-    }
-
     private static int maxMirrorProbeAttempts() {
-        if (DlcConfig.DOWNLOAD_MIRROR_PROBE_SINGLE.equals(DlcConfig.getDownloadMirrorProbeStrategy())) {
-            return 1;
-        }
-        return maxMirrorProbeCount();
+        return 1;
     }
 
     private static int requiredMirrorProbeWins() {
-        if (DlcConfig.DOWNLOAD_MIRROR_PROBE_SINGLE.equals(DlcConfig.getDownloadMirrorProbeStrategy())) {
-            return 1;
-        }
-        return maxMirrorProbeCount() / 2 + 1;
+        return 1;
     }
 
     private static void recordPrimaryFastIfStable(double primarySpeed, SourceSwitchPlan switchPlan) {

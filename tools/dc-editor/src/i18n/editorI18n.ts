@@ -389,8 +389,6 @@ const staticTextDictionary: Record<EditorLocale, Record<string, string>> = {
     "static.help.configConnectTimeoutSeconds": "连接超时时间。",
     "static.help.configTaskTimeoutSeconds": "单任务超时时间。",
     "static.help.configDownloadMirrorMode": "下载镜像源模式。",
-    "static.help.configDownloadMirrorProbeCount": "下载源测速次数。",
-    "static.help.configDownloadMirrorProbeStrategy": "下载源测速优选策略。"
   },
   en_us: {
     "static.summary.folderMetadata": "Folder names and ordering\nStored as _metadata.dc in its parent directory",
@@ -514,9 +512,7 @@ const staticTextDictionary: Record<EditorLocale, Record<string, string>> = {
     "static.help.configMaxRetryCount": "Maximum download retry attempts.",
     "static.help.configConnectTimeoutSeconds": "Connection timeout.",
     "static.help.configTaskTimeoutSeconds": "Single task timeout.",
-    "static.help.configDownloadMirrorMode": "Download mirror mode.",
-    "static.help.configDownloadMirrorProbeCount": "Download source probe count.",
-    "static.help.configDownloadMirrorProbeStrategy": "Download source probe selection strategy."
+    "static.help.configDownloadMirrorMode": "Download mirror mode."
   }
 };
 

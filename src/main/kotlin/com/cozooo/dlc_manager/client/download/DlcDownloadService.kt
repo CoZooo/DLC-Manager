@@ -495,23 +495,9 @@ object DlcDownloadService {
         }
     }
 
-    private fun maxMirrorProbeCount(): Int = maxOf(1, DlcConfig.getDownloadMirrorProbeCount())
+    private fun maxMirrorProbeAttempts(): Int = 1
 
-    private fun maxMirrorProbeAttempts(): Int {
-        return if (DlcConfig.getDownloadMirrorProbeStrategy() == DlcConfig.DOWNLOAD_MIRROR_PROBE_SINGLE) {
-            1
-        } else {
-            maxMirrorProbeCount()
-        }
-    }
-
-    private fun requiredMirrorProbeWins(): Int {
-        return if (DlcConfig.getDownloadMirrorProbeStrategy() == DlcConfig.DOWNLOAD_MIRROR_PROBE_SINGLE) {
-            1
-        } else {
-            maxMirrorProbeCount() / 2 + 1
-        }
-    }
+    private fun requiredMirrorProbeWins(): Int = 1
 
     private fun recordPrimaryFastIfStable(primarySpeed: Double, switchPlan: SourceSwitchPlan) {
         val mirrorPlan = switchPlan.mirrorPlan

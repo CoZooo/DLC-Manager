@@ -52,8 +52,6 @@ object DlcConfigClient {
     private val CONNECT_TIMEOUT_SECONDS = DlcConfigValue.IntegerValue("connectTimeoutSeconds", DlcConfig.DEFAULT_CONNECT_TIMEOUT_SECONDS, 1, 36000, "dlc_manager.config.comment.download.connectTimeoutSeconds", "dlc_manager.config.download.connectTimeoutSeconds")
     private val TASK_TIMEOUT_SECONDS = DlcConfigValue.IntegerValue("taskTimeoutSeconds", DlcConfig.DEFAULT_TASK_TIMEOUT_SECONDS, 1, 36000, "dlc_manager.config.comment.download.taskTimeoutSeconds", "dlc_manager.config.download.taskTimeoutSeconds")
     private val DOWNLOAD_MIRROR_MODE = DlcConfigValue.StringValue("downloadMirrorMode", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_MODE, "dlc_manager.config.comment.download.downloadMirrorMode", "dlc_manager.config.download.downloadMirrorMode")
-    private val DOWNLOAD_MIRROR_PROBE_COUNT = DlcConfigValue.IntegerValue("downloadMirrorProbeCount", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT, 1, 10, "dlc_manager.config.comment.download.downloadMirrorProbeCount", "dlc_manager.config.download.downloadMirrorProbeCount")
-    private val DOWNLOAD_MIRROR_PROBE_STRATEGY = DlcConfigValue.StringValue("downloadMirrorProbeStrategy", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY, "dlc_manager.config.comment.download.downloadMirrorProbeStrategy", "dlc_manager.config.download.downloadMirrorProbeStrategy")
 
     private val PATH_CONFIGS: List<DlcConfigValue> = listOf(DLC_ROOT, TACZ_ROOT, RESOURCEPACK_ROOT, DATAPACK_ROOT)
 
@@ -109,8 +107,6 @@ object DlcConfigClient {
         CONNECT_TIMEOUT_SECONDS,
         TASK_TIMEOUT_SECONDS,
         DOWNLOAD_MIRROR_MODE,
-        DOWNLOAD_MIRROR_PROBE_COUNT,
-        DOWNLOAD_MIRROR_PROBE_STRATEGY
     )
 
     @JvmStatic
@@ -178,8 +174,6 @@ object DlcConfigClient {
         CONNECT_TIMEOUT_SECONDS.integerValue = kotlin.math.max(1, DlcConfig.getConnectTimeoutMs() / 1000)
         TASK_TIMEOUT_SECONDS.integerValue = kotlin.math.max(1, DlcConfig.getTaskTimeoutMs() / 1000)
         DOWNLOAD_MIRROR_MODE.setValueFromString(DlcConfig.getDownloadMirrorMode())
-        DOWNLOAD_MIRROR_PROBE_COUNT.integerValue = DlcConfig.getDownloadMirrorProbeCount()
-        DOWNLOAD_MIRROR_PROBE_STRATEGY.setValueFromString(DlcConfig.getDownloadMirrorProbeStrategy())
     }
 
     @JvmStatic
@@ -232,8 +226,6 @@ object DlcConfigClient {
         DlcConfig.setConnectTimeoutMs(CONNECT_TIMEOUT_SECONDS.integerValue * 1000)
         DlcConfig.setTaskTimeoutMs(TASK_TIMEOUT_SECONDS.integerValue * 1000)
         DlcConfig.setDownloadMirrorMode(DOWNLOAD_MIRROR_MODE.stringValue)
-        DlcConfig.setDownloadMirrorProbeCount(DOWNLOAD_MIRROR_PROBE_COUNT.integerValue)
-        DlcConfig.setDownloadMirrorProbeStrategy(DOWNLOAD_MIRROR_PROBE_STRATEGY.stringValue)
     }
 
     private fun toMb(bytes: Long): Int {

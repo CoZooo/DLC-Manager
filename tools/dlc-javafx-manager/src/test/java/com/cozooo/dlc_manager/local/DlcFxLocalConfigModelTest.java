@@ -39,18 +39,14 @@ final class DlcFxLocalConfigModelTest {
         assertEquals(4, model.options(DlcFxConfigModel.Tab.SERVER).size());
         assertEquals(26, model.options(DlcFxConfigModel.Tab.UI).size());
         assertEquals(5, model.options(DlcFxConfigModel.Tab.MODPACK).size());
-        assertEquals(9, model.options(DlcFxConfigModel.Tab.DOWNLOADS).size());
+        assertEquals(7, model.options(DlcFxConfigModel.Tab.DOWNLOADS).size());
     }
-
     @Test
     void downloadMirrorModeChoicesMatchMainClientValues() {
         DlcFxConfigModel model = new DlcFxConfigModel();
         DlcFxConfigModel.Option option = model.find("downloadMirrorMode");
 
         assertEquals(List.of(
-                DlcConfig.DOWNLOAD_MIRROR_SMART_OFFICIAL,
-                DlcConfig.DOWNLOAD_MIRROR_SMART_MIRROR,
-                DlcConfig.DOWNLOAD_MIRROR_SMART_PRECHECK,
                 DlcConfig.DOWNLOAD_MIRROR_OFFICIAL_ONLY,
                 DlcConfig.DOWNLOAD_MIRROR_MIRROR_ONLY,
                 DlcConfig.DOWNLOAD_MIRROR_OFFICIAL_FIRST,
