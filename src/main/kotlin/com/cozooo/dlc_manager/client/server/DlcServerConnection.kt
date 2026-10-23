@@ -149,6 +149,23 @@ object DlcServerConnection {
 
     @JvmStatic
     @Throws(IOException::class)
+    fun cancelRemoteDownload(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): Boolean {
+        return falseOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                val response = session.remoteDownloadCancel()
+                hasType(response, "remote_download_cancel") && response.has("canceled") && response["canceled"].asBoolean
+            }
+        }
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun cancelRemoteDownload(entry: DlcServerEntry?, timeoutMs: Int): Boolean {
+        return cancelRemoteDownload(entry, timeoutMs, currentPlayerName(), currentPlayerUuid())
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
     fun fetchRequiredList(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): List<DlcServerRequiredItem>? {
         return nullOnIo {
             openSession(entry, timeoutMs, playerName, playerUuid).use { session ->

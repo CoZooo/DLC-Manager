@@ -87,7 +87,7 @@ public final class SyncClient {
                 if (current == null || !same(row.source().config(), current.config())) throw new SyncFailure("config_changed", row.key());
                 boolean contentNeeded = row.target() == null || !same(row.source().config(), row.target().config())
                     || mode == Mode.FILES && usesResources(row.source()) && !resourcesMatch(row.source().resources(), row.target().resources(), mode);
-                boolean applied = false, itemRestart = false;
+                boolean applied = false, itemRestart = false, targetResourcesMissing = mode == Mode.CONFIG && row.target() != null && usesResources(row.target()) && row.target().resources().stream().anyMatch(file -> file.size() < 0 || file.hash() == null);
                 if (contentNeeded) {
                     try {
                         start(local, row.key()); start(remote, row.key());
@@ -110,12 +110,19 @@ public final class SyncClient {
                                 Map<String, File> files = new HashMap<>();
                                 if (destination != null) for (File file : destination.resources()) files.put(file.id(), file);
                                 for (File file : current.resources()) { check(); if (!same(file, files.get(file.id()))) transfer(source, target, file, progress); }
-                            } else { prepare(target, configChanged); current = inspect(target, row.key()); }
+                            } else if (mode == Mode.FILES) {
+                                prepare(target, configChanged); current = inspect(target, row.key());
+                            } else {
+                                current = inspect(target, row.key());
+                                targetResourcesMissing = current != null && usesResources(current) && current.resources().stream().anyMatch(file -> file.size() < 0 || file.hash() == null);
+                            }
                         }
                         check(); progress.update("applying", row.key(), count, rows.size());
-                        JsonObject apply = request("apply");
-                        if (category(current) != Category.PRESET && row.target() != null && row.target().enabled() != null) apply.addProperty("enabled", row.target().enabled());
-                        itemRestart = checked(target, apply).get("requiresRestart").getAsBoolean();
+                        if (!targetResourcesMissing) {
+                            JsonObject apply = request("apply");
+                            if (category(current) != Category.PRESET && row.target() != null && row.target().enabled() != null) apply.addProperty("enabled", row.target().enabled());
+                            itemRestart = checked(target, apply).get("requiresRestart").getAsBoolean();
+                        }
                         check(); Item result = inspect(target, row.key());
                         if (result == null || !same(current.config(), result.config()) || mode == Mode.FILES && usesResources(current) && !sameResources(current.resources(), result.resources())) throw new SyncFailure("verification", row.key());
                         applied = true;
@@ -127,7 +134,7 @@ public final class SyncClient {
                     if (!applied) continue;
                     checked(target, request("item_done")); checked(source, request("item_done"));
                 }
-                if (states && sharedState(row.source(), row.target()) && !Objects.equals(row.source().enabled(), row.target().enabled())) {
+                if (!targetResourcesMissing && states && sharedState(row.source(), row.target()) && !Objects.equals(row.source().enabled(), row.target().enabled())) {
                     boolean stateApplied = false;
                     try {
                         check(); start(target, row.key());

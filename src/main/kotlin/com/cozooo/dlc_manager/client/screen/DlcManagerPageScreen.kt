@@ -101,6 +101,20 @@ abstract class DlcManagerPageScreen(page: DlcUiPage = DlcUiPage.MANAGER) : DlcAp
         return toggle
     }
 
+    protected fun adjustSidebarWidth(document: Document) {
+        val containers = listOf("manager-title", "category-label", "tools-label", "manager-filters", "manager-tools")
+            .mapNotNull(document::getElementById)
+        val lengths = containers.flatMap { container ->
+            if (container.children.isEmpty()) listOf(container.textContent.length)
+            else container.children.map { it.textContent.length }
+        }
+        val longest = lengths.maxOrNull() ?: 20
+        sidebarWidth = (148.0 + longest * 7.0).coerceIn(210.0, 280.0)
+        document.getElementById("sidebar-content").setAttribute("style", "width:${sidebarWidth - 1}px;min-width:${sidebarWidth - 1}px")
+        lastSidebarProgress = Double.NaN
+        updateAnimations(document, System.nanoTime())
+    }
+
     private fun bindSidebar(document: Document) {
         val sidebar = document.getElementById("sidebar-content")
         val generation = document.refreshGeneration

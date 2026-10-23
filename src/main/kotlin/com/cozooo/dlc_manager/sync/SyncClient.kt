@@ -83,6 +83,7 @@ class SyncClient(private val local: Peer, private val remote: Peer, private val 
                 val contentNeeded = row.target == null || !SyncModel.same(row.source.config, row.target.config) || mode == Mode.FILES && SyncModel.usesResources(row.source) && !SyncModel.resourcesMatch(row.source.resources, row.target.resources, mode)
                 var applied = false
                 var itemRestart = false
+                var targetResourcesMissing = mode == Mode.CONFIG && row.target != null && SyncModel.usesResources(row.target) && row.target.resources.any { it.size < 0 || it.hash == null }
                 if (contentNeeded) {
                     try {
                         start(local, row.key); start(remote, row.key)
@@ -102,12 +103,19 @@ class SyncClient(private val local: Peer, private val remote: Peer, private val 
                                 val destination = inspect(target, row.key)
                                 val files = destination.resources.associateBy { it.id }
                                 for (file in current.resources) { check(); if (!SyncModel.same(file, files[file.id])) transfer(source, target, file, progress) }
-                            } else { prepare(target, configChanged); current = inspect(target, row.key) }
+                            } else if (mode == Mode.FILES) {
+                                prepare(target, configChanged); current = inspect(target, row.key)
+                            } else {
+                                current = inspect(target, row.key)
+                                targetResourcesMissing = SyncModel.usesResources(current) && current.resources.any { it.size < 0 || it.hash == null }
+                            }
                         }
                         check(); progress.update("applying", row.key, count.toLong(), rows.size.toLong())
-                        val apply = request("apply")
-                        if (SyncModel.category(current) != Category.PRESET) row.target?.enabled?.let { apply.addProperty("enabled", it) }
-                        itemRestart = checked(target, apply).get("requiresRestart").asBoolean
+                        if (!targetResourcesMissing) {
+                            val apply = request("apply")
+                            if (SyncModel.category(current) != Category.PRESET) row.target?.enabled?.let { apply.addProperty("enabled", it) }
+                            itemRestart = checked(target, apply).get("requiresRestart").asBoolean
+                        }
                         check(); val result = inspect(target, row.key)
                         if (!SyncModel.same(current.config, result.config) || mode == Mode.FILES && SyncModel.usesResources(current) && !SyncModel.sameResources(current.resources, result.resources)) throw SyncFailure("verification", "${row.key}")
                         applied = true
@@ -119,7 +127,7 @@ class SyncClient(private val local: Peer, private val remote: Peer, private val 
                     if (!applied) continue
                     checked(target, request("item_done")); checked(source, request("item_done"))
                 }
-                if (states && SyncModel.sharedState(row.source, row.target) && row.source.enabled != row.target?.enabled) {
+                if (!targetResourcesMissing && states && SyncModel.sharedState(row.source, row.target) && row.source.enabled != row.target?.enabled) {
                     var stateApplied = false
                     try {
                         check(); start(target, row.key)

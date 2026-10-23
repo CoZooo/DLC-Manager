@@ -9,6 +9,7 @@ import com.cozooo.dlc_manager.core.DlcType;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -186,7 +187,9 @@ public final class DlcRemoteService {
                             throw new IOException("invalid target path");
                         }
                         Files.createDirectories(target.getParent());
-                        if (Files.exists(entry.resolveExistingTargetPath(fileName))) {
+                        Path existing = entry.resolveExistingTargetPath(fileName);
+                        if (existing != null && Files.exists(existing)) {
+                            migrateExistingTarget(existing, target);
                             entry.setFileNameHint(fileName);
                             DlcRemoteRuntime.updateFileNameKey(entry, fileName);
                             return fileName;
@@ -288,6 +291,17 @@ public final class DlcRemoteService {
             }
         }
         return false;
+    }
+
+    private static void migrateExistingTarget(Path existing, Path target) throws IOException {
+        if (existing.toAbsolutePath().normalize().equals(target.toAbsolutePath().normalize())) return;
+        Files.createDirectories(target.getParent());
+        try {
+            Files.move(existing, target, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException ignored) {
+            Files.copy(existing, target, StandardCopyOption.REPLACE_EXISTING);
+            Files.deleteIfExists(existing);
+        }
     }
 
     private static String finalizeFileName(String fileName, DlcRemoteEntry entry, String url) {

@@ -8,6 +8,8 @@ import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcType
 import java.io.IOException
 import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import java.util.ArrayDeque
 import java.util.LinkedHashSet
 
@@ -146,7 +148,9 @@ object DlcRemoteService {
                         val finalFileName = finalizeFileName(fileName, entry, candidate.url)
                         val target = entry.resolveTargetPath(finalFileName) ?: throw IOException("invalid target path")
                         Files.createDirectories(target.parent)
-                        if (Files.exists(entry.resolveExistingTargetPath(finalFileName))) {
+                        val existing = entry.resolveExistingTargetPath(finalFileName)
+                        if (existing != null && Files.exists(existing)) {
+                            migrateExistingTarget(existing, target)
                             entry.setFileNameHint(finalFileName)
                             DlcRemoteRuntime.updateFileNameKey(entry, finalFileName)
                             return finalFileName
@@ -244,6 +248,17 @@ object DlcRemoteService {
             }
         }
         return false
+    }
+
+    private fun migrateExistingTarget(existing: Path, target: Path) {
+        if (existing.toAbsolutePath().normalize() == target.toAbsolutePath().normalize()) return
+        Files.createDirectories(target.parent)
+        try {
+            Files.move(existing, target, StandardCopyOption.REPLACE_EXISTING)
+        } catch (_: IOException) {
+            Files.copy(existing, target, StandardCopyOption.REPLACE_EXISTING)
+            Files.deleteIfExists(existing)
+        }
     }
 
     private fun finalizeFileName(fileName: String?, entry: DlcRemoteEntry, url: String?): String {

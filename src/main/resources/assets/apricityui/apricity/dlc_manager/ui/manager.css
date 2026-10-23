@@ -9,8 +9,8 @@ html, body { display: block; width: 100%; height: 100%; margin: 0; overflow: hid
 }
 .dlc-manager-ui * { box-sizing: border-box; }
 .manager { position: absolute; inset: 0; width: 100%; height: 100%; display: flex; overflow: hidden; }
-.sidebar { width: 240px; flex-shrink: 0; border-right: 1px solid var(--line); overflow: hidden; opacity: 1; }
-.sidebar-content { display: flex; flex-direction: column; width: 239px; min-width: 239px; height: 100%; padding: var(--back-top) var(--back-left) 18px; overflow-y: auto; overflow-x: hidden; scrollbar-color: #465469 #11151c; }
+.sidebar { width: 220px; flex-shrink: 0; border-right: 1px solid var(--line); overflow: hidden; opacity: 1; }
+.sidebar-content { display: flex; flex-direction: column; width: 100%; min-width: 0; height: 100%; padding: var(--back-top) var(--back-left) 18px; overflow-y: auto; overflow-x: hidden; scrollbar-color: #465469 #11151c; }
 .brand { display: block; flex-shrink: 0; padding: 0 8px 24px; font-size: 18px; font-weight: 600; line-height: 1.2; margin: 0; white-space: nowrap; }
 .brand-row { display: flex; align-items: center; gap: 12px; min-height: var(--back-size); flex-shrink: 0; padding-left: 52px; margin-bottom: 24px; }
 .brand-row .brand { flex: 1; min-width: 0; padding: 0; white-space: normal; }
@@ -44,6 +44,8 @@ html, body { display: block; width: 100%; height: 100%; margin: 0; overflow: hid
 .workspace-header { display: none; align-items: center; justify-content: space-between; gap: 16px; min-height: 40px; flex-shrink: 0; margin-bottom: 12px; }
 .workspace-header.connected { display: flex; }
 .workspace-heading { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1; }
+#manager-header-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+#manager-header-actions .button { flex-shrink: 0; }
 #manager-connection { display: none; flex-direction: column; min-width: 0; gap: 2px; }
 .connection-name { display: block; color: var(--ink); font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .connection-version, .apply-scope { display: block; color: var(--muted); font-size: 12px; white-space: nowrap; }

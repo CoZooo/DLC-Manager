@@ -71,6 +71,7 @@ public class DlcServerScreen extends DlcManagerPageScreen implements DlcReturnPo
     private boolean hasRequiredEntries;
     private boolean promptedRemoteDownload;
     private boolean hasServerTaczMod;
+    private volatile boolean refreshing;
 
     public DlcServerScreen(Screen parent, DlcServerEntry entry, DlcServerInfo info) {
         this(parent, entry, info, parent instanceof PauseScreen);
@@ -1197,15 +1198,18 @@ public class DlcServerScreen extends DlcManagerPageScreen implements DlcReturnPo
     }
 
     void refreshServerInfo() {
+        if (refreshing) return;
+        refreshing = true;
+        refreshManagerPage();
         CompletableFuture
             .supplyAsync(() -> fetchInfo(entry))
             .whenComplete((info, throwable) -> Minecraft.getInstance().execute(() -> {
+                refreshing = false;
                 if (info != null) {
                     setInfo(info);
                     rebuildRows();
-                    refreshManagerPage();
-                    
                 }
+                refreshManagerPage();
             }));
     }
 
@@ -1288,7 +1292,18 @@ public class DlcServerScreen extends DlcManagerPageScreen implements DlcReturnPo
         if ("__root__".equals(raw)) {
             return tr("dlc_manager.group.root");
         }
-        return raw;
+        String normalized = raw.replace('\\', '/');
+        String visible;
+        if ("remote".equals(normalized) || "downloaded/DLCs".equals(normalized)) {
+            visible = "";
+        } else if (normalized.startsWith("remote/")) {
+            visible = normalized.substring("remote/".length());
+        } else if (normalized.startsWith("downloaded/DLCs/")) {
+            visible = normalized.substring("downloaded/DLCs/".length());
+        } else {
+            visible = normalized;
+        }
+        return visible.isBlank() ? tr("dlc_manager.group.root") : visible;
     }
     private static class DependencyCheck {
         private final List<String> missing = new ArrayList<>();
@@ -1327,6 +1342,13 @@ public class DlcServerScreen extends DlcManagerPageScreen implements DlcReturnPo
         connection.setAttribute("style", "display:flex");
         managerText(document, connection, "span", entry == null ? "" : entry.getDisplayName(), "connection-name");
         managerText(document, connection, "span", String.join(" · ", java.util.stream.Stream.of(serverBaseVersion, serverDlcVersion).filter(v -> !v.isBlank()).toList()), "connection-version");
+        Element headerActions = document.getElementById("manager-header-actions");
+        clearUiContent(headerActions);
+        if (entry != null) {
+            DlcUiButton refresh = button(document, headerActions, tr("dlc_manager.server.refresh"), this::refreshServerInfo);
+            refresh.getElement().setAttribute("class", "button");
+            refresh.setEnabled(!refreshing);
+        }
         Element context = document.getElementById("manager-context");
         clearUiContent(context);
         Element tools = document.getElementById("manager-tools");
@@ -1335,6 +1357,7 @@ public class DlcServerScreen extends DlcManagerPageScreen implements DlcReturnPo
         if (entry != null) button(document, tools, tr("dlc_manager.server.config"), this::openConfig);
         button(document, tools, tr("dlc_manager.server.tab.servers"), this::openServerTools);
         for (Element tool : tools.children) tool.setAttribute("class", "button nav-button");
+        adjustSidebarWidth(document);
         Element batch = document.getElementById("batch-actions");
         clearUiContent(batch);
         if (remoteMissingCount > 0) button(document, batch, tr("dlc_manager.server.remote_missing_button"), this::startRemoteDownload);

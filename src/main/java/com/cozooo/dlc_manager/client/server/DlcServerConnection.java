@@ -136,6 +136,20 @@ public class DlcServerConnection {
         return fetchRemoteDownloadStatus(entry, timeoutMs, currentPlayerName(), currentPlayerUuid());
     }
 
+    public static boolean cancelRemoteDownload(DlcServerEntry entry, int timeoutMs, String playerName, String playerUuid)
+        throws IOException {
+        return falseOnIo(() -> {
+            try (DlcServerSession session = openSession(entry, timeoutMs, playerName, playerUuid)) {
+                JsonObject response = session.remoteDownloadCancel();
+                return hasType(response, "remote_download_cancel") && response.has("canceled") && response.get("canceled").getAsBoolean();
+            }
+        });
+    }
+
+    public static boolean cancelRemoteDownload(DlcServerEntry entry, int timeoutMs) throws IOException {
+        return cancelRemoteDownload(entry, timeoutMs, currentPlayerName(), currentPlayerUuid());
+    }
+
     public static List<DlcServerRequiredItem> fetchRequiredList(DlcServerEntry entry, int timeoutMs, String playerName, String playerUuid)
         throws IOException {
         return nullOnIo(() -> {

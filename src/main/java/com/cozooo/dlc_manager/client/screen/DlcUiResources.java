@@ -34,7 +34,7 @@ public final class DlcUiResources {
     );
     private static final List<String> MANAGER_IDS = List.of(
         "manager", "manager-sidebar", "sidebar-content", "manager-title", "category-label",
-        "manager-filters", "tools-label", "manager-tools", "manager-header", "manager-connection",
+        "manager-filters", "tools-label", "manager-tools", "manager-header", "manager-connection", "manager-header-actions",
         "sidebar-toggle-slot", "manager-search", "search-actions", "manager-summary", "batch-actions",
         "manager-context", "manager-list", "manager-mode", "pending-status", "manager-actions"
     );

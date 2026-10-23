@@ -69,6 +69,8 @@ class DlcServerScreen(
     private var hasRequiredEntries = false
     private var promptedRemoteDownload = false
     private var hasServerTaczMod = false
+    @Volatile
+    private var refreshing = false
 
     init {
         setInfo(info)
@@ -1039,16 +1041,19 @@ class DlcServerScreen(
     }
 
     fun refreshServerInfo() {
+        if (refreshing) return
+        refreshing = true
+        refreshManagerPage()
         CompletableFuture
             .supplyAsync { fetchInfo(entry) }
             .whenComplete { info, _ ->
                 Minecraft.getInstance().execute {
+                    refreshing = false
                     if (info != null) {
                         setInfo(info)
                         rebuildRows()
-                        refreshManagerPage()
-                        
                     }
+                    refreshManagerPage()
                 }
             }
     }
@@ -1078,7 +1083,14 @@ class DlcServerScreen(
         if (raw == "__root__") {
             return tr("dlc_manager.group.root")
         }
-        return raw
+        val normalized = raw.replace('\\', '/')
+        val visible = when {
+            normalized == "remote" || normalized == "downloaded/DLCs" -> ""
+            normalized.startsWith("remote/") -> normalized.removePrefix("remote/")
+            normalized.startsWith("downloaded/DLCs/") -> normalized.removePrefix("downloaded/DLCs/")
+            else -> normalized
+        }
+        return visible.ifBlank { tr("dlc_manager.group.root") }
     }
 
     private class DependencyCheck {
@@ -1155,6 +1167,13 @@ class DlcServerScreen(
         connection.setAttribute("style", "display:flex")
         managerText(document, connection, "span", entry?.getDisplayName().orEmpty(), "connection-name")
         managerText(document, connection, "span", listOf(serverBaseVersion, serverDlcVersion).filter { it.isNotBlank() }.joinToString(" · "), "connection-version")
+        val headerActions = document.getElementById("manager-header-actions")
+        clearUiContent(headerActions)
+        if (entry != null) {
+            val refresh = button(document, headerActions, tr("dlc_manager.server.refresh")) { refreshServerInfo() }
+            refresh.getElement().setAttribute("class", "button")
+            refresh.setEnabled(!refreshing)
+        }
         val context = document.getElementById("manager-context")
         clearUiContent(context)
         val tools = document.getElementById("manager-tools")
@@ -1163,6 +1182,7 @@ class DlcServerScreen(
         if (entry != null) button(document, tools, tr("dlc_manager.server.config")) { openConfig() }
         button(document, tools, tr("dlc_manager.server.tab.servers")) { openServerTools() }
         for (tool in tools.children) tool.setAttribute("class", "button nav-button")
+        adjustSidebarWidth(document)
         val batch = document.getElementById("batch-actions")
         clearUiContent(batch)
         if (remoteMissingCount > 0) button(document, batch, tr("dlc_manager.server.remote_missing_button")) { startRemoteDownload() }

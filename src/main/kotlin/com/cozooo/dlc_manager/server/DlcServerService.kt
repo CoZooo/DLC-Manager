@@ -475,8 +475,15 @@ object DlcServerService {
             if (relative == null && source != null) {
                 relative = DlcPaths.gameDir().relativize(source).toString().replace('\\', '/')
             }
-            val lastSlash = relative?.lastIndexOf('/') ?: -1
-            if (lastSlash <= 0) "__root__" else relative!!.substring(0, lastSlash)
+            val normalized = relative?.replace('\\', '/')
+            val visible = when {
+                normalized == "remote" || normalized == "downloaded/DLCs" -> ""
+                normalized?.startsWith("remote/") == true -> normalized.removePrefix("remote/")
+                normalized?.startsWith("downloaded/DLCs/") == true -> normalized.removePrefix("downloaded/DLCs/")
+                else -> normalized.orEmpty()
+            }
+            val lastSlash = visible.lastIndexOf('/')
+            if (lastSlash <= 0) "__root__" else visible.substring(0, lastSlash)
         } catch (_: Exception) {
             "__root__"
         }

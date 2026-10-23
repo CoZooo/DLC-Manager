@@ -160,7 +160,9 @@ public class DlcServerManagerScreen extends DlcPageScreen {
                 rootParent = root;
             }
         }
-        Minecraft.getInstance().setScreen(new DlcServerScreen(rootParent, entry, buildInfoSnapshot(), openedFromIngame));
+        DlcServerScreen screen = new DlcServerScreen(rootParent, entry, buildInfoSnapshot(), openedFromIngame);
+        Minecraft.getInstance().setScreen(screen);
+        screen.refreshServerInfo();
     }
 
     private DlcServerInfo buildInfoSnapshot() {

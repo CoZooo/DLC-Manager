@@ -863,6 +863,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
             button(document, tools, translate("dlc_manager.config")) { open { Minecraft.getInstance().setScreen(DlcConfigScreen(this)) } }
 
         for (tool in tools.children) tool.setAttribute("class", "button nav-button")
+        adjustSidebarWidth(document)
         val batch = document.getElementById("batch-actions")
         clearUiContent(batch)
         if (DlcRemoteManager.hasMissing())

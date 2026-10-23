@@ -237,7 +237,7 @@ class DlcUiResources internal constructor(private val page: DlcUiPage, private v
         )
         private val MANAGER_IDS = listOf(
             "manager", "manager-sidebar", "sidebar-content", "manager-title", "category-label",
-            "manager-filters", "tools-label", "manager-tools", "manager-header", "manager-connection",
+            "manager-filters", "tools-label", "manager-tools", "manager-header", "manager-connection", "manager-header-actions",
             "sidebar-toggle-slot", "manager-search", "search-actions", "manager-summary", "batch-actions",
             "manager-context", "manager-list", "manager-mode", "pending-status", "manager-actions"
         )

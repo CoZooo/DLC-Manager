@@ -127,7 +127,9 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
                 rootParent = root
             }
         }
-        Minecraft.getInstance().setScreen(DlcServerScreen(rootParent, entry, buildInfoSnapshot(), openedFromIngame))
+        val screen = DlcServerScreen(rootParent, entry, buildInfoSnapshot(), openedFromIngame)
+        Minecraft.getInstance().setScreen(screen)
+        screen.refreshServerInfo()
     }
 
     private fun buildInfoSnapshot(): DlcServerInfo {

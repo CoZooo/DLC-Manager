@@ -113,6 +113,20 @@ public abstract class DlcManagerPageScreen extends DlcApricityScreen {
         return toggle;
     }
 
+    protected void adjustSidebarWidth(Document document) {
+        List<Element> containers = List.of("manager-title", "category-label", "tools-label", "manager-filters", "manager-tools").stream()
+            .map(document::getElementById).filter(java.util.Objects::nonNull).toList();
+        int longest = 20;
+        for (Element container : containers) {
+            if (container.children.isEmpty()) longest = Math.max(longest, container.getTextContent().length());
+            else for (Element child : container.children) longest = Math.max(longest, child.getTextContent().length());
+        }
+        sidebarWidth = Math.max(210, Math.min(280, 148 + longest * 7));
+        document.getElementById("sidebar-content").setAttribute("style", "width:" + (sidebarWidth - 1) + "px;min-width:" + (sidebarWidth - 1) + "px");
+        lastSidebarProgress = Double.NaN;
+        updateAnimations(document, System.nanoTime());
+    }
+
     private void bindSidebar(Document document) {
         Element sidebar = document.getElementById("sidebar-content");
         long generation = document.getRefreshGeneration();

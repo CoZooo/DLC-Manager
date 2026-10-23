@@ -904,6 +904,7 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
             button(document, tools, translate("dlc_manager.config"), () -> open(() -> Minecraft.getInstance().setScreen(new DlcConfigScreen(this))));
 
         for (Element tool : tools.getChildren()) tool.setAttribute("class", "button nav-button");
+        adjustSidebarWidth(document);
         Element batch = document.getElementById("batch-actions");
         clearUiContent(batch);
         if (DlcRemoteManager.hasMissing())

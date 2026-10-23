@@ -557,11 +557,22 @@ public class DlcServerService {
             if (relative == null) {
                 relative = DlcPaths.gameDir().relativize(source).toString().replace('\\', '/');
             }
-            int lastSlash = relative.lastIndexOf('/');
+            String normalized = relative == null ? "" : relative.replace('\\', '/');
+            String visible;
+            if ("remote".equals(normalized) || "downloaded/DLCs".equals(normalized)) {
+                visible = "";
+            } else if (normalized.startsWith("remote/")) {
+                visible = normalized.substring("remote/".length());
+            } else if (normalized.startsWith("downloaded/DLCs/")) {
+                visible = normalized.substring("downloaded/DLCs/".length());
+            } else {
+                visible = normalized;
+            }
+            int lastSlash = visible.lastIndexOf('/');
             if (lastSlash <= 0) {
                 return "__root__";
             }
-            return relative.substring(0, lastSlash);
+            return visible.substring(0, lastSlash);
         } catch (Exception ignored) {
             return "__root__";
         }
