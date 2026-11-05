@@ -61,7 +61,6 @@ abstract class DlcApricityScreen private constructor(
             uiResources.useDefault()
             super.init()
         }
-        updateViewport()
         resourceGeneration = linkedDocument?.refreshGeneration ?: -1L
         bindCurrentDocument()
         val document = linkedDocument
@@ -76,7 +75,6 @@ abstract class DlcApricityScreen private constructor(
     override fun tick() {
         super.tick()
         refreshResources()
-        updateViewport()
         bindCurrentDocument()
     }
 
@@ -162,17 +160,11 @@ abstract class DlcApricityScreen private constructor(
 
     protected open fun isUiContentReady(): Boolean = true
 
-    private fun updateViewport() {
-        val document = linkedDocument ?: return
-        if (document.isActive) document.setViewportZoom(1120.0 / Minecraft.getInstance().window.screenWidth.coerceAtLeast(1))
-    }
-
     //? if <26.1 {
     override fun resize(minecraft: Minecraft, width: Int, height: Int) {
         navigationPending = false
         transition.cancel()
         super.resize(minecraft, width, height)
-        updateViewport()
     }
     //?}
 
@@ -181,7 +173,6 @@ abstract class DlcApricityScreen private constructor(
         navigationPending = false
         transition.cancel()
         super.resize(width, height)
-        updateViewport()
     }
     *///?}
 

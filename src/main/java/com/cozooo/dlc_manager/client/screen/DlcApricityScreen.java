@@ -72,7 +72,6 @@ public abstract class DlcApricityScreen extends ApricityScreen {
             uiResources.useDefault();
             super.init();
         }
-        updateViewport();
         resourceGeneration = getLinkedDocument() == null ? -1 : getLinkedDocument().getRefreshGeneration();
         bindCurrentDocument();
         Document document = getLinkedDocument();
@@ -88,7 +87,6 @@ public abstract class DlcApricityScreen extends ApricityScreen {
     public void tick() {
         super.tick();
         refreshResources();
-        updateViewport();
         bindCurrentDocument();
     }
 
@@ -205,18 +203,12 @@ public abstract class DlcApricityScreen extends ApricityScreen {
         return value != null && "none".equalsIgnoreCase(value.trim());
     }
 
-    private void updateViewport() {
-        Document document = getLinkedDocument();
-        if (document != null && document.isActive()) document.setViewportZoom(1120.0 / Math.max(1, Minecraft.getInstance().getWindow().getScreenWidth()));
-    }
-
     //? if <26.1 {
     @Override
     public void resize(Minecraft minecraft, int width, int height) {
         navigationPending = false;
         transition.cancel();
         super.resize(minecraft, width, height);
-        updateViewport();
     }
     //?}
 
@@ -226,7 +218,6 @@ public abstract class DlcApricityScreen extends ApricityScreen {
         navigationPending = false;
         transition.cancel();
         super.resize(width, height);
-        updateViewport();
     }
     *///?}
 
