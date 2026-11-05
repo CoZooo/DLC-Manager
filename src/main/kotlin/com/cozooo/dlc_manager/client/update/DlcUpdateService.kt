@@ -2301,6 +2301,8 @@ object DlcUpdateService {
         val normalized = path.toString().replace('\\', '/').lowercase()
         if (normalized.contains("/remote/")
             || normalized.contains("/required/")
+            || normalized.contains("/info/")
+            || normalized.contains("/preset/")
         ) {
             return DlcDcConfigIO.Layout.DLC_STRUCTURED
         }

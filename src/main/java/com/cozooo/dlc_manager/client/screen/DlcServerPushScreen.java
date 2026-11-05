@@ -40,6 +40,7 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
     private com.sighs.apricityui.init.Element results;
     private Category renderedCategory = Category.ALL;
     private final Map<Category, DlcUiScroll.State> scrolls = new EnumMap<>(Category.class);
+    private boolean progressScrollLocked;
     private boolean progressMode;
     private DlcServerPushScreen progressParent;
     private List<Row> progressChosen = List.of();
@@ -129,6 +130,17 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
 
     private void buildProgressPage() {
         content.parentElement.setAttribute("class", "page-shell sync-page sync-progress-page");
+        if (!progressScrollLocked) {
+            progressScrollLocked = true;
+            content.addEventListener("wheel", event -> {
+                if (progressMode) {
+                    event.preventDefault();
+                    content.setScrollTop(0);
+                }
+            });
+        }
+        content.setAttribute("style", "overflow-y:hidden;overflow-x:hidden");
+        content.setScrollTop(0);
         Element body = node(content, "div", "page-dialog");
         if (completionMode) {
             text(body, tr("dlc_manager.sync.complete_prompt"), "section-title");

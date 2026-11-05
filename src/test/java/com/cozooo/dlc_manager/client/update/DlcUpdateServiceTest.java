@@ -312,6 +312,62 @@ class DlcUpdateServiceTest {
         assertFalse(files.has("renamed.jar"));
     }
 
+    @Test
+    void canonicalInfoAndPresetUpdatesPreserveCommentsAndOtherFields() throws Exception {
+        Path gameDir = tempDir.resolve("structured-game");
+        Path root = gameDir.resolve("DLC");
+        PlatformServices.setProvider(new TestPlatformProvider(gameDir, tempDir.resolve("config")));
+        DlcConfig.setDlcRoot(root.toString());
+        Files.createDirectories(root.resolve("info"));
+        Files.createDirectories(root.resolve("preset"));
+        Files.writeString(root.resolve("info/version.dc"), "base = \"1.0\"\ndlc = \"1.0\"\n");
+        Path info = root.resolve("info/leaf.dc");
+        Files.writeString(info, """
+            # player info comment
+            [basic]
+            identifier = "leaf"
+            file_name = "leaf.jar"
+            type = "mod"
+            [DisplayName]
+            en_us = "Before"
+            [tip]
+            en_us = "Player tip"
+            """);
+        Path preset = root.resolve("preset/custom.dc");
+        Files.writeString(preset, """
+            # player preset comment
+            [basic]
+            identifier = "custom"
+            alarm = true
+            [DisplayName]
+            en_us = "Custom"
+            """);
+        Path zip = tempDir.resolve("structured.zip");
+        writeZip(zip, new Entry("update.dc", """
+            [version]
+            base = "1.0"
+            dlc = "1.0"
+            dlc_new = "1.1"
+            [update.info]
+            leaf = { "DisplayName.en_us" = "After" }
+            [update.preset]
+            custom = { "basic.alarm" = false, "DisplayName.en_us" = "New custom" }
+            """));
+        var result = DlcUpdateService.applyUpdate(DlcUpdatePackage.fromZip(zip), DlcUpdateVersion.load(root), false);
+        assertTrue(result.isSuccess(), result.getMessage());
+        String changed = Files.readString(info);
+        assertTrue(changed.contains("player info comment"), changed);
+        assertTrue(changed.contains("Player tip"), changed);
+        assertTrue(changed.contains("After"), changed);
+        var generic = com.cozooo.dclanguage.DcDocuments.read(preset).toJson();
+        assertFalse(generic.getAsJsonObject("basic").get("alarm").getAsBoolean());
+        assertEquals("New custom", generic.getAsJsonObject("DisplayName").get("en_us").getAsString());
+        assertTrue(Files.readString(preset).contains("player preset comment"));
+        assertTrue(DlcUpdateService.rollbackTo("1.0+1.0").isSuccess());
+        assertTrue(Files.readString(info).contains("Before"));
+        assertTrue(com.cozooo.dclanguage.DcDocuments.read(preset).toJson().getAsJsonObject("basic").get("alarm").getAsBoolean());
+    }
+
     private static void writeZip(Path zip, Entry... entries) throws Exception {
         try (ZipOutputStream out = new ZipOutputStream(Files.newOutputStream(zip))) {
             for (Entry entry : entries) {

@@ -2188,7 +2188,9 @@ public final class DlcUpdateService {
         }
         String normalized = path.toString().replace('\\', '/').toLowerCase(Locale.ROOT);
         if (normalized.contains("/remote/")
-            || normalized.contains("/required/")) {
+            || normalized.contains("/required/")
+            || normalized.contains("/info/")
+            || normalized.contains("/preset/")) {
             return DlcDcConfigIO.Layout.DLC_STRUCTURED;
         }
         return DlcDcConfigIO.Layout.GENERIC;

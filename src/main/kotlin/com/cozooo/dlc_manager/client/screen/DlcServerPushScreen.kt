@@ -51,6 +51,7 @@ class DlcServerPushScreen(parent: Screen, private val entry: DlcServerEntry?) :
     private var renderedCategory = Category.ALL
     private val scrolls = java.util.EnumMap<Category, DlcUiScroll.State>(Category::class.java)
     private var executeButton: DlcUiButton? = null
+    private var progressScrollLocked = false
 
     private constructor(parent: DlcServerPushScreen, entry: DlcServerEntry?, chosen: List<Row>, mode: Mode, states: Boolean, direction: Direction) : this(parent, entry) {
         progressMode = true
@@ -121,6 +122,17 @@ class DlcServerPushScreen(parent: Screen, private val entry: DlcServerEntry?) :
 
     private fun buildProgressPage() {
         content.parentElement.setAttribute("class", "page-shell sync-page sync-progress-page")
+        if (!progressScrollLocked) {
+            progressScrollLocked = true
+            content.addEventListener("wheel") { event ->
+                if (progressMode) {
+                    event.preventDefault()
+                    content.setScrollTop(0.0)
+                }
+            }
+        }
+        content.setAttribute("style", "overflow-y:hidden;overflow-x:hidden")
+        content.setScrollTop(0.0)
         val body = node(content, "div", "page-dialog")
         if (completionMode) {
             text(body, tr("dlc_manager.sync.complete_prompt"), "section-title")

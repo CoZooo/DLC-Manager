@@ -5,7 +5,7 @@
   "name": "${mod_name}",
   "description": "${mod_description}",
   "authors": ["${mod_author}"],
-  "license": "LicenseRef-DLC-Manager-Source-1.0",
+  "license": "PolyForm-Shield-1.0.0",
   "environment": "*",
   "mixins": ["dlc_manager.mixins.json"],
   "icon": "assets/dlc_manager/textures/gui/icon.png",
