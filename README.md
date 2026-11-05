@@ -72,4 +72,4 @@ Report problems in [Issues](https://github.com/CoZooo/DLC-Manager/issues). Inclu
 
 ## License
 
-Charging for the mod itself requires prior written permission. Redistribution must retain the license and provide corresponding source. See [Licensing](LICENSING.md). Independently supplied content retains its own terms.
+Use, modification, and redistribution are subject to the [PolyForm Shield License 1.0.0](LICENSE). The license allows use for permitted purposes, but competing products and services are prohibited. Independently supplied content retains its own terms.
