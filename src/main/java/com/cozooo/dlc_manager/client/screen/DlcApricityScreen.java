@@ -155,7 +155,7 @@ public abstract class DlcApricityScreen extends ApricityScreen {
 
     private void completeRender(Document document) {
         renderedCurrentFrame = document != null && document.isActive()
-            && !document.needsInitialFullCommit() && !document.isInitialCommitSlicing()
+            && !document.getLayout().needsInitialFullCommit() && !document.getLayout().isInitialCommitSlicing()
             && !document.getPaintList().isEmpty();
         syncInputs(document);
     }

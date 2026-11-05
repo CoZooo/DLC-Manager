@@ -7,24 +7,9 @@ import com.sighs.apricityui.style.Text
 import com.sighs.apricityui.render.Drawer
 
 open class DlcUiTextInput(document: Document?) : Input(document) {
-    override fun deleteBackward(): Boolean {
-        if (!canEditText() || !super.deleteBackward()) return false
-        dispatchInputEvent("deleteContentBackward", null)
-        return true
-    }
+    override fun deleteBackward(): Boolean = canEditText() && super.deleteBackward()
 
-    override fun deleteForward(): Boolean {
-        if (!canEditText() || !super.deleteForward()) return false
-        dispatchInputEvent("deleteContentForward", null)
-        return true
-    }
-
-    override fun replaceSelection(text: String?) {
-        val previous = getValue()
-        super.replaceSelection(text)
-        if (text.orEmpty().replace("\r", "").replace("\n", "").isEmpty() && previous != getValue())
-            dispatchInputEvent("deleteContentBackward", null)
-    }
+    override fun deleteForward(): Boolean = canEditText() && super.deleteForward()
 
     override fun dispatchInputEvent(inputType: String?, data: String?) {
         refreshValue()

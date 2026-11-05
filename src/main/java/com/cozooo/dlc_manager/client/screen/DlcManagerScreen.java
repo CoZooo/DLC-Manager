@@ -1175,7 +1175,7 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
         Document document = getLinkedDocument();
-        if (!pendingScrollRestore || document == null || document.needsInitialFullCommit() || document.isInitialCommitSlicing()) return;
+        if (!pendingScrollRestore || document == null || document.getLayout().needsInitialFullCommit() || document.getLayout().isInitialCommitSlicing()) return;
         Element list = document.getElementById("manager-list");
         if (list.getClientHeight() > 0 && ("auto".equals(list.getComputedStyle().overflowY)
             || "scroll".equals(list.getComputedStyle().overflowY))) {
@@ -1190,7 +1190,7 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
     public void render(PoseStack graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
         Document document = getLinkedDocument();
-        if (!pendingScrollRestore || document == null || document.needsInitialFullCommit() || document.isInitialCommitSlicing()) return;
+        if (!pendingScrollRestore || document == null || document.getLayout().needsInitialFullCommit() || document.getLayout().isInitialCommitSlicing()) return;
         Element list = document.getElementById("manager-list");
         if (list.getClientHeight() > 0 && ("auto".equals(list.getComputedStyle().overflowY)
             || "scroll".equals(list.getComputedStyle().overflowY))) {
@@ -1205,7 +1205,7 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
         Document document = getLinkedDocument();
-        if (!pendingScrollRestore || document == null || document.needsInitialFullCommit() || document.isInitialCommitSlicing()) return;
+        if (!pendingScrollRestore || document == null || document.getLayout().needsInitialFullCommit() || document.getLayout().isInitialCommitSlicing()) return;
         Element list = document.getElementById("manager-list");
         if (list.getClientHeight() > 0 && ("auto".equals(list.getComputedStyle().overflowY)
             || "scroll".equals(list.getComputedStyle().overflowY))) {

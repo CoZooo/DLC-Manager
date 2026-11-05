@@ -11,6 +11,8 @@ import org.gradle.api.Project
 import org.gradle.api.JavaVersion
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.file.FileCollection
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.Delete
 import org.gradle.api.tasks.GradleBuild
@@ -320,6 +322,7 @@ if (stoneNodes.contains(project.name)) {
     layout.buildDirectory.set(rootProject.layout.buildDirectory.dir(nodeBuildDirName))
 
     val javaVersion = prop("java_version").toInt()
+    val javaToolchains = extensions.getByType<JavaToolchainService>()
 
     group = prop("mod_group")
     version = prop("mod_version")
@@ -515,30 +518,25 @@ if (stoneNodes.contains(project.name)) {
     }
 
     val stonecutterBuild = extensions.getByType<StonecutterBuildExtension>()
-    extensions.configure<SourceSetContainer> {
-        named("test") {
-            val sharedJava = if (stonecutterBuild.current.isActive) {
-                files(rootProject.layout.projectDirectory.dir("src/test/java"))
-            } else {
-                files(stonecutterBuild.tasks.generatedSourcesDir.dir("test/java"))
-                    .builtBy("stonecutterGenerateTest")
-            }
-            java.setSrcDirs(listOf(layout.projectDirectory.dir("src/test/java"), sharedJava))
-        }
-    }
 
     if (kotlinEnabled) {
         extensions.configure<KotlinJvmProjectExtension> {
             sourceSets.named("main") {
-                kotlin.setSrcDirs(
-                    if (stonecutterBuild.current.isActive) {
-                        listOf(rootProject.file("src/main/kotlin"))
-                    } else {
-                        listOf(stonecutterBuild.tasks.generatedSourcesDir.dir("main/kotlin"))
-                    }
-                )
+                kotlin.setSrcDirs(listOf(layout.projectDirectory.dir("src/main/kotlin")))
             }
         }
+    }
+
+    extensions.configure<SourceSetContainer> {
+        named("main") {
+            stonecutterBuild.tasks.configureSource(this)
+        }
+        named("test") {
+            stonecutterBuild.tasks.configureSource(this)
+        }
+    }
+
+    if (kotlinEnabled) {
         tasks.named("compileKotlin") {
             dependsOn("stonecutterGenerate")
         }

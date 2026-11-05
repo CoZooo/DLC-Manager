@@ -175,6 +175,8 @@ if (currentTarget == null) {
         put("neoforge", target.loader == "neoforge")
     }
     val launcher = sourceSets.create("launcher")
+    launcher.java.setSrcDirs(listOf(layout.projectDirectory.dir("src/launcher/java")))
+    stonecutter.tasks.configureSource(launcher)
     val launcherJson = configurations.create("launcherJson")
     launcher.compileClasspath += launcherJson
     val bootstrapLibraries = configurations.create("bootstrapLibraries")
@@ -208,8 +210,8 @@ if (currentTarget == null) {
         attributes.attribute(org.gradle.api.attributes.java.TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, targetJava)
     }
 
-    launcher.java.setSrcDirs(listOf(stonecutter.tasks.generatedSourcesDir.dir("launcher")))
     tasks.named<JavaCompile>(launcher.compileJavaTaskName) {
+        setSource(stonecutter.tasks.generatedSourcesDir.dir("launcher"))
         dependsOn("stonecutterGenerateLauncher")
         javaCompiler.set(javaToolchains.compilerFor { languageVersion.set(JavaLanguageVersion.of(targetJava)) })
         options.release.set(17)

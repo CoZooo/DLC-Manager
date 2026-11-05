@@ -13,22 +13,11 @@ public class DlcUiTextInput extends Input {
     }
 
     @Override public boolean deleteBackward() {
-        if (!canEditText() || !super.deleteBackward()) return false;
-        dispatchInputEvent("deleteContentBackward", null);
-        return true;
+        return canEditText() && super.deleteBackward();
     }
 
     @Override public boolean deleteForward() {
-        if (!canEditText() || !super.deleteForward()) return false;
-        dispatchInputEvent("deleteContentForward", null);
-        return true;
-    }
-
-    @Override public void replaceSelection(String text) {
-        String previous = getValue();
-        super.replaceSelection(text);
-        if ((text == null || text.replace("\r", "").replace("\n", "").isEmpty()) && !Objects.equals(previous, getValue()))
-            dispatchInputEvent("deleteContentBackward", null);
+        return canEditText() && super.deleteForward();
     }
 
     @Override protected void dispatchInputEvent(String inputType, String data) {

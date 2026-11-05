@@ -1125,7 +1125,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
     override fun render(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
         super.render(graphics, mouseX, mouseY, partialTick)
         val document = linkedDocument ?: return
-        if (!pendingScrollRestore || document.needsInitialFullCommit() || document.isInitialCommitSlicing) return
+        if (!pendingScrollRestore || document.getLayout().needsInitialFullCommit() || document.getLayout().isInitialCommitSlicing()) return
         val list = document.getElementById("manager-list")
         if (list.clientHeight > 0 && list.computedStyle.overflowY in setOf("auto", "scroll")) {
             Document.runWithContext(document) { list.setScrollTop(savedScrollOffset) }
@@ -1138,7 +1138,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
     /*override fun render(graphics: PoseStack, mouseX: Int, mouseY: Int, partialTick: Float) {
         super.render(graphics, mouseX, mouseY, partialTick)
         val document = linkedDocument ?: return
-        if (!pendingScrollRestore || document.needsInitialFullCommit() || document.isInitialCommitSlicing) return
+        if (!pendingScrollRestore || document.getLayout().needsInitialFullCommit() || document.getLayout().isInitialCommitSlicing()) return
         val list = document.getElementById("manager-list")
         if (list.clientHeight > 0 && list.computedStyle.overflowY in setOf("auto", "scroll")) {
             Document.runWithContext(document) { list.setScrollTop(savedScrollOffset) }
@@ -1151,7 +1151,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
     /*override fun extractRenderState(graphics: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, partialTick: Float) {
         super.extractRenderState(graphics, mouseX, mouseY, partialTick)
         val document = linkedDocument ?: return
-        if (!pendingScrollRestore || document.needsInitialFullCommit() || document.isInitialCommitSlicing) return
+        if (!pendingScrollRestore || document.getLayout().needsInitialFullCommit() || document.getLayout().isInitialCommitSlicing()) return
         val list = document.getElementById("manager-list")
         if (list.clientHeight > 0 && list.computedStyle.overflowY in setOf("auto", "scroll")) {
             Document.runWithContext(document) { list.setScrollTop(savedScrollOffset) }

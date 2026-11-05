@@ -136,7 +136,7 @@ abstract class DlcApricityScreen private constructor(
 
     private fun completeRender(document: Document?) {
         renderedCurrentFrame = document != null && document.isActive
-            && !document.needsInitialFullCommit() && !document.isInitialCommitSlicing
+            && !document.getLayout().needsInitialFullCommit() && !document.getLayout().isInitialCommitSlicing()
             && document.paintList.isNotEmpty()
         syncInputs(document)
     }

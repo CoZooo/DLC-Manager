@@ -8,7 +8,7 @@ import com.sighs.apricityui.element.Html;
 import com.sighs.apricityui.init.Document;
 import com.sighs.apricityui.event.MouseEvent;
 import com.sighs.apricityui.layout.Position;
-import com.sighs.apricityui.render.LayoutCommit;
+import com.sighs.apricityui.layout.LayoutCommit;
 import com.sighs.apricityui.layout.LayoutMeasureCache;
 import com.sighs.apricityui.render.RectFrameCache;
 import com.sighs.apricityui.render.TransformFrameCache;
@@ -26,7 +26,7 @@ class DlcUiScrollTest {
             @Override public Size innerSize() { return new Size(200, 100); }
         };
         box.applyPaddingAll("16px");
-        element.getRenderer().box.set(box);
+        element.getLayout().box.set(box);
         element.scrollHeight = height;
         return element;
     }
