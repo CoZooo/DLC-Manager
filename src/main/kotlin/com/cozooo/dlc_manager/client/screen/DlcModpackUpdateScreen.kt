@@ -140,14 +140,14 @@ class DlcModpackUpdateScreen @JvmOverloads constructor(
         val from = normalizeVersion(current)
         val to = normalizeVersion(target)
         if (from != to) {
-            return "$from -> $to"
+            return "$from → $to"
         }
         return from
     }
 
     private fun formatTransition(step: ReleaseStep): String {
         return normalizeVersion(step.oldBase) + "+" + normalizeVersion(step.oldDlc) +
-            " -> " +
+            " → " +
             normalizeVersion(step.newBase) + "+" + normalizeVersion(step.newDlc)
     }
 
@@ -286,15 +286,36 @@ class DlcModpackUpdateScreen @JvmOverloads constructor(
     override fun buildPage() {
         if (!controlsReady) { controlsReady = true; initControls() }
         pageRevision = 0
+        content.parentElement.setAttribute("class", "page-shell update-page")
 
-        val list = section(null, null); row(list, tr("dlc_manager.pack_update.base"), formatVersionLineValue(checkResult.currentBase, checkResult.targetBase)); row(list, tr("dlc_manager.pack_update.dlc"), formatVersionLineValue(checkResult.currentDlc, checkResult.targetDlc))
-        if (checkResult.hasLatestGap()) text(list, tr("dlc_manager.pack_update.latest_unreachable_no_download"), "page-warning")
         val steps = checkResult.fullSteps.takeIf { it.isNotEmpty() } ?: checkResult.steps
+        val baseChanged = normalizeVersion(checkResult.currentBase) != normalizeVersion(checkResult.targetBase)
+        val dlcChanged = normalizeVersion(checkResult.currentDlc) != normalizeVersion(checkResult.targetDlc)
+        if (baseChanged || dlcChanged) {
+            val versions = node(content, "div", "update-version-lines")
+            if (baseChanged) {
+                val line = node(versions, "div", "update-version-line")
+                text(line, tr("dlc_manager.pack_update.base"), "update-version-label")
+                text(line, formatVersionLineValue(checkResult.currentBase, checkResult.targetBase), "update-version-value")
+            }
+            if (dlcChanged) {
+                val line = node(versions, "div", "update-version-line")
+                text(line, tr("dlc_manager.pack_update.dlc"), "update-version-label")
+                text(line, formatVersionLineValue(checkResult.currentDlc, checkResult.targetDlc), "update-version-value")
+            }
+        }
+        if (checkResult.hasLatestGap()) text(content, tr("dlc_manager.pack_update.latest_unreachable_no_download"), "page-warning")
+        if (steps.isNotEmpty()) text(content, tr("dlc_manager.update.changelog_tooltip_title"), "update-changelog-title")
         for (step in steps) {
             val part = section(formatTransition(step), null)
             markdown(part, step.resolveChangelog(DlcPlatformServices.languageCode()))
         }
-        live(content, { statusText }, "page-description"); live(content, { errorText }, "page-error"); progress(content) { progress.toDouble() }
+        val downloadStatus = node(footer, "div", "update-download-status")
+        live(downloadStatus, { statusText }, "page-description")
+        live(downloadStatus, { errorText }, "page-error")
+        showWhen(downloadStatus) { downloading || statusText.isNotBlank() || errorText.isNotBlank() }
+        val downloadProgress = progress(downloadStatus) { progress.toDouble() }
+        showWhen(downloadProgress) { downloading }
         skipButton?.let { mount(footer, it) }; skipThisUpdateButton?.let { mount(footer, it) }; openButton?.let { mount(footer, it) }; downloadButton?.let { mount(footer, it).getElement().setAttribute("class", "button primary") }
 
     }

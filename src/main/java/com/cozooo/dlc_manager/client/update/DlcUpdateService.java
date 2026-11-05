@@ -502,7 +502,10 @@ public final class DlcUpdateService {
             updated.setBase(nextBase);
             updated.setDlc(nextDlc);
             updated.setRollbackFrom(null);
-            updated.setChangelogShown(sourceBaseVersion(info) + "+" + sourceDlcVersion(info));
+            String previousChangelogShown = current.getChangelogShown();
+            updated.setChangelogShown(previousChangelogShown == null || previousChangelogShown.isBlank()
+                ? sourceBaseVersion(info) + "+" + sourceDlcVersion(info)
+                : previousChangelogShown);
             updated.save(dlcRoot);
 
             if (context.addedRemote) {
@@ -1148,7 +1151,7 @@ public final class DlcUpdateService {
             if (raw == null || raw.isBlank()) {
                 continue;
             }
-            if (hashIndex.findDeleteMatches(gameDir, raw, manifest.getFileOps().getDeleteHashes().get(raw)).isEmpty()) {
+            if (!DlcPathUtil.hasWildcard(raw) && hashIndex.findDeleteMatches(gameDir, raw, manifest.getFileOps().getDeleteHashes().get(raw)).isEmpty()) {
                 addMissingPath(missing, raw);
             }
         }

@@ -536,7 +536,14 @@ object DlcUpdateService {
             updated.setBase(nextBase)
             updated.setDlc(nextDlc)
             updated.setRollbackFrom(null)
-            updated.setChangelogShown(sourceBaseVersion(info) + "+" + sourceDlcVersion(info))
+            val previousChangelogShown = current.getChangelogShown()
+            updated.setChangelogShown(
+                if (previousChangelogShown.isNullOrBlank()) {
+                    sourceBaseVersion(info) + "+" + sourceDlcVersion(info)
+                } else {
+                    previousChangelogShown
+                },
+            )
             updated.save(dlcRoot)
 
             if (context.addedRemote) {
@@ -1231,7 +1238,7 @@ object DlcUpdateService {
             if (raw.isBlank()) {
                 continue
             }
-            if (hashIndex.findDeleteMatches(gameDir, raw, manifest.getFileOps()!!.getDeleteHashes()[raw]).isEmpty()) {
+            if (!DlcPathUtil.hasWildcard(raw) && hashIndex.findDeleteMatches(gameDir, raw, manifest.getFileOps()!!.getDeleteHashes()[raw]).isEmpty()) {
                 addMissingPath(missing, raw)
             }
         }

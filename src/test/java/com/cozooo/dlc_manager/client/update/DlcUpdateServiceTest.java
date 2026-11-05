@@ -177,6 +177,7 @@ class DlcUpdateServiceTest {
                   which = -1
               [del]
                 "config/missing-delete.json"
+                "saves/*/serverconfig/"
               [move]
                 "config/missing-move.json" = "config/moved.json"
             """));
@@ -307,6 +308,7 @@ class DlcUpdateServiceTest {
             (status, progress) -> statuses.add(status));
         assertTrue(result.isSuccess(), result.getMessage());
         assertFalse(Files.exists(mod));
+        assertEquals("1.0.0+1.0.0", DlcUpdateVersion.load(dlcRoot).getChangelogShown());
         assertTrue(statuses.contains("dlc_manager.update.organizing_resources"));
         var files = com.cozooo.dclanguage.DcDocuments.read(dlcRoot.resolve("tmp/update/hash_list.dc")).toJson().getAsJsonObject("files");
         assertFalse(files.has("renamed.jar"));
