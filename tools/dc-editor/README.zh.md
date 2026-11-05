@@ -37,4 +37,4 @@
 
 [返回 DLC Manager](../../README.zh.md)
 
-针对本软件自身收费须事先获得书面授权；再分发须保留许可并提供对应源码。详见 [许可说明](../../LICENSING.zh.md)。
+使用、修改和再分发须遵守 [PolyForm Shield License 1.0.0](../../LICENSE)。许可允许在范围内进行使用，但禁止提供竞争产品或服务。

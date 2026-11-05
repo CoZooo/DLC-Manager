@@ -4,7 +4,7 @@
 
 Edit `.dc` configuration files in VS Code with highlighting, syntax checks, formatting, and color picking.
 
-Use is subject to the included license. Charging for this plugin itself requires prior written permission.
+Use, modification, and redistribution are subject to the included PolyForm Shield License 1.0.0. The license allows use for permitted purposes, but competing products and services are prohibited.
 
 ## Features
 

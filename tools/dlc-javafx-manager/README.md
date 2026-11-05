@@ -95,4 +95,4 @@ For GitHub Actions, configure these repository secrets before triggering the wor
 
 The workflow imports credentials into a temporary Keychain, validates them, signs and notarizes both macOS formats, and removes the temporary credentials even if the build fails. Credential command output is suppressed, decoded private-key content is masked, and raw notarization logs are not uploaded as artifacts. Missing credentials or failed notarization stop the macOS job before installer upload.
 
-Charging for this software itself requires prior written permission. Redistribution must retain the license and provide corresponding source. See [licensing](../../LICENSING.md).
+Use, modification, and redistribution of this software are subject to the [PolyForm Shield License 1.0.0](../../LICENSE). The license allows use for permitted purposes, but competing products and services are prohibited.

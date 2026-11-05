@@ -56,4 +56,4 @@ Common calls:
 
 Batch operation `type` values are `delete`, `move`, `copy`, `write_text`, `write_bytes`, and `mkdir`. Deletion uses `path`; directory creation uses `target`; moves and copies use `source`, `target`, and `replaceExisting`; writes use `target` and Base64-encoded `contentBase64`. Prefer the convenience methods for individual operations.
 
-Charging for this software itself requires prior written permission under the [project license](../../LICENSE).
+Use, modification, and redistribution are subject to the [PolyForm Shield License 1.0.0](../../LICENSE). The license allows use for permitted purposes, but competing products and services are prohibited. 

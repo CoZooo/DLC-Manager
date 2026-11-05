@@ -26,7 +26,7 @@
   },
   "bundle": {
     "active": true,
-    "license": "LicenseRef-DLC-Manager-Source-1.0",
+    "license": "PolyForm-Shield-1.0.0",
     "licenseFile": "../LICENSE",
     "targets": "all",
     "icon": [

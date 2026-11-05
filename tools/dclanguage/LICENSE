@@ -1,139 +1,92 @@
-DLC Manager Source License
-Version 1.0
+# PolyForm Shield License 1.0.0
 
-License identifier: LicenseRef-DLC-Manager-Source-1.0
-Copyright CoZooo.
+<https://polyformproject.org/licenses/shield/1.0.0>
 
-1. Scope and definitions
+Required Notice: Copyright CoZooo (https://github.com/CoZooo/DLC-Manager)
+Licensor Line of Business: DLC Manager and related DLC content management software (https://github.com/CoZooo/DLC-Manager)
 
-This license applies to the original source code, binaries, documentation,
-and other material that a copyright holder expressly makes available under
-this license (the "Covered Material"). A "Licensor" is a copyright holder,
-or its authorized representative, granting rights that it is entitled to
-grant in the Covered Material. "You" means the person or legal entity
-exercising rights under this license.
+## Acceptance
 
-Material identified as subject to a separate license, including third-party
-libraries, fonts, tools, games, and IDEs, is not relicensed by this document.
-Its own license continues to govern it. Merely distributing independent
-third-party material alongside the Covered Material does not make that
-third-party material subject to this license.
+In order to get any license under these terms, you must agree to them as both strict obligations and conditions to all your licenses.
 
-Independent material supplied by users or third parties, including content,
-data, resource files, linked material, and external services, remains
-outside the scope of this license. Any Covered Material and modifications
-or derivative portions of it included with such material remain subject
-to this license; the other independent portions are not brought within its
-scope merely by that inclusion. Creating, loading, displaying, managing,
-linking, or transferring independent material through the software does
-not, by itself, make it Covered Material. Its rights, terms, pricing, and
-legal status remain separate from those of the Covered Material.
+## Copyright License
 
-"Corresponding Source" means the preferred form for modifying the Covered
-Material in the version You distribute, including Your modifications and
-the build scripts, configuration, and language definitions needed to build
-that covered version. It does not include private signing keys, passwords,
-access tokens, or the source of independent third-party software. Identify
-the versions and sources of required third-party dependencies and retain
-any notices or source-offer obligations required by their own licenses.
+The licensor grants you a copyright license for the software to do everything you might do with the software that would otherwise infringe the licensor's copyright in it for any permitted purpose.  However, you may only distribute the software according to [Distribution License](#distribution-license) and make changes or new works based on the software according to [Changes and New Works License](#changes-and-new-works-license).
 
-2. License grant
+## Distribution License
 
-Subject to the conditions below, each Licensor grants You a nonexclusive,
-worldwide, royalty-free permission to use, copy, study, and modify the
-Covered Material, and to redistribute it under section 4. Private changes
-that You do not distribute do not have to be published.
+The licensor grants you an additional copyright license to distribute copies of the software.  Your license to distribute covers distributing the software with changes and new works permitted by [Changes and New Works License](#changes-and-new-works-license).
 
-3. Charges for the Covered Material itself
+## Notices
 
-Without prior written permission from the relevant Licensor or its
-explicitly authorized representative, You may not sell or rent the
-Covered Material itself, charge a license fee for it, or require payment
-for obtaining, accessing, activating, or using the Covered Material itself
-or a modified version of it.
+You must ensure that anyone who gets a copy of any part of the software from you also gets a copy of these terms or the URL for them above, as well as copies of any plain-text lines beginning with `Required Notice:` that the licensor provided with the software.  For example:
 
-For this section, a charge means payment whose subject is the Covered
-Material itself. The mere presence or use of the Covered Material in
-another offering does not, by itself, establish such a charge. A charge
-for the Covered Material itself remains within this section regardless
-of the label used for that charge.
+> Required Notice: Copyright Yoyodyne, Inc. (http://example.com)
 
-A separate written agreement may authorize specified charges or different
-distribution terms. It overrides this license only to the extent expressly
-agreed and only for rights the granting party is entitled to license.
-No contributor's copyright is assigned or made available for additional
-licensing merely by contributing or distributing changes.
+## Changes and New Works License
 
-4. Conditions for redistribution
+The licensor grants you an additional copyright license to make changes and new works based on the software for any permitted purpose.
 
-For every copy of Covered Material You distribute, whether modified or
-unmodified, You must:
+## Patent License
 
-(a) provide this complete license and retain applicable copyright,
-    attribution, and third-party notices;
-(b) clearly identify Your modifications and their dates, and avoid
-    presenting a modified version as an official release;
-(c) provide the Corresponding Source with the copy, or provide a working
-    link allowing recipients to download that exact Corresponding Source
-    at no charge, without requiring a separate agreement or credentials;
-    the link must remain available for at least three years after Your
-    last distribution of that version;
-(d) distribute Your modifications to the Covered Material under this same
-    license, unless all relevant rights holders have separately authorized
-    another license; and
-(e) impose no additional terms that prevent recipients from exercising
-    the rights granted by this license.
+The licensor grants you a patent license for the software that covers patent claims the licensor can license, or becomes able to license, that you would infringe by using the software.
 
-Publishing only an unrelated version or a link to a changing development
-branch is not sufficient to provide the Corresponding Source of a binary.
-This section is triggered by distribution; it does not itself require the
-publication of private changes used without distribution.
+## Noncompete
 
-5. Reserved rights and independent third-party rights
+Any purpose is a permitted purpose, except for providing any product that competes with the software or any product the licensor or any of its affiliates provides using the software.
 
-Rights not expressly granted are reserved. No right to use a Licensor's
-names, logos, or trademarks to imply endorsement is granted.
+## Competition
 
-The restrictions in this license do not remove any rights You independently
-receive under a third-party license, including commercial-use rights in
-separately licensed third-party components. They also do not grant rights
-to distribute Minecraft, a proprietary IDE, or any other third-party work
-contrary to its own license.
+Goods and services compete even when they provide functionality through different kinds of interfaces or for different technical platforms.  Applications can compete with services, libraries with plugins, frameworks with development tools, and so on, even if they're written in different programming languages or for different computer architectures.  Goods and services compete even when provided free of charge.  If you market a product as a practical substitute for the software or another product, it definitely competes.
 
-6. Termination
+## New Products
 
-Your permissions under this license end automatically if You violate its
-conditions. After termination, You must stop activities that require those
-permissions. Reinstatement requires written permission from the relevant
-Licensor or its authorized representative. A later written permission does
-not excuse earlier unauthorized activities unless it expressly says so.
+If you are using the software to provide a product that does not compete, but the licensor or any of its affiliates brings your product into competition by providing a new version of the software or another product using the software, you may continue using versions of the software available under these terms beforehand to provide your competing product, but not any later versions.
 
-Termination of Your permissions does not terminate the permissions of
-recipients who independently comply with this license.
+## Discontinued Products
 
-7. No warranty; limitation of liability
+You may begin using the software to compete with a product or service that the licensor or any of its affiliates has stopped providing, unless the licensor includes a plain-text line beginning with `Licensor Line of Business:` with the software that mentions that line of business.  For example:
 
-TO THE EXTENT PERMITTED BY APPLICABLE LAW, THE COVERED MATERIAL IS PROVIDED
-"AS IS", WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, EXPRESS OR IMPLIED,
-INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND
-NONINFRINGEMENT. TO THE EXTENT PERMITTED BY APPLICABLE LAW, NO LICENSOR OR
-CONTRIBUTOR IS LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING
-FROM THIS LICENSE OR THE USE OR DISTRIBUTION OF THE COVERED MATERIAL.
+> Licensor Line of Business: YoyodyneCMS Content Management System (http://example.com/cms)
 
-TO THE EXTENT PERMITTED BY APPLICABLE LAW, LICENSORS AND CONTRIBUTORS DO NOT
-ASSUME RESPONSIBILITY FOR THE OWNERSHIP, LEGALITY, ACCURACY, SAFETY,
-AVAILABILITY, PRICING, OR PERFORMANCE OF INDEPENDENT MATERIAL SUPPLIED BY
-USERS OR THIRD PARTIES. THE SOFTWARE'S ABILITY TO PROCESS OR REFER TO SUCH
-MATERIAL DOES NOT IMPLY THAT A LICENSOR OR CONTRIBUTOR PROVIDES, REVIEWS,
-CONTROLS, OR ENDORSES IT. THE RESPECTIVE PROVIDER'S TERMS AND APPLICABLE LAW
-GOVERN THAT MATERIAL; USERS AND PROVIDERS REMAIN RESPONSIBLE FOR OBTAINING
-THE RIGHTS NEEDED FOR THEIR OWN USE AND DISTRIBUTION.
+## Sales of Business
 
-8. Statutory rights and severability
+If the licensor or any of its affiliates sells a line of business developing the software or using the software to provide a product, the buyer can also enforce [Noncompete](#noncompete) for that product.
 
-Nothing in this license limits rights or exceptions that applicable law
-does not permit a license to restrict. If a provision is unenforceable,
-the remaining provisions continue to apply to the extent permitted by law.
+## Fair Use
 
-This English text is the operative license. Translations and summaries
-are provided for convenience and do not replace its terms.
+You may have "fair use" rights for the software under the law. These terms do not limit them.
+
+## No Other Rights
+
+These terms do not allow you to sublicense or transfer any of your licenses to anyone else, or prevent the licensor from granting licenses to anyone else.  These terms do not imply any other licenses.
+
+## Patent Defense
+
+If you make any written claim that the software infringes or contributes to infringement of any patent, your patent license for the software granted under these terms ends immediately. If your company makes such a claim, your patent license ends immediately for work on behalf of your company.
+
+## Violations
+
+The first time you are notified in writing that you have violated any of these terms, or done anything with the software not covered by your licenses, your licenses can nonetheless continue if you come into full compliance with these terms, and take practical steps to correct past violations, within 32 days of receiving notice.  Otherwise, all your licenses end immediately.
+
+## No Liability
+
+***As far as the law allows, the software comes as is, without any warranty or condition, and the licensor will not be liable to you for any damages arising out of these terms or the use or nature of the software, under any kind of legal claim.***
+
+## Definitions
+
+The **licensor** is the individual or entity offering these terms, and the **software** is the software the licensor makes available under these terms.
+
+A **product** can be a good or service, or a combination of them.
+
+**You** refers to the individual or entity agreeing to these terms.
+
+**Your company** is any legal entity, sole proprietorship, or other kind of organization that you work for, plus all its affiliates.
+
+**Affiliates** means the other organizations than an organization has control over, is under the control of, or is under common control with.
+
+**Control** means ownership of substantially all the assets of an entity, or the power to direct its management and policies by vote, contract, or otherwise.  Control can be direct or indirect.
+
+**Your licenses** are all the licenses granted to you for the software under these terms.
+
+**Use** means anything you do with the software requiring one of your licenses.

@@ -37,4 +37,4 @@ To edit `.dc` files in your usual code editor, try the [VS Code plugin](../edito
 
 [Back to DLC Manager](../../README.md)
 
-Charging for this software itself requires prior written permission. Redistribution must retain the license and provide corresponding source. See [licensing](../../LICENSING.md).
+Use, modification, and redistribution of this software are subject to the [PolyForm Shield License 1.0.0](../../LICENSE). The license allows use for permitted purposes, but competing products and services are prohibited.

@@ -78,8 +78,8 @@ mavenPublishing {
         url.set("https://github.com/CoZooo/DLC-Manager")
         licenses {
             license {
-                name.set("DLC Manager Source License 1.0")
-                url.set("https://github.com/CoZooo/DLC-Manager/blob/HEAD/LICENSE")
+                name.set("PolyForm Shield License 1.0.0")
+                url.set("https://polyformproject.org/licenses/shield/1.0.0")
                 distribution.set("repo")
             }
         }

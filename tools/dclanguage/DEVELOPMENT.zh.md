@@ -180,7 +180,7 @@ DcDocuments.write(path, document);
 
 打包时使用 `./gradlew jar sourcesJar`。本工程无需 DLC Manager、Minecraft、StoneCutter 或 ApricityUI。Gradle Wrapper 启动需要 Java 17 及以上，编译和测试使用 Java 17 工具链。
 
-项目许可为 [DLC Manager Source License 1.0](LICENSE)，副本须与根 `LICENSE` 保持一致；第三方许可继续独立保留。
+项目许可为 [PolyForm Shield License 1.0.0](LICENSE)，副本须与根 `LICENSE` 保持一致；第三方许可继续独立保留。
 
 测试覆盖现有 Remote、依赖／冲突、history、state、更新和公告语法；同时验证无损编辑、错误位置、必填检查、类型、未知字段、默认值、Kotlin 调用和原子写入。
 

@@ -61,4 +61,4 @@ identifier = "example"
 
 第三方组件声明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-根据[项目许可](LICENSE)，针对本软件自身收费须事先取得书面授权。
+使用、修改和再分发须遵守 [PolyForm Shield License 1.0.0](LICENSE)。许可允许在范围内进行使用，但禁止提供竞争产品或服务。

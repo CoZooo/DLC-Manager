@@ -37,4 +37,4 @@ Fabric versions retain their existing required-resource installation flow. Speci
 
 This component does not load new mods into a running game. See [DLC Manager](../../README.md) for normal management, downloads, and updates.
 
-Charging for this software itself requires prior written permission under the [project license](../../LICENSE).
+Use, modification, and redistribution are subject to the [PolyForm Shield License 1.0.0](../../LICENSE). The license allows use for permitted purposes, but competing products and services are prohibited.

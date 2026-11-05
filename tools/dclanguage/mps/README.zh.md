@@ -43,4 +43,4 @@
 
 示例项目位于[仓库的 `example` 目录](example)，插件 ZIP 不包含示例。获取仓库后，在 MPS 中打开此项目即可使用；也可先查看[示例配置](solutions/sandbox/models/example.dc)。编辑期间发生外部文件修改或配置错误时，先处理问题再保存。
 
-根据[项目许可](../LICENSE)，针对本插件自身收费须事先取得书面授权。
+使用、修改和再分发须遵守 [PolyForm Shield License 1.0.0](../LICENSE)。许可允许在范围内进行使用，但禁止提供竞争产品或服务。

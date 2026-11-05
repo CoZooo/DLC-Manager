@@ -40,4 +40,4 @@ Transport uses UTF-8 JSON and `Content-Length` headers. Each message is limited 
 
 The distribution ZIP includes `LICENSE`, `THIRD_PARTY_NOTICES.md`, and `licenses/gson/`. The combined JAR also includes the relevant notices. See [DC Language](../README.md) for library usage and the [LSP 3.17 specification](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/) for protocol details.
 
-Charging for this software itself requires prior written permission under the [project license](../LICENSE).
+Use, modification, and redistribution are subject to the [PolyForm Shield License 1.0.0](../LICENSE). The license allows use for permitted purposes, but competing products and services are prohibited.

@@ -180,7 +180,7 @@ Run in this directory:
 
 Package with `./gradlew jar sourcesJar`. The project does not require DLC Manager, Minecraft, StoneCutter, or ApricityUI. The Gradle wrapper requires Java 17 or later, and compilation and tests use a Java 17 toolchain.
 
-The project uses [DLC Manager Source License 1.0](LICENSE). Its copy must match the root `LICENSE`, while third-party licenses remain separate.
+The project uses the [PolyForm Shield License 1.0.0](LICENSE). Its copy must match the root `LICENSE`, while third-party licenses remain separate.
 
 Tests cover existing Remote, dependency/conflict, history, state, update, and announcement syntax, plus lossless edits, error positions, required fields, types, unknown fields, defaults, Kotlin calls, and atomic writes.
 
