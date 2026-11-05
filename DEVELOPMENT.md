@@ -1,6 +1,6 @@
-# Development
-
 [简体中文](DEVELOPMENT.zh.md)
+
+# Development
 
 ## Project layout
 

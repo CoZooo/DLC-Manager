@@ -1,6 +1,6 @@
-# Licensing
-
 [简体中文](LICENSING.zh.md)
+
+# Licensing
 
 Project-owned material is provided under the [PolyForm Shield License 1.0.0](LICENSE). The canonical license text is available at <https://polyformproject.org/licenses/shield/1.0.0>; the project-specific required notice and licensor line of business appear in the bundled copy.
 

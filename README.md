@@ -1,6 +1,6 @@
-# DLC Manager
-
 [简体中文](README.zh.md)
+
+# DLC Manager
 
 Manage optional Minecraft content in-game or from a separate desktop window. Choose mods, resource packs, data packs, and TACZ gun packs, apply presets, download missing content, and keep your modpack up to date.
 

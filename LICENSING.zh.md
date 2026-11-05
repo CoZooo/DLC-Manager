@@ -1,6 +1,6 @@
-# 许可说明
-
 [English](LICENSING.md)
+
+# 许可说明
 
 项目自有内容采用 [PolyForm Shield License 1.0.0](LICENSE)，正式条款见 <https://polyformproject.org/licenses/shield/1.0.0>。随项目提供的许可证副本包含项目专用的版权声明和许可方业务范围声明；英文 LICENSE 正文具有约束力。
 
