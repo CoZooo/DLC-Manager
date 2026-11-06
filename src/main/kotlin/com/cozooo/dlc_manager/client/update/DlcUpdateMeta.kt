@@ -29,10 +29,10 @@ class DlcUpdateMeta {
             obj.addProperty("dlc_old", dlcOld ?: "")
             obj.addProperty("dlc_new", dlcNew ?: "")
             if (!baseOld.isNullOrBlank()) {
-                obj.addProperty("base_old", baseOld)
+                obj.addProperty("version_old", baseOld)
             }
             if (!baseNew.isNullOrBlank()) {
-                obj.addProperty("base_new", baseNew)
+                obj.addProperty("version_new", baseNew)
             }
             obj.addProperty("timestamp", timestamp ?: "")
             obj.addProperty("hidden", hidden)
@@ -72,14 +72,26 @@ class DlcUpdateMeta {
 
     fun getBaseOld(): String? = baseOld
 
+    fun getVersionOld(): String? = baseOld
+
     fun setBaseOld(baseOld: String?) {
         this.baseOld = baseOld
     }
 
+    fun setVersionOld(versionOld: String?) {
+        this.baseOld = versionOld
+    }
+
     fun getBaseNew(): String? = baseNew
+
+    fun getVersionNew(): String? = baseNew
 
     fun setBaseNew(baseNew: String?) {
         this.baseNew = baseNew
+    }
+
+    fun setVersionNew(versionNew: String?) {
+        this.baseNew = versionNew
     }
 
     fun getTimestamp(): String? = timestamp
@@ -139,8 +151,8 @@ class DlcUpdateMeta {
             val meta = DlcUpdateMeta()
             meta.dlcOld = DlcDcConfigIO.getStringIgnoreCase(obj, "dlc_old")
             meta.dlcNew = DlcDcConfigIO.getStringIgnoreCase(obj, "dlc_new")
-            meta.baseOld = DlcDcConfigIO.getStringIgnoreCase(obj, "base_old")
-            meta.baseNew = DlcDcConfigIO.getStringIgnoreCase(obj, "base_new")
+            meta.baseOld = firstNonBlank(DlcDcConfigIO.getStringIgnoreCase(obj, "version_old"), DlcDcConfigIO.getStringIgnoreCase(obj, "base_old"))
+            meta.baseNew = firstNonBlank(DlcDcConfigIO.getStringIgnoreCase(obj, "version_new"), DlcDcConfigIO.getStringIgnoreCase(obj, "base_new"))
             meta.timestamp = DlcDcConfigIO.getStringIgnoreCase(obj, "timestamp")
             meta.hidden = DlcDcConfigIO.getBooleanIgnoreCase(obj, "hidden", false)
             val logObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "changelog")
@@ -170,6 +182,10 @@ class DlcUpdateMeta {
                 }
             }
             return meta
+        }
+
+        private fun firstNonBlank(primary: String?, fallback: String?): String? {
+            return if (primary.isNullOrBlank()) fallback else primary
         }
     }
 }

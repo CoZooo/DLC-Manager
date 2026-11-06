@@ -336,7 +336,7 @@ public final class DlcFxLocalUpdateTab {
         setBusy(true, DlcFxI18n.tr("dlc_manager.update.checking_remote"));
         progressBar.setProgress(-1);
         String base = normalizeVersion(baseVersion);
-        String dlc = normalizeVersion(currentVersion);
+        String dlc = nullableVersion(currentVersion);
         Thread thread = new Thread(() -> {
             CheckResult result;
             try {
@@ -408,7 +408,10 @@ public final class DlcFxLocalUpdateTab {
     }
 
     private void showPackUpdateDialog(CheckResult result) {
-        Label base = new Label(versionTransition(DlcFxI18n.tr("dlc_manager.pack_update.base"), result.currentBase, result.targetBase));
+        boolean hasLegacyDlc = result.currentDlcPresent;
+        Label base = new Label(versionTransition(
+            DlcFxI18n.tr(hasLegacyDlc ? "dlc_manager.pack_update.base" : "dlc_manager.pack_update.version"),
+            result.currentBase, result.targetBase));
         Label dlc = new Label(versionTransition(DlcFxI18n.tr("dlc_manager.pack_update.dlc"), result.currentDlc, result.targetDlc));
         DlcFxStyle.title(base);
         DlcFxStyle.title(dlc);
@@ -438,7 +441,9 @@ public final class DlcFxLocalUpdateTab {
         progress.setVisible(false);
         progress.setManaged(false);
 
-        VBox content = new VBox(12, base, dlc, changelog, warning, progress);
+        VBox content = hasLegacyDlc
+            ? new VBox(12, base, dlc, changelog, warning, progress)
+            : new VBox(12, base, changelog, warning, progress);
         content.setPrefWidth(580);
 
         DlcFxModalOverlay.showAndGetOverlay(
@@ -819,14 +824,18 @@ public final class DlcFxLocalUpdateTab {
     }
 
     private void renderVersionHeader(boolean hasVisibleUpdates) {
-        String base = displayVersion(baseVersion);
-        String dlc = displayVersion(currentVersion);
+        String base = normalizeVersion(baseVersion);
+        String dlc = nullableVersion(currentVersion);
         if (shell == null) {
             return;
         }
-        shell.setVersionText(DlcFxI18n.tr("dlc_manager.update.current_version", base, dlc));
+        shell.setVersionText(dlc == null
+            ? DlcFxI18n.tr("dlc_manager.update.current_version_single", base)
+            : DlcFxI18n.tr("dlc_manager.update.current_version", base, dlc));
         shell.setRollbackInfo(rolledBackMode
-            ? DlcFxI18n.tr("dlc_manager.update.rollback_info", safe(rollbackFrom), normalizeVersion(baseVersion) + "+" + normalizeVersion(currentVersion))
+            ? DlcFxI18n.tr("dlc_manager.update.rollback_info", safe(rollbackFrom), dlc == null
+                ? base
+                : base + "+" + dlc)
             : "");
         shell.setUpdateHint(hasVisibleUpdates ? DlcFxI18n.tr("dlc_manager.update.desc") : "");
     }
@@ -871,19 +880,20 @@ public final class DlcFxLocalUpdateTab {
         }
         List<ReleaseStep> steps = result.steps == null ? List.of() : result.steps;
         StringBuilder builder = new StringBuilder();
-        appendReleaseSteps(builder, steps, currentLang());
+            appendReleaseSteps(builder, steps, currentLang(), result.currentDlcPresent, result.currentDlc);
         List<ReleaseStep> unreachable = resolveUnreachableSteps(result, steps);
         if (!unreachable.isEmpty()) {
             if (!builder.isEmpty()) {
                 builder.append("\n\n");
             }
             builder.append(DlcFxI18n.tr("dlc_manager.pack_update.unreachable_changelog")).append("\n\n");
-            appendReleaseSteps(builder, unreachable, currentLang());
+            appendReleaseSteps(builder, unreachable, currentLang(), result.currentDlcPresent, result.currentDlc);
         }
         return builder.toString();
     }
 
-    private void appendReleaseSteps(StringBuilder builder, List<ReleaseStep> steps, String lang) {
+    private void appendReleaseSteps(StringBuilder builder, List<ReleaseStep> steps, String lang,
+                                    boolean hasLegacyDlc, String currentDlc) {
         if (steps == null || steps.isEmpty()) {
             return;
         }
@@ -894,7 +904,7 @@ public final class DlcFxLocalUpdateTab {
             if (!builder.isEmpty()) {
                 builder.append("\n\n");
             }
-            builder.append(formatReleaseTransition(step));
+            builder.append(formatReleaseTransition(step, hasLegacyDlc, currentDlc));
             String body = step.resolveChangelog(lang);
             if (body != null && !body.isBlank()) {
                 builder.append("\n").append(body.trim());
@@ -936,8 +946,11 @@ public final class DlcFxLocalUpdateTab {
         }
         if (result.hasLatestGap()) {
             return result.canDownload()
-                ? DlcFxI18n.tr("dlc_manager.pack_update.latest_unreachable",
-                    normalizeVersion(result.downloadBase), normalizeVersion(result.downloadDlc))
+                ? (result.currentDlcPresent
+                    ? DlcFxI18n.tr("dlc_manager.pack_update.latest_unreachable",
+                        normalizeVersion(result.downloadBase), normalizeVersion(result.downloadDlc))
+                    : DlcFxI18n.tr("dlc_manager.pack_update.latest_unreachable_version",
+                        normalizeVersion(result.downloadBase)))
                     + "\n" + DlcFxI18n.tr("dlc_manager.pack_update.partial_download_hint")
                 : DlcFxI18n.tr("dlc_manager.pack_update.latest_unreachable_no_download");
         }
@@ -953,9 +966,14 @@ public final class DlcFxLocalUpdateTab {
         return label + " " + (from.equals(to) ? from : from + " -> " + to);
     }
 
-    private static String formatReleaseTransition(ReleaseStep step) {
-        return normalizeVersion(step.oldBase) + "+" + normalizeVersion(step.oldDlc)
-            + " -> " + normalizeVersion(step.newBase) + "+" + normalizeVersion(step.newDlc);
+    private static String formatReleaseTransition(ReleaseStep step, boolean hasLegacyDlc, String currentDlc) {
+        if (!hasLegacyDlc) {
+            return normalizeVersion(step.oldBase) + " -> " + normalizeVersion(step.newBase);
+        }
+        String oldDlc = step.oldDlc == null || step.oldDlc.isBlank() ? currentDlc : step.oldDlc;
+        String newDlc = step.newDlc == null || step.newDlc.isBlank() ? oldDlc : step.newDlc;
+        return normalizeVersion(step.oldBase) + "+" + normalizeVersion(oldDlc)
+            + " -> " + normalizeVersion(step.newBase) + "+" + normalizeVersion(newDlc);
     }
 
     private static TargetVersion resolveTargetVersion(List<DlcUpdatePackage> packages) {
@@ -1062,6 +1080,13 @@ public final class DlcFxLocalUpdateTab {
 
     private static String normalizeVersion(String value) {
         return value == null || value.isBlank() ? DEFAULT_VERSION : value.trim();
+    }
+
+    private static String nullableVersion(String value) {
+        if (value == null || value.isBlank() || "-".equals(value.trim())) {
+            return null;
+        }
+        return value.trim();
     }
 
     private static String normalizeNullable(String value) {

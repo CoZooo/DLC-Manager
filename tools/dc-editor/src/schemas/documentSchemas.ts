@@ -706,15 +706,29 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
             help: "static.help.updatePlatform"
           },
           {
+            key: "version",
+            label: "version",
+            kind: "text",
+            help: "static.help.updateVersion"
+          },
+          {
+            key: "version_new",
+            label: "version_new",
+            kind: "text",
+            help: "static.help.updateVersionNew"
+          },
+          {
             key: "base",
             label: "base",
             kind: "text",
+            hiddenInForm: true,
             help: "static.help.updateBase"
           },
           {
             key: "base_new",
             label: "base_new",
             kind: "text",
+            hiddenInForm: true,
             help: "static.help.updateBaseNew"
           },
           {
@@ -795,9 +809,16 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
         label: "static.label.rootFields",
         fields: [
           {
+            key: "version",
+            label: "version",
+            kind: "text",
+            help: "static.help.version"
+          },
+          {
             key: "base",
             label: "base",
             kind: "text",
+            hiddenInForm: true,
             help: "static.help.versionBase"
           },
           {

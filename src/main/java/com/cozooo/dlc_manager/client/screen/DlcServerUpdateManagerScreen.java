@@ -238,7 +238,11 @@ public class DlcServerUpdateManagerScreen extends DlcUpdatePageScreen {
         boolean baseChanged = !normalizeVersion(sourceBase).equals(normalizeVersion(targetBase));
         boolean dlcChanged = !normalizeVersion(sourceDlc).equals(normalizeVersion(targetDlc));
         if (baseChanged && !dlcChanged) {
-            return DlcTextCompat.translatable("dlc_manager.update.base_prefix").getString()
+            String prefixKey = (sourceDlc == null || sourceDlc.isBlank())
+                && (targetDlc == null || targetDlc.isBlank())
+                ? "dlc_manager.pack_update.version"
+                : "dlc_manager.update.base_prefix";
+            return DlcTextCompat.translatable(prefixKey).getString()
                 + normalizeVersion(sourceBase) + " -> " + normalizeVersion(targetBase);
         }
         if (!baseChanged && dlcChanged) {
@@ -402,7 +406,7 @@ public class DlcServerUpdateManagerScreen extends DlcUpdatePageScreen {
             packUpdateCheckButton.active = false;
         }
         String base = (baseVersion == null || baseVersion.isBlank()) ? "1.0.0" : baseVersion;
-        String dlc = (currentVersion == null || currentVersion.isBlank()) ? "1.0.0" : currentVersion;
+        String dlc = currentVersion == null || currentVersion.isBlank() ? null : currentVersion;
         new Thread(() -> {
             DlcPackReleaseUpdateService.CheckResult result;
             try {

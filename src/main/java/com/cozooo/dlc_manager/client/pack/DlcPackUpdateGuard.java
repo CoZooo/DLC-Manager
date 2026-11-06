@@ -76,7 +76,7 @@ public final class DlcPackUpdateGuard {
     }
 
     private static String safe(String value) {
-        return value == null || value.isBlank() ? "1.0.0" : value.trim();
+        return value == null || value.isBlank() ? "<empty>" : value.trim();
     }
 
     private static String safeText(String value) {

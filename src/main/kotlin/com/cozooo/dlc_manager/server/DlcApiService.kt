@@ -70,6 +70,7 @@ object DlcApiService {
         val version = DlcUpdateVersion.load(dlcRoot)
         val data = JsonObject()
         data.addProperty("base", version.getBase() ?: "")
+        data.addProperty("version", version.getVersion() ?: "")
         data.addProperty("dlc", version.getDlc() ?: "")
         data.addProperty("rollback_from", blank(version.getRollbackFrom()))
         data.addProperty("changelog_shown", blank(version.getChangelogShown()))

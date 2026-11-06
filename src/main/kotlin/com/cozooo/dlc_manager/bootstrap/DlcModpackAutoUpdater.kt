@@ -15,7 +15,7 @@ object DlcModpackAutoUpdater {
         val root = DlcConfig.getDlcRoot()
         val version = DlcUpdateVersion.load(root)
         val currentBase = version.getBase() ?: "1.0.0"
-        val currentDlc = version.getDlc() ?: "1.0.0"
+        val currentDlc = version.getDlc()?.takeIf { it.isNotBlank() }
         val result = try {
             DlcPackReleaseUpdateService.checkForUpdates(
                 DlcConfig.getModpackUrl(),
@@ -37,7 +37,11 @@ object DlcModpackAutoUpdater {
             output.accept("Modpack update skipped because no complete downloadable update chain is available")
             return false
         }
-        output.accept("Modpack update available: ${result.currentBase}+${result.currentDlc} -> ${result.downloadBase}+${result.downloadDlc}")
+        output.accept(if (result.currentDlcPresent) {
+            "Modpack update available: ${result.currentBase}+${result.currentDlc} -> ${result.downloadBase}+${result.downloadDlc}"
+        } else {
+            "Modpack update available: ${result.currentBase} -> ${result.downloadBase}"
+        })
         val downloaded = DlcPackReleaseUpdateService.downloadLocalPackages(result, side, null, null)
         if (!downloaded.success) {
             output.accept("Modpack auto-update download failed: ${downloaded.message ?: "failed"}")

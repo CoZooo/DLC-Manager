@@ -165,8 +165,13 @@ public class DlcUpdateMissingScreen extends DlcUpdatePageScreen {
     @Override protected void buildPage() {
         if (applying) {
             var current = updateResult == null ? null : updateResult.getCurrent();
-            renderExecution(() -> updateStatus, current == null ? "1.0.0" : current.getBase(),
-                current == null ? "1.0.0" : current.getDlc());
+            String base = current == null || current.getBase() == null || current.getBase().isBlank()
+                ? "1.0.0" : current.getBase();
+            String dlc = current == null || current.getDlc() == null || current.getDlc().isBlank()
+                ? null : current.getDlc();
+            renderExecution(() -> updateStatus,
+                dlc == null ? "dlc_manager.update.current_version_single" : "dlc_manager.update.base", base,
+                dlc == null ? null : "dlc_manager.update.current", dlc, () -> -1);
             return;
         }
         initControls();

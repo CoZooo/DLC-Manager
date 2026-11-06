@@ -736,7 +736,7 @@ public final class DlcClientRuntime {
             String changelogText = "";
             String changelogVersion = null;
             String currentBaseVersion = "1.0.0";
-            String currentDlcVersion = "1.0.0";
+            String currentDlcVersion = null;
             Path dlcRoot = DlcPaths.dlcRoot();
             if (!DlcStartupRequirements.usesEarlyInstallation()) {
                 DlcModpackAutoUpdater.runIfConfigured(false, message -> LOGGER.info("[dlc-manager] {}", message));

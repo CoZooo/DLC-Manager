@@ -124,8 +124,7 @@ export function createEmptyTemplate(type: DocumentType): string {
         "",
         "[version]",
         'platform = "universal"',
-        'base = ""',
-        'dlc = ""',
+        'version = ""',
         "",
         "[changelog]",
         "",
@@ -134,8 +133,7 @@ export function createEmptyTemplate(type: DocumentType): string {
       ].join("\n");
     case "version":
       return [
-        "base = \"1.0.0\"",
-        "dlc = \"1.0.0\""
+        "version = \"1.0.0\""
       ].join("\n");
     case "config":
       return [

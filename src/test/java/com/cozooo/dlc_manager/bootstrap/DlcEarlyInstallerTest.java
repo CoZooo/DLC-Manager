@@ -76,7 +76,9 @@ class DlcEarlyInstallerTest {
         install(false);
         assertFalse(Files.exists(game.resolve("mods/old.jar")));
         assertFalse(Files.exists(root.resolve("tmp/update/pending_update.dc")));
-        assertTrue(Files.readString(root.resolve("info/version.dc")).contains("2"));
+        Path version = game.resolve("config/dlc_manager/version.dc");
+        assertTrue(Files.readString(version).contains("2"));
+        assertFalse(Files.exists(root.resolve("info/version.dc")));
         assertTrue(Files.exists(game.resolve(".dlc-manager/pending_update_result.dc")));
     }
 

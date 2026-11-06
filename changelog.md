@@ -26,10 +26,13 @@
 
 - Moved DLC Pack metadata reading to the background and added a loading message to reduce stalls when previewing large packs.
 - Fixed configuration paths containing backslashes to recognize them as path separators.
+- Fixed the issue where updating across multiple versions, show only the changelog for the final version.
 
 #### Changed
 
 - Changed `taczRoot` to configure the directory where TACZ mod stores gun packs, relative to the game directory. DLC source packs are identified by `type = "gunpack"`.
+- Moved the default locations of `notice.dc` and `version.dc` to `config/dlc_manager/`.
+- Remove the separate DLC versions and change the original "base" name to "version".
 - ApricityUI is now a required external dependency for in-game interfaces and must be installed separately. MaLiLib/MaFgLib are no longer dependencies.
 - Required resources are installed automatically; the previous required-resource management page has been removed.
 - ZIP required resources now use an explicit `unzip` option, which defaults to `false` and only applies to `.zip` files. `appliedTarget` accepts directories ending in `/` as well as explicit filenames for renaming; the target filename no longer determines whether an archive is extracted. Existing required-resource configurations that rely on implicit ZIP extraction must explicitly set `unzip = true`.
@@ -90,10 +93,13 @@
 
 - 将 DLC Pack 元数据读取移至后台，并显示读取提示，减少预览大型拓展包时的卡顿。
 - 修复配置路径中的反斜杠无法被正确识别为路径分隔符的问题。
+- 修复跨多个版本更新后，仅显示最终版本的更新日志的问题。
 
 ##### 变更
 
 - 修正 `taczRoot` 的含义：它现在指定 TACZ 模组存放枪包的目标目录，相对游戏根目录解析。DLC 内的源枪包通过 `type = "gunpack"` 指定。
+- 将 notice.dc 和 version.dc 的默认位置迁移至 config/dlc_manager/。
+- 取消单独的DLC版本，并将原来的“base”名称改为“version”。
 - ApricityUI 现在是游戏内界面所需的外部前置，需要单独安装。不再依赖 MaLiLib/MaFgLib。
 - 必要资源改为自动安装，移除原先的必要资源管理页面。
 - ZIP 必要资源改用显式的 `unzip` 参数控制解压，默认值为 `false`，且仅对 `.zip` 文件生效。`appliedTarget` 支持以 `/` 结尾的目录，也支持指定文件名以重命名；不再通过目标文件名判断是否解压。依赖原有隐式解压行为的配置需要显式设置 `unzip = true`。

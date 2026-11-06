@@ -195,7 +195,12 @@ class DlcUpdateManagerScreen(
         val baseChanged = normalizeVersion(sourceBase) != normalizeVersion(targetBase)
         val dlcChanged = normalizeVersion(sourceDlc) != normalizeVersion(targetDlc)
         if (baseChanged && !dlcChanged) {
-            return DlcTextCompat.translatable("dlc_manager.update.base_prefix").string +
+            val prefixKey = if (sourceDlc.isNullOrBlank() && targetDlc.isNullOrBlank()) {
+                "dlc_manager.pack_update.version"
+            } else {
+                "dlc_manager.update.base_prefix"
+            }
+            return DlcTextCompat.translatable(prefixKey).string +
                 normalizeVersion(sourceBase) + " -> " + normalizeVersion(targetBase)
         }
         if (!baseChanged && dlcChanged) {
@@ -558,7 +563,7 @@ class DlcUpdateManagerScreen(
         }
         selfUpdateButton?.active = false
         val base = if (baseVersion.isNullOrBlank()) "1.0.0" else baseVersion!!
-        val dlc = if (currentVersion.isNullOrBlank()) "1.0.0" else currentVersion!!
+        val dlc = currentVersion?.takeIf { it.isNotBlank() }
         Thread({
             val result = try {
                 DlcPackReleaseUpdateService.checkForUpdates(

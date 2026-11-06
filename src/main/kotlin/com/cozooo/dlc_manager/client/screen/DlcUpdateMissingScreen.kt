@@ -157,7 +157,16 @@ class DlcUpdateMissingScreen(
     override fun buildPage() {
         if (applying) {
             val current = updateResult.current
-            renderExecution({ updateStatus }, current?.getBase() ?: "1.0.0", current?.getDlc() ?: "1.0.0")
+            val base = current?.getBase()?.takeUnless { it.isBlank() } ?: "1.0.0"
+            val dlc = current?.getDlc()?.takeUnless { it.isBlank() }
+            renderExecution(
+                { updateStatus },
+                if (dlc == null) "dlc_manager.update.current_version_single" else "dlc_manager.update.base",
+                base,
+                if (dlc == null) null else "dlc_manager.update.current",
+                dlc,
+                java.util.function.DoubleSupplier { -1.0 }
+            )
             return
         }
         initControls()

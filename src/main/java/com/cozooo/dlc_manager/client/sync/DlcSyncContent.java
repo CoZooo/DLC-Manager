@@ -13,10 +13,10 @@ import java.util.*;
 
 final class DlcSyncContent {
     private final List<Path> roots;
-    private final Path manager = DlcPlatformServices.configDir().resolve("dlc_manager").toAbsolutePath().normalize();
+    private final Path manager = DlcPaths.managerConfigDir();
     DlcSyncContent(List<Path> roots) { this.roots = List.copyOf(roots); }
     Path managerPath(String key) throws IOException {
-        if (!key.equals("manager:config.dc")) throw new SyncFailure("not_settings");
+        if (!key.equals("manager:config.dc") && !key.equals("manager:version.dc")) throw new SyncFailure("not_settings");
         Path path = manager.resolve(key.substring("manager:".length()));
         for (Path part = path; part != null && part.startsWith(manager); part = part.getParent()) if (Files.isSymbolicLink(part)) throw new SyncFailure("symbolic_settings");
         return path;
@@ -25,20 +25,23 @@ final class DlcSyncContent {
     List<Item> manifest() throws IOException {
         List<Item> result = new ArrayList<>();
         result.add(item("manager:config.dc", managerPath("manager:config.dc")));
+        Path canonicalVersion = DlcPaths.resolveVersionConfigPath(roots.isEmpty() ? null : roots.get(0));
+        if (Files.isRegularFile(canonicalVersion)) {
+            JsonObject value = DlcDcConfigIO.read(canonicalVersion, DlcDcConfigIO.Layout.GENERIC);
+            String base = DlcDcConfigIO.getStringIgnoreCase(value, "version");
+            if (base == null || base.isBlank()) base = DlcDcConfigIO.getStringIgnoreCase(value, "base");
+            String dlc = DlcDcConfigIO.getStringIgnoreCase(value, "dlc");
+            if (base != null && !base.isBlank()) {
+                String key = "manager:version.dc";
+                String normalizedDlc = dlc == null ? "" : dlc;
+                result.add(new Item(key, "version", file(key, canonicalVersion), List.of(), null, Map.of(), Map.of(), new Update(base, normalizedDlc, base, normalizedDlc, DlcPlatformServices.isDedicatedServer() ? "server" : "client")));
+            }
+        }
         for (int index = 0; index < roots.size(); index++) {
             Path root = roots.get(index), presets = root.resolve("preset"), updates = root.resolve("update");
             if (Files.isDirectory(presets)) try (var paths = Files.walk(presets)) {
                 for (Path path : paths.filter(Files::isRegularFile).filter(p -> DlcDcFormatUtil.isDcName(p.getFileName().toString())).sorted().toList()) {
                     result.add(item(index + ":" + root.relativize(path).toString().replace('\\', '/'), path));
-                }
-            }
-            Path version = DlcDcFormatUtil.resolveConfigPath(root.resolve("info"), "version");
-            if (Files.isRegularFile(version)) {
-                JsonObject value = DlcDcConfigIO.read(version, DlcDcConfigIO.Layout.GENERIC);
-                String base = DlcDcConfigIO.getStringIgnoreCase(value, "base"), dlc = DlcDcConfigIO.getStringIgnoreCase(value, "dlc");
-                if (base != null && !base.isBlank() && dlc != null && !dlc.isBlank()) {
-                    String key = index + ":info/version.dc";
-                    result.add(new Item(key, "version", file(key, version), List.of(), null, Map.of(), Map.of(), new Update(base, dlc, base, dlc, DlcPlatformServices.isDedicatedServer() ? "server" : "client")));
                 }
             }
             if (Files.isDirectory(updates)) try (var paths = Files.list(updates)) {
@@ -55,6 +58,15 @@ final class DlcSyncContent {
         return new File(key, Files.size(path), DlcFileMatch.hash(path));
     }
     Item item(String key, Path path) throws IOException {
+        if (key.equals("manager:version.dc")) {
+            JsonObject value = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC);
+            String base = DlcDcConfigIO.getStringIgnoreCase(value, "version");
+            if (base == null || base.isBlank()) base = DlcDcConfigIO.getStringIgnoreCase(value, "base");
+            if (base == null || base.isBlank()) throw new SyncFailure("version_missing", key);
+            String dlc = DlcDcConfigIO.getStringIgnoreCase(value, "dlc");
+            String normalizedDlc = dlc == null ? "" : dlc;
+            return new Item(key, "version", file(key, path), List.of(), null, Map.of(), Map.of(), new Update(base, normalizedDlc, base, normalizedDlc, DlcPlatformServices.isDedicatedServer() ? "server" : "client"));
+        }
         if (key.startsWith("manager:")) return DlcSyncSettings.item(key, path);
         if (!Files.isRegularFile(path)) throw new SyncFailure("file_missing", key);
         if (configKey(key)) {
@@ -72,8 +84,9 @@ final class DlcSyncContent {
         if (pkg == null || pkg.getManifest().getVersion() == null) throw new SyncFailure("invalid_update", key);
         var version = pkg.getManifest().getVersion();
         String base = version.getBase(), next = version.getBaseNew(), old = version.getDlcOld(), updated = version.getDlcNew();
-        if (base == null || base.isBlank() || old == null || old.isBlank()) throw new SyncFailure("update_versions_missing", key);
+        if (base == null || base.isBlank()) throw new SyncFailure("update_versions_missing", key);
         if (next == null || next.isBlank()) next = base;
+        if (old == null || old.isBlank()) old = "";
         if (updated == null || updated.isBlank()) updated = old;
         return new Item(key, pkg.getName(), file(key, path), List.of(), null, Map.of(), pkg.getManifest().getChangelog(), new Update(base, old, next, updated, version.getPlatform()));
     }

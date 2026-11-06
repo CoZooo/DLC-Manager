@@ -146,9 +146,16 @@ class DlcModpackUpdateScreen @JvmOverloads constructor(
     }
 
     private fun formatTransition(step: ReleaseStep): String {
-        return normalizeVersion(step.oldBase) + "+" + normalizeVersion(step.oldDlc) +
+        if (!checkResult.currentDlcPresent) {
+            return normalizeVersion(step.oldBase) +
+                " → " +
+                normalizeVersion(step.newBase)
+        }
+        val oldDlc = step.oldDlc?.takeIf { it.isNotBlank() } ?: checkResult.currentDlc
+        val newDlc = step.newDlc?.takeIf { it.isNotBlank() } ?: oldDlc
+        return normalizeVersion(step.oldBase) + "+" + normalizeVersion(oldDlc) +
             " → " +
-            normalizeVersion(step.newBase) + "+" + normalizeVersion(step.newDlc)
+            normalizeVersion(step.newBase) + "+" + normalizeVersion(newDlc)
     }
 
     private fun onDownloadButton() {
@@ -290,10 +297,15 @@ class DlcModpackUpdateScreen @JvmOverloads constructor(
 
         val steps = checkResult.fullSteps.takeIf { it.isNotEmpty() } ?: checkResult.steps
         val baseChanged = normalizeVersion(checkResult.currentBase) != normalizeVersion(checkResult.targetBase)
-        val dlcChanged = normalizeVersion(checkResult.currentDlc) != normalizeVersion(checkResult.targetDlc)
+        val hasLegacyDlc = checkResult.currentDlcPresent
+        val dlcChanged = hasLegacyDlc && normalizeVersion(checkResult.currentDlc) != normalizeVersion(checkResult.targetDlc)
         if (baseChanged || dlcChanged) {
             val versions = node(content, "div", "update-version-lines")
-            if (baseChanged) {
+            if (!hasLegacyDlc) {
+                val line = node(versions, "div", "update-version-line")
+                text(line, tr("dlc_manager.pack_update.version"), "update-version-label")
+                text(line, formatVersionLineValue(checkResult.currentBase, checkResult.targetBase), "update-version-value")
+            } else if (baseChanged) {
                 val line = node(versions, "div", "update-version-line")
                 text(line, tr("dlc_manager.pack_update.base"), "update-version-label")
                 text(line, formatVersionLineValue(checkResult.currentBase, checkResult.targetBase), "update-version-value")

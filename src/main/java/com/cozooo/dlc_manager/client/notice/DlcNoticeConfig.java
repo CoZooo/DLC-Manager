@@ -2,7 +2,7 @@ package com.cozooo.dlc_manager.client.notice;
 
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
-import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
+import com.cozooo.dlc_manager.core.DlcPaths;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.nio.file.Files;
@@ -94,14 +94,15 @@ public class DlcNoticeConfig {
 
     public static DlcNoticeConfig load(Path path) {
         DlcNoticeConfig config = new DlcNoticeConfig();
-        config.path = path;
-        if (path == null || !Files.exists(path)) {
+        Path resolvedPath = migrateLegacyPath(path);
+        config.path = resolvedPath;
+        if (resolvedPath == null || !Files.exists(resolvedPath)) {
             config.noticeEnabled = false;
             config.exists = false;
             return config;
         }
         config.exists = true;
-        JsonObject obj = DlcDcConfigIO.read(config.path, DlcDcConfigIO.Layout.GENERIC);
+        JsonObject obj = DlcDcConfigIO.read(resolvedPath, DlcDcConfigIO.Layout.GENERIC);
         if (obj == null) {
             config.noticeEnabled = false;
             return config;
@@ -200,8 +201,18 @@ public class DlcNoticeConfig {
         if (root == null) {
             return null;
         }
-        Path infoDir = root.resolve("info");
-        return DlcDcFormatUtil.resolveConfigPath(infoDir, "notice");
+        return DlcPaths.resolveNoticeConfigPath(root);
+    }
+
+    private static Path migrateLegacyPath(Path path) {
+        if (path == null || path.getFileName() == null || !"notice.dc".equalsIgnoreCase(path.getFileName().toString())) {
+            return path;
+        }
+        Path info = path.getParent();
+        if (info != null && info.getFileName() != null && "info".equalsIgnoreCase(info.getFileName().toString())) {
+            return DlcPaths.resolveNoticeConfigPath(info.getParent());
+        }
+        return path;
     }
 
     private static Map<String, String> readLocalized(JsonObject obj) {

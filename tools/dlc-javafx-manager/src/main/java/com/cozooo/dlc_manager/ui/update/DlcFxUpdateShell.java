@@ -322,7 +322,11 @@ public final class DlcFxUpdateShell<T> {
         boolean baseChanged = !normalizeVersion(sourceBase).equals(normalizeVersion(targetBase));
         boolean dlcChanged = !normalizeVersion(sourceDlc).equals(normalizeVersion(targetDlc));
         if (baseChanged && !dlcChanged) {
-            label = DlcFxI18n.tr("dlc_manager.update.base_prefix") + normalizeVersion(sourceBase) + " -> " + normalizeVersion(targetBase);
+            String prefixKey = (sourceDlc == null || sourceDlc.isBlank())
+                && (targetDlc == null || targetDlc.isBlank())
+                ? "dlc_manager.pack_update.version"
+                : "dlc_manager.update.base_prefix";
+            label = DlcFxI18n.tr(prefixKey) + normalizeVersion(sourceBase) + " -> " + normalizeVersion(targetBase);
         } else if (!baseChanged && dlcChanged) {
             label = DlcFxI18n.tr("dlc_manager.update.dlc_prefix") + normalizeVersion(sourceDlc) + " -> " + normalizeVersion(targetDlc);
         }

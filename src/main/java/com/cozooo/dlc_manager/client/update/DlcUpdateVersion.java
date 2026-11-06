@@ -1,8 +1,8 @@
 package com.cozooo.dlc_manager.client.update;
 
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
-import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcConfig;
+import com.cozooo.dlc_manager.core.DlcPaths;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -22,7 +22,7 @@ public class DlcUpdateVersion {
     public static DlcUpdateVersion load(Path dlcRoot) {
         DlcUpdateVersion version = new DlcUpdateVersion();
         version.base = DEFAULT_VERSION;
-        version.dlc = DEFAULT_VERSION;
+        version.dlc = null;
         if (dlcRoot == null) {
             return version;
         }
@@ -36,7 +36,10 @@ public class DlcUpdateVersion {
             if (obj == null) {
                 return version;
             }
-            version.base = DlcDcConfigIO.getStringIgnoreCase(obj, "base");
+            String canonical = DlcDcConfigIO.getStringIgnoreCase(obj, "version");
+            String legacy = DlcDcConfigIO.getStringIgnoreCase(obj, "base");
+            boolean migrateLegacy = canonical == null || canonical.isBlank();
+            version.base = migrateLegacy ? legacy : canonical;
             version.dlc = DlcDcConfigIO.getStringIgnoreCase(obj, "dlc");
             String rollback = DlcDcConfigIO.getStringIgnoreCase(obj, "rollback_from");
             if (rollback == null || rollback.isBlank()) {
@@ -48,13 +51,18 @@ public class DlcUpdateVersion {
                 shown = DlcDcConfigIO.getStringIgnoreCase(obj, "changelogShown");
             }
             version.changelogShown = shown;
+            if (migrateLegacy && version.base != null && !version.base.isBlank()) {
+                DlcDcConfigIO.removeIgnoreCase(obj, "base");
+                obj.addProperty("version", version.base);
+                DlcDcConfigIO.write(path, obj, DlcDcConfigIO.Layout.GENERIC);
+            }
         } catch (Exception ignored) {
         }
         if (version.base == null || version.base.isBlank()) {
             version.base = DEFAULT_VERSION;
         }
-        if (version.dlc == null || version.dlc.isBlank()) {
-            version.dlc = DEFAULT_VERSION;
+        if (version.dlc != null && version.dlc.isBlank()) {
+            version.dlc = null;
         }
         return version;
     }
@@ -67,8 +75,10 @@ public class DlcUpdateVersion {
         try {
             Files.createDirectories(path.getParent());
             JsonObject obj = new JsonObject();
-            obj.addProperty("base", base == null || base.isBlank() ? DEFAULT_VERSION : base);
-            obj.addProperty("dlc", dlc == null || dlc.isBlank() ? DEFAULT_VERSION : dlc);
+            obj.addProperty("version", base == null || base.isBlank() ? DEFAULT_VERSION : base);
+            if (dlc != null && !dlc.isBlank()) {
+                obj.addProperty("dlc", dlc);
+            }
             if (rollbackFrom != null && !rollbackFrom.isBlank()) {
                 obj.addProperty("rollback_from", rollbackFrom);
             }
@@ -81,11 +91,15 @@ public class DlcUpdateVersion {
     }
 
     private static Path resolveVersionPath(Path dlcRoot) {
-        Path infoDir = dlcRoot.resolve("info");
-        return DlcDcFormatUtil.resolveConfigPath(infoDir, "version");
+        return DlcPaths.resolveVersionConfigPath(dlcRoot);
     }
 
     public String getBase() {
+        return base;
+    }
+
+    /** Canonical public name; getBase remains for source compatibility. */
+    public String getVersion() {
         return base;
     }
 
@@ -99,6 +113,11 @@ public class DlcUpdateVersion {
 
     public void setBase(String base) {
         this.base = base;
+    }
+
+    /** Canonical public name; setBase remains for source compatibility. */
+    public void setVersion(String version) {
+        this.base = version;
     }
 
     public String getDlc() {

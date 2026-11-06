@@ -3,6 +3,7 @@ package com.cozooo.dlc_manager.client.update;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -70,5 +71,23 @@ class DlcUpdateMetaTest {
         assertTrue(meta.getChangelog().isEmpty());
         assertFalse(meta.isHidden());
         assertEquals("", meta.resolveChangelog("zh_cn"));
+    }
+
+    @Test
+    void savesCanonicalVersionMetadataAndReadsLegacyBaseMetadata() throws Exception {
+        DlcUpdateMeta meta = new DlcUpdateMeta();
+        meta.setVersionOld("1.0.0");
+        meta.setVersionNew("1.1.0");
+        Path path = tempDir.resolve("canonical-meta.dc");
+        meta.save(path);
+
+        String canonical = Files.readString(path);
+        assertTrue(canonical.contains("version_old = \"1.0.0\""));
+        assertTrue(canonical.contains("version_new = \"1.1.0\""));
+
+        Files.writeString(path, "base_old = \"2.0.0\"\nbase_new = \"2.1.0\"\n");
+        DlcUpdateMeta legacy = DlcUpdateMeta.load(path);
+        assertEquals("2.0.0", legacy.getVersionOld());
+        assertEquals("2.1.0", legacy.getVersionNew());
     }
 }

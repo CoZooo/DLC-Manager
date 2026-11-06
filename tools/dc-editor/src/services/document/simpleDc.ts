@@ -420,7 +420,39 @@ export function parseStructuredDocument(text: string, schema: DocumentSchema): {
     hydrateUpdateFileSections(text, model, issues);
   }
 
+  normalizeVersionAliases(model, schema);
+
   return { model, issues };
+}
+
+function normalizeVersionAliases(model: StructuredModel, schema: DocumentSchema): void {
+  if (schema.type === "version") {
+    const root = model[ROOT_SECTION_KEY] || {};
+    if (readString(root.version)) {
+      delete root.base;
+    } else if (readString(root.base)) {
+      root.version = root.base;
+      delete root.base;
+    }
+    model[ROOT_SECTION_KEY] = root;
+    return;
+  }
+  if (schema.type === "update") {
+    const section = model.version || {};
+    if (readString(section.version)) {
+      delete section.base;
+    } else if (readString(section.base)) {
+      section.version = section.base;
+      delete section.base;
+    }
+    if (readString(section.version_new)) {
+      delete section.base_new;
+    } else if (readString(section.base_new)) {
+      section.version_new = section.base_new;
+      delete section.base_new;
+    }
+    model.version = section;
+  }
 }
 
 interface SerializeOptions {
@@ -1562,8 +1594,7 @@ function addDocumentSpecificIssues(model: StructuredModel, schema: DocumentSchem
 
   if (schema.type === "version") {
     const root = model[ROOT_SECTION_KEY] || {};
-    requireNonEmptyString(issues, root.base, "[根级字段].base 为空。", "error");
-    requireNonEmptyString(issues, root.dlc, "[根级字段].dlc 为空。", "error");
+    requireNonEmptyString(issues, root.version, "[根级字段].version 为空。", "error");
     return;
   }
 
@@ -1601,12 +1632,11 @@ function addDocumentSpecificIssues(model: StructuredModel, schema: DocumentSchem
   if (schema.type === "update") {
     const version = model.version || {};
     requireNonEmptyString(issues, version.platform, "[version].platform 为空。", "warning");
-    requireNonEmptyString(issues, version.base, "[version].base 为空。", "error");
-    requireNonEmptyString(issues, version.dlc, "[version].dlc 为空。", "error");
-    if (!readString(version.base_new) && !readString(version.dlc_new)) {
+    requireNonEmptyString(issues, version.version, "[version].version 为空。", "error");
+    if (!readString(version.version_new) && !readString(version.dlc_new)) {
       issues.push({
         severity: "error",
-        message: "[version].base_new 与 [version].dlc_new 都为空；该热更新不会声明任何新版本。",
+        message: "[version].version_new 与 [version].dlc_new 都为空；该热更新不会声明任何新版本。",
         source: "schema"
       });
     }

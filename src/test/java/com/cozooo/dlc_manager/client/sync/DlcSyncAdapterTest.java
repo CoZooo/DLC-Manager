@@ -49,6 +49,36 @@ class DlcSyncAdapterTest {
             assertEquals("Remote description", SyncModel.tooltip(items.get("0:remote/main.dc"), "en_us"));
         }
     }
+
+    @Test void manifestAcceptsCanonicalBaseOnlyVersionFile() throws Exception {
+        Path version = game.resolve("config/dlc_manager/version.dc");
+        Files.createDirectories(version.getParent());
+        Files.writeString(version, "version = \"2.0.0\"\n");
+
+        DlcSyncAdapter adapter = new DlcSyncAdapter();
+        Item item = adapter.manifest().stream()
+            .filter(value -> value.key().equals("manager:version.dc"))
+            .findFirst()
+            .orElseThrow();
+
+        assertEquals("2.0.0", item.update().baseOld());
+        assertEquals("", item.update().dlcOld());
+    }
+
+    @Test void manifestMigratesLegacyVersionFileToManagerConfig() throws Exception {
+        Path legacy = root.resolve("info/version.dc");
+        Files.createDirectories(legacy.getParent());
+        Files.writeString(legacy, "base = \"2.0.0\"\n");
+
+        Item item = new DlcSyncAdapter().manifest().stream()
+            .filter(value -> value.key().equals("manager:version.dc"))
+            .findFirst()
+            .orElseThrow();
+
+        assertEquals("2.0.0", item.update().baseOld());
+        assertTrue(Files.exists(game.resolve("config/dlc_manager/version.dc")));
+        assertFalse(Files.exists(legacy));
+    }
     @Test void usesCurrentResourceDirectoryAndRestoresAppliedFilesAfterCompletedItem() throws Exception {
         DlcSyncAdapter adapter = new DlcSyncAdapter();
         assertEquals("0:downloaded/required/main.txt", adapter.manifest().get(0).resources().get(0).id());
@@ -252,7 +282,9 @@ class DlcSyncAdapterTest {
         return zip;
     }
     private void installedVersion() throws Exception {
-        Files.createDirectories(root.resolve("info")); Files.writeString(root.resolve("info/version.dc"), "base='1.0.0'\ndlc='1.0.0'\n");
+        Path version = game.resolve("config/dlc_manager/version.dc");
+        Files.createDirectories(version.getParent());
+        Files.writeString(version, "base='1.0.0'\ndlc='1.0.0'\n");
     }
     private void beginItem(SyncEndpoint endpoint, String key) throws Exception {
         JsonObject begin = SyncClient.request("begin"); begin.addProperty("operation", UUID.randomUUID().toString()); SyncClient.checked(endpoint, begin);
@@ -284,10 +316,10 @@ class DlcSyncAdapterTest {
         assertEquals("1.0.0", before.get("0:update/base.zip").update().dlcNew());
         assertEquals("2.0.0", before.get("0:update/base.zip").update().baseNew());
         assertEquals(Files.size(zip), before.get("0:update/next.zip").config().size());
-        assertFalse(Files.exists(root.resolve("info/version.dc")));
+        assertFalse(Files.exists(game.resolve("config/dlc_manager/version.dc")));
         assertFalse(Files.exists(root.resolve("tmp/_staging")));
         installedVersion();
-        assertTrue(SyncModel.versionState(SyncModel.index(adapter.manifest()).get("0:info/version.dc")));
+        assertTrue(SyncModel.versionState(SyncModel.index(adapter.manifest()).get("manager:version.dc")));
         assertThrows(java.io.IOException.class, () -> adapter.validateKey("0:info/version.dc"));
         assertThrows(java.io.IOException.class, () -> adapter.resolve("manager:../other.dc"));
         assertThrows(java.io.IOException.class, () -> adapter.resolve("manager:state.dc"));
@@ -295,7 +327,7 @@ class DlcSyncAdapterTest {
     }
     @Test void synchronizingHotUpdateOnlyStoresArchiveAndCanRollBackOverwrite() throws Exception {
         installedVersion();
-        String key = "0:update/next.zip", version = Files.readString(root.resolve("info/version.dc"));
+        String key = "0:update/next.zip", version = Files.readString(game.resolve("config/dlc_manager/version.dc"));
         Path zip = updateZip("next.zip", "universal", "1.0.0", "1.1.0", null);
         byte[] original = Files.readAllBytes(zip);
         DlcSyncAdapter adapter = new DlcSyncAdapter(); Item expected = adapter.item(key);
@@ -305,7 +337,7 @@ class DlcSyncAdapterTest {
             assertFalse(SyncClient.checked(endpoint, SyncClient.request("apply")).get("requiresRestart").getAsBoolean());
             SyncClient.checked(endpoint, SyncClient.request("item_done"));
             assertArrayEquals(replacement, Files.readAllBytes(zip));
-            assertEquals(version, Files.readString(root.resolve("info/version.dc")));
+            assertEquals(version, Files.readString(game.resolve("config/dlc_manager/version.dc")));
             assertFalse(Files.exists(game.resolve("mods/new.jar")));
             assertFalse(Files.exists(root.resolve("tmp/_staging")));
             SyncClient.checked(endpoint, SyncClient.request("rollback"));
@@ -316,7 +348,7 @@ class DlcSyncAdapterTest {
             SyncClient.checked(endpoint, SyncClient.request("apply")); SyncClient.checked(endpoint, SyncClient.request("item_done")); SyncClient.checked(endpoint, SyncClient.request("commit"));
         }
         new DlcSyncAdapter().recover();
-        assertArrayEquals(replacement, Files.readAllBytes(zip)); assertEquals(version, Files.readString(root.resolve("info/version.dc"))); assertFalse(Files.exists(game.resolve("mods/new.jar")));
+        assertArrayEquals(replacement, Files.readAllBytes(zip)); assertEquals(version, Files.readString(game.resolve("config/dlc_manager/version.dc"))); assertFalse(Files.exists(game.resolve("mods/new.jar")));
     }
     @Test void rejectsUpdateWithoutItsPrerequisiteAndAcceptsExistingTargetPrerequisite() throws Exception {
         installedVersion();

@@ -170,9 +170,16 @@ public class DlcModpackUpdateScreen extends DlcPageScreen {
     }
 
     private String formatTransition(ReleaseStep step) {
-        return normalizeVersion(step.oldBase) + "+" + normalizeVersion(step.oldDlc)
+        if (!checkResult.currentDlcPresent) {
+            return normalizeVersion(step.oldBase)
+                + " → "
+                + normalizeVersion(step.newBase);
+        }
+        String oldDlc = step.oldDlc == null || step.oldDlc.isBlank() ? checkResult.currentDlc : step.oldDlc;
+        String newDlc = step.newDlc == null || step.newDlc.isBlank() ? oldDlc : step.newDlc;
+        return normalizeVersion(step.oldBase) + "+" + normalizeVersion(oldDlc)
             + " → "
-            + normalizeVersion(step.newBase) + "+" + normalizeVersion(step.newDlc);
+            + normalizeVersion(step.newBase) + "+" + normalizeVersion(newDlc);
     }
 
     private void onDownloadButton() {
@@ -316,10 +323,16 @@ public class DlcModpackUpdateScreen extends DlcPageScreen {
 
         var steps = checkResult.fullSteps.isEmpty() ? checkResult.steps : checkResult.fullSteps;
         boolean baseChanged = !normalizeVersion(checkResult.currentBase).equals(normalizeVersion(checkResult.targetBase));
-        boolean dlcChanged = !normalizeVersion(checkResult.currentDlc).equals(normalizeVersion(checkResult.targetDlc));
+        boolean hasLegacyDlc = checkResult.currentDlcPresent;
+        boolean dlcChanged = hasLegacyDlc
+            && !normalizeVersion(checkResult.currentDlc).equals(normalizeVersion(checkResult.targetDlc));
         if (baseChanged || dlcChanged) {
             var versions = node(content, "div", "update-version-lines");
-            if (baseChanged) {
+            if (!hasLegacyDlc) {
+                var line = node(versions, "div", "update-version-line");
+                text(line, tr("dlc_manager.pack_update.version"), "update-version-label");
+                text(line, formatVersionLineValue(checkResult.currentBase, checkResult.targetBase), "update-version-value");
+            } else if (baseChanged) {
                 var line = node(versions, "div", "update-version-line");
                 text(line, tr("dlc_manager.pack_update.base"), "update-version-label");
                 text(line, formatVersionLineValue(checkResult.currentBase, checkResult.targetBase), "update-version-value");

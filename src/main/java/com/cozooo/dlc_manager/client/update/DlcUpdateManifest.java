@@ -136,8 +136,8 @@ public class DlcUpdateManifest {
             return info;
         }
         info.platform = normalizePlatform(getString(obj, "platform"));
-        info.base = getString(obj, "base");
-        info.baseNew = getString(obj, "base_new");
+        info.base = firstNonBlank(getString(obj, "version"), getString(obj, "base"));
+        info.baseNew = firstNonBlank(getString(obj, "version_new"), getString(obj, "base_new"));
         String dlc = getString(obj, "dlc");
         if (dlc == null || dlc.isBlank()) {
             dlc = getString(obj, "dlc_old");
@@ -145,6 +145,10 @@ public class DlcUpdateManifest {
         info.dlcOld = dlc;
         info.dlcNew = getString(obj, "dlc_new");
         return info;
+    }
+
+    private static String firstNonBlank(String primary, String fallback) {
+        return primary == null || primary.isBlank() ? fallback : primary;
     }
 
     private static Map<String, String> parseChangelog(JsonElement element) {
@@ -638,7 +642,17 @@ public class DlcUpdateManifest {
             return base;
         }
 
+        /** Canonical public name; getBase remains for source compatibility. */
+        public String getVersion() {
+            return base;
+        }
+
         public String getBaseNew() {
+            return baseNew;
+        }
+
+        /** Canonical public name; getBaseNew remains for source compatibility. */
+        public String getVersionNew() {
             return baseNew;
         }
 

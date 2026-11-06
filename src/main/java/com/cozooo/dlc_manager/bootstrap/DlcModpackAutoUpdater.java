@@ -20,7 +20,7 @@ public final class DlcModpackAutoUpdater {
             : DlcPackReleaseUpdateService.Side.CLIENT;
         DlcUpdateVersion version = DlcUpdateVersion.load(DlcConfig.getDlcRoot());
         String currentBase = version.getBase() == null ? "1.0.0" : version.getBase();
-        String currentDlc = version.getDlc() == null ? "1.0.0" : version.getDlc();
+        String currentDlc = version.getDlc() == null || version.getDlc().isBlank() ? null : version.getDlc();
         DlcPackReleaseUpdateService.CheckResult result;
         try {
             result = DlcPackReleaseUpdateService.checkForUpdates(
@@ -40,8 +40,10 @@ public final class DlcModpackAutoUpdater {
             output.accept("Modpack update skipped because no complete downloadable update chain is available");
             return false;
         }
-        output.accept("Modpack update available: " + result.currentBase + "+" + result.currentDlc
-            + " -> " + result.downloadBase + "+" + result.downloadDlc);
+        output.accept(result.currentDlcPresent
+            ? "Modpack update available: " + result.currentBase + "+" + result.currentDlc
+                + " -> " + result.downloadBase + "+" + result.downloadDlc
+            : "Modpack update available: " + result.currentBase + " -> " + result.downloadBase);
         DlcPackReleaseUpdateService.DownloadResult downloaded =
             DlcPackReleaseUpdateService.downloadLocalPackages(result, side, null, null);
         if (!downloaded.success) {

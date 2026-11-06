@@ -67,6 +67,7 @@ public final class DlcApiService {
         DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
         JsonObject data = new JsonObject();
         data.addProperty("base", version == null ? "" : version.getBase());
+        data.addProperty("version", version == null ? "" : version.getVersion());
         data.addProperty("dlc", version == null ? "" : version.getDlc());
         data.addProperty("rollback_from", version == null ? "" : blank(version.getRollbackFrom()));
         data.addProperty("changelog_shown", version == null ? "" : blank(version.getChangelogShown()));

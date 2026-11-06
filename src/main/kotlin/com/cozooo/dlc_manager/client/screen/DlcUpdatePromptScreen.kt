@@ -12,6 +12,7 @@ import com.cozooo.dlc_manager.client.required.DlcRequiredEntry
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager
 import com.cozooo.dlc_manager.client.core.DlcMessageAdapter
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage
+import com.cozooo.dlc_manager.client.update.DlcUpdateManifest
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult
@@ -112,9 +113,16 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
         }
         val version = pkg.getManifest().getVersion() ?: return ""
         val oldBase = normalizeVersion(version.getBase())
-        val oldDlc = normalizeVersion(version.getDlcOld())
+        val oldDlcValue = version.getDlcOld()
+        val newDlcValue = version.getDlcNew()
+        val hasDlc = !oldDlcValue.isNullOrBlank() || !newDlcValue.isNullOrBlank()
+        if (!hasDlc) {
+            val newBase = newBaseVersion(version, oldBase)
+            return if (oldBase == newBase) oldBase else "$oldBase -> $newBase"
+        }
+        val oldDlc = normalizeVersion(oldDlcValue)
         val newBase = version.getBaseNew()?.takeIf { it.isNotBlank() }?.let(::normalizeVersion) ?: oldBase
-        val newDlc = version.getDlcNew()?.takeIf { it.isNotBlank() }?.let(::normalizeVersion) ?: oldDlc
+        val newDlc = newDlcValue?.takeIf { it.isNotBlank() }?.let(::normalizeVersion) ?: oldDlc
         val compact = compactTransition(oldBase, oldDlc, newBase, newDlc)
         val from = compact[0]
         val to = compact[1]
@@ -122,6 +130,10 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
             return from
         }
         return "$from -> $to"
+    }
+
+    private fun newBaseVersion(version: DlcUpdateManifest.VersionInfo, oldBase: String): String {
+        return version.getBaseNew()?.takeIf { it.isNotBlank() }?.let(::normalizeVersion) ?: oldBase
     }
 
     private fun formatVersionPair(base: String?, dlc: String?): String {
@@ -289,10 +301,18 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
         pageRevision = applying.hashCode()
         val current = result?.current
         val baseVersion = normalizeVersion(current?.getBase())
-        val dlcVersion = normalizeVersion(current?.getDlc())
+        val currentDlc = current?.getDlc()
+        val hasDlc = !currentDlc.isNullOrBlank()
+        val dlcVersion = if (hasDlc) normalizeVersion(currentDlc) else ""
 
         if (applying) {
-            renderExecution({ statusText }, baseVersion, dlcVersion) { progress.toDouble() }
+            renderExecution(
+                { statusText },
+                if (hasDlc) "dlc_manager.update.base" else "dlc_manager.update.version",
+                baseVersion,
+                if (hasDlc) "dlc_manager.update.current" else null,
+                if (hasDlc) dlcVersion else null,
+            ) { progress.toDouble() }
             return
         }
 
@@ -303,7 +323,14 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
             version.getBaseNew()?.takeIf { it.isNotBlank() }?.let { targetBase = normalizeVersion(it) }
             version.getDlcNew()?.takeIf { it.isNotBlank() }?.let { targetDlc = normalizeVersion(it) }
         }
-        val panel = updateSection("$baseVersion -> $targetBase", "$dlcVersion -> $targetDlc")
+        val panel = if (hasDlc) {
+            updateSection(
+                "dlc_manager.update.base", "$baseVersion -> $targetBase",
+                "dlc_manager.update.current", "$dlcVersion -> $targetDlc",
+            )
+        } else {
+            updateSection("dlc_manager.update.version", "$baseVersion -> $targetBase", null, null)
+        }
         content.parentElement.setAttribute("class", "page-shell update-page update-prompt-page")
         text(panel, tr("dlc_manager.update.desc"), "page-description")
         val list = node(panel, "div", "update-history update-prompt-history")

@@ -31,7 +31,6 @@ import com.cozooo.dlc_manager.core.DlcFileMatch;
 import com.cozooo.dlc_manager.core.DlcResourceHistory;
 import com.cozooo.dlc_manager.client.required.DlcRequiredService;
 import com.cozooo.dlc_manager.core.DlcConfig;
-import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcTmpPaths;
@@ -444,8 +443,14 @@ public final class DlcUpdateService {
         }
 
         DlcUpdateMeta meta = new DlcUpdateMeta();
-        meta.setDlcOld(sourceDlcVersion(info));
-        meta.setDlcNew(targetDlcVersion(info));
+        boolean manifestHasDlc = hasExplicitDlc(info);
+        boolean persistDlc = hasPersistedDlc(current) || manifestHasDlc;
+        String sourceDlc = manifestHasDlc ? sourceDlcVersion(info) : safeVersion(current.getDlc());
+        String targetDlc = manifestHasDlc ? targetDlcVersion(info) : sourceDlc;
+        if (persistDlc) {
+            meta.setDlcOld(sourceDlc);
+            meta.setDlcNew(targetDlc);
+        }
         meta.setBaseOld(safeVersion(current.getBase()));
         String baseNew = optionalVersion(info.getBaseNew());
         if (baseNew != null) {
@@ -455,7 +460,7 @@ public final class DlcUpdateService {
         meta.setHidden(manifest.isHidden());
         meta.setChangelog(manifest.getChangelog());
         String nextBase = baseNew != null ? safeVersion(baseNew) : safeVersion(current.getBase());
-        String nextDlc = targetDlcVersion(info);
+        String nextDlc = targetDlc;
         Path backupRoot = resolveMetaRootByPair(dlcRoot, nextBase, nextDlc);
         Path metaPath = resolveMetaPath(backupRoot);
 
@@ -500,11 +505,13 @@ public final class DlcUpdateService {
 
             DlcUpdateVersion updated = new DlcUpdateVersion();
             updated.setBase(nextBase);
-            updated.setDlc(nextDlc);
+            if (persistDlc) {
+                updated.setDlc(nextDlc);
+            }
             updated.setRollbackFrom(null);
             String previousChangelogShown = current.getChangelogShown();
             updated.setChangelogShown(previousChangelogShown == null || previousChangelogShown.isBlank()
-                ? sourceBaseVersion(info) + "+" + sourceDlcVersion(info)
+                ? composeVersionMarker(sourceBaseVersion(info), sourceDlc, persistDlc)
                 : previousChangelogShown);
             updated.save(dlcRoot);
 
@@ -569,7 +576,8 @@ public final class DlcUpdateService {
         if (!targetFound) {
             return UpdateRollbackResult.failed("Target version not found");
         }
-        String beforeRollback = currentBase + "+" + currentDlc;
+        boolean persistDlc = hasPersistedDlc(current) || chain.stream().anyMatch(DlcUpdateService::hasExplicitDlc);
+        String beforeRollback = composeVersionMarker(currentBase, currentDlc, persistDlc);
         String working = currentDlc;
         String workingBase = currentBase;
         for (DlcUpdateMeta meta : chain) {
@@ -594,7 +602,9 @@ public final class DlcUpdateService {
         }
         DlcUpdateVersion updated = new DlcUpdateVersion();
         updated.setBase(workingBase);
-        updated.setDlc(working);
+        if (persistDlc) {
+            updated.setDlc(working);
+        }
         updated.setRollbackFrom(beforeRollback);
         updated.save(dlcRoot);
         if (!stateMatchesTarget(workingBase, working, targetState)) {
@@ -948,7 +958,8 @@ public final class DlcUpdateService {
                 if (!hasVersionTransition(info)) {
                     continue;
                 }
-                if (currentBase.equals(sourceBaseVersion(info)) && currentDlc.equals(sourceDlcVersion(info))) {
+                if (currentBase.equals(sourceBaseVersion(info))
+                    && (!hasExplicitDlc(info) || currentDlc.equals(sourceDlcVersion(info)))) {
                     candidates.add(pkg);
                 }
             }
@@ -963,7 +974,9 @@ public final class DlcUpdateService {
             remaining.remove(chosen);
             DlcUpdateManifest.VersionInfo info = chosen.getManifest().getVersion();
             currentBase = targetBaseVersion(info);
-            currentDlc = targetDlcVersion(info);
+            if (hasExplicitDlc(info)) {
+                currentDlc = targetDlcVersion(info);
+            }
         }
         return chain;
     }
@@ -1130,7 +1143,7 @@ public final class DlcUpdateService {
         String base = safeVersion(current.getBase());
         String dlc = safeVersion(current.getDlc());
         return base.equals(sourceBaseVersion(info))
-            && dlc.equals(sourceDlcVersion(info));
+            && (!hasExplicitDlc(info) || dlc.equals(sourceDlcVersion(info)));
     }
 
     private static List<String> findMissingUpdateTargets(DlcUpdateManifest manifest, Path gameDir, DlcUpdateHashIndex hashIndex) {
@@ -2492,13 +2505,13 @@ public final class DlcUpdateService {
         }
         Path normalized = target.normalize();
         Path dlcRoot = context.dlcRoot.normalize();
-        if (!normalized.startsWith(dlcRoot)) {
-            return;
-        }
         if (isNoticePath(normalized, dlcRoot)) {
             return;
         }
         if (isVersionPath(normalized, dlcRoot)) {
+            return;
+        }
+        if (!normalized.startsWith(dlcRoot)) {
             return;
         }
         if (isUnderDir(normalized, dlcRoot.resolve("required"))) {
@@ -2791,7 +2804,15 @@ public final class DlcUpdateService {
         if (!path.isAbsolute()) {
             path = gameDir.resolve(path);
         }
-        return path.normalize();
+        path = path.normalize();
+        for (Path root : DlcConfig.getDlcRoots()) {
+            Path normalizedRoot = root.toAbsolutePath().normalize();
+            Path legacyVersion = normalizedRoot.resolve("info/version.dc").normalize();
+            Path legacyNotice = normalizedRoot.resolve("info/notice.dc").normalize();
+            if (path.equals(legacyVersion)) return DlcPaths.resolveVersionConfigPath(root);
+            if (path.equals(legacyNotice)) return DlcPaths.resolveNoticeConfigPath(root);
+        }
+        return path;
     }
 
     private static Path resolveStagingPath(Path stagingRoot, String rawPath) {
@@ -2816,22 +2837,20 @@ public final class DlcUpdateService {
         if (path == null || dlcRoot == null) {
             return false;
         }
-        Path infoDir = dlcRoot.resolve("info");
-        Path notice = DlcDcFormatUtil.resolveConfigPath(infoDir, "notice");
-        if (notice == null) {
-            return false;
-        }
-        return path.normalize().equals(notice.normalize());
+        Path normalized = path.normalize();
+        Path legacy = DlcDcFormatUtil.resolveConfigPath(dlcRoot.resolve("info"), "notice");
+        Path canonical = DlcPaths.noticeConfigPath().normalize();
+        return normalized.equals(legacy == null ? null : legacy.normalize()) || normalized.equals(canonical);
     }
 
     private static boolean isVersionPath(Path path, Path dlcRoot) {
         if (path == null || dlcRoot == null) {
             return false;
         }
-        Path infoDir = dlcRoot.resolve("info");
-        Path dc = infoDir.resolve("version" + DlcDcFormatUtil.DC_EXTENSION).normalize();
         Path normalized = path.normalize();
-        return normalized.equals(dc);
+        Path legacy = dlcRoot.resolve("info/version.dc").normalize();
+        Path canonical = DlcPaths.versionConfigPath().normalize();
+        return normalized.equals(legacy) || normalized.equals(canonical);
     }
 
     private static boolean isNoticeConfig(String fileName) {
@@ -3566,6 +3585,25 @@ public final class DlcUpdateService {
         }
         String target = optionalVersion(info.getDlcNew());
         return target == null ? sourceDlcVersion(info) : target;
+    }
+
+    private static boolean hasPersistedDlc(DlcUpdateVersion version) {
+        return version != null && version.getDlc() != null && !version.getDlc().isBlank();
+    }
+
+    private static boolean hasExplicitDlc(DlcUpdateManifest.VersionInfo info) {
+        return info != null && ((info.getDlcOld() != null && !info.getDlcOld().isBlank())
+            || (info.getDlcNew() != null && !info.getDlcNew().isBlank()));
+    }
+
+    private static boolean hasExplicitDlc(DlcUpdateMeta meta) {
+        return meta != null && ((meta.getDlcOld() != null && !meta.getDlcOld().isBlank())
+            || (meta.getDlcNew() != null && !meta.getDlcNew().isBlank()));
+    }
+
+    private static String composeVersionMarker(String base, String dlc, boolean includeDlc) {
+        String baseMarker = safeVersion(base);
+        return includeDlc ? baseMarker + "+" + safeVersion(dlc) : baseMarker;
     }
 
     private static boolean hasVersionTransition(DlcUpdateManifest.VersionInfo info) {

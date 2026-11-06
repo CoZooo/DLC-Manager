@@ -405,6 +405,7 @@ public class DlcServerService {
         JsonObject response = new JsonObject();
         response.addProperty("type", "list");
         response.addProperty("base", version.getBase());
+        response.addProperty("version", version.getVersion());
         response.addProperty("dlc", version.getDlc());
         response.addProperty("mcVersion", DlcPlatformServices.mcVersion());
         response.addProperty("loaderName", DlcPlatformServices.loaderName());

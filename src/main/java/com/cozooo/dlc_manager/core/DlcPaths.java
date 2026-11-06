@@ -7,6 +7,8 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
 public class DlcPaths {
+    private static final String MANAGER_CONFIG_DIR = "dlc_manager";
+
     public static Path gameDir() {
         return DlcPlatformServices.gameDir();
     }
@@ -17,6 +19,55 @@ public class DlcPaths {
 
     public static Path tmpRoot() {
         return dlcRoot().resolve("tmp");
+    }
+
+    /** Canonical manager-owned configuration directory under the instance config directory. */
+    public static Path managerConfigDir() {
+        return DlcPlatformServices.configDir().resolve(MANAGER_CONFIG_DIR).toAbsolutePath().normalize();
+    }
+
+    public static Path versionConfigPath() {
+        return managerConfigDir().resolve("version.dc");
+    }
+
+    public static Path noticeConfigPath() {
+        return managerConfigDir().resolve("notice.dc");
+    }
+
+    /** Resolve the canonical version path and migrate the old DLC/info/version.dc file when present. */
+    public static Path resolveVersionConfigPath(Path dlcRoot) {
+        Path canonical = versionConfigPath();
+        if (Files.exists(canonical)) return canonical;
+        Path legacy = legacyDlcConfigPath(dlcRoot, "version");
+        return migrateLegacyDlcConfigFile(legacy, canonical);
+    }
+
+    /** Resolve the canonical notice path and migrate the old DLC/info/notice.dc file when present. */
+    public static Path resolveNoticeConfigPath(Path dlcRoot) {
+        Path canonical = noticeConfigPath();
+        if (Files.exists(canonical)) return canonical;
+        Path legacy = legacyDlcConfigPath(dlcRoot, "notice");
+        return migrateLegacyDlcConfigFile(legacy, canonical);
+    }
+
+    public static Path legacyDlcConfigPath(Path dlcRoot, String fileName) {
+        if (dlcRoot == null || fileName == null || fileName.isBlank()) return null;
+        return DlcDcFormatUtil.resolveConfigPath(dlcRoot.resolve("info"), fileName);
+    }
+
+    private static Path migrateLegacyDlcConfigFile(Path legacy, Path canonical) {
+        if (legacy == null || !Files.exists(legacy)) return canonical;
+        try {
+            Files.createDirectories(canonical.getParent());
+            try {
+                Files.move(legacy, canonical, StandardCopyOption.ATOMIC_MOVE);
+            } catch (IOException ignored) {
+                Files.move(legacy, canonical);
+            }
+            return canonical;
+        } catch (IOException ignored) {
+            return legacy;
+        }
     }
 
     public static Path migrateLegacyConfigFile(String fileName) {

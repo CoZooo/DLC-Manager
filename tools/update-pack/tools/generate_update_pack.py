@@ -769,10 +769,8 @@ def build_delete_hashes(from_ref: str, paths: list[str]) -> dict[str, str]:
 def render_update_dc(
     *,
     platform: str,
-    base: str,
-    base_new: str,
-    dlc: str,
-    dlc_new: str,
+    version: str,
+    version_new: str,
     update_dlcm: str,
     changelog: str,
     add_paths: list[str],
@@ -784,20 +782,16 @@ def render_update_dc(
     delete_hashes: dict[str, str] | None = None,
 ) -> str:
     lines: list[str] = []
-    same_base = base.strip() == base_new.strip()
-    same_dlc = dlc.strip() == dlc_new.strip()
+    same_version = version.strip() == version_new.strip()
     lines.append("isHidden = false")
     if update_dlcm.strip():
         lines.append(f"UpdateDLCM = {dc_value(parse_scalar(update_dlcm))}")
     lines.append("")
     lines.append("[version]")
     lines.append(f"platform = {dc_quote(platform)}")
-    lines.append(f"base = {dc_quote(base)}")
-    if not same_base:
-        lines.append(f"base_new = {dc_quote(base_new)}")
-    lines.append(f"dlc = {dc_quote(dlc)}")
-    if not same_dlc:
-        lines.append(f"dlc_new = {dc_quote(dlc_new)}")
+    lines.append(f"version = {dc_quote(version)}")
+    if not same_version:
+        lines.append(f"version_new = {dc_quote(version_new)}")
     lines.append("")
     lines.append("[changelog]")
     lines.append(f"en_us = {dc_string(changelog)}")
@@ -902,17 +896,15 @@ def main() -> int:
     parser.add_argument("--from-ref", required=True, help="Base git ref of previous update")
     parser.add_argument("--to-ref", default="HEAD", help="Target git ref (default: HEAD)")
     parser.add_argument("--platform", required=True, choices=["client", "server", "universal"])
-    parser.add_argument("--base", required=True)
-    parser.add_argument("--base-new", required=True)
-    parser.add_argument("--dlc", required=True)
-    parser.add_argument("--dlc-new", required=True)
+    parser.add_argument("--version", required=True, help="Current modpack version")
+    parser.add_argument("--version-new", required=True, help="Target modpack version")
     parser.add_argument("--update-dlcm", default="")
     parser.add_argument("--out-dir", default="out")
     parser.add_argument("--work-dir", default="work")
     args = parser.parse_args()
 
-    if args.base.strip() == args.base_new.strip() and args.dlc.strip() == args.dlc_new.strip():
-        print("Invalid version input: base/base_new and dlc/dlc_new are both unchanged.", file=sys.stderr)
+    if args.version.strip() == args.version_new.strip():
+        print("Invalid version input: version/version-new are unchanged.", file=sys.stderr)
         return 2
 
     platform_label = {
@@ -920,8 +912,8 @@ def main() -> int:
         "server": "Server",
         "universal": "Universal",
     }[args.platform]
-    version_pair = f"{args.base_new}_{args.dlc_new}"
-    release_tag = f"{args.base}_{args.dlc}-{args.base_new}_{args.dlc_new}"
+    version_label = args.version_new
+    release_tag = f"{args.version}-{args.version_new}"
 
     add_or_modify, deleted = parse_diff(args.from_ref, args.to_ref)
     add_paths, del_paths = filter_paths(add_or_modify, deleted)
@@ -942,7 +934,7 @@ def main() -> int:
     if not changelog:
         changelog = f"Auto-generated update package for {release_tag}"
 
-    stage_dir = Path(args.work_dir) / f"{platform_label}_{version_pair}"
+    stage_dir = Path(args.work_dir) / f"{platform_label}_{version_label}"
     if stage_dir.exists():
         for p in sorted(stage_dir.rglob("*"), reverse=True):
             if p.is_file():
@@ -953,10 +945,8 @@ def main() -> int:
 
     update_dc = render_update_dc(
         platform=args.platform,
-        base=args.base,
-        base_new=args.base_new,
-        dlc=args.dlc,
-        dlc_new=args.dlc_new,
+        version=args.version,
+        version_new=args.version_new,
         update_dlcm=args.update_dlcm,
         changelog=changelog,
         add_paths=add_paths,
@@ -971,11 +961,11 @@ def main() -> int:
     copy_added_files(args.to_ref, add_paths, stage_dir)
 
     out_dir = Path(args.out_dir)
-    zip_name = f"{platform_label}_{version_pair}.zip"
+    zip_name = f"{platform_label}_{version_label}.zip"
     zip_path = out_dir / zip_name
     zip_stage(stage_dir, zip_path)
 
-    summary_path = out_dir / f"{platform_label}_{version_pair}.summary.txt"
+    summary_path = out_dir / f"{platform_label}_{version_label}.summary.txt"
     summary_path.parent.mkdir(parents=True, exist_ok=True)
     summary_path.write_text(
         "\n".join(
@@ -995,10 +985,10 @@ def main() -> int:
         encoding="utf-8",
     )
 
-    changelog_path = out_dir / f"{platform_label}_{version_pair}.changelog.txt"
+    changelog_path = out_dir / f"{platform_label}_{version_label}.changelog.txt"
     changelog_path.write_text(changelog + "\n", encoding="utf-8")
 
-    notes_path = out_dir / f"{platform_label}_{version_pair}.release-notes.md"
+    notes_path = out_dir / f"{platform_label}_{version_label}.release-notes.md"
     notes_path.write_text(changelog + "\n", encoding="utf-8")
 
     print(f"zip_path={zip_path.as_posix()}")

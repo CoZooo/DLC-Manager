@@ -138,6 +138,21 @@ test("all existing document templates still parse and serialize", () => {
   }
 });
 
+test("legacy base fields migrate to canonical version fields", () => {
+  const legacyVersion = 'base = "1.0.0"\ndlc = "1.0.0"\n';
+  const versionModel = parseStructuredDocument(legacyVersion, documentSchemas.version).model;
+  assert.equal(versionModel.__root__.version, "1.0.0");
+  assert.equal(versionModel.__root__.base, undefined);
+  assert.match(serializeStructuredDocumentWithPreservedRaw(legacyVersion, versionModel, documentSchemas.version), /version = "1.0.0"/);
+
+  const legacyUpdate = '[version]\nplatform = "universal"\nbase = "1.0.0"\nbase_new = "1.1.0"\n';
+  const updateModel = parseStructuredDocument(legacyUpdate, documentSchemas.update).model;
+  assert.equal(updateModel.version.version, "1.0.0");
+  assert.equal(updateModel.version.version_new, "1.1.0");
+  assert.equal(updateModel.version.base, undefined);
+  assert.match(serializeStructuredDocumentWithPreservedRaw(legacyUpdate, updateModel, documentSchemas.update), /version_new = "1.1.0"/);
+});
+
 test("generic registration has no application fields before explicit registration", () => {
   const { DcLanguages, DcField, registerDefinition } = require("../../dclanguage/js/registry.ts");
   const language = DcLanguages.create();

@@ -665,7 +665,7 @@ object DlcClientRuntime {
             var changelogText = ""
             var changelogVersion: String? = null
             var currentBaseVersion = "1.0.0"
-            var currentDlcVersion = "1.0.0"
+            var currentDlcVersion: String? = null
             val dlcRoot = DlcPaths.dlcRoot()
             if (!DlcStartupRequirements.usesEarlyInstallation()) {
                 DlcModpackAutoUpdater.runIfConfigured(false) { LOGGER.info("[dlc-manager] {}", it) }

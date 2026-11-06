@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.client.notice
 
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcDcConfigIO
+import com.cozooo.dlc_manager.core.DlcPaths
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import java.net.HttpURLConnection
@@ -206,14 +207,15 @@ class DlcNoticeConfig {
         @JvmStatic
         fun load(path: Path?): DlcNoticeConfig {
             val config = DlcNoticeConfig()
-            config.path = path
-            if (path == null || !Files.exists(path)) {
+            val resolvedPath = migrateLegacyPath(path)
+            config.path = resolvedPath
+            if (resolvedPath == null || !Files.exists(resolvedPath)) {
                 config.noticeEnabled = false
                 config.exists = false
                 return config
             }
             config.exists = true
-            val obj = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC)
+            val obj = DlcDcConfigIO.read(resolvedPath, DlcDcConfigIO.Layout.GENERIC)
             if (obj == null) {
                 config.noticeEnabled = false
                 return config
@@ -234,7 +236,18 @@ class DlcNoticeConfig {
 
         private fun resolveNoticePath(): Path? {
             val root = firstDlcRoot() ?: return null
-            return root.resolve("info").resolve("notice.dc")
+            return DlcPaths.resolveNoticeConfigPath(root)
+        }
+
+        private fun migrateLegacyPath(path: Path?): Path? {
+            if (path == null || path.fileName == null || !path.fileName.toString().equals("notice.dc", ignoreCase = true)) {
+                return path
+            }
+            val info = path.parent
+            if (info != null && info.fileName != null && info.fileName.toString().equals("info", ignoreCase = true)) {
+                return DlcPaths.resolveNoticeConfigPath(info.parent)
+            }
+            return path
         }
 
         private fun firstDlcRoot(): Path? {

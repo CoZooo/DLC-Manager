@@ -95,6 +95,7 @@ public final class DlcPackReleaseUpdateService {
         public String repoUrl;
         public String currentBase;
         public String currentDlc;
+        public boolean currentDlcPresent;
         public String targetBase;
         public String targetDlc;
         public String downloadBase;
@@ -278,6 +279,7 @@ public final class DlcPackReleaseUpdateService {
         result.modpackUrl = normalizeString(modpackUrl);
         result.repoUrl = normalizeString(githubRepoUrl);
         result.currentBase = safeVersion(currentBase);
+        result.currentDlcPresent = currentDlc != null && !currentDlc.isBlank();
         result.currentDlc = safeVersion(currentDlc);
         result.targetBase = result.currentBase;
         result.targetDlc = result.currentDlc;
@@ -430,7 +432,9 @@ public final class DlcPackReleaseUpdateService {
         if (requireDownloadable && (candidate.assetUrl == null || candidate.assetUrl.isBlank())) {
             return;
         }
-        String key = stateKey(candidate.oldBase, candidate.oldDlc);
+        String key = candidate.oldDlc == null || candidate.oldDlc.isBlank()
+            ? wildcardStateKey(candidate.oldBase)
+            : stateKey(candidate.oldBase, candidate.oldDlc);
         List<ReleaseStep> candidates = transitions.computeIfAbsent(key, ignored -> new ArrayList<>());
         for (ReleaseStep existing : candidates) {
             if (sameTransition(existing, candidate)) {
@@ -455,8 +459,17 @@ public final class DlcPackReleaseUpdateService {
     }
 
     private static List<ReleaseStep> buildBestUpdateChain(String currentKey, Map<String, List<ReleaseStep>> transitions, Set<String> visited) {
-        List<ReleaseStep> candidates = transitions.get(currentKey);
-        if (candidates == null || candidates.isEmpty()) {
+        String base = currentKey == null ? "" : currentKey.split("\\|", 2)[0];
+        List<ReleaseStep> candidates = new ArrayList<>();
+        List<ReleaseStep> exact = transitions.get(currentKey);
+        if (exact != null) {
+            candidates.addAll(exact);
+        }
+        List<ReleaseStep> wildcard = transitions.get(wildcardStateKey(base));
+        if (wildcard != null) {
+            candidates.addAll(wildcard);
+        }
+        if (candidates.isEmpty()) {
             return List.of();
         }
         List<ReleaseStep> best = List.of();
@@ -891,8 +904,12 @@ public final class DlcPackReleaseUpdateService {
     private static List<String> buildAssetNameCandidates(String prefix, String base, String dlc) {
         String namePrefix = prefix == null ? "" : prefix;
         String safeBase = safeVersion(base);
-        String safeDlc = safeVersion(dlc);
         java.util.LinkedHashSet<String> names = new java.util.LinkedHashSet<>();
+        if (dlc == null || dlc.isBlank()) {
+            names.add(namePrefix + safeBase + ".zip");
+            return new ArrayList<>(names);
+        }
+        String safeDlc = safeVersion(dlc);
         for (String delimiter : VERSION_PAIR_DELIMITERS) {
             names.add(namePrefix + safeBase + delimiter + safeDlc + ".zip");
         }
@@ -1038,8 +1055,8 @@ public final class DlcPackReleaseUpdateService {
     }
 
     private static ParsedTagParts parseTagParts(String oldRaw, String newRaw) {
-        VersionPair oldPair = parseVersionPair(oldRaw);
-        VersionPair newPair = parseVersionPair(newRaw);
+        VersionPair oldPair = parseVersionPart(oldRaw);
+        VersionPair newPair = parseVersionPart(newRaw);
         if (oldPair == null || newPair == null) {
             return null;
         }
@@ -1070,6 +1087,20 @@ public final class DlcPackReleaseUpdateService {
         pair.base = base;
         pair.dlc = dlc;
         return pair;
+    }
+
+    private static VersionPair parseVersionPart(String value) {
+        VersionPair pair = parseVersionPair(value);
+        if (pair != null) {
+            return pair;
+        }
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        VersionPair scalar = new VersionPair();
+        scalar.base = value.trim();
+        scalar.dlc = null;
+        return scalar;
     }
 
     private static String[] splitVersionPair(String value) {
@@ -1569,6 +1600,9 @@ public final class DlcPackReleaseUpdateService {
 
     private static String formatCompactTransition(String oldBase, String oldDlc, String newBase, String newDlc) {
         String sourceBase = safeVersion(oldBase);
+        if ((oldDlc == null || oldDlc.isBlank()) && (newDlc == null || newDlc.isBlank())) {
+            return sourceBase + " -> " + safeVersion(newBase);
+        }
         String sourceDlc = safeVersion(oldDlc);
         String targetBase = safeVersion(newBase);
         String targetDlc = safeVersion(newDlc);
@@ -1588,6 +1622,10 @@ public final class DlcPackReleaseUpdateService {
 
     private static String stateKey(String base, String dlc) {
         return safeVersion(base) + "|" + safeVersion(dlc);
+    }
+
+    private static String wildcardStateKey(String base) {
+        return safeVersion(base) + "|*";
     }
 
     private static String normalizeString(String value) {

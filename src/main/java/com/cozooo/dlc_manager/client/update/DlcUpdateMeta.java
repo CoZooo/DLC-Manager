@@ -36,8 +36,8 @@ public class DlcUpdateMeta {
         DlcUpdateMeta meta = new DlcUpdateMeta();
         meta.dlcOld = DlcDcConfigIO.getStringIgnoreCase(obj, "dlc_old");
         meta.dlcNew = DlcDcConfigIO.getStringIgnoreCase(obj, "dlc_new");
-        meta.baseOld = DlcDcConfigIO.getStringIgnoreCase(obj, "base_old");
-        meta.baseNew = DlcDcConfigIO.getStringIgnoreCase(obj, "base_new");
+        meta.baseOld = firstNonBlank(DlcDcConfigIO.getStringIgnoreCase(obj, "version_old"), DlcDcConfigIO.getStringIgnoreCase(obj, "base_old"));
+        meta.baseNew = firstNonBlank(DlcDcConfigIO.getStringIgnoreCase(obj, "version_new"), DlcDcConfigIO.getStringIgnoreCase(obj, "base_new"));
         meta.timestamp = DlcDcConfigIO.getStringIgnoreCase(obj, "timestamp");
         meta.hidden = DlcDcConfigIO.getBooleanIgnoreCase(obj, "hidden", false);
         JsonObject logObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "changelog");
@@ -80,10 +80,10 @@ public class DlcUpdateMeta {
             obj.addProperty("dlc_old", dlcOld == null ? "" : dlcOld);
             obj.addProperty("dlc_new", dlcNew == null ? "" : dlcNew);
             if (baseOld != null && !baseOld.isBlank()) {
-                obj.addProperty("base_old", baseOld);
+                obj.addProperty("version_old", baseOld);
             }
             if (baseNew != null && !baseNew.isBlank()) {
-                obj.addProperty("base_new", baseNew);
+                obj.addProperty("version_new", baseNew);
             }
             obj.addProperty("timestamp", timestamp == null ? "" : timestamp);
             obj.addProperty("hidden", hidden);
@@ -129,16 +129,36 @@ public class DlcUpdateMeta {
         return baseOld;
     }
 
+    public String getVersionOld() {
+        return baseOld;
+    }
+
     public void setBaseOld(String baseOld) {
         this.baseOld = baseOld;
+    }
+
+    public void setVersionOld(String versionOld) {
+        this.baseOld = versionOld;
     }
 
     public String getBaseNew() {
         return baseNew;
     }
 
+    public String getVersionNew() {
+        return baseNew;
+    }
+
     public void setBaseNew(String baseNew) {
         this.baseNew = baseNew;
+    }
+
+    public void setVersionNew(String versionNew) {
+        this.baseNew = versionNew;
+    }
+
+    private static String firstNonBlank(String primary, String fallback) {
+        return primary == null || primary.isBlank() ? fallback : primary;
     }
 
     public String getTimestamp() {

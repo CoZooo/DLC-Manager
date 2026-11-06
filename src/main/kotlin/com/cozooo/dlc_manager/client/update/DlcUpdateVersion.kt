@@ -1,7 +1,8 @@
 package com.cozooo.dlc_manager.client.update
 
-import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.cozooo.dlc_manager.core.DlcConfig
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
+import com.cozooo.dlc_manager.core.DlcPaths
 import com.google.gson.JsonObject
 import java.io.IOException
 import java.nio.file.Files
@@ -21,8 +22,10 @@ class DlcUpdateVersion {
         try {
             Files.createDirectories(path.parent)
             val obj = JsonObject()
-            obj.addProperty("base", if (base.isNullOrBlank()) DEFAULT_VERSION else base)
-            obj.addProperty("dlc", if (dlc.isNullOrBlank()) DEFAULT_VERSION else dlc)
+            obj.addProperty("version", if (base.isNullOrBlank()) DEFAULT_VERSION else base)
+            if (!dlc.isNullOrBlank()) {
+                obj.addProperty("dlc", dlc)
+            }
             if (!rollbackFrom.isNullOrBlank()) {
                 obj.addProperty("rollback_from", rollbackFrom)
             }
@@ -36,6 +39,9 @@ class DlcUpdateVersion {
 
     fun getBase(): String? = base
 
+    /** Canonical public name; getBase remains for source compatibility. */
+    fun getVersion(): String? = base
+
     fun getModpack(): String? = DlcConfig.getModpack()
 
     fun setModpack(modpack: String?) {
@@ -44,6 +50,11 @@ class DlcUpdateVersion {
 
     fun setBase(base: String?) {
         this.base = base
+    }
+
+    /** Canonical public name; setBase remains for source compatibility. */
+    fun setVersion(version: String?) {
+        this.base = version
     }
 
     fun getDlc(): String? = dlc
@@ -71,7 +82,7 @@ class DlcUpdateVersion {
         fun load(dlcRoot: Path?): DlcUpdateVersion {
             val version = DlcUpdateVersion()
             version.base = DEFAULT_VERSION
-            version.dlc = DEFAULT_VERSION
+            version.dlc = null
             if (dlcRoot == null) {
                 return version
             }
@@ -82,7 +93,10 @@ class DlcUpdateVersion {
             }
             try {
                 val obj = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC) ?: return version
-                version.base = DlcDcConfigIO.getStringIgnoreCase(obj, "base")
+                val canonical = DlcDcConfigIO.getStringIgnoreCase(obj, "version")
+                val legacy = DlcDcConfigIO.getStringIgnoreCase(obj, "base")
+                val migrateLegacy = canonical.isNullOrBlank()
+                version.base = if (migrateLegacy) legacy else canonical
                 version.dlc = DlcDcConfigIO.getStringIgnoreCase(obj, "dlc")
                 var rollback = DlcDcConfigIO.getStringIgnoreCase(obj, "rollback_from")
                 if (rollback.isNullOrBlank()) {
@@ -94,20 +108,24 @@ class DlcUpdateVersion {
                     shown = DlcDcConfigIO.getStringIgnoreCase(obj, "changelogShown")
                 }
                 version.changelogShown = shown
+                if (migrateLegacy && !version.base.isNullOrBlank()) {
+                    DlcDcConfigIO.removeIgnoreCase(obj, "base")
+                    obj.addProperty("version", version.base)
+                    DlcDcConfigIO.write(path, obj, DlcDcConfigIO.Layout.GENERIC)
+                }
             } catch (_: Exception) {
             }
             if (version.base.isNullOrBlank()) {
                 version.base = DEFAULT_VERSION
             }
             if (version.dlc.isNullOrBlank()) {
-                version.dlc = DEFAULT_VERSION
+                version.dlc = null
             }
             return version
         }
 
         private fun resolveVersionPath(dlcRoot: Path): Path {
-            val infoDir = dlcRoot.resolve("info")
-            return DlcDcConfigIO.toDcPath(infoDir.resolve("version")) ?: infoDir.resolve("version.dc")
+            return DlcPaths.resolveVersionConfigPath(dlcRoot)
         }
     }
 }

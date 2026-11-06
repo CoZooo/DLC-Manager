@@ -1002,8 +1002,11 @@ public final class DlcFxManagerApp extends Application {
             Path temp = Files.createTempFile("dlc-server-notice-", ".dc");
             temp.toFile().deleteOnExit();
             if (!session.downloadFileTo(remotePath, temp)) {
-                Files.deleteIfExists(temp);
-                throw new IOException(DlcFxI18n.tr("dlc_manager.notice.unavailable"));
+                String legacyPath = joinRemotePath(dlcRootFromConfig(config), "info/notice.dc");
+                if (!session.downloadFileTo(legacyPath, temp)) {
+                    Files.deleteIfExists(temp);
+                    throw new IOException(DlcFxI18n.tr("dlc_manager.notice.unavailable"));
+                }
             }
             return new ServerNoticeFile(remotePath, temp);
         }, file -> {
@@ -1042,6 +1045,10 @@ public final class DlcFxManagerApp extends Application {
     }
 
     private static String serverNoticePath(JsonObject config) {
+        return "config/dlc_manager/notice.dc";
+    }
+
+    private static String dlcRootFromConfig(JsonObject config) {
         String dlcRoot = DlcConfig.DEFAULT_DLC_ROOT;
         JsonObject paths = object(config, "paths");
         if (paths != null && paths.has("dlcRoot") && paths.get("dlcRoot").isJsonPrimitive()) {
@@ -1050,7 +1057,7 @@ public final class DlcFxManagerApp extends Application {
                 dlcRoot = raw.trim();
             }
         }
-        return joinRemotePath(dlcRoot, "info/notice.dc");
+        return dlcRoot;
     }
 
     private static String joinRemotePath(String left, String right) {

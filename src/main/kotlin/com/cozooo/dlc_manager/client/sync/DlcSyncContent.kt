@@ -11,9 +11,9 @@ import java.nio.file.*
 import java.util.Locale
 
 class DlcSyncContent(private val roots: List<Path>) {
-    private val manager = DlcPlatformServices.configDir().resolve("dlc_manager").toAbsolutePath().normalize()
+    private val manager = DlcPaths.managerConfigDir()
     fun managerPath(key: String): Path {
-        if (key != "manager:config.dc") throw SyncFailure("not_settings")
+        if (key != "manager:config.dc" && key != "manager:version.dc") throw SyncFailure("not_settings")
         val path = manager.resolve(key.removePrefix("manager:"))
         var part: Path? = path
         while (part != null && part.startsWith(manager)) {
@@ -26,22 +26,22 @@ class DlcSyncContent(private val roots: List<Path>) {
     fun manifest(): List<Item> {
         val result = mutableListOf<Item>()
         result.add(item("manager:config.dc", managerPath("manager:config.dc")))
+        val canonicalVersion = DlcPaths.resolveVersionConfigPath(roots.firstOrNull())
+        if (Files.isRegularFile(canonicalVersion)) {
+            val value = DlcDcConfigIO.read(canonicalVersion, DlcDcConfigIO.Layout.GENERIC)
+            val base = DlcDcConfigIO.getStringIgnoreCase(value, "version") ?: DlcDcConfigIO.getStringIgnoreCase(value, "base")
+            val dlc = DlcDcConfigIO.getStringIgnoreCase(value, "dlc") ?: ""
+            if (!base.isNullOrBlank()) {
+                val key = "manager:version.dc"
+                result.add(Item(key, "version", file(key, canonicalVersion), emptyList(), null, emptyMap(), emptyMap(), Update(base, dlc, base, dlc, if (DlcPlatformServices.isDedicatedServer()) "server" else "client")))
+            }
+        }
         for ((index, root) in roots.withIndex()) {
             val presets = root.resolve("preset")
             val updates = root.resolve("update")
             if (Files.isDirectory(presets)) Files.walk(presets).use { paths ->
                 for (path in paths.filter { Files.isRegularFile(it) }.filter { DlcDcFormatUtil.isDcName(it.fileName.toString()) }.sorted().toList()) {
                     result.add(item("$index:" + root.relativize(path).toString().replace('\\', '/'), path))
-                }
-            }
-            val version = DlcDcFormatUtil.resolveConfigPath(root.resolve("info"), "version")
-            if (version != null && Files.isRegularFile(version)) {
-                val value = DlcDcConfigIO.read(version, DlcDcConfigIO.Layout.GENERIC)
-                val base = DlcDcConfigIO.getStringIgnoreCase(value, "base")
-                val dlc = DlcDcConfigIO.getStringIgnoreCase(value, "dlc")
-                if (!base.isNullOrBlank() && !dlc.isNullOrBlank()) {
-                    val key = "$index:info/version.dc"
-                    result.add(Item(key, "version", file(key, version), emptyList(), null, emptyMap(), emptyMap(), Update(base, dlc, base, dlc, if (DlcPlatformServices.isDedicatedServer()) "server" else "client")))
                 }
             }
             if (Files.isDirectory(updates)) Files.list(updates).use { paths ->
@@ -62,6 +62,13 @@ class DlcSyncContent(private val roots: List<Path>) {
         return File(key, Files.size(path), DlcFileMatch.hash(path))
     }
     fun item(key: String, path: Path): Item {
+        if (key == "manager:version.dc") {
+            val value = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC)
+            val base = DlcDcConfigIO.getStringIgnoreCase(value, "version") ?: DlcDcConfigIO.getStringIgnoreCase(value, "base")
+            if (base.isNullOrBlank()) throw SyncFailure("version_missing", key)
+            val dlc = DlcDcConfigIO.getStringIgnoreCase(value, "dlc") ?: ""
+            return Item(key, "version", file(key, path), emptyList(), null, emptyMap(), emptyMap(), Update(base, dlc, base, dlc, if (DlcPlatformServices.isDedicatedServer()) "server" else "client"))
+        }
         if (key.startsWith("manager:")) return DlcSyncSettings.item(key, path)
         if (!Files.isRegularFile(path)) throw SyncFailure("file_missing", "$key")
         if (configKey(key)) {
@@ -79,10 +86,11 @@ class DlcSyncContent(private val roots: List<Path>) {
         val version = manifest.getVersion() ?: throw SyncFailure("invalid_update", "$key")
         val base = version.getBase()
         val old = version.getDlcOld()
-        if (base.isNullOrBlank() || old.isNullOrBlank()) throw SyncFailure("update_versions_missing", "$key")
-        val updated = version.getDlcNew()?.takeIf { it.isNotBlank() } ?: old
+        if (base.isNullOrBlank()) throw SyncFailure("update_versions_missing", "$key")
+        val normalizedOld = old?.takeIf { it.isNotBlank() } ?: ""
+        val updated = version.getDlcNew()?.takeIf { it.isNotBlank() } ?: normalizedOld
         val next = version.getBaseNew()?.takeIf { it.isNotBlank() } ?: base
-        return Item(key, pkg.getName(), file(key, path), emptyList(), null, emptyMap(), manifest.getChangelog(), Update(base, old, next, updated, version.getPlatform()))
+        return Item(key, pkg.getName(), file(key, path), emptyList(), null, emptyMap(), manifest.getChangelog(), Update(base, normalizedOld, next, updated, version.getPlatform()))
     }
     private fun localized(obj: JsonObject?, category: String): Map<String, String> {
         val values = DlcDcConfigIO.getObjectIgnoreCase(obj, category)

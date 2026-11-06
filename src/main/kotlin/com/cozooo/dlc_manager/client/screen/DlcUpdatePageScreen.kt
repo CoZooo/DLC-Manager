@@ -12,6 +12,17 @@ abstract class DlcUpdatePageScreen(page: DlcUiPage, parent: Screen?, title: Comp
 
     protected fun renderExecution(status: java.util.function.Supplier<String?>, baseVersion: String, currentVersion: String,
                                   fraction: java.util.function.DoubleSupplier = java.util.function.DoubleSupplier { -1.0 }) {
+        renderExecution(status, "dlc_manager.update.base", baseVersion, "dlc_manager.update.current", currentVersion, fraction)
+    }
+
+    protected fun renderExecution(
+        status: java.util.function.Supplier<String?>,
+        firstKey: String,
+        firstVersion: String,
+        secondKey: String?,
+        secondVersion: String?,
+        fraction: java.util.function.DoubleSupplier = java.util.function.DoubleSupplier { -1.0 },
+    ) {
         content.parentElement.setAttribute("class", "page-shell update-page update-running-page")
         content.setAttribute("class", "update-running-content")
         val execution = node(content, "section", "update-execution")
@@ -22,17 +33,30 @@ abstract class DlcUpdatePageScreen(page: DlcUiPage, parent: Screen?, title: Comp
         progress(execution, fraction)
         text(execution, tr("dlc_manager.update.execution_hint"), "update-execution-hint")
         val versions = node(execution, "div", "update-execution-versions")
-        text(versions, tr("dlc_manager.update.base", baseVersion), "update-version")
-        text(versions, tr("dlc_manager.update.current", currentVersion), "update-version")
+        text(versions, tr(firstKey, firstVersion), "update-version")
+        if (!secondKey.isNullOrBlank()) {
+            text(versions, tr(secondKey, secondVersion.orEmpty()), "update-version")
+        }
     }
 
     protected fun updateSection(baseVersion: String?, currentVersion: String?): Element {
+        return updateSection("dlc_manager.update.base", baseVersion, "dlc_manager.update.current", currentVersion)
+    }
+
+    protected fun updateSection(
+        firstKey: String,
+        firstVersion: String?,
+        secondKey: String?,
+        secondVersion: String?,
+    ): Element {
         content.parentElement.setAttribute("class", "page-shell update-page")
         content.setAttribute("class", "update-content")
         val panel = node(content, "section", "update-panel")
         val versions = node(panel, "div", "update-versions")
-        text(versions, tr("dlc_manager.update.base", baseVersion.orEmpty()), "update-version")
-        text(versions, tr("dlc_manager.update.current", currentVersion.orEmpty()), "update-version")
+        text(versions, tr(firstKey, firstVersion.orEmpty()), "update-version")
+        if (!secondKey.isNullOrBlank()) {
+            text(versions, tr(secondKey, secondVersion.orEmpty()), "update-version")
+        }
         return panel
     }
 

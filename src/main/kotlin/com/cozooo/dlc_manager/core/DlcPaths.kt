@@ -8,6 +8,8 @@ import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 
 object DlcPaths {
+    private const val MANAGER_CONFIG_DIR = "dlc_manager"
+
     @JvmStatic
     fun gameDir(): Path {
         return DlcPlatformServices.gameDir()
@@ -21,6 +23,60 @@ object DlcPaths {
     @JvmStatic
     fun tmpRoot(): Path {
         return dlcRoot().resolve("tmp")
+    }
+
+    /** Canonical manager-owned configuration directory under the instance config directory. */
+    @JvmStatic
+    fun managerConfigDir(): Path {
+        return DlcPlatformServices.configDir().resolve(MANAGER_CONFIG_DIR).toAbsolutePath().normalize()
+    }
+
+    @JvmStatic
+    fun versionConfigPath(): Path = managerConfigDir().resolve("version.dc")
+
+    @JvmStatic
+    fun noticeConfigPath(): Path = managerConfigDir().resolve("notice.dc")
+
+    /**
+     * Resolve the canonical version path and migrate the old DLC/info/version.dc file when present.
+     * The legacy path is returned only when migration cannot be completed.
+     */
+    @JvmStatic
+    fun resolveVersionConfigPath(dlcRoot: Path?): Path {
+        val canonical = versionConfigPath()
+        if (Files.exists(canonical)) return canonical
+        val legacy = legacyDlcConfigPath(dlcRoot, "version")
+        return migrateLegacyDlcConfigFile(legacy, canonical)
+    }
+
+    /** Resolve the canonical notice path and migrate the old DLC/info/notice.dc file when present. */
+    @JvmStatic
+    fun resolveNoticeConfigPath(dlcRoot: Path?): Path {
+        val canonical = noticeConfigPath()
+        if (Files.exists(canonical)) return canonical
+        val legacy = legacyDlcConfigPath(dlcRoot, "notice")
+        return migrateLegacyDlcConfigFile(legacy, canonical)
+    }
+
+    @JvmStatic
+    fun legacyDlcConfigPath(dlcRoot: Path?, fileName: String): Path? {
+        if (dlcRoot == null || fileName.isBlank()) return null
+        return DlcDcFormatUtil.resolveConfigPath(dlcRoot.resolve("info"), fileName)
+    }
+
+    private fun migrateLegacyDlcConfigFile(legacy: Path?, canonical: Path): Path {
+        if (legacy == null || !Files.exists(legacy)) return canonical
+        return try {
+            Files.createDirectories(canonical.parent)
+            try {
+                Files.move(legacy, canonical, StandardCopyOption.ATOMIC_MOVE)
+            } catch (_: IOException) {
+                Files.move(legacy, canonical)
+            }
+            canonical
+        } catch (_: IOException) {
+            legacy
+        }
     }
 
     @JvmStatic

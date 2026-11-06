@@ -77,6 +77,7 @@ object DlcPackReleaseUpdateService {
         @JvmField var repoUrl: String? = null
         @JvmField var currentBase: String? = null
         @JvmField var currentDlc: String? = null
+        @JvmField var currentDlcPresent: Boolean = false
         @JvmField var targetBase: String? = null
         @JvmField var targetDlc: String? = null
         @JvmField var downloadBase: String? = null
@@ -240,6 +241,7 @@ object DlcPackReleaseUpdateService {
         result.modpackUrl = normalizeString(modpackUrl)
         result.repoUrl = normalizeString(githubRepoUrl)
         result.currentBase = safeVersion(currentBase)
+        result.currentDlcPresent = !currentDlc.isNullOrBlank()
         result.currentDlc = safeVersion(currentDlc)
         result.targetBase = result.currentBase
         result.targetDlc = result.currentDlc
@@ -345,7 +347,11 @@ object DlcPackReleaseUpdateService {
     private fun addTransition(transitions: MutableMap<String, MutableList<ReleaseStep>>, candidate: ReleaseStep?, requireDownloadable: Boolean) {
         if (candidate == null) return
         if (requireDownloadable && candidate.assetUrl.isNullOrBlank()) return
-        val key = stateKey(candidate.oldBase, candidate.oldDlc)
+        val key = if (candidate.oldDlc.isNullOrBlank()) {
+            wildcardStateKey(candidate.oldBase)
+        } else {
+            stateKey(candidate.oldBase, candidate.oldDlc)
+        }
         val candidates = transitions.computeIfAbsent(key) { ArrayList() }
         for (existing in candidates) {
             if (sameTransition(existing, candidate)) {
@@ -366,8 +372,11 @@ object DlcPackReleaseUpdateService {
     }
 
     private fun buildBestUpdateChain(currentKey: String, transitions: Map<String, List<ReleaseStep>>, visited: MutableSet<String>): List<ReleaseStep> {
-        val candidates = transitions[currentKey]
-        if (candidates.isNullOrEmpty()) return listOf()
+        val base = currentKey.substringBefore('|')
+        val candidates = ArrayList<ReleaseStep>()
+        transitions[currentKey]?.let { candidates.addAll(it) }
+        transitions[wildcardStateKey(base)]?.let { candidates.addAll(it) }
+        if (candidates.isEmpty()) return listOf()
         var best: List<ReleaseStep> = listOf()
         for (candidate in candidates) {
             val nextKey = stateKey(candidate.newBase, candidate.newDlc)
@@ -665,8 +674,12 @@ object DlcPackReleaseUpdateService {
     private fun buildAssetNameCandidates(prefix: String?, base: String?, dlc: String?): List<String> {
         val namePrefix = prefix ?: ""
         val safeBase = safeVersion(base)
-        val safeDlc = safeVersion(dlc)
         val names = LinkedHashSet<String>()
+        if (dlc.isNullOrBlank()) {
+            names.add("$namePrefix$safeBase.zip")
+            return ArrayList(names)
+        }
+        val safeDlc = safeVersion(dlc)
         for (delimiter in VERSION_PAIR_DELIMITERS) names.add("$namePrefix$safeBase$delimiter$safeDlc.zip")
         return ArrayList(names)
     }
@@ -759,8 +772,8 @@ object DlcPackReleaseUpdateService {
     }
 
     private fun parseTagParts(oldRaw: String?, newRaw: String?): ParsedTagParts? {
-        val oldPair = parseVersionPair(oldRaw) ?: return null
-        val newPair = parseVersionPair(newRaw) ?: return null
+        val oldPair = parseVersionPart(oldRaw) ?: return null
+        val newPair = parseVersionPart(newRaw) ?: return null
         val parts = ParsedTagParts()
         parts.oldPair = oldPair
         parts.newPair = newPair
@@ -780,6 +793,17 @@ object DlcPackReleaseUpdateService {
         pair.base = base
         pair.dlc = dlc
         return pair
+    }
+
+    private fun parseVersionPart(value: String?): VersionPair? {
+        val pair = parseVersionPair(value)
+        if (pair != null) return pair
+        val scalar = value?.trim()
+        if (scalar.isNullOrBlank()) return null
+        val parsed = VersionPair()
+        parsed.base = scalar
+        parsed.dlc = null
+        return parsed
     }
 
     private fun splitVersionPair(value: String?): Array<String> {
@@ -1144,6 +1168,9 @@ object DlcPackReleaseUpdateService {
 
     private fun formatCompactTransition(oldBase: String?, oldDlc: String?, newBase: String?, newDlc: String?): String {
         val sourceBase = safeVersion(oldBase)
+        if (oldDlc.isNullOrBlank() && newDlc.isNullOrBlank()) {
+            return "$sourceBase -> ${safeVersion(newBase)}"
+        }
         val sourceDlc = safeVersion(oldDlc)
         val targetBase = safeVersion(newBase)
         val targetDlc = safeVersion(newDlc)
@@ -1157,6 +1184,10 @@ object DlcPackReleaseUpdateService {
 
     private fun stateKey(base: String?, dlc: String?): String {
         return safeVersion(base) + "|" + safeVersion(dlc)
+    }
+
+    private fun wildcardStateKey(base: String?): String {
+        return safeVersion(base) + "|*"
     }
 
     private fun normalizeString(value: String?): String {

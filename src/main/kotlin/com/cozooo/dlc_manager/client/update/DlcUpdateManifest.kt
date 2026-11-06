@@ -83,9 +83,15 @@ class DlcUpdateManifest {
             return base
         }
 
+        /** Canonical public name; getBase remains for source compatibility. */
+        fun getVersion(): String? = base
+
         fun getBaseNew(): String? {
             return baseNew
         }
+
+        /** Canonical public name; getBaseNew remains for source compatibility. */
+        fun getVersionNew(): String? = baseNew
 
         fun getDlcOld(): String? {
             return dlcOld
@@ -395,8 +401,8 @@ class DlcUpdateManifest {
                 return info
             }
             info.setPlatform(normalizePlatform(getString(obj, "platform")))
-            info.setBase(getString(obj, "base"))
-            info.setBaseNew(getString(obj, "base_new"))
+            info.setBase(firstNonBlank(getString(obj, "version"), getString(obj, "base")))
+            info.setBaseNew(firstNonBlank(getString(obj, "version_new"), getString(obj, "base_new")))
             var dlc = getString(obj, "dlc")
             if (dlc.isNullOrBlank()) {
                 dlc = getString(obj, "dlc_old")
@@ -404,6 +410,10 @@ class DlcUpdateManifest {
             info.setDlcOld(dlc)
             info.setDlcNew(getString(obj, "dlc_new"))
             return info
+        }
+
+        private fun firstNonBlank(primary: String?, fallback: String?): String? {
+            return if (primary.isNullOrBlank()) fallback else primary
         }
 
         private fun parseChangelog(element: JsonElement?): Map<String, String> {

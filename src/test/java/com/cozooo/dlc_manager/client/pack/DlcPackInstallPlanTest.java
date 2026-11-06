@@ -15,7 +15,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DlcPackInstallPlanTest {
     private static final List<String> GAME_ROOT_FORBIDDEN_PATHS = List.of(
-        "config/dlc_manager/config.dc"
+        "config/dlc_manager/config.dc",
+        "config/dlc_manager/version.dc",
+        "config/dlc_manager/notice.dc"
     );
     private static final List<String> DLC_ROOT_FORBIDDEN_PATHS = List.of(
         "tmp/pack/a",

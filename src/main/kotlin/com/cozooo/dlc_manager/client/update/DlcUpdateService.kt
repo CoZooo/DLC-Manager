@@ -482,8 +482,14 @@ object DlcUpdateService {
         }
 
         val meta = DlcUpdateMeta()
-        meta.setDlcOld(sourceDlcVersion(info))
-        meta.setDlcNew(targetDlcVersion(info))
+        val manifestHasDlc = hasExplicitDlc(info)
+        val persistDlc = hasPersistedDlc(current) || manifestHasDlc
+        val sourceDlc = if (manifestHasDlc) sourceDlcVersion(info) else safeVersion(current!!.getDlc())
+        val targetDlc = if (manifestHasDlc) targetDlcVersion(info) else sourceDlc
+        if (persistDlc) {
+            meta.setDlcOld(sourceDlc)
+            meta.setDlcNew(targetDlc)
+        }
         meta.setBaseOld(DlcUpdateService.safeVersion(current!!.getBase()))
         val baseNew: String? = optionalVersion(info.getBaseNew())
         if (baseNew != null) {
@@ -494,7 +500,7 @@ object DlcUpdateService {
         meta.setChangelog(manifest.getChangelog())
         val nextBase: String =
             if (baseNew != null) safeVersion(baseNew) else DlcUpdateService.safeVersion(current.getBase())
-        val nextDlc: String = targetDlcVersion(info)
+        val nextDlc: String = targetDlc
         val backupRoot: Path? = resolveMetaRootByPair(dlcRoot, nextBase, nextDlc)
         val metaPath: Path? = resolveMetaPath(backupRoot)
 
@@ -534,12 +540,14 @@ object DlcUpdateService {
 
             val updated = DlcUpdateVersion()
             updated.setBase(nextBase)
-            updated.setDlc(nextDlc)
+            if (persistDlc) {
+                updated.setDlc(nextDlc)
+            }
             updated.setRollbackFrom(null)
             val previousChangelogShown = current.getChangelogShown()
             updated.setChangelogShown(
                 if (previousChangelogShown.isNullOrBlank()) {
-                    sourceBaseVersion(info) + "+" + sourceDlcVersion(info)
+                    composeVersionMarker(sourceBaseVersion(info), sourceDlc, persistDlc)
                 } else {
                     previousChangelogShown
                 },
@@ -614,7 +622,8 @@ object DlcUpdateService {
         if (!targetFound) {
             return UpdateRollbackResult.Companion.failed("Target version not found")
         }
-        val beforeRollback = currentBase + "+" + currentDlc
+        val persistDlc = hasPersistedDlc(current) || chain.any { hasExplicitDlc(it) }
+        val beforeRollback = composeVersionMarker(currentBase, currentDlc, persistDlc)
         var working = currentDlc
         var workingBase = currentBase
         for (meta in chain) {
@@ -639,7 +648,9 @@ object DlcUpdateService {
         }
         val updated = DlcUpdateVersion()
         updated.setBase(workingBase)
-        updated.setDlc(working)
+        if (persistDlc) {
+            updated.setDlc(working)
+        }
         updated.setRollbackFrom(beforeRollback)
         updated.save(dlcRoot)
         if (!stateMatchesTarget(workingBase, working, targetState)) {
@@ -1029,7 +1040,9 @@ object DlcUpdateService {
                 if (!hasVersionTransition(info)) {
                     continue
                 }
-                if (currentBase == sourceBaseVersion(info) && currentDlc == sourceDlcVersion(info)) {
+                if (currentBase == sourceBaseVersion(info) &&
+                    (!hasExplicitDlc(info) || currentDlc == sourceDlcVersion(info))
+                ) {
                     candidates.add(pkg)
                 }
             }
@@ -1052,7 +1065,9 @@ object DlcUpdateService {
             remaining.remove(chosen)
             val info = chosen.getManifest().getVersion()
             currentBase = targetBaseVersion(info)
-            currentDlc = targetDlcVersion(info)
+            if (hasExplicitDlc(info)) {
+                currentDlc = targetDlcVersion(info)
+            }
         }
         return chain
     }
@@ -1220,7 +1235,7 @@ object DlcUpdateService {
         val base: kotlin.String = DlcUpdateService.safeVersion(current.getBase())
         val dlc: kotlin.String = DlcUpdateService.safeVersion(current.getDlc())
         return base == sourceBaseVersion(info)
-                && dlc == sourceDlcVersion(info)
+                && (!hasExplicitDlc(info) || dlc == sourceDlcVersion(info))
     }
 
     private fun findMissingUpdateTargets(manifest: DlcUpdateManifest?, gameDir: Path, hashIndex: DlcUpdateHashIndex): MutableList<kotlin.String?> {
@@ -2629,13 +2644,13 @@ object DlcUpdateService {
         }
         val normalized = target.normalize()
         val dlcRoot: Path = context.dlcRoot.normalize()
-        if (!normalized.startsWith(dlcRoot)) {
-            return
-        }
         if (isNoticePath(normalized, dlcRoot)) {
             return
         }
         if (isVersionPath(normalized, dlcRoot)) {
+            return
+        }
+        if (!normalized.startsWith(dlcRoot)) {
             return
         }
         if (isUnderDir(normalized, dlcRoot.resolve("required"))) {
@@ -2944,7 +2959,15 @@ object DlcUpdateService {
         if (!path.isAbsolute()) {
             path = gameDir.resolve(path)
         }
-        return path.normalize()
+        path = path.normalize()
+        for (root in DlcConfig.getDlcRoots()) {
+            val normalizedRoot = root.toAbsolutePath().normalize()
+            val legacyVersion = normalizedRoot.resolve("info/version.dc").normalize()
+            val legacyNotice = normalizedRoot.resolve("info/notice.dc").normalize()
+            if (path == legacyVersion) return DlcPaths.resolveVersionConfigPath(root)
+            if (path == legacyNotice) return DlcPaths.resolveNoticeConfigPath(root)
+        }
+        return path
     }
 
     private fun resolveStagingPath(stagingRoot: Path?, rawPath: kotlin.String?): Path? {
@@ -2969,22 +2992,20 @@ object DlcUpdateService {
         if (path == null || dlcRoot == null) {
             return false
         }
-        val infoDir = dlcRoot.resolve("info")
-        val notice: Path? = DlcDcFormatUtil.resolveConfigPath(infoDir, "notice")
-        if (notice == null) {
-            return false
-        }
-        return path.normalize() == notice.normalize()
+        val normalized = path.normalize()
+        val legacy = DlcDcFormatUtil.resolveConfigPath(dlcRoot.resolve("info"), "notice")
+        val canonical = DlcPaths.noticeConfigPath()
+        return normalized == legacy?.normalize() || normalized == canonical.normalize()
     }
 
     private fun isVersionPath(path: Path?, dlcRoot: Path?): Boolean {
         if (path == null || dlcRoot == null) {
             return false
         }
-        val infoDir = dlcRoot.resolve("info")
-        val dc = infoDir.resolve("version" + DlcDcFormatUtil.DC_EXTENSION).normalize()
         val normalized = path.normalize()
-        return normalized == dc
+        val legacy = dlcRoot.resolve("info/version.dc").normalize()
+        val canonical = DlcPaths.versionConfigPath().normalize()
+        return normalized == legacy || normalized == canonical
     }
 
     private fun isNoticeConfig(fileName: kotlin.String?): Boolean {
@@ -3756,6 +3777,23 @@ object DlcUpdateService {
         }
         val target: kotlin.String? = optionalVersion(info.getDlcNew())
         return if (target == null) sourceDlcVersion(info) else target
+    }
+
+    private fun hasPersistedDlc(version: DlcUpdateVersion?): Boolean {
+        return !version?.getDlc().isNullOrBlank()
+    }
+
+    private fun hasExplicitDlc(info: DlcUpdateManifest.VersionInfo?): Boolean {
+        return info != null && (!info.getDlcOld().isNullOrBlank() || !info.getDlcNew().isNullOrBlank())
+    }
+
+    private fun hasExplicitDlc(meta: DlcUpdateMeta?): Boolean {
+        return meta != null && (!meta.getDlcOld().isNullOrBlank() || !meta.getDlcNew().isNullOrBlank())
+    }
+
+    private fun composeVersionMarker(base: kotlin.String?, dlc: kotlin.String?, includeDlc: Boolean): kotlin.String {
+        val baseMarker = safeVersion(base)
+        return if (includeDlc) baseMarker + "+" + safeVersion(dlc) else baseMarker
     }
 
     private fun hasVersionTransition(info: DlcUpdateManifest.VersionInfo?): Boolean {

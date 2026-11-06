@@ -156,15 +156,19 @@ class SyncModel private constructor() {
         }
         private fun relative(key: String) = key.substringAfter(':')
         @JvmStatic fun category(item: Item): Category = when {
+            item.key.equals("manager:version.dc", ignoreCase = true) -> Category.UPDATE
             item.key.startsWith("manager:") -> Category.MANAGER_CONFIG
             relative(item.key).startsWith("required/") -> Category.REQUIRED
             relative(item.key).startsWith("preset/") -> Category.PRESET
-            relative(item.key).startsWith("update/") || relative(item.key) == "info/version.dc" -> Category.UPDATE
+            relative(item.key).startsWith("update/") || relative(item.key).equals("info/version.dc", ignoreCase = true) -> Category.UPDATE
             else -> Category.DLC
         }
         @JvmStatic fun usesResources(item: Item) = category(item) == Category.DLC || category(item) == Category.REQUIRED
-        @JvmStatic fun versionState(item: Item) = relative(item.key) == "info/version.dc"
-        private fun root(item: Item) = item.key.substringBefore(':', "")
+        @JvmStatic fun versionState(item: Item): Boolean {
+            val relative = relative(item.key)
+            return relative.equals("info/version.dc", ignoreCase = true) || item.key.equals("manager:version.dc", ignoreCase = true)
+        }
+        private fun root(item: Item) = if (item.key.equals("manager:version.dc", ignoreCase = true)) "0" else item.key.substringBefore(':', "")
         private fun pair(base: String, dlc: String) = "$base\n$dlc"
         private fun advances(update: Update?): Boolean {
             if (update == null) return false

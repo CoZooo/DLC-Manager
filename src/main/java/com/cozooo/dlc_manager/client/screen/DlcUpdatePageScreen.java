@@ -20,6 +20,13 @@ public abstract class DlcUpdatePageScreen extends DlcPageScreen {
 
     protected final void renderExecution(java.util.function.Supplier<String> status, String baseVersion, String currentVersion,
                                          java.util.function.DoubleSupplier fraction) {
+        renderExecution(status, "dlc_manager.update.base", baseVersion, "dlc_manager.update.current", currentVersion, fraction);
+    }
+
+    protected final void renderExecution(java.util.function.Supplier<String> status,
+                                         String firstKey, String firstVersion,
+                                         String secondKey, String secondVersion,
+                                         java.util.function.DoubleSupplier fraction) {
         content.parentElement.setAttribute("class", "page-shell update-page update-running-page");
         content.setAttribute("class", "update-running-content");
         var execution = node(content, "section", "update-execution");
@@ -33,17 +40,26 @@ public abstract class DlcUpdatePageScreen extends DlcPageScreen {
         progress(execution, fraction);
         text(execution, tr("dlc_manager.update.execution_hint"), "update-execution-hint");
         var versions = node(execution, "div", "update-execution-versions");
-        text(versions, tr("dlc_manager.update.base", baseVersion), "update-version");
-        text(versions, tr("dlc_manager.update.current", currentVersion), "update-version");
+        text(versions, tr(firstKey, firstVersion), "update-version");
+        if (secondKey != null && !secondKey.isBlank()) {
+            text(versions, tr(secondKey, secondVersion == null ? "" : secondVersion), "update-version");
+        }
     }
 
     protected final Element updateSection(String baseVersion, String currentVersion) {
+        return updateSection("dlc_manager.update.base", baseVersion, "dlc_manager.update.current", currentVersion);
+    }
+
+    protected final Element updateSection(String firstKey, String firstVersion,
+                                          String secondKey, String secondVersion) {
         content.parentElement.setAttribute("class", "page-shell update-page");
         content.setAttribute("class", "update-content");
         var panel = node(content, "section", "update-panel");
         var versions = node(panel, "div", "update-versions");
-        text(versions, tr("dlc_manager.update.base", baseVersion), "update-version");
-        text(versions, tr("dlc_manager.update.current", currentVersion), "update-version");
+        text(versions, tr(firstKey, firstVersion == null ? "" : firstVersion), "update-version");
+        if (secondKey != null && !secondKey.isBlank()) {
+            text(versions, tr(secondKey, secondVersion == null ? "" : secondVersion), "update-version");
+        }
         return panel;
     }
     protected final void renderUpdates(Element list, List<UpdateRow> rows, boolean showEmpty) {

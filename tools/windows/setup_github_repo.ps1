@@ -12,7 +12,7 @@
     [ValidateSet("true", "false")]
     [string]$InstallGitHubDesktop = "true",
     [string]$RepoVar_AUTO_UPDATE_WORKFLOW = "true",
-    [string]$RepoVar_VERSION_DC_PATH = "DLC/info/version.dc",
+    [string]$RepoVar_VERSION_DC_PATH = "config/dlc_manager/version.dc",
     [string]$RepoVar_CLIENT_BRANCH = "",
     [string]$RepoVar_SERVER_BRANCH = "",
     [string]$RepoVar_AUTO_UPDATE_PLATFORM = "universal",
@@ -28,7 +28,7 @@
 $ErrorActionPreference = "Stop"
 $ScriptStatePath = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "setup_github_repo.state.json"
 $TemplateRepo = "CoZooo/Modpack-Template"
-$DefaultVersionDcPath = "DLC/info/version.dc"
+$DefaultVersionDcPath = "config/dlc_manager/version.dc"
 
 function Write-Step([string]$Message) {
     Write-Host ""
@@ -718,7 +718,7 @@ function Run-InteractiveWizard {
     Write-Host ""
     Write-Host (BI "仓库变量（回车跳过）" "Repository variables (press Enter to skip)") -ForegroundColor Cyan
     $RepoVarAutoUpdateWorkflowRef.Value = Ask-Input -Prompt (BI "AUTO_UPDATE_WORKFLOW（是否启用推送自动生成更新包，true/false）" "AUTO_UPDATE_WORKFLOW (enable auto update package generation on push, true/false)") -Default $RepoVarAutoUpdateWorkflowRef.Value
-    $RepoVarVersionDcPathRef.Value = Ask-Input -Prompt (BI "VERSION_DC_PATH（version.dc 路径，默认 DLC/info/version.dc）" "VERSION_DC_PATH (path to version.dc, default: DLC/info/version.dc)") -Default $RepoVarVersionDcPathRef.Value
+    $RepoVarVersionDcPathRef.Value = Ask-Input -Prompt (BI "VERSION_DC_PATH（version.dc 路径，默认 config/dlc_manager/version.dc）" "VERSION_DC_PATH (path to version.dc, default: config/dlc_manager/version.dc)") -Default $RepoVarVersionDcPathRef.Value
     $RepoVarClientBranchRef.Value = Ask-Input -Prompt (BI "CLIENT_BRANCH（自动模式判定为客户端包的分支名，逗号分隔）" "CLIENT_BRANCH (branches treated as client package in auto mode, comma-separated)") -Default $RepoVarClientBranchRef.Value
     $RepoVarServerBranchRef.Value = Ask-Input -Prompt (BI "SERVER_BRANCH（自动模式判定为服务端包的分支名，逗号分隔）" "SERVER_BRANCH (branches treated as server package in auto mode, comma-separated)") -Default $RepoVarServerBranchRef.Value
     $RepoVarAutoUpdatePlatformRef.Value = Ask-Input -Prompt (BI "AUTO_UPDATE_PLATFORM（自动模式平台：universal/client/server）" "AUTO_UPDATE_PLATFORM (auto mode platform: universal/client/server)") -Default $RepoVarAutoUpdatePlatformRef.Value

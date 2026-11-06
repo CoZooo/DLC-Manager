@@ -70,7 +70,7 @@ object DlcPackUpdateGuard {
     }
 
     private fun safe(value: String?): String {
-        return if (value.isNullOrBlank()) "1.0.0" else value.trim()
+        return if (value.isNullOrBlank()) "<empty>" else value.trim()
     }
 
     private fun safeText(value: String?): String {

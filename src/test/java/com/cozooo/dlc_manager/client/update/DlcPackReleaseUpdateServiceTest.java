@@ -33,6 +33,27 @@ class DlcPackReleaseUpdateServiceTest {
         assertEquals(27, header.length() - "Bearer ".length());
     }
 
+    @Test
+    void parsesBaseOnlyTagsAndAssetsWhileKeepingLegacyPairs() throws Exception {
+        Object parsed = invoke("parseTag", new Class<?>[] {String.class}, "3.14.0-3.14.2");
+        assertEquals("3.14.0", field(parsed, "oldBase"));
+        assertEquals(null, field(parsed, "oldDlc"));
+        assertEquals("3.14.2", field(parsed, "newBase"));
+        assertEquals(null, field(parsed, "newDlc"));
+
+        @SuppressWarnings("unchecked")
+        List<String> names = (List<String>) invoke(
+            "buildAssetNameCandidates",
+            new Class<?>[] {String.class, String.class, String.class},
+            "Universal_", "3.14.2", null
+        );
+        assertEquals(List.of("Universal_3.14.2.zip"), names);
+
+        Object legacy = invoke("parseTag", new Class<?>[] {String.class}, "3.14.0_1.0.0-3.14.2_1.0.0");
+        assertEquals("1.0.0", field(legacy, "oldDlc"));
+        assertEquals("1.0.0", field(legacy, "newDlc"));
+    }
+
     private static Object invoke(String name, Class<?>[] parameterTypes, Object... args) throws Exception {
         Method method = DlcPackReleaseUpdateService.class.getDeclaredMethod(name, parameterTypes);
         method.setAccessible(true);

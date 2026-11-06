@@ -736,8 +736,10 @@
     },
     {
       "id": "notice",
-      "description": "Information config\nUsually stored as <DLC>/notice.dc",
+      "description": "Information config\nUsually stored as config/dlc_manager/notice.dc",
       "filePatterns": [
+        "**/config/dlc_manager/notice.dc",
+        "**/info/notice.dc",
         "**/notice.dc"
       ],
       "categories": [
@@ -999,10 +1001,26 @@
               "constraints": {}
             },
             {
+              "name": "version",
+              "type": "string",
+              "required": false,
+              "description": "Required modpack version before applying this update. Canonical name; legacy base is still accepted.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "version_new",
+              "type": "string",
+              "required": false,
+              "description": "New modpack version after applying the update; leave empty if unchanged.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
               "name": "base",
               "type": "string",
               "required": false,
-              "description": "Required base version before applying this update.",
+              "description": "Legacy alias for version.",
               "enumValues": [],
               "constraints": {}
             },
@@ -1010,7 +1028,7 @@
               "name": "base_new",
               "type": "string",
               "required": false,
-              "description": "New base version after applying the update, leave empty if unchanged.",
+              "description": "Legacy alias for version_new.",
               "enumValues": [],
               "constraints": {}
             },
@@ -1368,8 +1386,10 @@
     },
     {
       "id": "version",
-      "description": "Modpack version config\nUsually stored as <DLC>/info/version.dc",
+      "description": "Modpack version config\nUsually stored as config/dlc_manager/version.dc",
       "filePatterns": [
+        "**/config/dlc_manager/version.dc",
+        "**/info/version.dc",
         "**/version.dc"
       ],
       "categories": [
@@ -1380,10 +1400,18 @@
           "description": "",
           "fields": [
             {
+              "name": "version",
+              "type": "string",
+              "required": false,
+              "description": "Current modpack version. Legacy base is still accepted when reading older files.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
               "name": "base",
               "type": "string",
               "required": false,
-              "description": "Current modpack base version.",
+              "description": "Legacy alias for version.",
               "enumValues": [],
               "constraints": {}
             },

@@ -45,6 +45,26 @@ class DlcUpdateManifestTest {
     }
 
     @Test
+    void parsesCanonicalVersionKeysAndKeepsLegacyAliasesReadable() {
+        JsonObject object = com.google.gson.JsonParser.parseString("""
+            {
+              "version": {
+                "platform": "universal",
+                "version": "2.0.0",
+                "version_new": "2.1.0"
+              }
+            }
+            """).getAsJsonObject();
+
+        DlcUpdateManifest.VersionInfo info = DlcUpdateManifest.fromJsonObject(object).getVersion();
+
+        assertEquals("2.0.0", info.getVersion());
+        assertEquals("2.1.0", info.getVersionNew());
+        assertEquals("2.0.0", info.getBase());
+        assertEquals("2.1.0", info.getBaseNew());
+    }
+
+    @Test
     void parsesFileOperations() {
         JsonObject object = com.google.gson.JsonParser.parseString("""
             {

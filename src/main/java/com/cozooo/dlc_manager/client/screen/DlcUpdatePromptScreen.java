@@ -115,9 +115,18 @@ public class DlcUpdatePromptScreen extends DlcUpdatePageScreen {
         }
         var version = pkg.getManifest().getVersion();
         String oldBase = normalizeVersion(version.getBase());
-        String oldDlc = normalizeVersion(version.getDlcOld());
+        String oldDlcValue = version.getDlcOld();
+        String newDlcValue = version.getDlcNew();
+        boolean hasDlc = oldDlcValue != null && !oldDlcValue.isBlank()
+            || newDlcValue != null && !newDlcValue.isBlank();
+        if (!hasDlc) {
+            String newBase = version.getBaseNew() == null || version.getBaseNew().isBlank()
+                ? oldBase : normalizeVersion(version.getBaseNew());
+            return oldBase.equals(newBase) ? oldBase : oldBase + " -> " + newBase;
+        }
+        String oldDlc = normalizeVersion(oldDlcValue);
         String newBase = version.getBaseNew() == null || version.getBaseNew().isBlank() ? oldBase : normalizeVersion(version.getBaseNew());
-        String newDlc = version.getDlcNew() == null || version.getDlcNew().isBlank() ? oldDlc : normalizeVersion(version.getDlcNew());
+        String newDlc = newDlcValue == null || newDlcValue.isBlank() ? oldDlc : normalizeVersion(newDlcValue);
         String[] compact = compactTransition(oldBase, oldDlc, newBase, newDlc);
         String from = compact[0];
         String to = compact[1];
@@ -291,10 +300,15 @@ public class DlcUpdatePromptScreen extends DlcUpdatePageScreen {
         pageRevision = applying ? 1 : 0;
         var current = result == null ? null : result.getCurrent();
         String baseVersion = normalizeVersion(current == null ? null : current.getBase());
-        String dlcVersion = normalizeVersion(current == null ? null : current.getDlc());
+        String currentDlc = current == null ? null : current.getDlc();
+        boolean hasDlc = currentDlc != null && !currentDlc.isBlank();
+        String dlcVersion = hasDlc ? normalizeVersion(currentDlc) : "";
 
         if (applying) {
-            renderExecution(() -> statusText, baseVersion, dlcVersion, () -> progress);
+            renderExecution(() -> statusText,
+                hasDlc ? "dlc_manager.update.base" : "dlc_manager.update.version", baseVersion,
+                hasDlc ? "dlc_manager.update.current" : null, hasDlc ? dlcVersion : null,
+                () -> progress);
             return;
         }
 
@@ -306,7 +320,10 @@ public class DlcUpdatePromptScreen extends DlcUpdatePageScreen {
             if (version.getBaseNew() != null && !version.getBaseNew().isBlank()) targetBase = normalizeVersion(version.getBaseNew());
             if (version.getDlcNew() != null && !version.getDlcNew().isBlank()) targetDlc = normalizeVersion(version.getDlcNew());
         }
-        var panel = updateSection(baseVersion + " -> " + targetBase, dlcVersion + " -> " + targetDlc);
+        var panel = hasDlc
+            ? updateSection("dlc_manager.update.base", baseVersion + " -> " + targetBase,
+                "dlc_manager.update.current", dlcVersion + " -> " + targetDlc)
+            : updateSection("dlc_manager.update.version", baseVersion + " -> " + targetBase, null, null);
         content.parentElement.setAttribute("class", "page-shell update-page update-prompt-page");
         text(panel, tr("dlc_manager.update.desc"), "page-description");
         var list = node(panel, "div", "update-history update-prompt-history");

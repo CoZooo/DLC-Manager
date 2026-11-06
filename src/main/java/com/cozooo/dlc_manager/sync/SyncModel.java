@@ -150,16 +150,23 @@ public final class SyncModel {
     }
     private static String relative(String key) { return key.substring(key.indexOf(':') + 1); }
     public static Category category(Item item) {
+        if (item.key().equalsIgnoreCase("manager:version.dc")) return Category.UPDATE;
         if (item.key().startsWith("manager:")) return Category.MANAGER_CONFIG;
         String path = relative(item.key());
         if (path.startsWith("required/")) return Category.REQUIRED;
         if (path.startsWith("preset/")) return Category.PRESET;
-        if (path.startsWith("update/") || path.equals("info/version.dc")) return Category.UPDATE;
+        if (path.startsWith("update/") || path.equalsIgnoreCase("info/version.dc")) return Category.UPDATE;
         return Category.DLC;
     }
     public static boolean usesResources(Item item) { return category(item) == Category.DLC || category(item) == Category.REQUIRED; }
-    public static boolean versionState(Item item) { return relative(item.key()).equals("info/version.dc"); }
-    private static String root(Item item) { int colon = item.key().indexOf(':'); return colon < 0 ? "" : item.key().substring(0, colon); }
+    public static boolean versionState(Item item) {
+        return relative(item.key()).equalsIgnoreCase("info/version.dc") || item.key().equalsIgnoreCase("manager:version.dc");
+    }
+    private static String root(Item item) {
+        if (item.key().equalsIgnoreCase("manager:version.dc")) return "0";
+        int colon = item.key().indexOf(':');
+        return colon < 0 ? "" : item.key().substring(0, colon);
+    }
     private static String pair(String base, String dlc) { return base + "\n" + dlc; }
     private static boolean advances(Update update) {
         if (update == null || update.baseOld() == null || update.dlcOld() == null || update.baseNew() == null || update.dlcNew() == null) return false;

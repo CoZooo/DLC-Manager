@@ -126,20 +126,12 @@ jobs:
             return cp.stdout
 
           def parse_version_dc(text: str):
-            base = None
-            dlc = None
             for line in text.splitlines():
-              m1 = re.match(r'^\s*base\s*=\s*"([^"]*)"\s*$', line)
-              if m1:
-                base = m1.group(1).strip()
-                continue
-              m2 = re.match(r'^\s*dlc\s*=\s*"([^"]*)"\s*$', line)
-              if m2:
-                dlc = m2.group(1).strip()
-                continue
-            if not base or not dlc:
-              return None
-            return (base, dlc)
+              match = re.match(r'^\s*version\s*=\s*"([^"]*)"\s*$', line)
+              if match:
+                version = match.group(1).strip()
+                return version or None
+            return None
 
           event_name = (os.environ.get("EVENT_NAME", "") or "").strip()
           event_before = (os.environ.get("EVENT_BEFORE", "") or "").strip()
@@ -148,7 +140,7 @@ jobs:
           input_old_ref = (os.environ.get("INPUT_OLD_REF", "") or "").strip()
           input_new_ref = (os.environ.get("INPUT_NEW_REF", "") or "").strip()
           manual_ref_override = False
-          version_file = pick(os.environ.get("VAR_VERSION_FILE"), default="DLC/info/version.dc")
+          version_file = pick(os.environ.get("VAR_VERSION_FILE"), default="config/dlc_manager/version.dc")
           platform = pick(os.environ.get("INPUT_PLATFORM"), os.environ.get("VAR_PLATFORM"), default="universal").lower()
           client_branch_set = parse_csv_set(os.environ.get("VAR_CLIENT_BRANCH", ""))
           server_branch_set = parse_csv_set(os.environ.get("VAR_SERVER_BRANCH", ""))
@@ -229,15 +221,12 @@ jobs:
 
           old_text = read_file_at(event_before, version_file)
           new_text = read_file_at(event_after, version_file)
-          old_ver = parse_version_dc(old_text)
-          new_ver = parse_version_dc(new_text)
-          if old_ver is None or new_ver is None:
-            raise SystemExit(f"Failed to parse base/dlc from {version_file}.")
+          old_version = parse_version_dc(old_text)
+          new_version = parse_version_dc(new_text)
+          if old_version is None or new_version is None:
+            raise SystemExit(f"Failed to parse version from {version_file}.")
 
-          old_base, old_dlc = old_ver
-          new_base, new_dlc = new_ver
-
-          if old_base == new_base and old_dlc == new_dlc:
+          if old_version == new_version:
             print("changed=false")
             print(f"version_file={version_file}")
             print(f"platform={platform}")
@@ -251,17 +240,17 @@ jobs:
           else:
             commits = run("git", "rev-list", "--reverse", event_after).stdout.strip().splitlines()
             first_old_commit = None
-            prev_pair = None
+            previous_version = None
             for c in commits:
               if not file_exists_at(c, version_file):
                 continue
-              pair = parse_version_dc(read_file_at(c, version_file))
-              if pair is None:
+              commit_version = parse_version_dc(read_file_at(c, version_file))
+              if commit_version is None:
                 continue
-              if pair == (old_base, old_dlc) and prev_pair != (old_base, old_dlc):
+              if commit_version == old_version and previous_version != old_version:
                 first_old_commit = c
                 break
-              prev_pair = pair
+              previous_version = commit_version
 
             if not first_old_commit:
               print("changed=false")
@@ -280,10 +269,8 @@ jobs:
           print(f"sync_to_gitcode={sync_to_gitcode}")
           print(f"from_ref={resolved_from_ref}")
           print(f"to_ref={event_after}")
-          print(f"base={old_base}")
-          print(f"base_new={new_base}")
-          print(f"dlc={old_dlc}")
-          print(f"dlc_new={new_dlc}")
+          print(f"version={old_version}")
+          print(f"version_new={new_version}")
           PY
           )"
           echo "$result"
@@ -302,10 +289,8 @@ jobs:
           echo "sync_to_gitcode=${{ steps.detect.outputs.sync_to_gitcode }}"
           echo "from_ref=${{ steps.detect.outputs.from_ref }}"
           echo "to_ref=${{ steps.detect.outputs.to_ref }}"
-          echo "base=${{ steps.detect.outputs.base }}"
-          echo "base_new=${{ steps.detect.outputs.base_new }}"
-          echo "dlc=${{ steps.detect.outputs.dlc }}"
-          echo "dlc_new=${{ steps.detect.outputs.dlc_new }}"
+          echo "version=${{ steps.detect.outputs.version }}"
+          echo "version_new=${{ steps.detect.outputs.version_new }}"
           echo "reason=${{ steps.detect.outputs.reason }}"
 
       - name: Fetch changed Git LFS objects
@@ -358,14 +343,12 @@ jobs:
         run: |
           mkdir -p out
           result="$(
-            python3 .github/tools/generate_update_pack.py \
+            python3 tools/update-pack/tools/generate_update_pack.py \
               --from-ref "${{ steps.detect.outputs.from_ref }}" \
               --to-ref "${{ steps.detect.outputs.to_ref }}" \
               --platform "${{ steps.detect.outputs.platform }}" \
-              --base "${{ steps.detect.outputs.base }}" \
-              --base-new "${{ steps.detect.outputs.base_new }}" \
-              --dlc "${{ steps.detect.outputs.dlc }}" \
-              --dlc-new "${{ steps.detect.outputs.dlc_new }}" \
+              --version "${{ steps.detect.outputs.version }}" \
+              --version-new "${{ steps.detect.outputs.version_new }}" \
               --update-dlcm "${{ inputs.update_dlcm }}"
           )"
           echo "$result"
@@ -379,7 +362,7 @@ jobs:
         if: ${{ steps.detect.outputs.changed == 'true' }}
         uses: actions/upload-artifact@v4
         with:
-          name: auto-update-package-${{ steps.detect.outputs.platform }}_${{ steps.detect.outputs.base_new }}_${{ steps.detect.outputs.dlc_new }}
+          name: auto-update-package-${{ steps.generate.outputs.asset_name }}
           path: |
             ${{ steps.generate.outputs.zip_path }}
             ${{ steps.generate.outputs.summary_path }}

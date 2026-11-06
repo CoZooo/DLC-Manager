@@ -112,6 +112,8 @@ class DlcNoticeConfigTest {
 
         DlcNoticeConfig config = DlcNoticeConfig.load();
 
+        assertTrue(Files.exists(tempDir.resolve("config/dlc_manager/notice.dc")));
+        assertFalse(Files.exists(info.resolve("notice.dc")));
         assertTrue(config.isNoticeEnabled());
         assertFalse(config.getSubhead().enabled);
         assertEquals(DlcNoticeConfig.ShowFrequency.PER_GAME_SESSION, config.getShowFrequency());
