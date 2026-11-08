@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.pack;
 
+import com.cozooo.dlc_manager.platform.PlatformServices;
+import com.cozooo.dlc_manager.test.TestPlatformProvider;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -14,6 +18,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DlcPackUpdateCoordinatorTest {
     @TempDir
     Path tempDir;
+
+    @BeforeEach
+    void isolatePlatformFiles() {
+        Path instance = tempDir.resolve("instance");
+        PlatformServices.setProvider(new TestPlatformProvider(instance, instance.resolve("config")));
+    }
+
+    @AfterEach
+    void resetPlatformFiles() {
+        PlatformServices.setProvider(null);
+    }
 
     @Test
     void successfulUpdateReinstallsCompatiblePackFromSnapshot() throws Exception {

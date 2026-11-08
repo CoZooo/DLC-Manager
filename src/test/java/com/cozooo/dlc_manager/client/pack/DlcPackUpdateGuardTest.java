@@ -1,7 +1,10 @@
 package com.cozooo.dlc_manager.client.pack;
 
 import com.cozooo.dlc_manager.core.DlcConfig;
+import com.cozooo.dlc_manager.platform.PlatformServices;
+import com.cozooo.dlc_manager.test.TestPlatformProvider;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -18,9 +21,15 @@ class DlcPackUpdateGuardTest {
     @TempDir
     Path tempDir;
 
+    @BeforeEach
+    void isolatePlatformFiles() {
+        PlatformServices.setProvider(new TestPlatformProvider(tempDir, tempDir.resolve("config")));
+    }
+
     @AfterEach
     void resetModpack() {
         DlcConfig.setModpack("");
+        PlatformServices.setProvider(null);
     }
 
     @Test

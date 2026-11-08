@@ -24,6 +24,11 @@ class DlcPackInstallerTest {
     @TempDir
     Path tempDir;
 
+    @org.junit.jupiter.api.BeforeEach
+    void isolatePlatformFiles() {
+        PlatformServices.setProvider(new TestPlatformProvider(tempDir, tempDir.resolve("config")));
+    }
+
     @org.junit.jupiter.api.AfterEach
     void clearRuntimeState() {
         DlcRuntimeState.updateItemIndex(java.util.List.of());
@@ -494,6 +499,8 @@ class DlcPackInstallerTest {
 
     private static void writeCurrentVersion(Path dlcRoot, String modpack, String base, String dlc) throws Exception {
         DlcConfig.setModpack(modpack);
+        Path instance = dlcRoot.getParent();
+        PlatformServices.setProvider(new TestPlatformProvider(instance, instance.resolve("config")));
         Path version = dlcRoot.resolve("info").resolve("version.dc");
         Files.createDirectories(version.getParent());
         Files.writeString(version, """

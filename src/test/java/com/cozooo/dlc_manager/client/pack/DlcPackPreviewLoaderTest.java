@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.client.pack;
 
+import com.cozooo.dlc_manager.platform.PlatformServices;
+import com.cozooo.dlc_manager.test.TestPlatformProvider;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -18,6 +22,16 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class DlcPackPreviewLoaderTest {
     @TempDir Path temp;
+
+    @BeforeEach
+    void isolatePlatformFiles() {
+        PlatformServices.setProvider(new TestPlatformProvider(temp, temp.resolve("config")));
+    }
+
+    @AfterEach
+    void resetPlatformFiles() {
+        PlatformServices.setProvider(null);
+    }
 
     @Test
     void readingReturnsImmediatelyAndDeliversOnlyOnOwnerExecutor() throws Exception {

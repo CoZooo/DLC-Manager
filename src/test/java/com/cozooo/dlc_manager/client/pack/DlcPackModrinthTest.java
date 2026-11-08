@@ -3,6 +3,7 @@ package com.cozooo.dlc_manager.client.pack;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.cozooo.dlc_manager.platform.DlcPlatformServices;
+import com.cozooo.dlc_manager.test.TestPlatformProvider;
 import com.google.gson.*;
 import java.nio.file.*;
 import java.security.MessageDigest;
@@ -14,6 +15,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class DlcPackModrinthTest {
     @TempDir Path temp;
+
+    @BeforeEach
+    void isolatePlatformFiles() {
+        Path instance = temp.resolve("instance");
+        PlatformServices.setProvider(new TestPlatformProvider(instance, instance.resolve("config")));
+    }
+
     @AfterEach void reset() { PlatformServices.setProvider(null); }
 
     @Test void detectsMrpackAndPreviewsOnlyMetadataWithoutExtractingTheIndex() throws Exception {
