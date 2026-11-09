@@ -44,15 +44,6 @@
 
 - Removed the legacy `dlc_name` and `dlc_identifier` aliases. Use `file_name` and `identifier` instead.
 
-### DLC External Manager
-
-#### Features
-
-- Added a standalone JavaFX manager for managing local instances without starting Minecraft.
-- Supports DLC browsing, search, enable/disable operations, dependencies, conflicts, presets, missing-content downloads, required resources, DLC Packs, updates, announcements, and settings.
-- Supports remote server management, including DLC, downloads, presets, packs, updates, files, and RCON tools, with DLC management connections using the Minecraft game port.
-- Added English and Chinese interfaces and platform-specific distributions. The standalone JAR requires Java 25.
-
 ### DC Editor and Language Integrations
 
 #### Features
@@ -69,9 +60,9 @@
 - Empty required `identifier` values are now errors rather than warnings.
 - Separated generic DC syntax from DLC Manager's application definition. VS Code and IntelliJ integrations remain generic; DLC-specific fields are maintained by the main project and registered through the DC category/field APIs.
 
-#### DLC 管理器
+### DLC 管理器
 
-##### 新增功能
+#### 新增功能
 
 - 新增 Minecraft 1.18.2、1.19.2 的 Forge 支持，以及 26.1.x 的 Fabric 和 NeoForge 支持。
 - 使用 ApricityUI 重新设计游戏内界面。
@@ -89,13 +80,13 @@
 - DLC 管理器入口按钮的锚点新增隐藏选项。
 - 新增服务端文件搜索功能。
 
-##### 修复
+#### 修复
 
 - 将 DLC Pack 元数据读取移至后台，并显示读取提示，减少预览大型拓展包时的卡顿。
 - 修复配置路径中的反斜杠无法被正确识别为路径分隔符的问题。
 - 修复跨多个版本更新后，仅显示最终版本的更新日志的问题。
 
-##### 变更
+#### 变更
 
 - 修正 `taczRoot` 的含义：它现在指定 TACZ 模组存放枪包的目标目录，相对游戏根目录解析。DLC 内的源枪包通过 `type = "gunpack"` 指定。
 - 将 notice.dc 和 version.dc 的默认位置迁移至 config/dlc_manager/。
@@ -107,31 +98,48 @@
 - 服务端 DLC 管理功能强制开启，移除服务端的 `serverSupport` 配置；客户端仍保留该配置。
 - 将 `servers.dc` 和 DLC Pack 的 `order.dc` 从配置文件目录迁移至 `DLC/tmp`，并迁移已有文件。
 
-##### 废弃与移除
+#### 废弃与移除
 
 - 移除旧字段别名 `dlc_name` 和 `dlc_identifier`，请改用 `file_name` 和 `identifier`。
 
-#### DLC 外部管理器
+### DC 编辑器与语言集成
 
-##### 新增功能
+#### 新增功能
+
+- 新增文件夹元数据文档分类，以及 `_metadata.dc` 的结构化编辑页面。
+- 支持编辑资源匹配模式、必要资源 `unzip`、多语言 `[Alarm]` 提示、自动更新与强制更新，以及前置提醒配置。
+
+#### 修复
+
+- 配置文件名为默认值或由 `identifier` 生成时，会随 `identifier` 修改。手动命名后，修改 `identifier` 不再改变配置文件名。
+
+#### 变更
+
+- 必填的 `identifier` 为空时，校验结果由警告提升为错误。
+- 将通用 DC 语法与 DLC 管理器的应用定义分离。VS Code 和 IntelliJ 插件保持通用，DLC 专用字段由主项目维护，并通过 DC 分类与字段 API 注册。
+
+
+
+## 5.1.0
+
+### DLC Manager
+
+### DLC External Manager
+
+#### Features
+
+- Added a standalone JavaFX manager for managing local instances without starting Minecraft.
+- Supports DLC browsing, search, enable/disable operations, dependencies, conflicts, presets, missing-content downloads, required resources, DLC Packs, updates, announcements, and settings.
+- Supports remote server management, including DLC, downloads, presets, packs, updates, files, and RCON tools, with DLC management connections using the Minecraft game port.
+- Added English and Chinese interfaces and platform-specific distributions. The standalone JAR requires Java 25.
+
+### DLC管理器
+
+### DLC 外部管理器
+
+#### 新增功能
 
 - 新增独立运行的 JavaFX 管理器，无需启动 Minecraft 即可管理本地实例。
 - 支持 DLC 浏览、搜索、启用与禁用、前置依赖、冲突检查、预设、缺失内容下载、必要资源、拓展包、热更新、公告和配置管理。
 - 支持远程管理服务器的 DLC、下载、预设、拓展包、热更新、文件管理，DLC 管理连接使用 Minecraft 游戏端口。
 - 提供中英文界面和适用于不同平台的发行包。独立 JAR 需要 Java 25。
-
-#### DC 编辑器与语言集成
-
-##### 新增功能
-
-- 新增文件夹元数据文档分类，以及 `_metadata.dc` 的结构化编辑页面。
-- 支持编辑资源匹配模式、必要资源 `unzip`、多语言 `[Alarm]` 提示、自动更新与强制更新，以及前置提醒配置。
-
-##### 修复
-
-- 配置文件名为默认值或由 `identifier` 生成时，会随 `identifier` 修改。手动命名后，修改 `identifier` 不再改变配置文件名。
-
-##### 变更
-
-- 必填的 `identifier` 为空时，校验结果由警告提升为错误。
-- 将通用 DC 语法与 DLC 管理器的应用定义分离。VS Code 和 IntelliJ 插件保持通用，DLC 专用字段由主项目维护，并通过 DC 分类与字段 API 注册。

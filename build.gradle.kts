@@ -7,6 +7,8 @@ import net.fabricmc.loom.api.LoomGradleExtensionAPI
 import net.fabricmc.loom.task.RemapJarTask
 import me.modmuss50.mpp.ModPublishExtension
 import me.modmuss50.mpp.ReleaseType
+import me.modmuss50.mpp.platforms.curseforge.CurseforgeOptions
+import me.modmuss50.mpp.platforms.modrinth.ModrinthOptions
 import org.gradle.api.Project
 import org.gradle.api.JavaVersion
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
@@ -105,6 +107,22 @@ fun Project.booleanProp(name: String, fallback: Boolean = false): Boolean =
 fun Project.publishEnv(name: String): String? =
     providers.environmentVariable(name).orNull?.takeIf { it.isNotBlank() }
 
+fun Project.modPublishPlatform(): String =
+    (optionalProp("mod_publish_platform") ?: "all")
+        .trim()
+        .lowercase()
+        .also { requested ->
+            require(requested in setOf("all", "modrinth", "curseforge")) {
+                "Unsupported mod_publish_platform: $requested. Use modrinth, curseforge, or all."
+            }
+        }
+
+fun Project.selectedModPublishPlatforms(): Set<String> =
+    when (val selected = modPublishPlatform()) {
+        "all" -> setOf("modrinth", "curseforge")
+        else -> setOf(selected)
+    }
+
 fun Project.modPublishReleaseType(): ReleaseType =
     ReleaseType.of(prop("mod_publish_release_type"))
 
@@ -159,8 +177,26 @@ fun modPublishLoaderDisplayName(loaderName: String): String =
         else -> loaderName.replaceFirstChar { it.uppercase() }
     }
 
-fun Project.modPublishDisplayName(loaderName: String, minecraftVersion: String): String =
+fun Project.curseForgeDisplayName(loaderName: String, minecraftVersion: String): String =
+    "$loaderName-$minecraftVersion-${prop("mod_version")}"
+
+fun Project.modrinthDisplayName(loaderName: String, minecraftVersion: String): String =
     "${prop("mod_name")} ${prop("mod_version")} (${modPublishLoaderDisplayName(loaderName)} $minecraftVersion)"
+
+fun expectedModPublishDependencies(loaderName: String): List<String> =
+    when (loaderName) {
+        "fabric" -> listOf("architectury-api", "fabric-language-kotlin", "apricityui")
+        "forge", "neoforge" -> listOf("architectury-api", "kotlin-for-forge", "apricityui")
+        else -> emptyList()
+    }
+
+fun normalizeModLoaders(vararg loaders: String): List<String> =
+    loaders
+        .asSequence()
+        .filter(String::isNotBlank)
+        .map(String::lowercase)
+        .distinct()
+        .toList()
 
 fun Project.configureLocalDevMods(loaderName: String, minecraftVersion: String) {
     fun devModTree(dir: File) = fileTree(dir) {
@@ -294,15 +330,34 @@ if (!rootProject.extensions.extraProperties.has("dlcRootBuildTasksConfigured")) 
 
     tasks.register("publishModPlatforms") {
         group = "publishing"
-        description = "Publish all mod artifacts to configured mod platforms."
-        dependsOn(stoneNodes.map { ":$it:publishMods" })
-        doFirst {
-            val dryRun = booleanProp("mod_publish_dry_run", false) ||
-                (publishEnv("MOD_PUBLISH_DRY_RUN")?.toBooleanStrictOrNull() ?: false)
-            if (!dryRun && publishEnv("MODRINTH_TOKEN").isNullOrBlank() && publishEnv("CURSEFORGE_TOKEN").isNullOrBlank()) {
-                error("Set MODRINTH_TOKEN or CURSEFORGE_TOKEN, or use -Pmod_publish_dry_run=true.")
+        description = "Validate the selected publishing platforms before uploading any mod artifact."
+        dependsOn("validateModPublishInputs")
+        val selectedPlatforms = selectedModPublishPlatforms()
+        val publishTasks = stoneNodes.map { node ->
+            selectedPlatforms.map { platform ->
+                when (platform) {
+                    "modrinth" -> ":$node:publishModrinth"
+                    "curseforge" -> ":$node:publishCurseforge"
+                    else -> error("Unsupported publishing platform: $platform")
+                }
+            }
+        }.flatten()
+        dependsOn(publishTasks)
+        publishTasks.forEach { taskPath ->
+            val nodeName = taskPath.removePrefix(":").substringBefore(":")
+            val taskName = taskPath.substringAfterLast(":")
+            rootProject.project(":$nodeName").tasks.named(taskName).configure {
+                mustRunAfter("validateModPublishInputs")
             }
         }
+        val dryRun = booleanProp("mod_publish_dry_run", false) ||
+            (publishEnv("MOD_PUBLISH_DRY_RUN")?.toBooleanStrictOrNull() ?: false)
+    }
+    tasks.register("validateModPublishInputs") {
+        group = "verification"
+        description = "Validate selected publishing platform metadata for all mod nodes."
+        outputs.upToDateWhen { false }
+        dependsOn(stoneNodes.map { ":$it:validateModPublishInputs" })
     }
     }
 }
@@ -315,6 +370,7 @@ if (stoneNodes.contains(project.name)) {
     val kotlinExcludeJavaCompile = kotlinEnabled && booleanProp("kotlin_exclude_java_compile", false)
     val publishDryRun = booleanProp("mod_publish_dry_run", false) ||
         (publishEnv("MOD_PUBLISH_DRY_RUN")?.toBooleanStrictOrNull() ?: false)
+    val publishPlatforms = selectedModPublishPlatforms()
     val modrinthToken = publishEnv("MODRINTH_TOKEN")
     val curseforgeToken = publishEnv("CURSEFORGE_TOKEN")
 
@@ -861,17 +917,17 @@ if (stoneNodes.contains(project.name)) {
         dryRun.set(publishDryRun)
         if (earlyLoading) file.set(tasks.named("packageDistribution").map { distributionJar })
         else file.set(remappedJar.flatMap { it.archiveFile })
-        version.set("${rootProject.prop("mod_version")}-$loaderName-$minecraftVersion")
-        displayName.set(rootProject.modPublishDisplayName(loaderName, minecraftVersion))
+        version.set("${rootProject.prop("mod_version")}")
         changelog.set(rootProject.providers.provider { rootProject.modPublishChangelog() })
         type.set(rootProject.modPublishReleaseType())
-        modLoaders.add(modPublishLoaderName(loaderName))
+        modLoaders.set(normalizeModLoaders(modPublishLoaderName(loaderName)))
 
-        if (!modrinthToken.isNullOrBlank() || publishDryRun) {
+        if ("modrinth" in publishPlatforms) {
             modrinth {
                 accessToken.set(modrinthToken ?: "")
                 projectId.set(rootProject.prop("modrinth_project_id"))
                 version.set(rootProject.prop("mod_version"))
+                displayName.set(rootProject.modrinthDisplayName(loaderName, minecraftVersion))
                 minecraftVersions.add(minecraftVersion)
                 environment.set(CLIENT_AND_SERVER)
                 when (loaderName) {
@@ -891,10 +947,11 @@ if (stoneNodes.contains(project.name)) {
             }
         }
 
-        if (!curseforgeToken.isNullOrBlank() || publishDryRun) {
+        if ("curseforge" in publishPlatforms) {
             curseforge {
                 accessToken.set(curseforgeToken ?: "")
                 projectId.set(rootProject.prop("curseforge_project_id"))
+                displayName.set(rootProject.curseForgeDisplayName(loaderName, minecraftVersion))
                 minecraftVersions.add(minecraftVersion)
                 client.set(true)
                 server.set(true)
@@ -912,6 +969,106 @@ if (stoneNodes.contains(project.name)) {
                         requires("architectury-api", "kotlin-for-forge")
                         requires("apricityui")
                     }
+                }
+            }
+        }
+    }
+
+    tasks.register("validateModPublishInputs") {
+        group = "verification"
+        description = "Validate Modrinth and CurseForge publishing metadata for this node."
+        outputs.upToDateWhen { false }
+        doLast {
+            val publishExtension = project.extensions.getByType<ModPublishExtension>()
+            val modrinth = publishExtension.platforms.findByName("modrinth") as? ModrinthOptions
+            val curseforge = publishExtension.platforms.findByName("curseforge") as? CurseforgeOptions
+
+            if ("modrinth" !in publishPlatforms) {
+                require(modrinth == null) {
+                    "Modrinth publishing is configured for $nodeName but mod_publish_platform excludes it."
+                }
+            } else {
+                val configured = requireNotNull(modrinth) {
+                    "Modrinth publishing is not configured for $nodeName."
+                }
+                require(rootProject.prop("modrinth_project_id").isNotBlank()) {
+                    "Missing modrinth_project_id in gradle.properties."
+                }
+                require(rootProject.prop("modrinth_project_id").matches(Regex("[0-9a-zA-Z]{8}"))) {
+                    "Invalid modrinth_project_id: ${rootProject.prop("modrinth_project_id")}"
+                }
+                require(!modrinthToken.isNullOrBlank() || publishDryRun) {
+                    "Missing MODRINTH_TOKEN for $nodeName; set it or use -Pmod_publish_dry_run=true."
+                }
+                require(configured.projectId.get() == rootProject.prop("modrinth_project_id")) {
+                    "Unexpected Modrinth project ID for $nodeName: ${configured.projectId.get()}"
+                }
+                require(configured.version.get() == rootProject.prop("mod_version")) {
+                    "Unexpected Modrinth version for $nodeName: ${configured.version.get()}"
+                }
+                require(configured.minecraftVersions.get() == listOf(minecraftVersion)) {
+                    "Unexpected Modrinth Minecraft versions for $nodeName: ${configured.minecraftVersions.get()}"
+                }
+                require(configured.modLoaders.get().map(String::lowercase) == listOf(loaderName)) {
+                    "Unexpected Modrinth loaders for $nodeName: ${configured.modLoaders.get()}"
+                }
+                require(configured.displayName.get() == rootProject.modrinthDisplayName(loaderName, minecraftVersion)) {
+                    "Unexpected Modrinth version subtitle for $nodeName: ${configured.displayName.get()}"
+                }
+                require(configured.environment.get() == configured.CLIENT_AND_SERVER) {
+                    "Unexpected Modrinth environment for $nodeName: ${configured.environment.get()}"
+                }
+                require(configured.featured.get() == false) {
+                    "Unexpected Modrinth featured flag for $nodeName: ${configured.featured.get()}"
+                }
+                require(configured.accessToken.orNull == modrinthToken.orEmpty()) {
+                    "Unexpected Modrinth access token for $nodeName."
+                }
+                require(configured.dependencies.get().map { it.slug.get() } == expectedModPublishDependencies(loaderName)) {
+                    "Unexpected Modrinth dependencies for $nodeName."
+                }
+            }
+
+            if ("curseforge" !in publishPlatforms) {
+                require(curseforge == null) {
+                    "CurseForge publishing is configured for $nodeName but mod_publish_platform excludes it."
+                }
+            } else {
+                val configured = requireNotNull(curseforge) {
+                    "CurseForge publishing is not configured for $nodeName."
+                }
+                require(rootProject.prop("curseforge_project_id").isNotBlank()) {
+                    "Missing curseforge_project_id in gradle.properties."
+                }
+                require(rootProject.prop("curseforge_project_id").matches(Regex("[0-9]+"))) {
+                    "Invalid curseforge_project_id: ${rootProject.prop("curseforge_project_id")}"
+                }
+                require(!curseforgeToken.isNullOrBlank() || publishDryRun) {
+                    "Missing CURSEFORGE_TOKEN for $nodeName; set it or use -Pmod_publish_dry_run=true."
+                }
+                require(configured.projectId.get() == rootProject.prop("curseforge_project_id")) {
+                    "Unexpected CurseForge project ID for $nodeName: ${configured.projectId.get()}"
+                }
+                require(configured.displayName.get() == rootProject.curseForgeDisplayName(loaderName, minecraftVersion)) {
+                    "Unexpected CurseForge display name for $nodeName: ${configured.displayName.get()}"
+                }
+                require(configured.minecraftVersions.get() == listOf(minecraftVersion)) {
+                    "Unexpected CurseForge Minecraft versions for $nodeName: ${configured.minecraftVersions.get()}"
+                }
+                require(configured.client.get() && configured.server.get()) {
+                    "CurseForge must target both client and server for $nodeName."
+                }
+                require(configured.changelogType.get() == "markdown") {
+                    "Unexpected CurseForge changelog type for $nodeName: ${configured.changelogType.get()}"
+                }
+                require(configured.accessToken.orNull == curseforgeToken.orEmpty()) {
+                    "Unexpected CurseForge access token for $nodeName."
+                }
+                require(configured.javaVersions.get() == listOf(JavaVersion.toVersion(javaVersion))) {
+                    "Unexpected CurseForge Java versions for $nodeName: ${configured.javaVersions.get()}"
+                }
+                require(configured.dependencies.get().map { it.slug.get() } == expectedModPublishDependencies(loaderName)) {
+                    "Unexpected CurseForge dependencies for $nodeName."
                 }
             }
         }
