@@ -3,6 +3,7 @@ import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -53,11 +54,19 @@ public class DlcStateConfig {
             Path path = root.resolve("tmp/state.dc");
             try {
                 Files.createDirectories(path.getParent());
-                DlcStateConfigData data = new DlcStateConfigData();
                 Map<String, DlcState> states = new HashMap<>();
                 stateById.forEach((id, state) -> { if (belongsToRoot(id, state, root)) states.put(id, state); });
-                data.DLC = states;
-                DlcDcConfigIO.write(path, GSON.toJsonTree(data).getAsJsonObject(), DlcDcConfigIO.Layout.GENERIC);
+                JsonObject output = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC);
+                if (output == null) {
+                    Path legacy = DlcPlatformServices.configDir().resolve("dlc_manager/state.dc");
+                    output = DlcDcConfigIO.read(legacy, DlcDcConfigIO.Layout.GENERIC);
+                }
+                if (output == null) {
+                    output = new JsonObject();
+                }
+                DlcDcConfigIO.removeIgnoreCase(output, "DLC");
+                output.add("DLC", GSON.toJsonTree(states));
+                DlcDcConfigIO.write(path, output, DlcDcConfigIO.Layout.GENERIC);
             } catch (IOException ignored) {}
         }
     }

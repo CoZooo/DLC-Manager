@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.preset;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
-import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -11,24 +11,21 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public final class DlcPresetStateStore {
-    private static final String STATE_BASE_NAME = "state";
     private static final String PRESETS_KEY = "presets";
 
     private DlcPresetStateStore() {
     }
 
     public static Path getStatePath() {
-        Path configDir = DlcPlatformServices.configDir().resolve("dlc_manager");
-        return DlcDcFormatUtil.resolveConfigPath(configDir, STATE_BASE_NAME);
+        return DlcConfig.getDlcRoot().resolve("tmp/state.dc");
     }
 
     public static Map<String, DlcPresetStatus> loadPresetStatus() {
         Map<String, DlcPresetStatus> result = new LinkedHashMap<>();
-        Path path = getStatePath();
-        if (path == null || !Files.exists(path)) {
-            return result;
+        JsonObject root = readStateFile(getStatePath());
+        if (root == null || DlcDcConfigIO.getObjectIgnoreCase(root, PRESETS_KEY) == null) {
+            root = readStateFile(legacyStatePath());
         }
-        JsonObject root = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC);
         if (root == null) {
             return result;
         }
@@ -55,15 +52,15 @@ public final class DlcPresetStateStore {
             statuses = Map.of();
         }
         Path path = getStatePath();
-        if (path == null) {
-            return;
-        }
         try {
             Files.createDirectories(path.getParent());
         } catch (IOException ignored) {
             return;
         }
-        JsonObject root = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC);
+        JsonObject root = readStateFile(path);
+        if (root == null) {
+            root = readStateFile(legacyStatePath());
+        }
         if (root == null) {
             root = new JsonObject();
         }
@@ -78,5 +75,13 @@ public final class DlcPresetStateStore {
         DlcDcConfigIO.removeIgnoreCase(root, PRESETS_KEY);
         root.add(PRESETS_KEY, presets);
         DlcDcConfigIO.write(path, root, DlcDcConfigIO.Layout.GENERIC);
+    }
+
+    private static JsonObject readStateFile(Path path) {
+        return path != null && Files.exists(path) ? DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC) : null;
+    }
+
+    private static Path legacyStatePath() {
+        return DlcPlatformServices.configDir().resolve("dlc_manager/state.dc");
     }
 }

@@ -103,8 +103,21 @@ fun Project.optionalProp(name: String): String? =
 fun Project.booleanProp(name: String, fallback: Boolean = false): Boolean =
     optionalProp(name)?.toBoolean() ?: fallback
 
+fun String?.asPublishValue(): String? {
+    val value = this?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    if (value.length >= 2) {
+        val quote = value.first()
+        if ((quote == '"' || quote == '\'') && value.last() == quote) {
+            return value.substring(1, value.length - 1).trim().takeIf { it.isNotEmpty() }
+        }
+    }
+    return value
+}
+
 fun Project.publishEnv(name: String): String? =
-    providers.environmentVariable(name).orNull?.takeIf { it.isNotBlank() }
+    providers.environmentVariable(name).orNull.asPublishValue()
+        ?: optionalProp(name).asPublishValue()
+        ?: optionalProp(name.lowercase()).asPublishValue()
 
 fun Project.modPublishPlatform(): String =
     (optionalProp("mod_publish_platform") ?: "all")
@@ -1002,7 +1015,8 @@ if (stoneNodes.contains(project.name)) {
                     "Invalid modrinth_project_id: ${rootProject.prop("modrinth_project_id")}"
                 }
                 require(!modrinthToken.isNullOrBlank() || publishDryRun) {
-                    "Missing MODRINTH_TOKEN for $nodeName; set it or use -Pmod_publish_dry_run=true."
+                    "Missing MODRINTH_TOKEN for $nodeName; set the environment variable, " +
+                        "add modrinth_token to ~/.gradle/gradle.properties, or use -Pmod_publish_dry_run=true."
                 }
                 require(configured.projectId.get() == rootProject.prop("modrinth_project_id")) {
                     "Unexpected Modrinth project ID for $nodeName: ${configured.projectId.get()}"
@@ -1048,7 +1062,8 @@ if (stoneNodes.contains(project.name)) {
                     "Invalid curseforge_project_id: ${rootProject.prop("curseforge_project_id")}"
                 }
                 require(!curseforgeToken.isNullOrBlank() || publishDryRun) {
-                    "Missing CURSEFORGE_TOKEN for $nodeName; set it or use -Pmod_publish_dry_run=true."
+                    "Missing CURSEFORGE_TOKEN for $nodeName; set the environment variable, " +
+                        "add curseforge_token to ~/.gradle/gradle.properties, or use -Pmod_publish_dry_run=true."
                 }
                 require(configured.projectId.get() == rootProject.prop("curseforge_project_id")) {
                     "Unexpected CurseForge project ID for $nodeName: ${configured.projectId.get()}"

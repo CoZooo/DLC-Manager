@@ -72,6 +72,21 @@ class DlcStateConfigTest {
     }
 
     @Test
+    void saveKeepsPresetSectionInTempStateFile() throws Exception {
+        Path stateFile = gameDir.resolve("DLC/tmp/state.dc");
+        Files.createDirectories(stateFile.getParent());
+        Files.writeString(stateFile, """
+            [presets]
+            preset-a = "On"
+            """);
+
+        DlcStateConfig.save();
+
+        JsonObject root = DlcDcConfigIO.read(stateFile, DlcDcConfigIO.Layout.GENERIC);
+        assertEquals("On", DlcDcConfigIO.getObjectIgnoreCase(root, "presets").get("preset-a").getAsString());
+    }
+
+    @Test
     void loadRecoversFlattenedLegacyStateMapAndNormalizesMissingEnabledTargets() throws Exception {
         Path stateFile = configDir.resolve("dlc_manager").resolve("state.dc");
         Files.createDirectories(stateFile.getParent());

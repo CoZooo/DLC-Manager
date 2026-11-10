@@ -53,9 +53,18 @@ object DlcStateConfig {
             val path = root.resolve("tmp/state.dc")
             try {
                 Files.createDirectories(path.parent)
-                val data = DlcStateConfigData()
-                data.DLC = stateById.filter { (id, state) -> belongsToRoot(id, state, root) }
-                DlcDcConfigIO.write(path, GSON.toJsonTree(data).asJsonObject, DlcDcConfigIO.Layout.GENERIC)
+                val states = stateById.filter { (id, state) -> belongsToRoot(id, state, root) }
+                var output = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC)
+                if (output == null) {
+                    val legacy = DlcPlatformServices.configDir().resolve("dlc_manager/state.dc")
+                    output = DlcDcConfigIO.read(legacy, DlcDcConfigIO.Layout.GENERIC)
+                }
+                if (output == null) {
+                    output = JsonObject()
+                }
+                DlcDcConfigIO.removeIgnoreCase(output, "DLC")
+                output.add("DLC", GSON.toJsonTree(states))
+                DlcDcConfigIO.write(path, output, DlcDcConfigIO.Layout.GENERIC)
             } catch (_: IOException) {}
         }
     }

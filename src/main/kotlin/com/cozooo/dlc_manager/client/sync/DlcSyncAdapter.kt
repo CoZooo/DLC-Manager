@@ -141,7 +141,7 @@ class DlcSyncAdapter @JvmOverloads constructor(private val quiesce: Quiesce = Qu
         val journal = DlcUpdateJournal.openSync(game, directory)
         try {
             mark(directory, "pending")
-            com.cozooo.dlc_manager.client.preset.DlcPresetStateStore.getStatePath()?.let(journal::capture)
+            journal.capture(com.cozooo.dlc_manager.client.preset.DlcPresetStateStore.getStatePath())
             for (root in roots()) {
                 journal.capture(root.resolve("tmp/state.dc"))
                 journal.capture(root.resolve("tmp/dlc/history.dc"))
