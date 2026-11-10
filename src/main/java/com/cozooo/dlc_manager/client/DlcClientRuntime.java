@@ -84,7 +84,6 @@ public final class DlcClientRuntime {
     private static int titleNoticeDragStartScroll = 0;
     private static CompletableFuture<String> titleNoticeFuture;
     private static volatile boolean firstRunManagerHandled = false;
-    private static final String FIRST_RUN_MARKER_NAME = "ShownOnFirstRun";
     private static final Logger LOGGER = LogUtils.getLogger();
 
     private DlcClientRuntime() {
@@ -135,15 +134,16 @@ public final class DlcClientRuntime {
         if (dlcRoot == null) {
             return;
         }
-        Path markerPath = dlcRoot.resolve(FIRST_RUN_MARKER_NAME);
-        if (Files.exists(markerPath)) {
+        if (DlcFirstRunStore.wasShown(dlcRoot)) {
             return;
         }
         try {
             Files.createDirectories(dlcRoot);
             ensurePackArchiveRoot(dlcRoot);
-            Files.createFile(markerPath);
         } catch (IOException ignored) {
+            return;
+        }
+        if (!DlcFirstRunStore.markShown(dlcRoot)) {
             return;
         }
         Screen managerScreen = new DlcManagerScreen(parent);
@@ -164,15 +164,16 @@ public final class DlcClientRuntime {
         if (dlcRoot == null) {
             return false;
         }
-        Path markerPath = dlcRoot.resolve(FIRST_RUN_MARKER_NAME);
-        if (Files.exists(markerPath)) {
+        if (DlcFirstRunStore.wasShown(dlcRoot)) {
             return false;
         }
         try {
             Files.createDirectories(dlcRoot);
             ensurePackArchiveRoot(dlcRoot);
-            Files.createFile(markerPath);
         } catch (IOException ignored) {
+            return false;
+        }
+        if (!DlcFirstRunStore.markShown(dlcRoot)) {
             return false;
         }
         Screen managerScreen = new DlcManagerScreen(parent);

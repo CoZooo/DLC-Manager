@@ -18,10 +18,9 @@ public final class DlcConfigClient {
     private static final DlcConfigValue.BooleanValue PRESET_FUNC_ON = new DlcConfigValue.BooleanValue("isPresetFuncOn", DlcConfig.DEFAULT_PRESET_FUNC_ON, "dlc_manager.config.comment.ui.isPresetFuncOn", "dlc_manager.config.ui.isPresetFuncOn");
     private static final DlcConfigValue.BooleanValue PACK_FUNC_ON = new DlcConfigValue.BooleanValue("isPackFuncOn", DlcConfig.DEFAULT_PACK_FUNC_ON, "dlc_manager.config.comment.ui.isPackFuncOn", "dlc_manager.config.ui.isPackFuncOn");
     private static final DlcConfigValue.BooleanValue P_BUTTON = new DlcConfigValue.BooleanValue("isPButtomShown", DlcConfig.DEFAULT_P_BUTTON_SHOWN, "dlc_manager.config.comment.ui.isPButtomShown", "dlc_manager.config.ui.isPButtomShown");
-    private static final DlcConfigValue.BooleanValue SHOW_ON_FIRST_RUN = new DlcConfigValue.BooleanValue("ShowOnFirstRun", DlcConfig.DEFAULT_SHOW_ON_FIRST_RUN, "dlc_manager.config.comment.ui.ShowOnFirstRun", "dlc_manager.config.ui.ShowOnFirstRun");
+    private static final DlcConfigValue.BooleanValue SHOW_ON_FIRST_RUN = new DlcConfigValue.BooleanValue("showOnFirstRun", DlcConfig.DEFAULT_SHOW_ON_FIRST_RUN, "dlc_manager.config.comment.ui.showOnFirstRun", "dlc_manager.config.ui.showOnFirstRun");
     private static final DlcConfigValue.BooleanValue SHOW_DEPENDENCY_REMINDER = new DlcConfigValue.BooleanValue("showDependencyReminder", DlcConfig.DEFAULT_SHOW_DEPENDENCY_REMINDER, "dlc_manager.config.comment.ui.showDependencyReminder", "dlc_manager.config.ui.showDependencyReminder");
-    private static final DlcConfigValue.IntegerValue ALARM_WAITING_TIME = new DlcConfigValue.IntegerValue("WaitingTime", DlcConfig.DEFAULT_ALARM_WAITING_TIME, 0, 10, "dlc_manager.config.comment.ui.WaitingTime", "dlc_manager.config.ui.WaitingTime");
-    private static final DlcConfigValue.BooleanValue SERVER_SUPPORT_CLIENT = new DlcConfigValue.BooleanValue("serverSupport", DlcConfig.DEFAULT_SERVER_SUPPORT, "dlc_manager.config.comment.ui.serverSupport", "dlc_manager.config.ui.serverSupport");
+    private static final DlcConfigValue.IntegerValue ALARM_WAITING_TIME = new DlcConfigValue.IntegerValue("waitingTime", DlcConfig.DEFAULT_ALARM_WAITING_TIME, 0, 10, "dlc_manager.config.comment.ui.waitingTime", "dlc_manager.config.ui.waitingTime");
     private static final DlcConfigValue.BooleanValue API_ENABLED = new DlcConfigValue.BooleanValue("apiEnabled", DlcConfig.DEFAULT_API_ENABLED, "dlc_manager.config.comment.ui.apiEnabled", "dlc_manager.config.ui.apiEnabled");
     private static final DlcConfigValue.IntegerValue API_PORT = new DlcConfigValue.IntegerValue("apiPort", DlcConfig.DEFAULT_API_PORT, 0, 65535, "dlc_manager.config.comment.ui.apiPort", "dlc_manager.config.ui.apiPort");
     private static final DlcConfigValue.StringValue API_TOKEN = new DlcConfigValue.StringValue("apiToken", DlcConfig.DEFAULT_API_TOKEN, "dlc_manager.config.comment.ui.apiToken", "dlc_manager.config.ui.apiToken");
@@ -45,6 +44,7 @@ public final class DlcConfigClient {
     private static final DlcConfigValue.StringValue UPDATE_GIT_REPO = new DlcConfigValue.StringValue("updateGitRepo", DlcConfig.DEFAULT_UPDATE_GIT_REPO_URL, "dlc_manager.config.comment.modpack.updateGitRepo", "dlc_manager.config.modpack.updateGitRepo");
     private static final DlcConfigValue.BooleanValue MODPACK_AUTO_UPDATE = new DlcConfigValue.BooleanValue("autoUpdate", DlcConfig.DEFAULT_MODPACK_AUTO_UPDATE, "dlc_manager.config.comment.modpack.autoUpdate", "dlc_manager.config.modpack.autoUpdate");
     private static final DlcConfigValue.BooleanValue MODPACK_FORCE_UPDATE = new DlcConfigValue.BooleanValue("forceUpdate", DlcConfig.DEFAULT_MODPACK_FORCE_UPDATE, "dlc_manager.config.comment.modpack.forceUpdate", "dlc_manager.config.modpack.forceUpdate");
+    private static final DlcConfigValue.StringValue PACK_UPDATE_CHANNEL = new DlcConfigValue.StringValue("packUpdateChannel", DlcConfig.DEFAULT_PACK_UPDATE_CHANNEL, "dlc_manager.config.comment.modpack.packUpdateChannel", "dlc_manager.config.modpack.packUpdateChannel");
 
     private static final DlcConfigValue.IntegerValue MAX_CONCURRENT_DOWNLOADS = new DlcConfigValue.IntegerValue("maxConcurrentDownloads", DlcConfig.DEFAULT_MAX_CONCURRENT_DOWNLOADS, 1, 64, "dlc_manager.config.comment.download.maxConcurrentDownloads", "dlc_manager.config.download.maxConcurrentDownloads");
     private static final DlcConfigValue.IntegerValue MAX_SEGMENTS_PER_FILE = new DlcConfigValue.IntegerValue("maxSegmentsPerFile", DlcConfig.DEFAULT_MAX_SEGMENTS_PER_FILE, 1, 64, "dlc_manager.config.comment.download.maxSegmentsPerFile", "dlc_manager.config.download.maxSegmentsPerFile");
@@ -95,11 +95,11 @@ public final class DlcConfigClient {
             MODPACK_URL,
             UPDATE_GIT_REPO,
             MODPACK_AUTO_UPDATE,
-            MODPACK_FORCE_UPDATE
+            MODPACK_FORCE_UPDATE,
+            PACK_UPDATE_CHANNEL
     );
 
     private static final List<DlcConfigValue> SERVER_CONFIGS = List.of(
-            SERVER_SUPPORT_CLIENT,
             API_ENABLED,
             API_PORT,
             API_TOKEN
@@ -155,12 +155,12 @@ public final class DlcConfigClient {
         SHOW_ON_FIRST_RUN.setBooleanValue(DlcConfig.isShowOnFirstRun());
         SHOW_DEPENDENCY_REMINDER.setBooleanValue(DlcConfig.isShowDependencyReminder());
         ALARM_WAITING_TIME.setIntegerValue(DlcConfig.getAlarmWaitingTime());
-        SERVER_SUPPORT_CLIENT.setBooleanValue(DlcConfig.isServerSupportOn());
         MODPACK.setValueFromString(DlcConfig.getModpack());
         MODPACK_URL.setValueFromString(DlcConfig.getModpackUrl());
         UPDATE_GIT_REPO.setValueFromString(DlcConfig.getUpdateGitRepoUrl());
         MODPACK_AUTO_UPDATE.setBooleanValue(DlcConfig.isModpackAutoUpdateOn());
         MODPACK_FORCE_UPDATE.setBooleanValue(DlcConfig.isModpackForceUpdateOn());
+        PACK_UPDATE_CHANNEL.setValueFromString(DlcConfig.getPackUpdateChannel());
         API_ENABLED.setBooleanValue(DlcConfig.isApiEnabled());
         API_PORT.setIntegerValue(DlcConfig.getApiPort());
         API_TOKEN.setValueFromString(DlcConfig.getApiToken());
@@ -206,12 +206,12 @@ public final class DlcConfigClient {
         DlcConfig.setShowOnFirstRun(SHOW_ON_FIRST_RUN.getBooleanValue());
         DlcConfig.setShowDependencyReminder(SHOW_DEPENDENCY_REMINDER.getBooleanValue());
         DlcConfig.setAlarmWaitingTime(ALARM_WAITING_TIME.getIntegerValue());
-        DlcConfig.setServerSupportOn(SERVER_SUPPORT_CLIENT.getBooleanValue());
         DlcConfig.setModpack(MODPACK.getStringValue());
         DlcConfig.setModpackUrl(MODPACK_URL.getStringValue());
         DlcConfig.setUpdateGitRepoUrl(UPDATE_GIT_REPO.getStringValue());
         DlcConfig.setModpackAutoUpdateOn(MODPACK_AUTO_UPDATE.getBooleanValue());
         DlcConfig.setModpackForceUpdateOn(MODPACK_FORCE_UPDATE.getBooleanValue());
+        DlcConfig.setPackUpdateChannel(PACK_UPDATE_CHANNEL.getStringValue());
         DlcConfig.setApiEnabled(API_ENABLED.getBooleanValue());
         DlcConfig.setApiPort(API_PORT.getIntegerValue());
         DlcConfig.setApiToken(API_TOKEN.getStringValue());

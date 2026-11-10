@@ -17,10 +17,9 @@ object DlcConfigClient {
     private val PRESET_FUNC_ON = DlcConfigValue.BooleanValue("isPresetFuncOn", DlcConfig.DEFAULT_PRESET_FUNC_ON, "dlc_manager.config.comment.ui.isPresetFuncOn", "dlc_manager.config.ui.isPresetFuncOn")
     private val PACK_FUNC_ON = DlcConfigValue.BooleanValue("isPackFuncOn", DlcConfig.DEFAULT_PACK_FUNC_ON, "dlc_manager.config.comment.ui.isPackFuncOn", "dlc_manager.config.ui.isPackFuncOn")
     private val P_BUTTON = DlcConfigValue.BooleanValue("isPButtomShown", DlcConfig.DEFAULT_P_BUTTON_SHOWN, "dlc_manager.config.comment.ui.isPButtomShown", "dlc_manager.config.ui.isPButtomShown")
-    private val SHOW_ON_FIRST_RUN = DlcConfigValue.BooleanValue("ShowOnFirstRun", DlcConfig.DEFAULT_SHOW_ON_FIRST_RUN, "dlc_manager.config.comment.ui.ShowOnFirstRun", "dlc_manager.config.ui.ShowOnFirstRun")
+    private val SHOW_ON_FIRST_RUN = DlcConfigValue.BooleanValue("showOnFirstRun", DlcConfig.DEFAULT_SHOW_ON_FIRST_RUN, "dlc_manager.config.comment.ui.showOnFirstRun", "dlc_manager.config.ui.showOnFirstRun")
     private val SHOW_DEPENDENCY_REMINDER = DlcConfigValue.BooleanValue("showDependencyReminder", DlcConfig.DEFAULT_SHOW_DEPENDENCY_REMINDER, "dlc_manager.config.comment.ui.showDependencyReminder", "dlc_manager.config.ui.showDependencyReminder")
-    private val ALARM_WAITING_TIME = DlcConfigValue.IntegerValue("WaitingTime", DlcConfig.DEFAULT_ALARM_WAITING_TIME, 0, 10, "dlc_manager.config.comment.ui.WaitingTime", "dlc_manager.config.ui.WaitingTime")
-    private val SERVER_SUPPORT_CLIENT = DlcConfigValue.BooleanValue("serverSupport", DlcConfig.DEFAULT_SERVER_SUPPORT, "dlc_manager.config.comment.ui.serverSupport", "dlc_manager.config.ui.serverSupport")
+    private val ALARM_WAITING_TIME = DlcConfigValue.IntegerValue("waitingTime", DlcConfig.DEFAULT_ALARM_WAITING_TIME, 0, 10, "dlc_manager.config.comment.ui.waitingTime", "dlc_manager.config.ui.waitingTime")
     private val API_ENABLED = DlcConfigValue.BooleanValue("apiEnabled", DlcConfig.DEFAULT_API_ENABLED, "dlc_manager.config.comment.ui.apiEnabled", "dlc_manager.config.ui.apiEnabled")
     private val API_PORT = DlcConfigValue.IntegerValue("apiPort", DlcConfig.DEFAULT_API_PORT, 0, 65535, "dlc_manager.config.comment.ui.apiPort", "dlc_manager.config.ui.apiPort")
     private val API_TOKEN = DlcConfigValue.StringValue("apiToken", DlcConfig.DEFAULT_API_TOKEN, "dlc_manager.config.comment.ui.apiToken", "dlc_manager.config.ui.apiToken")
@@ -44,6 +43,7 @@ object DlcConfigClient {
     private val UPDATE_GIT_REPO = DlcConfigValue.StringValue("updateGitRepo", DlcConfig.DEFAULT_UPDATE_GIT_REPO_URL, "dlc_manager.config.comment.modpack.updateGitRepo", "dlc_manager.config.modpack.updateGitRepo")
     private val MODPACK_AUTO_UPDATE = DlcConfigValue.BooleanValue("autoUpdate", DlcConfig.DEFAULT_MODPACK_AUTO_UPDATE, "dlc_manager.config.comment.modpack.autoUpdate", "dlc_manager.config.modpack.autoUpdate")
     private val MODPACK_FORCE_UPDATE = DlcConfigValue.BooleanValue("forceUpdate", DlcConfig.DEFAULT_MODPACK_FORCE_UPDATE, "dlc_manager.config.comment.modpack.forceUpdate", "dlc_manager.config.modpack.forceUpdate")
+    private val PACK_UPDATE_CHANNEL = DlcConfigValue.StringValue("packUpdateChannel", DlcConfig.DEFAULT_PACK_UPDATE_CHANNEL, "dlc_manager.config.comment.modpack.packUpdateChannel", "dlc_manager.config.modpack.packUpdateChannel")
 
     private val MAX_CONCURRENT_DOWNLOADS = DlcConfigValue.IntegerValue("maxConcurrentDownloads", DlcConfig.DEFAULT_MAX_CONCURRENT_DOWNLOADS, 1, 64, "dlc_manager.config.comment.download.maxConcurrentDownloads", "dlc_manager.config.download.maxConcurrentDownloads")
     private val MAX_SEGMENTS_PER_FILE = DlcConfigValue.IntegerValue("maxSegmentsPerFile", DlcConfig.DEFAULT_MAX_SEGMENTS_PER_FILE, 1, 64, "dlc_manager.config.comment.download.maxSegmentsPerFile", "dlc_manager.config.download.maxSegmentsPerFile")
@@ -89,11 +89,11 @@ object DlcConfigClient {
         MODPACK_URL,
         UPDATE_GIT_REPO,
         MODPACK_AUTO_UPDATE,
-        MODPACK_FORCE_UPDATE
+        MODPACK_FORCE_UPDATE,
+        PACK_UPDATE_CHANNEL
     )
 
     private val SERVER_CONFIGS: List<DlcConfigValue> = listOf(
-        SERVER_SUPPORT_CLIENT,
         API_ENABLED,
         API_PORT,
         API_TOKEN
@@ -142,12 +142,12 @@ object DlcConfigClient {
         SHOW_ON_FIRST_RUN.booleanValue = DlcConfig.isShowOnFirstRun()
         SHOW_DEPENDENCY_REMINDER.booleanValue = DlcConfig.isShowDependencyReminder()
         ALARM_WAITING_TIME.integerValue = DlcConfig.getAlarmWaitingTime()
-        SERVER_SUPPORT_CLIENT.booleanValue = DlcConfig.isServerSupportOn()
         MODPACK.setValueFromString(DlcConfig.getModpack())
         MODPACK_URL.setValueFromString(DlcConfig.getModpackUrl())
         UPDATE_GIT_REPO.setValueFromString(DlcConfig.getUpdateGitRepoUrl())
         MODPACK_AUTO_UPDATE.booleanValue = DlcConfig.isModpackAutoUpdateOn()
         MODPACK_FORCE_UPDATE.booleanValue = DlcConfig.isModpackForceUpdateOn()
+        PACK_UPDATE_CHANNEL.setValueFromString(DlcConfig.getPackUpdateChannel())
         API_ENABLED.booleanValue = DlcConfig.isApiEnabled()
         API_PORT.integerValue = DlcConfig.getApiPort()
         API_TOKEN.setValueFromString(DlcConfig.getApiToken())
@@ -194,12 +194,12 @@ object DlcConfigClient {
         DlcConfig.setShowOnFirstRun(SHOW_ON_FIRST_RUN.booleanValue)
         DlcConfig.setShowDependencyReminder(SHOW_DEPENDENCY_REMINDER.booleanValue)
         DlcConfig.setAlarmWaitingTime(ALARM_WAITING_TIME.integerValue)
-        DlcConfig.setServerSupportOn(SERVER_SUPPORT_CLIENT.booleanValue)
         DlcConfig.setModpack(MODPACK.stringValue)
         DlcConfig.setModpackUrl(MODPACK_URL.stringValue)
         DlcConfig.setUpdateGitRepoUrl(UPDATE_GIT_REPO.stringValue)
         DlcConfig.setModpackAutoUpdateOn(MODPACK_AUTO_UPDATE.booleanValue)
         DlcConfig.setModpackForceUpdateOn(MODPACK_FORCE_UPDATE.booleanValue)
+        DlcConfig.setPackUpdateChannel(PACK_UPDATE_CHANNEL.stringValue)
         DlcConfig.setApiEnabled(API_ENABLED.booleanValue)
         DlcConfig.setApiPort(API_PORT.integerValue)
         DlcConfig.setApiToken(API_TOKEN.stringValue)

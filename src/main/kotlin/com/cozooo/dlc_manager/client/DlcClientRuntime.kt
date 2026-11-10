@@ -86,7 +86,6 @@ object DlcClientRuntime {
     private var titleNoticeFuture: CompletableFuture<String>? = null
     @Volatile private var firstRunManagerHandled = false
 
-    private const val FIRST_RUN_MARKER_NAME = "ShownOnFirstRun"
     private val LOGGER: Logger = LogUtils.getLogger()
 
     @JvmStatic
@@ -131,16 +130,15 @@ object DlcClientRuntime {
         firstRunManagerHandled = true
         if (parent == null || !DlcConfig.isShowOnFirstRun()) return
         val dlcRoot = DlcConfig.getDlcRoot()
-        val markerPath = dlcRoot.resolve(FIRST_RUN_MARKER_NAME)
-        if (Files.exists(markerPath)) return
+        if (DlcFirstRunStore.wasShown(dlcRoot)) return
         if (DlcRequiredManager.tryShowFromTitle(parent)) return
         try {
             Files.createDirectories(dlcRoot)
             ensurePackArchiveRoot(dlcRoot)
-            Files.createFile(markerPath)
         } catch (_: IOException) {
             return
         }
+        if (!DlcFirstRunStore.markShown(dlcRoot)) return
         val managerScreen: Screen = DlcManagerScreen(parent)
         if (DlcRemoteManager.tryShowFromManager(managerScreen)) return
         Minecraft.getInstance().setScreen(managerScreen)
@@ -151,15 +149,14 @@ object DlcClientRuntime {
         if (parent == null || parent !is TitleScreen) return false
         if (!DlcConfig.isShowOnFirstRun()) return false
         val dlcRoot = DlcConfig.getDlcRoot()
-        val markerPath = dlcRoot.resolve(FIRST_RUN_MARKER_NAME)
-        if (Files.exists(markerPath)) return false
+        if (DlcFirstRunStore.wasShown(dlcRoot)) return false
         try {
             Files.createDirectories(dlcRoot)
             ensurePackArchiveRoot(dlcRoot)
-            Files.createFile(markerPath)
         } catch (_: IOException) {
             return false
         }
+        if (!DlcFirstRunStore.markShown(dlcRoot)) return false
         val managerScreen: Screen = DlcManagerScreen(parent)
         if (DlcRemoteManager.tryShowFromManager(managerScreen)) return true
         Minecraft.getInstance().setScreen(managerScreen)

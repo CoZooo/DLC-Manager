@@ -2,6 +2,8 @@ package com.cozooo.dlc_manager.client.selfupdate;
 import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.download.DlcCurseForgeClient;
+import com.cozooo.dlc_manager.client.download.DlcModrinthClient;
+import com.cozooo.dlc_manager.core.DlcVersionUtil;
 import com.cozooo.dlc_manager.client.update.DlcUpdateSkipStore;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
@@ -21,19 +23,25 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class DlcSelfUpdateService {
     public static final String MOD_ID = "dlc_manager";
     public static final String PROJECT_ID = "1424546";
+    private static final String MODRINTH_PROJECT_ID = "B05EUil9";
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Pattern DISPLAY_NAME_VERSION_PATTERN = Pattern.compile(
-        "\\bDLC\\s+Manager\\s+(\\d+\\.\\d+(?:\\.\\d+)?)\\b",
-        Pattern.CASE_INSENSITIVE
+        "^\\s*(\\d+\\.\\d+(?:\\.\\d+)?(?:-[0-9A-Za-z][0-9A-Za-z.]*)?)\\s*\\("
     );
-    private static final Pattern VERSION_PATTERN_3 = Pattern.compile("(\\d+\\.\\d+\\.\\d+)");
-    private static final Pattern VERSION_PATTERN_2 = Pattern.compile("(\\d+\\.\\d+)");
+    private static final Pattern FILE_NAME_VERSION_PATTERN = Pattern.compile("\\d+\\.\\d+(?:\\.\\d+)?");
+    private static final Pattern FILE_NAME_PRERELEASE_PATTERN = Pattern.compile(
+        "(?i)(?:alpha|beta|rc|pre|nightly|build)[0-9A-Za-z.]*"
+    );
+    private static final Pattern MAJOR_VERSION_PATTERN = Pattern.compile("(\\d+)");
 
     private DlcSelfUpdateService() {
     }
@@ -59,41 +67,141 @@ public final class DlcSelfUpdateService {
             result.requestedVersion = requestedVersion;
             return result;
         }
+        return requestedVersion == null
+            ? checkAutomaticUpdate(currentVersion, mcVersion, loader)
+            : checkRequestedVersion(currentVersion, requestedVersion, mcVersion, loader);
+    }
+
+    private static SelfUpdateResult checkAutomaticUpdate(String currentVersion, String mcVersion, String loader) {
+        List<UpdateCandidate> candidates = new ArrayList<>();
+        boolean fetched = false;
         try {
-            DlcCurseForgeClient.CurseForgeFile file = requestedVersion == null
-                ? DlcCurseForgeClient.fetchLatestFile(PROJECT_ID, mcVersion, loader)
-                : DlcCurseForgeClient.fetchFileByIdOrVersion(PROJECT_ID, requestedVersion, mcVersion, loader);
-            if (requestedVersion != null && file == null) {
-                SelfUpdateResult result = SelfUpdateResult.none(currentVersion);
-                result.requestedVersion = requestedVersion;
-                result.missingRequestedVersion = true;
-                return result;
+            for (DlcCurseForgeClient.CurseForgeFile file : DlcCurseForgeClient.fetchFiles(PROJECT_ID, mcVersion, loader)) {
+                UpdateCandidate candidate = UpdateCandidate.fromCurseForge(file);
+                if (candidate != null) {
+                    candidates.add(candidate);
+                }
             }
-            if (file == null || file.url == null || file.url.isBlank()) {
-                SelfUpdateResult failed = SelfUpdateResult.none(currentVersion);
-                failed.checkFailed = true;
-                return failed;
-            }
-            String latestVersion = extractVersion(file.displayName, file.fileName);
-            boolean hasUpdate = requestedVersion == null
-                ? isUpdateAvailable(currentVersion, latestVersion, file)
-                : !isSameVersion(currentVersion, latestVersion == null || latestVersion.isBlank() ? requestedVersion : latestVersion);
-            SelfUpdateResult result = new SelfUpdateResult();
-            result.currentVersion = currentVersion == null ? "" : currentVersion;
-            result.latestVersion = latestVersion == null || latestVersion.isBlank() ? (requestedVersion == null ? "" : requestedVersion) : latestVersion;
-            result.downloadUrl = file.url;
-            result.fileName = file.fileName;
-            result.fileId = file.id;
-            result.displayName = file.displayName;
-            result.fileDate = file.fileDate;
-            result.hasUpdate = hasUpdate;
-            result.requestedVersion = requestedVersion;
-            return result;
+            fetched = true;
         } catch (Exception ignored) {
-            SelfUpdateResult failed = SelfUpdateResult.none(currentVersion);
-            failed.checkFailed = true;
+        }
+        UpdateCandidate best = pickUpdateCandidate(currentVersion, candidates);
+        if (best == null) {
+            try {
+                for (DlcModrinthClient.ModrinthVersion version : DlcModrinthClient.fetchVersions(MODRINTH_PROJECT_ID, mcVersion, loader)) {
+                    UpdateCandidate candidate = UpdateCandidate.fromModrinth(version);
+                    if (candidate != null) {
+                        candidates.add(candidate);
+                    }
+                }
+                fetched = true;
+            } catch (Exception ignored) {
+            }
+            best = pickUpdateCandidate(currentVersion, candidates);
+        }
+        if (!fetched) {
+            return SelfUpdateResult.failed(currentVersion);
+        }
+        if (best == null) {
+            return SelfUpdateResult.none(currentVersion);
+        }
+        if (best.curseForgeFile != null && (best.url == null || best.url.isBlank())) {
+            try {
+                DlcCurseForgeClient.resolveDownloadUrl(PROJECT_ID, best.curseForgeFile);
+            } catch (Exception ignored) {
+            }
+            best.url = best.curseForgeFile.url;
+        }
+        if (best.url == null || best.url.isBlank()) {
+            return SelfUpdateResult.failed(currentVersion);
+        }
+        SelfUpdateResult result = new SelfUpdateResult();
+        result.currentVersion = currentVersion == null ? "" : currentVersion;
+        result.latestVersion = best.version == null ? "" : best.version;
+        result.downloadUrl = best.url;
+        result.fileName = best.fileName;
+        result.fileId = best.fileId;
+        result.displayName = best.displayName;
+        result.fileDate = best.fileDate;
+        result.hasUpdate = true;
+        return result;
+    }
+
+    private static SelfUpdateResult checkRequestedVersion(String currentVersion, String requestedVersion, String mcVersion, String loader) {
+        boolean lookupFailed = false;
+        DlcCurseForgeClient.CurseForgeFile file = null;
+        try {
+            file = DlcCurseForgeClient.fetchFileByIdOrVersion(PROJECT_ID, requestedVersion, mcVersion, loader);
+        } catch (Exception ignored) {
+            lookupFailed = true;
+        }
+        if (file != null) {
+            return requestedCurseForgeResult(currentVersion, requestedVersion, file);
+        }
+        DlcModrinthClient.ModrinthVersion version = null;
+        try {
+            version = DlcModrinthClient.fetchVersionByIdOrVersion(MODRINTH_PROJECT_ID, requestedVersion, mcVersion, loader);
+        } catch (Exception ignored) {
+        }
+        if (version != null) {
+            return requestedModrinthResult(currentVersion, requestedVersion, version);
+        }
+        SelfUpdateResult result = SelfUpdateResult.none(currentVersion);
+        result.requestedVersion = requestedVersion;
+        if (lookupFailed) {
+            result.checkFailed = true;
+        } else {
+            result.missingRequestedVersion = true;
+        }
+        return result;
+    }
+
+    private static SelfUpdateResult requestedCurseForgeResult(String currentVersion, String requestedVersion, DlcCurseForgeClient.CurseForgeFile file) {
+        if (file.url == null || file.url.isBlank()) {
+            try {
+                DlcCurseForgeClient.resolveDownloadUrl(PROJECT_ID, file);
+            } catch (Exception ignored) {
+            }
+        }
+        if (file.url == null || file.url.isBlank()) {
+            SelfUpdateResult failed = SelfUpdateResult.failed(currentVersion);
+            failed.requestedVersion = requestedVersion;
             return failed;
         }
+        String latestVersion = extractVersion(file.displayName, file.fileName);
+        String effectiveVersion = latestVersion == null || latestVersion.isBlank() ? requestedVersion : latestVersion;
+        SelfUpdateResult result = new SelfUpdateResult();
+        result.currentVersion = currentVersion == null ? "" : currentVersion;
+        result.latestVersion = effectiveVersion;
+        result.downloadUrl = file.url;
+        result.fileName = file.fileName;
+        result.fileId = file.id;
+        result.displayName = file.displayName;
+        result.fileDate = file.fileDate;
+        result.hasUpdate = !isSameVersion(currentVersion, effectiveVersion);
+        result.requestedVersion = requestedVersion;
+        return result;
+    }
+
+    private static SelfUpdateResult requestedModrinthResult(String currentVersion, String requestedVersion, DlcModrinthClient.ModrinthVersion version) {
+        if (version.url == null || version.url.isBlank()) {
+            SelfUpdateResult failed = SelfUpdateResult.failed(currentVersion);
+            failed.requestedVersion = requestedVersion;
+            return failed;
+        }
+        String latestVersion = version.versionNumber;
+        String effectiveVersion = latestVersion == null || latestVersion.isBlank() ? requestedVersion : latestVersion;
+        SelfUpdateResult result = new SelfUpdateResult();
+        result.currentVersion = currentVersion == null ? "" : currentVersion;
+        result.latestVersion = effectiveVersion;
+        result.downloadUrl = version.url;
+        result.fileName = version.fileName;
+        result.fileId = version.versionId;
+        result.displayName = effectiveVersion;
+        result.fileDate = version.datePublished == null ? null : version.datePublished.toString();
+        result.hasUpdate = !isSameVersion(currentVersion, effectiveVersion);
+        result.requestedVersion = requestedVersion;
+        return result;
     }
 
     public static DownloadResult downloadUpdate(SelfUpdateResult result) {
@@ -513,26 +621,198 @@ public final class DlcSelfUpdateService {
         }
     }
 
-    private static boolean isUpdateAvailable(String currentVersion, String latestVersion, DlcCurseForgeClient.CurseForgeFile file) {
+    static boolean isUpdateAvailable(String currentVersion, String latestVersion, DlcCurseForgeClient.CurseForgeFile file) {
         if (currentVersion == null || currentVersion.isBlank()) {
             return true;
         }
         String current = currentVersion.trim();
         if (latestVersion != null && !latestVersion.isBlank()) {
-            if (latestVersion.equalsIgnoreCase(current)) {
-                return false;
+            DlcVersionUtil.Channel channel = releaseTypeChannel(file == null ? 0 : file.releaseType);
+            if (channel == null) {
+                channel = versionChannel(latestVersion);
             }
-            try {
-                return DlcUpdateService.compareVersions(current, latestVersion) < 0;
-            } catch (Exception ignored) {
-            }
+            return shouldOfferUpdate(current, latestVersion, channel);
         }
-        String fileName = file.fileName == null ? "" : file.fileName;
-        String display = file.displayName == null ? "" : file.displayName;
+        String fileName = file == null || file.fileName == null ? "" : file.fileName;
+        String display = file == null || file.displayName == null ? "" : file.displayName;
         if (fileName.contains(current) || display.contains(current)) {
             return false;
         }
         return true;
+    }
+
+    static boolean isMajorVersionChanged(String currentVersion, String latestVersion) {
+        Integer currentMajor = extractMajorVersion(currentVersion);
+        Integer latestMajor = extractMajorVersion(latestVersion);
+        return currentMajor != null && latestMajor != null && !currentMajor.equals(latestMajor);
+    }
+
+    private static Integer extractMajorVersion(String version) {
+        if (version == null || version.isBlank()) {
+            return null;
+        }
+        Matcher matcher = MAJOR_VERSION_PATTERN.matcher(version.trim());
+        if (!matcher.find()) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(matcher.group(1));
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    static UpdateCandidate pickUpdateCandidate(String currentVersion, List<UpdateCandidate> candidates) {
+        if (candidates == null) {
+            return null;
+        }
+        UpdateCandidate best = null;
+        for (UpdateCandidate candidate : candidates) {
+            if (candidate == null || !shouldOfferUpdate(currentVersion, candidate.version, candidate.channel)) {
+                continue;
+            }
+            if (best == null || isBetterCandidate(candidate, best)) {
+                best = candidate;
+            }
+        }
+        return best;
+    }
+
+    private static boolean isBetterCandidate(UpdateCandidate candidate, UpdateCandidate currentBest) {
+        int comparison;
+        try {
+            comparison = DlcUpdateService.compareVersions(candidate.version, currentBest.version);
+        } catch (Exception ignored) {
+            comparison = candidate.version.compareToIgnoreCase(currentBest.version);
+        }
+        if (comparison != 0) {
+            return comparison > 0;
+        }
+        return isAfterInstant(candidate.fileDate, currentBest.fileDate);
+    }
+
+    static boolean shouldOfferUpdate(String currentVersion, String candidateVersion, DlcVersionUtil.Channel candidateChannel) {
+        if (candidateVersion == null || candidateVersion.isBlank()) {
+            return false;
+        }
+        if (currentVersion == null || currentVersion.isBlank()) {
+            return true;
+        }
+        String current = currentVersion.trim();
+        String candidate = candidateVersion.trim();
+        if (candidate.equalsIgnoreCase(current)) {
+            return false;
+        }
+        if (!isSameMajorSeries(current, candidate)) {
+            return false;
+        }
+        if (!isChannelAllowed(versionChannel(current), candidateChannel)) {
+            return false;
+        }
+        try {
+            return DlcUpdateService.compareVersions(current, candidate) < 0;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    static boolean isSameMajorSeries(String left, String right) {
+        Integer leftMajor = extractMajorVersion(left);
+        Integer rightMajor = extractMajorVersion(right);
+        return leftMajor != null && rightMajor != null && leftMajor.equals(rightMajor);
+    }
+
+    static DlcVersionUtil.Channel versionChannel(String version) {
+        return DlcVersionUtil.channelOf(version);
+    }
+
+    static DlcVersionUtil.Channel releaseTypeChannel(int releaseType) {
+        return switch (releaseType) {
+            case 1 -> DlcVersionUtil.Channel.STABLE;
+            case 2 -> DlcVersionUtil.Channel.BETA;
+            case 3 -> DlcVersionUtil.Channel.ALPHA;
+            default -> null;
+        };
+    }
+
+    static DlcVersionUtil.Channel releaseChannelOf(String versionType) {
+        return DlcVersionUtil.channelByName(versionType);
+    }
+
+    static boolean isChannelAllowed(DlcVersionUtil.Channel currentChannel, DlcVersionUtil.Channel candidateChannel) {
+        DlcVersionUtil.Channel current = currentChannel == null ? DlcVersionUtil.Channel.STABLE : currentChannel;
+        DlcVersionUtil.Channel candidate = candidateChannel == null ? DlcVersionUtil.Channel.STABLE : candidateChannel;
+        return current.accepts(candidate);
+    }
+
+    private static boolean isAfterInstant(String candidate, String current) {
+        Instant candidateTime = parseInstantOrNull(candidate);
+        if (candidateTime == null) {
+            return false;
+        }
+        Instant currentTime = parseInstantOrNull(current);
+        return currentTime == null || candidateTime.isAfter(currentTime);
+    }
+
+    private static Instant parseInstantOrNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Instant.parse(value.trim());
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    static final class UpdateCandidate {
+        final String version;
+        final DlcVersionUtil.Channel channel;
+        final String fileName;
+        final String displayName;
+        final String fileId;
+        final String fileDate;
+        String url;
+        DlcCurseForgeClient.CurseForgeFile curseForgeFile;
+
+        UpdateCandidate(String version, DlcVersionUtil.Channel channel, String fileName, String displayName, String fileId, String fileDate, String url) {
+            this.version = version;
+            this.channel = channel;
+            this.fileName = fileName;
+            this.displayName = displayName;
+            this.fileId = fileId;
+            this.fileDate = fileDate;
+            this.url = url;
+        }
+
+        static UpdateCandidate fromCurseForge(DlcCurseForgeClient.CurseForgeFile file) {
+            if (file == null) {
+                return null;
+            }
+            String version = extractPublishedVersion(file.displayName, file.fileName);
+            DlcVersionUtil.Channel channel = releaseTypeChannel(file.releaseType);
+            if (channel == null) {
+                channel = versionChannel(version);
+            }
+            UpdateCandidate candidate = new UpdateCandidate(version, channel, file.fileName, file.displayName, file.id, file.fileDate, file.url);
+            candidate.curseForgeFile = file;
+            return candidate;
+        }
+
+        static UpdateCandidate fromModrinth(DlcModrinthClient.ModrinthVersion version) {
+            if (version == null) {
+                return null;
+            }
+            String versionText = version.versionNumber;
+            if (versionText == null || versionText.isBlank()) {
+                versionText = extractPublishedVersion(null, version.fileName);
+            }
+            DlcVersionUtil.Channel channel = releaseChannelOf(version.versionType);
+            if (channel == null) {
+                channel = versionChannel(versionText);
+            }
+            return new UpdateCandidate(versionText, channel, version.fileName, versionText, version.versionId, version.datePublished == null ? null : version.datePublished.toString(), version.url);
+        }
     }
 
     private static boolean isSameVersion(String left, String right) {
@@ -553,7 +833,7 @@ public final class DlcSelfUpdateService {
     static String extractPublishedVersion(String displayName, String fileName) {
         String candidate = null;
         if (fileName != null) {
-            candidate = matchVersion(fileName);
+            candidate = matchPublishedFileName(fileName);
         }
         if ((candidate == null || candidate.isBlank()) && displayName != null) {
             candidate = matchDisplayNameVersion(displayName);
@@ -562,31 +842,28 @@ public final class DlcSelfUpdateService {
     }
 
     private static String matchDisplayNameVersion(String displayName) {
-        String explicit = matchFirstVersionByPattern(displayName, DISPLAY_NAME_VERSION_PATTERN);
-        if (explicit != null && !explicit.isBlank()) {
-            return explicit;
-        }
-        return matchVersion(displayName);
+        return matchFirstVersionByPattern(displayName, DISPLAY_NAME_VERSION_PATTERN);
     }
 
-    private static String matchVersion(String source) {
-        String last = matchVersionByPattern(source, VERSION_PATTERN_3);
-        if (last != null && !last.isBlank()) {
-            return last;
-        }
-        return matchVersionByPattern(source, VERSION_PATTERN_2);
-    }
-
-    private static String matchVersionByPattern(String source, Pattern pattern) {
-        if (source == null || source.isBlank()) {
+    private static String matchPublishedFileName(String fileName) {
+        if (fileName == null || fileName.isBlank()) {
             return null;
         }
-        Matcher matcher = pattern.matcher(source);
-        String last = null;
-        while (matcher.find()) {
-            last = matcher.group(1);
+        String name = fileName.trim();
+        if (name.toLowerCase(Locale.ROOT).endsWith(".jar")) {
+            name = name.substring(0, name.length() - 4);
         }
-        return last;
+        String[] tokens = name.split("-");
+        for (int i = 0; i < tokens.length; i++) {
+            if (!FILE_NAME_VERSION_PATTERN.matcher(tokens[i]).matches()) {
+                continue;
+            }
+            if (i + 1 < tokens.length && FILE_NAME_PRERELEASE_PATTERN.matcher(tokens[i + 1]).matches()) {
+                return tokens[i] + "-" + tokens[i + 1];
+            }
+            return tokens[i];
+        }
+        return null;
     }
 
     private static String matchFirstVersionByPattern(String source, Pattern pattern) {
@@ -614,6 +891,12 @@ public final class DlcSelfUpdateService {
             SelfUpdateResult result = new SelfUpdateResult();
             result.hasUpdate = false;
             result.currentVersion = currentVersion == null ? "" : currentVersion;
+            return result;
+        }
+
+        public static SelfUpdateResult failed(String currentVersion) {
+            SelfUpdateResult result = none(currentVersion);
+            result.checkFailed = true;
             return result;
         }
     }

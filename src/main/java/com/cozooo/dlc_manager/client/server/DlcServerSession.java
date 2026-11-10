@@ -446,7 +446,7 @@ public final class DlcServerSession implements AutoCloseable {
         while (true) {
             JsonObject response = readObject();
             if ("dlc_sync_progress".equals(string(response, "type"))) continue;
-            if (!id.equals(string(response, "requestId"))) throw new com.cozooo.dlc_manager.sync.SyncFailure("unsupported");
+            if (!id.equals(string(response, "requestId"))) throw new com.cozooo.dlc_manager.sync.DlcSyncFailure("unsupported");
             return response;
         }
     }

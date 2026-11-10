@@ -10,7 +10,6 @@ import me.modmuss50.mpp.ReleaseType
 import me.modmuss50.mpp.platforms.curseforge.CurseforgeOptions
 import me.modmuss50.mpp.platforms.modrinth.ModrinthOptions
 import org.gradle.api.Project
-import org.gradle.api.JavaVersion
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.file.FileCollection
 import org.gradle.jvm.toolchain.JavaLanguageVersion
@@ -123,8 +122,15 @@ fun Project.selectedModPublishPlatforms(): Set<String> =
         else -> setOf(selected)
     }
 
-fun Project.modPublishReleaseType(): ReleaseType =
-    ReleaseType.of(prop("mod_publish_release_type"))
+fun Project.modPublishReleaseType(): ReleaseType {
+    val version = prop("mod_version").lowercase()
+    val suffix = version.substringAfter('-', "")
+    return when {
+        suffix.startsWith("alpha") -> ReleaseType.of("alpha")
+        suffix.startsWith("beta") || suffix.startsWith("rc") || suffix.startsWith("pre") -> ReleaseType.of("beta")
+        else -> ReleaseType.of(prop("mod_publish_release_type"))
+    }
+}
 
 fun Project.modPublishChangelog(): String =
     optionalProp("mod_publish_changelog")
@@ -132,22 +138,22 @@ fun Project.modPublishChangelog(): String =
         ?: readVersionChangelog(prop("mod_version"))
 
 fun Project.readVersionChangelog(version: String): String {
-    val changelogFile = rootProject.file("changelog.md")
-    require(changelogFile.isFile) {
-        "Missing changelog.md. Add a ## $version section or set -Pmod_publish_changelog=..."
+    val exactDir = rootProject.file("website/changelog/$version")
+    val baseVersion = version.substringBefore('-')
+    val changelogDir = if (exactDir.isDirectory) exactDir else rootProject.file("website/changelog/$baseVersion")
+    val englishFile = changelogDir.resolve("en_us.md")
+    val chineseFile = changelogDir.resolve("zh_cn.md")
+    require(englishFile.isFile && chineseFile.isFile) {
+        "Missing website changelog for version $version." +
+            "or set -Pmod_publish_changelog=..."
     }
-    val text = changelogFile.readText()
-    val escapedVersion = Regex.escape(version)
-    val header = Regex("""(?m)^##[ \t]+\[?v?$escapedVersion\]?(?:[ \t]+.*)?$""")
-    val match = header.find(text)
-        ?: error("Missing changelog.md section for version $version.")
-    val nextHeader = Regex("""(?m)^##[ \t]+""").find(text, match.range.last + 1)
-    val endIndex = nextHeader?.range?.first ?: text.length
-    val body = text.substring(match.range.last + 1, endIndex).trim()
-    require(body.isNotBlank()) {
-        "changelog.md section for version $version is empty."
-    }
-    return normalizePublishChangelogHeadings(body)
+    val english = englishFile.readText().trim()
+    val chinese = chineseFile.readText().trim()
+    require(english.isNotBlank()) { "Website changelog ${englishFile.path} is empty." }
+    require(chinese.isNotBlank()) { "Website changelog ${chineseFile.path} is empty." }
+    return normalizePublishChangelogHeadings(english) +
+        "\n\n---\n\n" +
+        normalizePublishChangelogHeadings(chinese)
 }
 
 fun normalizePublishChangelogHeadings(changelog: String): String =
@@ -177,11 +183,8 @@ fun modPublishLoaderDisplayName(loaderName: String): String =
         else -> loaderName.replaceFirstChar { it.uppercase() }
     }
 
-fun Project.curseForgeDisplayName(loaderName: String, minecraftVersion: String): String =
-    "$loaderName-$minecraftVersion-${prop("mod_version")}"
-
-fun Project.modrinthDisplayName(loaderName: String, minecraftVersion: String): String =
-    "${prop("mod_name")} ${prop("mod_version")} (${modPublishLoaderDisplayName(loaderName)} $minecraftVersion)"
+fun Project.modPublishDisplayName(loaderName: String, minecraftVersion: String): String =
+    "${prop("mod_version")} (${modPublishLoaderDisplayName(loaderName)} $minecraftVersion)"
 
 fun expectedModPublishDependencies(loaderName: String): List<String> =
     when (loaderName) {
@@ -785,7 +788,7 @@ if (stoneNodes.contains(project.name)) {
 
     if (loaderName == "forge" || loaderName == "neoforge") {
         val distributionJar = rootProject.layout.projectDirectory.file(
-            "output/${rootProject.prop("mod_version")}/DLC-Manager-$loaderName-$minecraftVersion-${rootProject.prop("mod_version")}.jar"
+            "output/${rootProject.prop("mod_version")}/DLC-Manager-${rootProject.prop("mod_version")}-$loaderName-$minecraftVersion.jar"
         )
         val serviceBuild = if (kotlinEnabled) "build/dlc-bootstrap" else "build/java-only/dlc-bootstrap"
         val bootstrapJar = rootProject.layout.projectDirectory.file(
@@ -794,7 +797,7 @@ if (stoneNodes.contains(project.name)) {
         val payloadTaskName = if (tasks.findByName("remapJar") != null) "remapJar" else "jar"
         val devPayload = if (payloadTaskName == "remapJar") {
             rootProject.layout.projectDirectory.file(
-                "build/$nodeName/distribution/payload/DLC-Manager-$loaderName-$minecraftVersion-${rootProject.prop("mod_version")}.jar"
+                "build/$nodeName/distribution/payload/DLC-Manager-${rootProject.prop("mod_version")}-$loaderName-$minecraftVersion.jar"
             )
         } else distributionJar
         listOf("client", "server").forEach { side ->
@@ -806,7 +809,9 @@ if (stoneNodes.contains(project.name)) {
                 doFirst {
                     destinationDir.listFiles()?.filter {
                         (it.name.startsWith("DLC-Manager-bootstrap-$loaderName-$minecraftVersion-") ||
-                            it.name.startsWith("DLC-Manager-$loaderName-$minecraftVersion-")) &&
+                            (it.name.startsWith("DLC-Manager-") &&
+                                (it.name.endsWith("-$loaderName-$minecraftVersion.jar") ||
+                                    it.name.startsWith("DLC-Manager-$loaderName-$minecraftVersion-")))) &&
                             it.name.endsWith(".jar")
                     }?.forEach(File::delete)
                 }
@@ -865,7 +870,7 @@ if (stoneNodes.contains(project.name)) {
     }
 
     val distributionJar = rootProject.layout.projectDirectory.file(
-        "output/${rootProject.prop("mod_version")}/DLC-Manager-$loaderName-$minecraftVersion-${rootProject.prop("mod_version")}.jar"
+        "output/${rootProject.prop("mod_version")}/DLC-Manager-${rootProject.prop("mod_version")}-$loaderName-$minecraftVersion.jar"
     )
     val earlyLoading = loaderName == "forge" || loaderName == "neoforge"
     val remappedJar: org.gradle.api.tasks.TaskProvider<out AbstractArchiveTask> = if (tasks.findByName("remapJar") != null) {
@@ -927,7 +932,7 @@ if (stoneNodes.contains(project.name)) {
                 accessToken.set(modrinthToken ?: "")
                 projectId.set(rootProject.prop("modrinth_project_id"))
                 version.set(rootProject.prop("mod_version"))
-                displayName.set(rootProject.modrinthDisplayName(loaderName, minecraftVersion))
+                displayName.set(rootProject.modPublishDisplayName(loaderName, minecraftVersion))
                 minecraftVersions.add(minecraftVersion)
                 environment.set(CLIENT_AND_SERVER)
                 when (loaderName) {
@@ -951,11 +956,10 @@ if (stoneNodes.contains(project.name)) {
             curseforge {
                 accessToken.set(curseforgeToken ?: "")
                 projectId.set(rootProject.prop("curseforge_project_id"))
-                displayName.set(rootProject.curseForgeDisplayName(loaderName, minecraftVersion))
+                displayName.set(rootProject.modPublishDisplayName(loaderName, minecraftVersion))
                 minecraftVersions.add(minecraftVersion)
                 client.set(true)
                 server.set(true)
-                javaVersions.add(JavaVersion.toVersion(javaVersion))
                 when (loaderName) {
                     "fabric" -> {
                         requires("architectury-api", "fabric-language-kotlin")
@@ -1012,7 +1016,7 @@ if (stoneNodes.contains(project.name)) {
                 require(configured.modLoaders.get().map(String::lowercase) == listOf(loaderName)) {
                     "Unexpected Modrinth loaders for $nodeName: ${configured.modLoaders.get()}"
                 }
-                require(configured.displayName.get() == rootProject.modrinthDisplayName(loaderName, minecraftVersion)) {
+                require(configured.displayName.get() == rootProject.modPublishDisplayName(loaderName, minecraftVersion)) {
                     "Unexpected Modrinth version subtitle for $nodeName: ${configured.displayName.get()}"
                 }
                 require(configured.environment.get() == configured.CLIENT_AND_SERVER) {
@@ -1049,7 +1053,7 @@ if (stoneNodes.contains(project.name)) {
                 require(configured.projectId.get() == rootProject.prop("curseforge_project_id")) {
                     "Unexpected CurseForge project ID for $nodeName: ${configured.projectId.get()}"
                 }
-                require(configured.displayName.get() == rootProject.curseForgeDisplayName(loaderName, minecraftVersion)) {
+                require(configured.displayName.get() == rootProject.modPublishDisplayName(loaderName, minecraftVersion)) {
                     "Unexpected CurseForge display name for $nodeName: ${configured.displayName.get()}"
                 }
                 require(configured.minecraftVersions.get() == listOf(minecraftVersion)) {
@@ -1063,9 +1067,6 @@ if (stoneNodes.contains(project.name)) {
                 }
                 require(configured.accessToken.orNull == curseforgeToken.orEmpty()) {
                     "Unexpected CurseForge access token for $nodeName."
-                }
-                require(configured.javaVersions.get() == listOf(JavaVersion.toVersion(javaVersion))) {
-                    "Unexpected CurseForge Java versions for $nodeName: ${configured.javaVersions.get()}"
                 }
                 require(configured.dependencies.get().map { it.slug.get() } == expectedModPublishDependencies(loaderName)) {
                     "Unexpected CurseForge dependencies for $nodeName."

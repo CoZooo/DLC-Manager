@@ -8,9 +8,9 @@ import java.nio.charset.StandardCharsets
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
-class SyncFailure(private val code: String, vararg arguments: Any?) : IOException(PREFIX + code) {
+class DlcSyncFailure(private val code: String, vararg arguments: Any?) : IOException(PREFIX + code) {
     private val arguments = arguments.map { it.toString() }.toTypedArray()
-    fun causedBy(cause: Throwable): SyncFailure { initCause(cause); return this }
+    fun causedBy(cause: Throwable): DlcSyncFailure { initCause(cause); return this }
     override val message: String
         get() {
             var language = DlcPlatformServices.languageCode().ifBlank { "en_us" }.lowercase(Locale.ROOT).replace('-', '_')
@@ -28,20 +28,20 @@ class SyncFailure(private val code: String, vararg arguments: Any?) : IOExceptio
         private const val serialVersionUID = 1L
         private const val PREFIX = "dlc_manager.sync.error."
         private val LANGUAGES = ConcurrentHashMap<String, JsonObject>()
-        @JvmStatic fun `is`(error: Throwable?, code: String) = error is SyncFailure && error.code == code
+        @JvmStatic fun `is`(error: Throwable?, code: String) = error is DlcSyncFailure && error.code == code
         @JvmStatic fun read(response: JsonObject?): IOException {
             if (response?.has("reasonKey") == true && response.get("reasonKey").isJsonPrimitive) {
                 val key = response.get("reasonKey").asString
                 if (key.startsWith(PREFIX) && key.removePrefix(PREFIX).matches(Regex("[a-z_]+"))) {
                     val arguments = if (response.has("reasonArgs")) response.getAsJsonArray("reasonArgs").map { it.asString }.toTypedArray() else emptyArray()
-                    return SyncFailure(key.removePrefix(PREFIX), *arguments)
+                    return DlcSyncFailure(key.removePrefix(PREFIX), *arguments)
                 }
             }
-            return if (response?.has("reason") == true) IOException(response.get("reason").asString) else SyncFailure("unsupported")
+            return if (response?.has("reason") == true) IOException(response.get("reason").asString) else DlcSyncFailure("unsupported")
         }
         private fun load(language: String): JsonObject = LANGUAGES.computeIfAbsent(language) { name ->
             try {
-                SyncFailure::class.java.getResourceAsStream("/assets/dlc_manager/lang/$name.json").use { input ->
+                DlcSyncFailure::class.java.getResourceAsStream("/assets/dlc_manager/lang/$name.json").use { input ->
                     if (input == null) JsonObject() else JsonParser.parseReader(InputStreamReader(input, StandardCharsets.UTF_8)).asJsonObject
                 }
             } catch (_: IOException) { JsonObject() } catch (_: RuntimeException) { JsonObject() }

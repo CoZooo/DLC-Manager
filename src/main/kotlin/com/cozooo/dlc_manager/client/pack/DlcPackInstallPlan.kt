@@ -28,7 +28,10 @@ class DlcPackInstallPlan private constructor(
             "ApricityUI-"
         )
         private val GAME_ROOT_FORBIDDEN_PATHS = listOf(
-            "config/dlc_manager/",
+            "config/dlc_manager/version.dc",
+            "config/dlc_manager/config-server.dc",
+            "config/dlc_manager/state.dc",
+            "config/dlc_manager/servers.dc"
         )
         private val DLC_ROOT_FORBIDDEN_PATHS = listOf(
             "tmp/",

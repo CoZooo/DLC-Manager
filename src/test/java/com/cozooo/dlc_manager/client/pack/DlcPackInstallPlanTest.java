@@ -15,9 +15,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DlcPackInstallPlanTest {
     private static final List<String> GAME_ROOT_FORBIDDEN_PATHS = List.of(
-        "config/dlc_manager/config.dc",
         "config/dlc_manager/version.dc",
-        "config/dlc_manager/notice.dc"
+        "config/dlc_manager/config-server.dc",
+        "config/dlc_manager/state.dc",
+        "config/dlc_manager/servers.dc"
     );
     private static final List<String> DLC_ROOT_FORBIDDEN_PATHS = List.of(
         "tmp/pack/a",
@@ -38,7 +39,9 @@ class DlcPackInstallPlanTest {
         Files.createDirectories(root.resolve("mods"));
         Files.writeString(root.resolve("mods").resolve("a.jar"), "jar");
         Files.createDirectories(root.resolve("config").resolve("dlc_manager"));
-        Files.writeString(root.resolve("config").resolve("dlc_manager").resolve("config.dc"), "blocked");
+        Files.writeString(root.resolve("config").resolve("dlc_manager").resolve("version.dc"), "blocked");
+        Files.writeString(root.resolve("config").resolve("dlc_manager").resolve("config.dc"), "allowed");
+        Files.writeString(root.resolve("config").resolve("dlc_manager").resolve("notice.dc"), "allowed");
         Files.createDirectories(root.resolve("DLC").resolve("update"));
         Files.writeString(root.resolve("DLC").resolve("update").resolve("u.zip"), "blocked");
 
@@ -46,8 +49,11 @@ class DlcPackInstallPlanTest {
         DlcPackInstallPlan plan = DlcPackInstallPlan.build(parsed.pack, root, root.resolve("DLC"));
 
         assertTrue(plan.getValid());
-        assertEquals(Set.of("config/dlc_manager/config.dc", "DLC/update/u.zip"), new HashSet<>(plan.forbiddenPaths));
-        assertEquals(Set.of("mods/a.jar"), new HashSet<>(plan.files.stream().map(entry -> entry.relativePath).toList()));
+        assertEquals(Set.of("config/dlc_manager/version.dc", "DLC/update/u.zip"), new HashSet<>(plan.forbiddenPaths));
+        assertTrue(plan.files.stream().anyMatch(entry -> entry.relativePath.equals("config/dlc_manager/config.dc")));
+        assertTrue(plan.files.stream().anyMatch(entry -> entry.relativePath.equals("config/dlc_manager/notice.dc")));
+        assertEquals(Set.of("mods/a.jar", "config/dlc_manager/config.dc", "config/dlc_manager/notice.dc"),
+            new HashSet<>(plan.files.stream().map(entry -> entry.relativePath).toList()));
     }
 
     @Test
@@ -61,6 +67,8 @@ class DlcPackInstallPlanTest {
             assertTrue(DlcPackInstallPlan.isForbiddenPath("DLC/" + relative, instanceRoot, dlcRoot), relative);
         }
         assertFalse(DlcPackInstallPlan.isForbiddenPath("mods/a.jar"));
+        assertFalse(DlcPackInstallPlan.isForbiddenPath("config/dlc_manager/config.dc"));
+        assertFalse(DlcPackInstallPlan.isForbiddenPath("config/dlc_manager/notice.dc"));
     }
 
     @Test

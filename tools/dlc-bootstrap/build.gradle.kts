@@ -128,6 +128,7 @@ val sharedClasses = listOf(
     "core/DlcApplyMode",
     "core/DlcConfig",
     "core/DlcConfigTypeSupport",
+    "core/DlcVersionUtil",
     "core/DlcDcConfigIO",
     "core/DlcDcFormatUtil",
     "core/DlcDcDefinition",

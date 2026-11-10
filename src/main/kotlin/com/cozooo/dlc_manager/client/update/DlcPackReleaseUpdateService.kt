@@ -1,6 +1,8 @@
 package com.cozooo.dlc_manager.client.update
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadService
+import com.cozooo.dlc_manager.core.DlcConfig
+import com.cozooo.dlc_manager.core.DlcVersionUtil
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.DlcUpdateMessage
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
@@ -304,6 +306,7 @@ object DlcPackReleaseUpdateService {
             return RepoQueryResult(ex.message ?: "release_fetch_failed", true, mapOf(), mapOf())
         }
         if (releases.isEmpty) return RepoQueryResult(null, true, mapOf(), mapOf())
+        val packFilter = DlcVersionUtil.parseFilter(DlcConfig.getPackUpdateChannel())
         val fullTransitions = HashMap<String, MutableList<ReleaseStep>>()
         val downloadableTransitions = HashMap<String, MutableList<ReleaseStep>>()
         for (element in releases) {
@@ -313,6 +316,7 @@ object DlcPackReleaseUpdateService {
             var tag = getString(release, "tag_name")
             if (tag.isBlank()) tag = getString(release, "name")
             val parsed = parseTag(tag) ?: continue
+            if (!isWithinPackUpdateFilter(parsed, packFilter)) continue
             val candidate = ReleaseStep()
             candidate.tag = tag
             candidate.oldBase = parsed.oldBase
@@ -334,6 +338,13 @@ object DlcPackReleaseUpdateService {
             addTransition(downloadableTransitions, candidate, true)
         }
         return RepoQueryResult(null, true, fullTransitions, downloadableTransitions)
+    }
+
+    private fun isWithinPackUpdateFilter(parsed: ParsedTag, filter: DlcVersionUtil.Channel): Boolean {
+        val newBase = parsed.newBase
+        if (!newBase.isNullOrBlank() && !DlcVersionUtil.isWithinFilter(newBase, filter)) return false
+        val newDlc = parsed.newDlc
+        return newDlc.isNullOrBlank() || DlcVersionUtil.isWithinFilter(newDlc, filter)
     }
 
     private fun mergeTransitions(merged: MutableMap<String, MutableList<ReleaseStep>>, incoming: Map<String, List<ReleaseStep>>, requireDownloadable: Boolean) {

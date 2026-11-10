@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.client.download;
 
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -39,6 +40,9 @@ public final class DlcCurseForgeClient {
         .connectTimeout(Duration.ofMillis(DlcConfig.getConnectTimeoutMs()))
         .build();
     private static final Map<String, CurseForgeFile> CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, List<CurseForgeFile>> FILES_CACHE = new ConcurrentHashMap<>();
+    private static final int FILE_PAGE_SIZE = 50;
+    private static final int FILE_MAX_PAGES = 5;
     private static final Map<String, CurseForgeMod> MOD_CACHE = new ConcurrentHashMap<>();
     private static final Map<String, String> PROJECT_ID_CACHE = new ConcurrentHashMap<>();
     private static final int MINECRAFT_GAME_ID = 432;
@@ -139,61 +143,116 @@ public final class DlcCurseForgeClient {
         return matched;
     }
 
-    public static CurseForgeFile fetchLatestFile(String projectId, String mcVersion, String loader) throws IOException, InterruptedException {
+    public static List<CurseForgeFile> fetchFiles(String projectId, String mcVersion, String loader) throws IOException, InterruptedException {
         String resolvedProjectId = resolveProjectId(projectId);
         if (resolvedProjectId == null || resolvedProjectId.isBlank()) {
-            return null;
+            return List.of();
         }
-        String apiKey = getApiKey();
-        String cacheKey = resolvedProjectId + ":" + (mcVersion == null ? "" : mcVersion) + ":" + (loader == null ? "" : loader);
-        CurseForgeFile cached = CACHE.get(cacheKey);
+        String cacheKey = "files:" + resolvedProjectId
+            + ":" + (mcVersion == null ? "" : mcVersion)
+            + ":" + (loader == null ? "" : loader);
+        List<CurseForgeFile> cached = FILES_CACHE.get(cacheKey);
         if (cached != null) {
             return cached;
         }
+        String apiKey = getApiKey();
         String endpoint = "https://api.curseforge.com/v1/mods/" + resolvedProjectId + "/files?pageSize=50";
         if (mcVersion != null && !mcVersion.isBlank()) {
             endpoint = endpoint + "&gameVersion=" + URLEncoder.encode(mcVersion, StandardCharsets.UTF_8);
         }
-        JsonObject root = fetchJsonArrayWithRetry(endpoint, apiKey);
-        if (root == null) {
-            return null;
-        }
-        CurseForgeFile latest = null;
-        Instant latestTime = null;
+        List<CurseForgeFile> files = new ArrayList<>();
         String targetLoader = loader == null ? "" : loader.trim();
-        for (var element : root.getAsJsonArray("data")) {
-            if (!element.isJsonObject()) {
-                continue;
+        boolean complete = false;
+        for (int page = 0; page < FILE_MAX_PAGES; page++) {
+            JsonObject root = fetchJsonArrayWithRetry(endpoint + "&index=" + (page * FILE_PAGE_SIZE), apiKey);
+            if (root == null) {
+                break;
             }
-            JsonObject data = element.getAsJsonObject();
-            if (!matchesGameVersion(data, mcVersion, targetLoader)) {
-                continue;
+            JsonArray data = root.getAsJsonArray("data");
+            if (data == null || data.size() == 0) {
+                complete = true;
+                break;
             }
-            CurseForgeFile file = new CurseForgeFile();
-            file.id = getString(data, "id");
-            applyFileData(file, data);
-            file.downloadUrlExplicitlyNull = isExplicitNullDownloadUrl(data);
-            Instant time = parseInstant(file.fileDate);
-            if (latest == null || isAfter(time, latestTime)) {
-                latest = file;
-                latestTime = time;
+            for (var element : data) {
+                if (!element.isJsonObject()) {
+                    continue;
+                }
+                JsonObject fileJson = element.getAsJsonObject();
+                if (!matchesGameVersion(fileJson, mcVersion, targetLoader)) {
+                    continue;
+                }
+                CurseForgeFile file = new CurseForgeFile();
+                file.id = getString(fileJson, "id");
+                applyFileData(file, fileJson);
+                file.downloadUrlExplicitlyNull = isExplicitNullDownloadUrl(fileJson);
+                files.add(file);
+            }
+            if (data.size() < FILE_PAGE_SIZE) {
+                complete = true;
+                break;
             }
         }
-        if (latest == null) {
+        List<CurseForgeFile> snapshot = List.copyOf(files);
+        if (complete) {
+            FILES_CACHE.put(cacheKey, snapshot);
+        }
+        return snapshot;
+    }
+
+    public static boolean resolveDownloadUrl(String projectId, CurseForgeFile file) {
+        if (file == null) {
+            return false;
+        }
+        try {
+            String resolvedProjectId = resolveProjectId(projectId);
+            if (resolvedProjectId == null || resolvedProjectId.isBlank()) {
+                return false;
+            }
+            applyDownloadUrl(resolvedProjectId, file);
+        } catch (IOException ignored) {
+            return false;
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+        return file.url != null && !file.url.isBlank();
+    }
+
+    private static void applyDownloadUrl(String resolvedProjectId, CurseForgeFile file)
+        throws IOException, InterruptedException {
+        if (file == null) {
+            return;
+        }
+        if (file.url == null || file.url.isBlank()) {
+            DownloadUrlResult downloadUrl = fetchDownloadUrlWithRetry(resolvedProjectId, file.id, getApiKey());
+            String fallbackUrl = downloadUrl.url == null ? fallbackDownloadUrl(resolvedProjectId, file.id) : null;
+            file.url = downloadUrl.url == null ? fallbackUrl : downloadUrl.url;
+            resolveMissingFileName(file, fallbackUrl);
+            resolveAlternateDownloadUrls(file, fallbackUrl, file.downloadUrlExplicitlyNull || downloadUrl.useCdnFallback);
+        } else {
+            resolveMissingFileName(file, null);
+            resolveAlternateDownloadUrls(file, null, false);
+        }
+    }
+
+    private static CurseForgeFile copyFile(CurseForgeFile source) {
+        if (source == null) {
             return null;
         }
-        if (latest.url == null || latest.url.isBlank()) {
-            DownloadUrlResult downloadUrl = fetchDownloadUrlWithRetry(resolvedProjectId, latest.id, apiKey);
-            String fallbackUrl = downloadUrl.url == null ? fallbackDownloadUrl(resolvedProjectId, latest.id) : null;
-            latest.url = downloadUrl.url == null ? fallbackUrl : downloadUrl.url;
-            resolveMissingFileName(latest, fallbackUrl);
-            resolveAlternateDownloadUrls(latest, fallbackUrl, latest.downloadUrlExplicitlyNull || downloadUrl.useCdnFallback);
-        } else {
-            resolveMissingFileName(latest, null);
-            resolveAlternateDownloadUrls(latest, null, false);
-        }
-        CACHE.put(cacheKey, latest);
-        return latest;
+        CurseForgeFile copy = new CurseForgeFile();
+        copy.id = source.id;
+        copy.fileName = source.fileName;
+        copy.displayName = source.displayName;
+        copy.fileDate = source.fileDate;
+        copy.url = source.url;
+        copy.classSlug = source.classSlug;
+        copy.sha1 = source.sha1;
+        copy.md5 = source.md5;
+        copy.alternateUrls.addAll(source.alternateUrls);
+        copy.downloadUrlExplicitlyNull = source.downloadUrlExplicitlyNull;
+        copy.size = source.size;
+        copy.releaseType = source.releaseType;
+        return copy;
     }
 
     private static CurseForgeFile fetchFileByVersion(String projectId, String version, String mcVersion, String loader)
@@ -681,6 +740,13 @@ public final class DlcCurseForgeClient {
                 file.size = -1L;
             }
         }
+        if (data.has("releaseType") && data.get("releaseType").isJsonPrimitive()) {
+            try {
+                file.releaseType = data.get("releaseType").getAsInt();
+            } catch (Exception ignored) {
+                file.releaseType = 0;
+            }
+        }
         if (data.has("hashes") && data.get("hashes").isJsonArray()) {
             for (var entry : data.getAsJsonArray("hashes")) {
                 if (!entry.isJsonObject()) {
@@ -720,6 +786,7 @@ public final class DlcCurseForgeClient {
         public final List<String> alternateUrls = new ArrayList<>();
         public boolean downloadUrlExplicitlyNull;
         public long size;
+        public int releaseType;
     }
 
     public static final class CurseForgeMod {

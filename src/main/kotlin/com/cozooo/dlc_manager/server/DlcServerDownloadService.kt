@@ -504,7 +504,7 @@ object DlcServerDownloadService {
     @JvmStatic
     fun startRemoteDownload(dlcRoot: Path?, keys: List<String>?, lang: String?): DlcServerRemoteStatus {
         synchronized(REMOTE_LOCK) {
-            if (com.cozooo.dlc_manager.sync.SyncEndpoint.busy(DlcConfig.getDlcRoot().resolve("tmp/sync"))) {
+            if (com.cozooo.dlc_manager.sync.DlcSyncEndpoint.busy(DlcConfig.getDlcRoot().resolve("tmp/sync"))) {
                 return DlcServerRemoteStatus().also { it.finished = true; it.error = "DLC synchronization is in progress" }
             }
             val current = remoteSession
@@ -547,7 +547,7 @@ object DlcServerDownloadService {
     @JvmStatic
     fun startRequiredDownload(dlcRoot: Path?, ids: List<String>?, lang: String?): DlcServerRequiredStatus {
         synchronized(REQUIRED_LOCK) {
-            if (com.cozooo.dlc_manager.sync.SyncEndpoint.busy(DlcConfig.getDlcRoot().resolve("tmp/sync"))) {
+            if (com.cozooo.dlc_manager.sync.DlcSyncEndpoint.busy(DlcConfig.getDlcRoot().resolve("tmp/sync"))) {
                 return DlcServerRequiredStatus().also { it.finished = true; it.error = "DLC synchronization is in progress" }
             }
             val current = requiredSession

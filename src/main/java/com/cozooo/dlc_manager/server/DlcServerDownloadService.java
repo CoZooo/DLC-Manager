@@ -553,7 +553,7 @@ public final class DlcServerDownloadService {
 
     public static DlcServerRemoteStatus startRemoteDownload(Path dlcRoot, List<String> keys, String lang) {
         synchronized (REMOTE_LOCK) {
-            if (com.cozooo.dlc_manager.sync.SyncEndpoint.busy(DlcConfig.getDlcRoot().resolve("tmp/sync"))) {
+            if (com.cozooo.dlc_manager.sync.DlcSyncEndpoint.busy(DlcConfig.getDlcRoot().resolve("tmp/sync"))) {
                 DlcServerRemoteStatus blocked = new DlcServerRemoteStatus(); blocked.finished = true; blocked.error = "DLC synchronization is in progress"; return blocked;
             }
             if (remoteSession != null && remoteSession.running.get()) {
@@ -602,7 +602,7 @@ public final class DlcServerDownloadService {
 
     public static DlcServerRequiredStatus startRequiredDownload(Path dlcRoot, List<String> ids, String lang) {
         synchronized (REQUIRED_LOCK) {
-            if (com.cozooo.dlc_manager.sync.SyncEndpoint.busy(DlcConfig.getDlcRoot().resolve("tmp/sync"))) {
+            if (com.cozooo.dlc_manager.sync.DlcSyncEndpoint.busy(DlcConfig.getDlcRoot().resolve("tmp/sync"))) {
                 DlcServerRequiredStatus blocked = new DlcServerRequiredStatus(); blocked.finished = true; blocked.error = "DLC synchronization is in progress"; return blocked;
             }
             if (requiredSession != null && requiredSession.running.get()) {

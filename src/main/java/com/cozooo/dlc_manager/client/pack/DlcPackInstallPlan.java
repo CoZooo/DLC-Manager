@@ -20,7 +20,10 @@ public class DlcPackInstallPlan {
         "ApricityUI-"
     );
     private static final List<String> GAME_ROOT_FORBIDDEN_PATHS = List.of(
-        "config/dlc_manager/"
+        "config/dlc_manager/version.dc",
+        "config/dlc_manager/config-server.dc",
+        "config/dlc_manager/state.dc",
+        "config/dlc_manager/servers.dc"
     );
     private static final List<String> DLC_ROOT_FORBIDDEN_PATHS = List.of(
         "tmp/",

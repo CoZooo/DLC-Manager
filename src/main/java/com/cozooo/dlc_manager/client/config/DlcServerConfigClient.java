@@ -29,8 +29,8 @@ public final class DlcServerConfigClient {
         "dlc_manager.config.comment.ui.isSelfUpdateAutoCheckOn", "dlc_manager.config.ui.isSelfUpdateAutoCheckOn");
     private static final DlcConfigValue.BooleanValue UI_PRESET = new DlcConfigValue.BooleanValue("isPresetFuncOn", DlcConfig.DEFAULT_PRESET_FUNC_ON,
         "dlc_manager.config.comment.ui.isPresetFuncOn", "dlc_manager.config.ui.isPresetFuncOn");
-    private static final DlcConfigValue.IntegerValue UI_WAITING_TIME = new DlcConfigValue.IntegerValue("WaitingTime", DlcConfig.DEFAULT_ALARM_WAITING_TIME, 0, 10,
-        "dlc_manager.config.comment.ui.WaitingTime", "dlc_manager.config.ui.WaitingTime");
+    private static final DlcConfigValue.IntegerValue UI_WAITING_TIME = new DlcConfigValue.IntegerValue("waitingTime", DlcConfig.DEFAULT_ALARM_WAITING_TIME, 0, 10,
+        "dlc_manager.config.comment.ui.waitingTime", "dlc_manager.config.ui.waitingTime");
     private static final DlcConfigValue.StringValue MODPACK = new DlcConfigValue.StringValue("modpack", DlcConfig.DEFAULT_MODPACK,
         "dlc_manager.config.comment.modpack.modpack", "dlc_manager.config.modpack.modpack");
     private static final DlcConfigValue.StringValue MODPACK_URL = new DlcConfigValue.StringValue("modpackUrl", DlcConfig.DEFAULT_MODPACK_URL,
@@ -146,7 +146,7 @@ public final class DlcServerConfigClient {
         UI_UPDATE_MANAGER.setBooleanValue(getBoolean(ui, "isUpdateManagerOn", UI_UPDATE_MANAGER.getBooleanValue()));
         UI_SELF_UPDATE.setBooleanValue(getBoolean(ui, "isSelfUpdateAutoCheckOn", UI_SELF_UPDATE.getBooleanValue()));
         UI_PRESET.setBooleanValue(getBoolean(ui, "isPresetFuncOn", UI_PRESET.getBooleanValue()));
-        UI_WAITING_TIME.setIntegerValue(getInt(ui, "WaitingTime", UI_WAITING_TIME.getIntegerValue()));
+        UI_WAITING_TIME.setIntegerValue(getInt(ui, "waitingTime", getInt(ui, "WaitingTime", UI_WAITING_TIME.getIntegerValue())));
 
         JsonObject modpack = asObject(root, "modpack");
         MODPACK.setValueFromString(getString(modpack, "modpack", MODPACK.getStringValue()));
@@ -189,7 +189,7 @@ public final class DlcServerConfigClient {
         ui.addProperty("isUpdateManagerOn", UI_UPDATE_MANAGER.getBooleanValue());
         ui.addProperty("isSelfUpdateAutoCheckOn", UI_SELF_UPDATE.getBooleanValue());
         ui.addProperty("isPresetFuncOn", UI_PRESET.getBooleanValue());
-        ui.addProperty("WaitingTime", UI_WAITING_TIME.getIntegerValue());
+        ui.addProperty("waitingTime", UI_WAITING_TIME.getIntegerValue());
         root.add("ui", ui);
 
         JsonObject modpack = new JsonObject();

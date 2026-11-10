@@ -1,6 +1,8 @@
 package com.cozooo.dlc_manager.client.update;
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
+import com.cozooo.dlc_manager.core.DlcConfig;
+import com.cozooo.dlc_manager.core.DlcVersionUtil;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.DlcUpdateMessage;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -344,6 +346,13 @@ public final class DlcPackReleaseUpdateService {
         return result;
     }
 
+    private static boolean isWithinPackUpdateFilter(ParsedTag parsed, DlcVersionUtil.Channel filter) {
+        if (!parsed.newBase.isBlank() && !DlcVersionUtil.isWithinFilter(parsed.newBase, filter)) {
+            return false;
+        }
+        return parsed.newDlc.isBlank() || DlcVersionUtil.isWithinFilter(parsed.newDlc, filter);
+    }
+
     private static RepoQueryResult querySingleRepo(CheckResult base, String repoUrl, int repoIndex, Side side) {
         if (base == null || repoUrl == null || repoUrl.isBlank()) {
             return null;
@@ -367,6 +376,7 @@ public final class DlcPackReleaseUpdateService {
         if (releases == null || releases.isEmpty()) {
             return new RepoQueryResult(null, true, Map.of(), Map.of());
         }
+        DlcVersionUtil.Channel packFilter = DlcVersionUtil.parseFilter(DlcConfig.getPackUpdateChannel());
         Map<String, List<ReleaseStep>> fullTransitions = new HashMap<>();
         Map<String, List<ReleaseStep>> downloadableTransitions = new HashMap<>();
         for (JsonElement element : releases) {
@@ -383,6 +393,9 @@ public final class DlcPackReleaseUpdateService {
             }
             ParsedTag parsed = parseTag(tag);
             if (parsed == null) {
+                continue;
+            }
+            if (!isWithinPackUpdateFilter(parsed, packFilter)) {
                 continue;
             }
             ReleaseStep candidate = new ReleaseStep();

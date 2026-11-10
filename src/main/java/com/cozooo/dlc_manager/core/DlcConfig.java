@@ -35,7 +35,6 @@ public class DlcConfig {
     public static final boolean DEFAULT_SHOW_ON_FIRST_RUN = false;
     public static final boolean DEFAULT_SHOW_DEPENDENCY_REMINDER = false;
     public static final int DEFAULT_ALARM_WAITING_TIME = 0;
-    public static final boolean DEFAULT_SERVER_SUPPORT = true;
     public static final String DEFAULT_SERVER_PASSWORD = "";
     public static final boolean DEFAULT_API_ENABLED = false;
     public static final int DEFAULT_API_PORT = 10086;
@@ -77,6 +76,7 @@ public class DlcConfig {
     public static final String DEFAULT_UPDATE_GIT_REPO_URL = "";
     public static final boolean DEFAULT_MODPACK_AUTO_UPDATE = false;
     public static final boolean DEFAULT_MODPACK_FORCE_UPDATE = false;
+    public static final String DEFAULT_PACK_UPDATE_CHANNEL = "all";
 
     private static String dlcRoot = DEFAULT_DLC_ROOT;
     private static String taczRoot = DEFAULT_TACZ_ROOT;
@@ -94,7 +94,6 @@ public class DlcConfig {
     private static boolean showOnFirstRun = DEFAULT_SHOW_ON_FIRST_RUN;
     private static boolean showDependencyReminder = DEFAULT_SHOW_DEPENDENCY_REMINDER;
     private static int alarmWaitingTime = DEFAULT_ALARM_WAITING_TIME;
-    private static boolean serverSupportClient = DEFAULT_SERVER_SUPPORT;
     private static String serverPassword = DEFAULT_SERVER_PASSWORD;
     private static boolean apiEnabled = DEFAULT_API_ENABLED;
     private static int apiPort = DEFAULT_API_PORT;
@@ -122,6 +121,7 @@ public class DlcConfig {
     private static String updateGitRepoClient = DEFAULT_UPDATE_GIT_REPO_URL;
     private static boolean modpackAutoUpdate = DEFAULT_MODPACK_AUTO_UPDATE;
     private static boolean modpackForceUpdate = DEFAULT_MODPACK_FORCE_UPDATE;
+    private static String packUpdateChannel = DEFAULT_PACK_UPDATE_CHANNEL;
     private static int maxConcurrentDownloads = DEFAULT_MAX_CONCURRENT_DOWNLOADS;
     private static int maxSegmentsPerFile = DEFAULT_MAX_SEGMENTS_PER_FILE;
     private static int minSegmentMb = DEFAULT_MIN_SEGMENT_MB;
@@ -169,10 +169,6 @@ public class DlcConfig {
     public static JsonObject buildServerConfigJson() {
         JsonObject root = new JsonObject();
         writeShared(root);
-        JsonObject ui = root.getAsJsonObject("ui");
-        if (ui != null) {
-            ui.remove("serverSupport");
-        }
         writeServer(root);
         return root;
     }
@@ -190,7 +186,7 @@ public class DlcConfig {
         ui.addProperty("isUpdateManagerOn", DEFAULT_UPDATE_MANAGER_ON);
         ui.addProperty("isSelfUpdateAutoCheckOn", DEFAULT_SELF_UPDATE_AUTO_CHECK_ON);
         ui.addProperty("isPresetFuncOn", DEFAULT_PRESET_FUNC_ON);
-        ui.addProperty("WaitingTime", DEFAULT_ALARM_WAITING_TIME);
+        ui.addProperty("waitingTime", DEFAULT_ALARM_WAITING_TIME);
         defaults.add("ui", ui);
         JsonObject downloads = new JsonObject();
         downloads.addProperty("maxConcurrentDownloads", DEFAULT_MAX_CONCURRENT_DOWNLOADS);
@@ -207,6 +203,7 @@ public class DlcConfig {
         modpack.addProperty("updateGitRepo", DEFAULT_UPDATE_GIT_REPO_URL);
         modpack.addProperty("autoUpdate", DEFAULT_MODPACK_AUTO_UPDATE);
         modpack.addProperty("forceUpdate", DEFAULT_MODPACK_FORCE_UPDATE);
+        modpack.addProperty("packUpdateChannel", DEFAULT_PACK_UPDATE_CHANNEL);
         defaults.add("modpack", modpack);
         for (var section : defaults.entrySet()) {
             JsonObject incoming = DlcDcConfigIO.getObjectIgnoreCase(source, section.getKey());
@@ -341,7 +338,7 @@ public class DlcConfig {
     }
 
     public static boolean isServerSupportOn() {
-        return serverSupportClient;
+        return true;
     }
 
     public static boolean isServerSupportOnServer() {
@@ -478,6 +475,10 @@ public class DlcConfig {
 
     public static boolean isModpackForceUpdateOn() {
         return modpackForceUpdate;
+    }
+
+    public static String getPackUpdateChannel() {
+        return packUpdateChannel;
     }
 
     public static int[] computeTitleButtonPosition(int screenWidth, int screenHeight, int buttonWidth, int buttonHeight, int defaultX, int defaultY) {
@@ -695,10 +696,6 @@ public class DlcConfig {
         alarmWaitingTime = clampInt(value, 0, 10, DEFAULT_ALARM_WAITING_TIME);
     }
 
-    public static void setServerSupportOn(boolean value) {
-        serverSupportClient = value;
-    }
-
     public static void setServerSupportOnServer(boolean value) {
     }
 
@@ -810,6 +807,20 @@ public class DlcConfig {
         modpackForceUpdate = value;
     }
 
+    public static void setPackUpdateChannel(String value) {
+        packUpdateChannel = normalizePackUpdateChannel(value);
+    }
+
+    private static String normalizePackUpdateChannel(String value) {
+        if (value == null || value.isBlank()) {
+            return DEFAULT_PACK_UPDATE_CHANNEL;
+        }
+        return switch (value.trim().toLowerCase(Locale.ROOT)) {
+            case "stable", "beta", "alpha", "nightly" -> value.trim().toLowerCase(Locale.ROOT);
+            default -> DEFAULT_PACK_UPDATE_CHANNEL;
+        };
+    }
+
     public static void setServerModpackUrl(String value) {
         setModpackUrl(value);
     }
@@ -867,7 +878,6 @@ public class DlcConfig {
         showOnFirstRun = DEFAULT_SHOW_ON_FIRST_RUN;
         showDependencyReminder = DEFAULT_SHOW_DEPENDENCY_REMINDER;
         alarmWaitingTime = DEFAULT_ALARM_WAITING_TIME;
-        serverSupportClient = DEFAULT_SERVER_SUPPORT;
         serverPassword = DEFAULT_SERVER_PASSWORD;
         apiEnabled = DEFAULT_API_ENABLED;
         apiPort = DEFAULT_API_PORT;
@@ -895,6 +905,7 @@ public class DlcConfig {
         updateGitRepoClient = DEFAULT_UPDATE_GIT_REPO_URL;
         modpackAutoUpdate = DEFAULT_MODPACK_AUTO_UPDATE;
         modpackForceUpdate = DEFAULT_MODPACK_FORCE_UPDATE;
+        packUpdateChannel = DEFAULT_PACK_UPDATE_CHANNEL;
         maxConcurrentDownloads = DEFAULT_MAX_CONCURRENT_DOWNLOADS;
         maxSegmentsPerFile = DEFAULT_MAX_SEGMENTS_PER_FILE;
         minSegmentMb = DEFAULT_MIN_SEGMENT_MB;
@@ -1056,10 +1067,9 @@ public class DlcConfig {
         obj.addProperty("isPresetFuncOn", presetFuncOn);
         obj.addProperty("isPackFuncOn", packFuncOn);
         obj.addProperty("isPButtomShown", pButtonShown);
-        obj.addProperty("ShowOnFirstRun", showOnFirstRun);
+        obj.addProperty("showOnFirstRun", showOnFirstRun);
         obj.addProperty("showDependencyReminder", showDependencyReminder);
-        obj.addProperty("WaitingTime", alarmWaitingTime);
-        obj.addProperty("serverSupport", serverSupportClient);
+        obj.addProperty("waitingTime", alarmWaitingTime);
         obj.addProperty("titleAnchor", titleAnchor);
         obj.addProperty("titleOffsetX", titleOffsetX);
         obj.addProperty("titleOffsetY", titleOffsetY);
@@ -1108,6 +1118,7 @@ public class DlcConfig {
         obj.addProperty("updateGitRepo", updateGitRepoClient);
         obj.addProperty("autoUpdate", modpackAutoUpdate);
         obj.addProperty("forceUpdate", modpackForceUpdate);
+        obj.addProperty("packUpdateChannel", packUpdateChannel);
         root.add("modpack", obj);
     }
 
@@ -1155,9 +1166,10 @@ public class DlcConfig {
         map.put("isPackFuncOn", value -> packFuncOn = asBoolean(value, DEFAULT_PACK_FUNC_ON));
         map.put("isPButtomShown", value -> pButtonShown = asBoolean(value, DEFAULT_P_BUTTON_SHOWN));
         map.put("ShowOnFirstRun", value -> showOnFirstRun = asBoolean(value, DEFAULT_SHOW_ON_FIRST_RUN));
+        map.put("showOnFirstRun", value -> showOnFirstRun = asBoolean(value, DEFAULT_SHOW_ON_FIRST_RUN));
         map.put("showDependencyReminder", value -> showDependencyReminder = asBoolean(value, DEFAULT_SHOW_DEPENDENCY_REMINDER));
         map.put("WaitingTime", value -> alarmWaitingTime = clampInt(asInt(value, DEFAULT_ALARM_WAITING_TIME), 0, 10, DEFAULT_ALARM_WAITING_TIME));
-        map.put("serverSupport", value -> serverSupportClient = asBoolean(value, DEFAULT_SERVER_SUPPORT));
+        map.put("waitingTime", value -> alarmWaitingTime = clampInt(asInt(value, DEFAULT_ALARM_WAITING_TIME), 0, 10, DEFAULT_ALARM_WAITING_TIME));
         map.put("titleAnchor", value -> titleAnchor = asString(value, DEFAULT_TITLE_ANCHOR));
         map.put("titleOffsetX", value -> titleOffsetX = asInt(value, DEFAULT_TITLE_OFFSET_X));
         map.put("titleOffsetY", value -> titleOffsetY = asInt(value, DEFAULT_TITLE_OFFSET_Y));
@@ -1195,6 +1207,7 @@ public class DlcConfig {
         map.put("updateGitRepo", value -> updateGitRepoClient = asString(value, DEFAULT_UPDATE_GIT_REPO_URL));
         map.put("autoUpdate", value -> modpackAutoUpdate = asBoolean(value, DEFAULT_MODPACK_AUTO_UPDATE));
         map.put("forceUpdate", value -> modpackForceUpdate = asBoolean(value, DEFAULT_MODPACK_FORCE_UPDATE));
+        map.put("packUpdateChannel", value -> packUpdateChannel = normalizePackUpdateChannel(asString(value, DEFAULT_PACK_UPDATE_CHANNEL)));
         return map;
     }
 

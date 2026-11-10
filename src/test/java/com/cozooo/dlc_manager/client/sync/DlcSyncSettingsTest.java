@@ -2,7 +2,7 @@ package com.cozooo.dlc_manager.client.sync;
 
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.cozooo.dlc_manager.sync.*;
-import com.cozooo.dlc_manager.sync.SyncModel.*;
+import com.cozooo.dlc_manager.sync.DlcSyncModel.*;
 import com.google.gson.JsonObject;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -25,13 +25,13 @@ class DlcSyncSettingsTest {
         assertFalse(source.settings().getAsJsonObject("ui").has("showDependencyReminder"));
         assertFalse(source.settings().getAsJsonObject("ui").has("titleAnchor"));
         assertTrue(source.displayNames().isEmpty(), "Manager labels belong to the UI language resources");
-        assertFalse(SyncEndpoint.JSON.toJson(source).contains("client-secret"));
-        assertFalse(SyncEndpoint.JSON.toJson(source).contains("client-password"));
-        assertEquals(1, SyncModel.plan(List.of(source), List.of(target), Direction.PUSH, true, Mode.CONFIG).size());
+        assertFalse(DlcSyncEndpoint.JSON.toJson(source).contains("client-secret"));
+        assertFalse(DlcSyncEndpoint.JSON.toJson(source).contains("client-password"));
+        assertEquals(1, DlcSyncModel.plan(List.of(source), List.of(target), Direction.PUSH, true, Mode.CONFIG).size());
         Files.writeString(server.config, SERVER.replace("maxConcurrentDownloads = 7", "maxConcurrentDownloads = 3"));
         assertEquals(source.settings(), server.item(KEY).settings());
         assertEquals(source.config(), server.item(KEY).config());
-        assertTrue(SyncModel.plan(client.manifest(), server.manifest(), Direction.PUSH, true, Mode.CONFIG).isEmpty());
+        assertTrue(DlcSyncModel.plan(client.manifest(), server.manifest(), Direction.PUSH, true, Mode.CONFIG).isEmpty());
         Fixture absent = new Fixture(temp.resolve("absent"), null);
         Fixture defaults = new Fixture(temp.resolve("defaults"), "[paths]\ndlcRoot='DLC'\n[ui]\nshowDependencyReminder=true\n");
         assertEquals(absent.item(KEY).config(), defaults.item(KEY).config());
@@ -41,10 +41,10 @@ class DlcSyncSettingsTest {
         for (Mode mode : Mode.values()) {
             Fixture client = new Fixture(temp.resolve("client-" + mode), CLIENT), server = new Fixture(temp.resolve("server-" + mode), SERVER);
             List<String> actions = new ArrayList<>();
-            try (SyncEndpoint left = new SyncEndpoint(client); SyncEndpoint right = new SyncEndpoint(server)) {
+            try (DlcSyncEndpoint left = new DlcSyncEndpoint(client); DlcSyncEndpoint right = new DlcSyncEndpoint(server)) {
                 Peer tracked = request -> { actions.add(request.get("action").getAsString()); return right.call(request); };
-                var rows = SyncModel.plan(SyncClient.manifest(left), SyncClient.manifest(right), Direction.PUSH, true, mode);
-                Result result = new SyncClient(left, tracked, right).execute(rows, mode, true, (phase, name, done, total) -> {});
+                var rows = DlcSyncModel.plan(DlcSyncClient.manifest(left), DlcSyncClient.manifest(right), Direction.PUSH, true, mode);
+                Result result = new DlcSyncClient(left, tracked, right).execute(rows, mode, true, (phase, name, done, total) -> {});
                 assertEquals(1, result.completed()); assertTrue(result.errors().isEmpty()); assertTrue(result.requiresRestart());
                 assertTrue(actions.contains("settings")); assertFalse(actions.contains("write")); assertFalse(actions.contains("read"));
             }
@@ -64,23 +64,23 @@ class DlcSyncSettingsTest {
         Fixture source = new Fixture(temp.resolve("source"), "[modpack]\nupdateGitRepo='new/repository'\n");
         Fixture target = new Fixture(temp.resolve("target"), "[modpack]\nupdateGithubRepo='old/repository'\n");
         assertEquals("old/repository", target.item(KEY).settings().getAsJsonObject("modpack").get("updateGitRepo").getAsString());
-        try (SyncEndpoint left = new SyncEndpoint(source); SyncEndpoint right = new SyncEndpoint(target)) {
-            var rows = SyncModel.plan(SyncClient.manifest(left), SyncClient.manifest(right), Direction.PUSH, false, Mode.CONFIG);
-            assertTrue(new SyncClient(left, right, right).execute(rows, Mode.CONFIG, false, (phase, name, done, total) -> {}).errors().isEmpty());
+        try (DlcSyncEndpoint left = new DlcSyncEndpoint(source); DlcSyncEndpoint right = new DlcSyncEndpoint(target)) {
+            var rows = DlcSyncModel.plan(DlcSyncClient.manifest(left), DlcSyncClient.manifest(right), Direction.PUSH, false, Mode.CONFIG);
+            assertTrue(new DlcSyncClient(left, right, right).execute(rows, Mode.CONFIG, false, (phase, name, done, total) -> {}).errors().isEmpty());
         }
         assertEquals("new/repository", DlcDcConfigIO.read(target.config, DlcDcConfigIO.Layout.GENERIC).getAsJsonObject("modpack").get("updateGithubRepo").getAsString());
     }
     @Test void fieldUpdatesAreBackedUpAndRestoredAndRawManagerFileAccessIsRejected() throws Exception {
         Fixture target = new Fixture(temp.resolve("target"), SERVER), source = new Fixture(temp.resolve("source"), CLIENT);
-        try (SyncEndpoint endpoint = new SyncEndpoint(target)) {
-            JsonObject begin = SyncClient.request("begin"); begin.addProperty("operation", UUID.randomUUID().toString()); SyncClient.checked(endpoint, begin);
-            JsonObject selected = SyncClient.request("item"); selected.addProperty("key", KEY); SyncClient.checked(endpoint, selected);
-            JsonObject read = SyncClient.request("read"); read.addProperty("id", KEY);
-            assertThrows(IOException.class, () -> SyncClient.checked(endpoint, read));
-            JsonObject fields = SyncClient.request("settings"); fields.add("settings", source.item(KEY).settings()); SyncClient.checked(endpoint, fields);
-            SyncClient.checked(endpoint, SyncClient.request("apply")); SyncClient.checked(endpoint, SyncClient.request("item_done"));
+        try (DlcSyncEndpoint endpoint = new DlcSyncEndpoint(target)) {
+            JsonObject begin = DlcSyncClient.request("begin"); begin.addProperty("operation", UUID.randomUUID().toString()); DlcSyncClient.checked(endpoint, begin);
+            JsonObject selected = DlcSyncClient.request("item"); selected.addProperty("key", KEY); DlcSyncClient.checked(endpoint, selected);
+            JsonObject read = DlcSyncClient.request("read"); read.addProperty("id", KEY);
+            assertThrows(IOException.class, () -> DlcSyncClient.checked(endpoint, read));
+            JsonObject fields = DlcSyncClient.request("settings"); fields.add("settings", source.item(KEY).settings()); DlcSyncClient.checked(endpoint, fields);
+            DlcSyncClient.checked(endpoint, DlcSyncClient.request("apply")); DlcSyncClient.checked(endpoint, DlcSyncClient.request("item_done"));
             assertNotEquals(SERVER, Files.readString(target.config));
-            SyncClient.checked(endpoint, SyncClient.request("rollback"));
+            DlcSyncClient.checked(endpoint, DlcSyncClient.request("rollback"));
             assertEquals(SERVER, Files.readString(target.config));
         }
     }

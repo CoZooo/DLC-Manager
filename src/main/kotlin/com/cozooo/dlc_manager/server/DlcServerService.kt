@@ -122,11 +122,11 @@ object DlcServerService {
     @JvmStatic
     fun handleClient(socket: Socket) {
         try {
-            com.cozooo.dlc_manager.sync.SyncEndpoint(com.cozooo.dlc_manager.client.sync.DlcSyncAdapter { canceled ->
+            com.cozooo.dlc_manager.sync.DlcSyncEndpoint(com.cozooo.dlc_manager.client.sync.DlcSyncAdapter { canceled ->
                 DlcServerDownloadService.cancelRemoteDownload(); DlcServerDownloadService.cancelRequiredDownload()
                 val deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(30)
                 while (DlcServerDownloadService.getRemoteDownloadStatus().running || DlcServerDownloadService.getRequiredDownloadStatus().running) {
-                    if (canceled.asBoolean || System.nanoTime() > deadline) throw com.cozooo.dlc_manager.sync.SyncFailure("server_downloads_stop")
+                    if (canceled.asBoolean || System.nanoTime() > deadline) throw com.cozooo.dlc_manager.sync.DlcSyncFailure("server_downloads_stop")
                     Thread.sleep(50)
                 }
             }).use { sync ->
@@ -164,7 +164,7 @@ object DlcServerService {
                                 continue
                             }
                             if (type == "dlc_sync") { handleSync(sync, request, writer); continue }
-                            val guard = try { com.cozooo.dlc_manager.sync.SyncEndpoint.guard(DlcConfig.getDlcRoot().resolve("tmp/sync")) }
+                            val guard = try { com.cozooo.dlc_manager.sync.DlcSyncEndpoint.guard(DlcConfig.getDlcRoot().resolve("tmp/sync")) }
                             catch (busy: IOException) { writeError(writer, busy.message ?: "DLC synchronization is in progress"); continue }
                             guard.use {
                                 when (type) {
@@ -238,7 +238,7 @@ object DlcServerService {
     }
 
     @Throws(IOException::class)
-    private fun handleSync(sync: com.cozooo.dlc_manager.sync.SyncEndpoint, request: JsonObject, writer: BufferedWriter) {
+    private fun handleSync(sync: com.cozooo.dlc_manager.sync.DlcSyncEndpoint, request: JsonObject, writer: BufferedWriter) {
         val actor = Thread.currentThread()
         val gate = Any()
         var finished = false

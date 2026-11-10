@@ -7,7 +7,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.sync.DlcSyncAdapter;
 import com.cozooo.dlc_manager.sync.*;
-import com.cozooo.dlc_manager.sync.SyncModel.*;
+import com.cozooo.dlc_manager.sync.DlcSyncModel.*;
 import com.cozooo.dlc_manager.platform.DlcTextCompat;
 import com.sighs.apricityui.init.Element;
 import net.minecraft.client.Minecraft;
@@ -29,11 +29,11 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
     private volatile boolean busy;
     private volatile String message = "";
     private volatile double fraction = -1;
-    private volatile SyncClient active;
+    private volatile DlcSyncClient active;
     private volatile AutoCloseable connecting;
     private volatile boolean cancelRequested;
     private volatile DlcServerSession previewSession;
-    private volatile SyncClient rollbackClient;
+    private volatile DlcSyncClient rollbackClient;
     private volatile String failureReason;
     private boolean syncing;
     private DlcUiButton executeButton;
@@ -84,7 +84,7 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
         footerLeading.setAttribute("style", "display:flex");
         action(footerLeading, tr("dlc_manager.sync.mode_" + mode.name().toLowerCase(Locale.ROOT)), () -> { mode = mode == Mode.FILES ? Mode.CONFIG : Mode.FILES; replan(); }).setEnabled(!busy);
         action(toolbar, tr("dlc_manager.sync." + direction.name().toLowerCase(Locale.ROOT)), () -> { direction = direction == Direction.PUSH ? Direction.PULL : Direction.PUSH; replan(); }).setEnabled(!busy);
-        if (SyncModel.hasStateDifferences(local, remote)) toggle(footerLeading, tr("dlc_manager.sync.states"), states, value -> { states = value; replan(); }).setEnabled(!busy);
+        if (DlcSyncModel.hasStateDifferences(local, remote)) toggle(footerLeading, tr("dlc_manager.sync.states"), states, value -> { states = value; replan(); }).setEnabled(!busy);
         if (settingsRow() != null) toggle(footerLeading, tr("dlc_manager.sync.manager_config"), settingsSelected, value -> { settingsSelected = value; refreshPage(); }).setEnabled(!busy);
         action(toolbar, tr("dlc_manager.sync.compare"), this::compare).setEnabled(!busy);
         content.parentElement.setAttribute("class", "page-shell sync-page");
@@ -108,9 +108,9 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
         if (!shown.isEmpty()) selectionRow(list, tr("dlc_manager.sync.select_all"), this::selectionState, this::selectVisible);
         String language = com.cozooo.dlc_manager.platform.DlcPlatformServices.languageCode();
         for (Row row : shown) {
-            String name = SyncModel.displayName(row.source(), language);
+            String name = DlcSyncModel.displayName(row.source(), language);
             String status = tr("dlc_manager.sync." + comparison.status(row));
-            var tooltip = new DlcUiTooltip.Content(name, SyncModel.tooltip(row.source(), language), List.of(), status);
+            var tooltip = new DlcUiTooltip.Content(name, DlcSyncModel.tooltip(row.source(), language), List.of(), status);
             var line = selectionRow(list, name, () -> Boolean.toString(selected.contains(row.key())), () -> {
                 if (!selected.add(row.key())) selected.remove(row.key());
             });
@@ -188,8 +188,8 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
         });
         return line;
     }
-    private Row settingsRow() { return rows.stream().filter(row -> SyncModel.category(row.source()) == Category.MANAGER_CONFIG).findFirst().orElse(null); }
-    private void refilter() { filteredRows = rows.stream().filter(row -> SyncModel.category(row.source()) != Category.MANAGER_CONFIG && (category == Category.ALL || SyncModel.category(row.source()) == category)).toList(); }
+    private Row settingsRow() { return rows.stream().filter(row -> DlcSyncModel.category(row.source()) == Category.MANAGER_CONFIG).findFirst().orElse(null); }
+    private void refilter() { filteredRows = rows.stream().filter(row -> DlcSyncModel.category(row.source()) != Category.MANAGER_CONFIG && (category == Category.ALL || DlcSyncModel.category(row.source()) == category)).toList(); }
     private List<Row> visibleRows() { return filteredRows; }
     private List<Row> selectedRows() {
         List<Row> chosen = new ArrayList<>(visibleRows().stream().filter(row -> selected.contains(row.key())).toList());
@@ -207,15 +207,15 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
     private void updateExecuteButton() {
         if (executeButton != null) executeButton.setEnabled(!busy && (settingsSelected && settingsRow() != null || !selected.isEmpty() && visibleRows().stream().anyMatch(row -> selected.contains(row.key()))));
     }
-    private SyncModel.Peer peer(DlcServerSession session) {
-        return new SyncModel.Peer() {
+    private DlcSyncModel.Peer peer(DlcServerSession session) {
+        return new DlcSyncModel.Peer() {
             public com.google.gson.JsonObject call(com.google.gson.JsonObject request) throws java.io.IOException {
                 try { return session.syncRequest(request); } catch (java.io.IOException error) { session.close(); throw error; }
             }
             public void close() throws java.io.IOException { session.close(); }
         };
     }
-    private SyncModel.Peer control() {
+    private DlcSyncModel.Peer control() {
         return request -> { try (DlcServerSession session = DlcServerSession.connect(entry, 10000)) { return peer(session).call(request); } };
     }
     private void compare() {
@@ -223,16 +223,16 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
         loaded = false; local = List.of(); remote = List.of(); rows = List.of(); filteredRows = List.of(); settingsSelected = false; selected.clear();
         run(() -> {
             List<Item> left, right;
-            try (SyncEndpoint endpoint = new SyncEndpoint(new DlcSyncAdapter()); DlcServerSession session = connect(entry)) {
+            try (DlcSyncEndpoint endpoint = new DlcSyncEndpoint(new DlcSyncAdapter()); DlcServerSession session = connect(entry)) {
                 previewSession = session;
-                left = SyncClient.manifest(endpoint, () -> cancelRequested);
-                right = SyncClient.manifest(peer(session), () -> cancelRequested);
+                left = DlcSyncClient.manifest(endpoint, () -> cancelRequested);
+                right = DlcSyncClient.manifest(peer(session), () -> cancelRequested);
             } finally { previewSession = null; }
             Minecraft.getInstance().execute(() -> { local = left; remote = right; loaded = true; message = ""; replan(); });
         });
     }
     private void replan() {
-        comparison = SyncModel.compare(local, remote, direction, states, mode);
+        comparison = DlcSyncModel.compare(local, remote, direction, states, mode);
         rows = comparison.rows();
         selected.clear(); settingsSelected = false; refilter();
         refreshPage();
@@ -245,7 +245,7 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
         MutableComponent message = DlcTextCompat.translatable("dlc_manager.sync.confirm", chosen.size());
         for (Row row : chosen) {
             message.append(DlcTextCompat.literal("\n"));
-            message.append(DlcTextFormatter.parse(SyncModel.displayName(row.source(), language)));
+            message.append(DlcTextFormatter.parse(DlcSyncModel.displayName(row.source(), language)));
         }
         Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             Minecraft.getInstance().setScreen(this);
@@ -255,8 +255,8 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
     private void execute(List<Row> chosen) {
         run(() -> {
             rollbackClient = null;
-            try (SyncEndpoint endpoint = new SyncEndpoint(new DlcSyncAdapter()); DlcServerSession session = connect(entry)) {
-                SyncClient client = new SyncClient(endpoint, peer(session), control()); active = client; rollbackClient = client;
+            try (DlcSyncEndpoint endpoint = new DlcSyncEndpoint(new DlcSyncAdapter()); DlcServerSession session = connect(entry)) {
+                DlcSyncClient client = new DlcSyncClient(endpoint, peer(session), control()); active = client; rollbackClient = client;
                 if (cancelRequested) client.cancel();
                 Result result = client.execute(chosen, mode, states, (phase, resource, done, total) -> {
                     fraction = total > 0 && !phase.equals("restoring") ? done / (double) total : -1;
@@ -266,20 +266,20 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
                 lastResult = result;
                 message = DlcTextCompat.translatable(result.canceled() ? "dlc_manager.sync.canceled" : "dlc_manager.sync.finished", result.completed(), result.errors().size()).getString()
                     + (result.requiresRestart() ? " " + DlcTextCompat.translatable("dlc_manager.sync.restart").getString() : "") + "\n" + String.join("\n", result.succeeded().stream().map(key -> tr("dlc_manager.sync.succeeded_item", key)).toList()) + "\n" + String.join("\n", result.errors());
-                if (chosen.stream().anyMatch(row -> SyncModel.category(row.source()) == Category.UPDATE && result.succeeded().contains(row.key()))) message += "\n" + tr("dlc_manager.sync.updates_ready");
+                if (chosen.stream().anyMatch(row -> DlcSyncModel.category(row.source()) == Category.UPDATE && result.succeeded().contains(row.key()))) message += "\n" + tr("dlc_manager.sync.updates_ready");
                 if (result.canceled()) return;
                 if (!result.errors().isEmpty()) failureReason = String.join("\n", result.errors());
             } finally { active = null; }
         }, true);
     }
     private void rollback() {
-        SyncClient client = rollbackClient;
+        DlcSyncClient client = rollbackClient;
         if (busy || client == null || !client.canRollback()) return;
         run(() -> {
             message = tr("dlc_manager.sync.restoring");
-            try (SyncEndpoint endpoint = new SyncEndpoint(new DlcSyncAdapter()); DlcServerSession session = connect(entry)) {
+            try (DlcSyncEndpoint endpoint = new DlcSyncEndpoint(new DlcSyncAdapter()); DlcServerSession session = connect(entry)) {
                 client.rollback(endpoint, peer(session));
-                List<Item> left = SyncClient.manifest(endpoint), right = SyncClient.manifest(peer(session));
+                List<Item> left = DlcSyncClient.manifest(endpoint), right = DlcSyncClient.manifest(peer(session));
                 Minecraft.getInstance().execute(() -> { local = left; remote = right; replan(); });
             }
             message = tr("dlc_manager.sync.restored");
@@ -313,7 +313,7 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
         message = tr("dlc_manager.sync.working"); refreshPage();
         CompletableFuture.runAsync(() -> {
             try { work.run(); }
-            catch (Exception error) { message = cancelRequested && (error instanceof java.net.SocketException || SyncFailure.is(error, "canceled")) ? DlcTextCompat.translatable("dlc_manager.sync.canceled").getString() : error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage(); if (synchronizing && !cancelRequested) failureReason = failureReason == null ? message : failureReason + "\n" + message; }
+            catch (Exception error) { message = cancelRequested && (error instanceof java.net.SocketException || DlcSyncFailure.is(error, "canceled")) ? DlcTextCompat.translatable("dlc_manager.sync.canceled").getString() : error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage(); if (synchronizing && !cancelRequested) failureReason = failureReason == null ? message : failureReason + "\n" + message; }
             finally { Minecraft.getInstance().execute(() -> {
                 busy = false; syncing = false; connecting = null;
                 if (progressMode) finishProgress();
@@ -504,7 +504,7 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
     private List<DlcRemoteEntry> synchronizedDlcEntries(Set<String> keys) {
         if (mode != Mode.CONFIG || keys.isEmpty()) return List.of();
         Set<String> selectedKeys = new HashSet<>();
-        for (Row row : progressChosen) if (keys.contains(row.key()) && SyncModel.category(row.source()) == Category.DLC) selectedKeys.add(row.key());
+        for (Row row : progressChosen) if (keys.contains(row.key()) && DlcSyncModel.category(row.source()) == Category.DLC) selectedKeys.add(row.key());
         Set<java.nio.file.Path> paths = synchronizedPaths(selectedKeys);
         Map<java.nio.file.Path, Row> selected = new HashMap<>();
         for (Row row : progressChosen) if (selectedKeys.contains(row.key())) selected.put(synchronizedPaths(Set.of(row.key())).stream().findFirst().orElse(null), row);
@@ -519,7 +519,7 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
     private List<DlcRequiredEntry> synchronizedRequiredEntries(Set<String> keys) {
         if (mode != Mode.CONFIG || keys.isEmpty()) return List.of();
         Set<String> selectedKeys = new HashSet<>();
-        for (Row row : progressChosen) if (keys.contains(row.key()) && SyncModel.category(row.source()) == Category.REQUIRED) selectedKeys.add(row.key());
+        for (Row row : progressChosen) if (keys.contains(row.key()) && DlcSyncModel.category(row.source()) == Category.REQUIRED) selectedKeys.add(row.key());
         Set<java.nio.file.Path> paths = synchronizedPaths(selectedKeys);
         Map<java.nio.file.Path, Row> selected = new HashMap<>();
         for (Row row : progressChosen) if (selectedKeys.contains(row.key())) selected.put(synchronizedPaths(Set.of(row.key())).stream().findFirst().orElse(null), row);
@@ -537,7 +537,7 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
         return target.resources().isEmpty() || target.resources().stream().anyMatch(file -> file.size() < 0 || file.hash() == null);
     }
 
-    private void applyResult(Result result, SyncClient client) {
+    private void applyResult(Result result, DlcSyncClient client) {
         rollbackClient = client;
         if (result != null) {
             Set<String> succeeded = new HashSet<>(result.succeeded());

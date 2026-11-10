@@ -5,7 +5,7 @@ import com.cozooo.dlc_manager.client.sync.DlcSyncAdapter
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.sync.*
-import com.cozooo.dlc_manager.sync.SyncModel.*
+import com.cozooo.dlc_manager.sync.DlcSyncModel.*
 import com.cozooo.dlc_manager.platform.DlcTextCompat
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.Screen
@@ -42,9 +42,9 @@ class DlcServerPushScreen(parent: Screen, private val entry: DlcServerEntry?) :
     @Volatile private var fraction = -1.0
     @Volatile private var connecting: AutoCloseable? = null
     @Volatile private var cancelRequested = false
-    @Volatile private var active: SyncClient? = null
+    @Volatile private var active: DlcSyncClient? = null
     @Volatile private var previewSession: DlcServerSession? = null
-    @Volatile private var rollbackClient: SyncClient? = null
+    @Volatile private var rollbackClient: DlcSyncClient? = null
     @Volatile private var failureReason: String? = null
     private var syncing = false
     private var results: com.sighs.apricityui.init.Element? = null
@@ -78,7 +78,7 @@ class DlcServerPushScreen(parent: Screen, private val entry: DlcServerEntry?) :
         footerLeading.setAttribute("style", "display:flex")
         action(footerLeading, tr("dlc_manager.sync.mode_" + mode.name.lowercase(Locale.ROOT))) { mode = if (mode == Mode.FILES) Mode.CONFIG else Mode.FILES; replan() }.setEnabled(!busy)
         action(toolbar, tr("dlc_manager.sync." + direction.name.lowercase(Locale.ROOT))) { direction = if (direction == Direction.PUSH) Direction.PULL else Direction.PUSH; replan() }.setEnabled(!busy)
-        if (SyncModel.hasStateDifferences(local, remote)) toggle(footerLeading, tr("dlc_manager.sync.states"), states) { states = it; replan() }.setEnabled(!busy)
+        if (DlcSyncModel.hasStateDifferences(local, remote)) toggle(footerLeading, tr("dlc_manager.sync.states"), states) { states = it; replan() }.setEnabled(!busy)
         if (settingsRow() != null) toggle(footerLeading, tr("dlc_manager.sync.manager_config"), settingsSelected) { settingsSelected = it; refreshPage() }.setEnabled(!busy)
         action(toolbar, tr("dlc_manager.sync.compare"), ::compare).setEnabled(!busy)
         content.parentElement.setAttribute("class", "page-shell sync-page")
@@ -102,9 +102,9 @@ class DlcServerPushScreen(parent: Screen, private val entry: DlcServerEntry?) :
         if (shown.isNotEmpty()) selectionRow(list, tr("dlc_manager.sync.select_all"), ::selectionState, ::selectVisible)
         val language = com.cozooo.dlc_manager.platform.DlcPlatformServices.languageCode()
         for (row in shown) {
-            val name = SyncModel.displayName(row.source, language)
+            val name = DlcSyncModel.displayName(row.source, language)
             val status = tr("dlc_manager.sync." + comparison.status(row))
-            val tooltip = DlcUiTooltip.Content(name, SyncModel.tooltip(row.source, language), emptyList(), status)
+            val tooltip = DlcUiTooltip.Content(name, DlcSyncModel.tooltip(row.source, language), emptyList(), status)
             val line = selectionRow(list, name, { selected.contains(row.key).toString() }) { if (!selected.add(row.key)) selected.remove(row.key) }
             tip(line) { tooltip }
             text(line, status, "row-description")
@@ -181,8 +181,8 @@ class DlcServerPushScreen(parent: Screen, private val entry: DlcServerEntry?) :
         }
         return line
     }
-    private fun settingsRow() = rows.firstOrNull { SyncModel.category(it.source) == Category.MANAGER_CONFIG }
-    private fun refilter() { filteredRows = rows.filter { SyncModel.category(it.source) != Category.MANAGER_CONFIG && (category == Category.ALL || SyncModel.category(it.source) == category) } }
+    private fun settingsRow() = rows.firstOrNull { DlcSyncModel.category(it.source) == Category.MANAGER_CONFIG }
+    private fun refilter() { filteredRows = rows.filter { DlcSyncModel.category(it.source) != Category.MANAGER_CONFIG && (category == Category.ALL || DlcSyncModel.category(it.source) == category) } }
     private fun visibleRows(): List<Row> = filteredRows
     private fun selectedRows(): List<Row> = visibleRows().filter { it.key in selected } + if (settingsSelected) listOfNotNull(settingsRow()) else emptyList()
     private fun selectionState(): String {
@@ -209,10 +209,10 @@ class DlcServerPushScreen(parent: Screen, private val entry: DlcServerEntry?) :
         loaded = false; local = emptyList(); remote = emptyList(); rows = emptyList(); filteredRows = emptyList(); settingsSelected = false; selected.clear()
         run {
             val manifests = try {
-                SyncEndpoint(DlcSyncAdapter()).use { endpoint -> connect().use { session ->
+                DlcSyncEndpoint(DlcSyncAdapter()).use { endpoint -> connect().use { session ->
                     previewSession = session
-                    val left = SyncClient.manifest(endpoint) { cancelRequested }
-                    val right = SyncClient.manifest(peer(session)) { cancelRequested }
+                    val left = DlcSyncClient.manifest(endpoint) { cancelRequested }
+                    val right = DlcSyncClient.manifest(peer(session)) { cancelRequested }
                     left to right
                 } }
             } finally { previewSession = null }
@@ -220,7 +220,7 @@ class DlcServerPushScreen(parent: Screen, private val entry: DlcServerEntry?) :
         }
     }
     private fun replan() {
-        comparison = SyncModel.compare(local, remote, direction, states, mode)
+        comparison = DlcSyncModel.compare(local, remote, direction, states, mode)
         rows = comparison.rows
         selected.clear(); settingsSelected = false; refilter()
         refreshPage()
@@ -233,7 +233,7 @@ class DlcServerPushScreen(parent: Screen, private val entry: DlcServerEntry?) :
         val message = DlcTextCompat.translatable("dlc_manager.sync.confirm", chosen.size)
         chosen.forEach { row ->
             message.append(DlcTextCompat.literal("\n"))
-            message.append(DlcTextFormatter.parse(SyncModel.displayName(row.source, language)))
+            message.append(DlcTextFormatter.parse(DlcSyncModel.displayName(row.source, language)))
         }
         Minecraft.getInstance().setScreen(DlcConfirmScreen({ accepted ->
             Minecraft.getInstance().setScreen(this)
@@ -243,8 +243,8 @@ class DlcServerPushScreen(parent: Screen, private val entry: DlcServerEntry?) :
     private fun execute(chosen: List<Row>) = run(synchronizing = true) {
         rollbackClient = null
         try {
-            SyncEndpoint(DlcSyncAdapter()).use { endpoint -> connect().use { session ->
-                val client = SyncClient(endpoint, peer(session), control()); active = client; rollbackClient = client
+            DlcSyncEndpoint(DlcSyncAdapter()).use { endpoint -> connect().use { session ->
+                val client = DlcSyncClient(endpoint, peer(session), control()); active = client; rollbackClient = client
                 if (cancelRequested) client.cancel()
                 val result = client.execute(chosen, mode, states) { phase, resource, done, total ->
                     fraction = if (total > 0 && phase != "restoring") done.toDouble() / total else -1.0
@@ -254,7 +254,7 @@ class DlcServerPushScreen(parent: Screen, private val entry: DlcServerEntry?) :
                 lastResult = result
                 message = DlcTextCompat.translatable(if (result.canceled) "dlc_manager.sync.canceled" else "dlc_manager.sync.finished", result.completed, result.errors.size).string +
                     (if (result.requiresRestart) " " + DlcTextCompat.translatable("dlc_manager.sync.restart").string else "") + "\n" + result.succeeded.joinToString("\n") { tr("dlc_manager.sync.succeeded_item", it) } + "\n" + result.errors.joinToString("\n")
-                if (chosen.any { SyncModel.category(it.source) == Category.UPDATE && it.key in result.succeeded }) message += "\n" + tr("dlc_manager.sync.updates_ready")
+                if (chosen.any { DlcSyncModel.category(it.source) == Category.UPDATE && it.key in result.succeeded }) message += "\n" + tr("dlc_manager.sync.updates_ready")
                 if (result.canceled) return@run
                 if (result.errors.isNotEmpty()) failureReason = result.errors.joinToString("\n")
             } }
@@ -265,10 +265,10 @@ class DlcServerPushScreen(parent: Screen, private val entry: DlcServerEntry?) :
         if (busy || !client.canRollback()) return
         run {
             message = tr("dlc_manager.sync.restoring")
-            SyncEndpoint(DlcSyncAdapter()).use { endpoint -> connect().use { session ->
+            DlcSyncEndpoint(DlcSyncAdapter()).use { endpoint -> connect().use { session ->
                 client.rollback(endpoint, peer(session))
-                val left = SyncClient.manifest(endpoint)
-                val right = SyncClient.manifest(peer(session))
+                val left = DlcSyncClient.manifest(endpoint)
+                val right = DlcSyncClient.manifest(peer(session))
                 Minecraft.getInstance().execute { local = left; remote = right; replan() }
             } }
             message = tr("dlc_manager.sync.restored")
@@ -296,7 +296,7 @@ class DlcServerPushScreen(parent: Screen, private val entry: DlcServerEntry?) :
         failureReason = null; cancelRequested = false; syncing = synchronizing; busy = true; fraction = -1.0
         message = tr("dlc_manager.sync.working"); refreshPage()
         CompletableFuture.runAsync {
-            try { work() } catch (error: Exception) { message = if (cancelRequested && (error is java.net.SocketException || SyncFailure.`is`(error, "canceled"))) DlcTextCompat.translatable("dlc_manager.sync.canceled").string else error.message ?: error.javaClass.simpleName; if (synchronizing && !cancelRequested) failureReason = failureReason?.let { "$it\n$message" } ?: message }
+            try { work() } catch (error: Exception) { message = if (cancelRequested && (error is java.net.SocketException || DlcSyncFailure.`is`(error, "canceled"))) DlcTextCompat.translatable("dlc_manager.sync.canceled").string else error.message ?: error.javaClass.simpleName; if (synchronizing && !cancelRequested) failureReason = failureReason?.let { "$it\n$message" } ?: message }
             finally { Minecraft.getInstance().execute {
                 busy = false; syncing = false; connecting = null
                 if (progressMode) finishProgress()
@@ -478,7 +478,7 @@ class DlcServerPushScreen(parent: Screen, private val entry: DlcServerEntry?) :
 
     private fun synchronizedDlcEntries(keys: Set<String>): List<com.cozooo.dlc_manager.client.remote.DlcRemoteEntry> {
         if (mode != Mode.CONFIG || keys.isEmpty()) return emptyList()
-        val selectedKeys = progressChosen.filter { it.key in keys && SyncModel.category(it.source) == Category.DLC }.map { it.key }.toSet()
+        val selectedKeys = progressChosen.filter { it.key in keys && DlcSyncModel.category(it.source) == Category.DLC }.map { it.key }.toSet()
         val paths = synchronizedPaths(selectedKeys)
         val selected = progressChosen.filter { it.key in selectedKeys }
             .associateBy { synchronizedPaths(setOf(it.key)).firstOrNull() }
@@ -492,7 +492,7 @@ class DlcServerPushScreen(parent: Screen, private val entry: DlcServerEntry?) :
 
     private fun synchronizedRequiredEntries(keys: Set<String>): List<com.cozooo.dlc_manager.client.required.DlcRequiredEntry> {
         if (mode != Mode.CONFIG || keys.isEmpty()) return emptyList()
-        val selectedKeys = progressChosen.filter { it.key in keys && SyncModel.category(it.source) == Category.REQUIRED }.map { it.key }.toSet()
+        val selectedKeys = progressChosen.filter { it.key in keys && DlcSyncModel.category(it.source) == Category.REQUIRED }.map { it.key }.toSet()
         val paths = synchronizedPaths(selectedKeys)
         val selected = progressChosen.filter { it.key in selectedKeys }
             .associateBy { synchronizedPaths(setOf(it.key)).firstOrNull() }
@@ -509,7 +509,7 @@ class DlcServerPushScreen(parent: Screen, private val entry: DlcServerEntry?) :
         return target.resources.isEmpty() || target.resources.any { it.size < 0 || it.hash == null }
     }
 
-    private fun applyResult(result: Result?, client: SyncClient?) {
+    private fun applyResult(result: Result?, client: DlcSyncClient?) {
         rollbackClient = client
         result?.succeeded?.toSet()?.let { succeeded ->
             rows = rows.filterNot { it.key in succeeded }

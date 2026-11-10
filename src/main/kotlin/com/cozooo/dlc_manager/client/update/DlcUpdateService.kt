@@ -3892,54 +3892,12 @@ object DlcUpdateService {
     }
 
     private fun compareVersion(a: kotlin.String?, b: kotlin.String?): Int {
-        val left: ParsedVersion = ParsedVersion.Companion.parse(a)
-        val right: ParsedVersion = ParsedVersion.Companion.parse(b)
-        val max = max(left.numericParts.size, right.numericParts.size)
-        for (i in 0..<max) {
-            val l = if (i < left.numericParts.size) left.numericParts[i] else 0
-            val r = if (i < right.numericParts.size) right.numericParts[i] else 0
-            if (l != r) {
-                return Integer.compare(l, r)
-            }
-        }
-        if (left.knownQualifier && right.knownQualifier) {
-            if (left.qualifierRank != right.qualifierRank) {
-                return Integer.compare(left.qualifierRank, right.qualifierRank)
-            }
-            if (left.qualifierNumber != right.qualifierNumber) {
-                return Integer.compare(left.qualifierNumber, right.qualifierNumber)
-            }
-            val qualifierTextCompare = left.qualifierText.compareTo(right.qualifierText, ignoreCase = true)
-            if (qualifierTextCompare != 0) {
-                return qualifierTextCompare
-            }
-            return left.normalized.compareTo(right.normalized, ignoreCase = true)
-        }
-        if (left.knownQualifier != right.knownQualifier) {
-            return if (left.knownQualifier) 1 else -1
-        }
-        return left.normalized.compareTo(right.normalized, ignoreCase = true)
+        return DlcVersionUtil.compare(a, b)
     }
 
     @JvmStatic
     fun compareVersions(a: kotlin.String?, b: kotlin.String?): Int {
         return compareVersion(a, b)
-    }
-
-    private fun parseVersionPart(part: kotlin.String?): Int {
-        if (part == null) {
-            return 0
-        }
-        var normalized = part.trim { it <= ' ' }
-        val idx = normalized.indexOf('-')
-        if (idx >= 0) {
-            normalized = normalized.substring(0, idx)
-        }
-        try {
-            return normalized.toInt()
-        } catch (ignored: NumberFormatException) {
-            return 0
-        }
     }
 
     private val dlcRoot: Path?
@@ -4100,143 +4058,6 @@ object DlcUpdateService {
         var fromDlc: kotlin.String? = null
         var toBase: kotlin.String? = null
         var toDlc: kotlin.String? = null
-    }
-
-    private class ParsedVersion(
-        val normalized: kotlin.String,
-        val numericParts: IntArray,
-        val knownQualifier: Boolean,
-        val qualifierRank: Int,
-        val qualifierNumber: Int,
-        qualifierText: kotlin.String?
-    ) {
-        val qualifierText: kotlin.String
-
-        init {
-            this.qualifierText = if (qualifierText == null) "" else qualifierText
-        }
-
-        companion object {
-            private const val QUALIFIER_ALPHA = 0
-            private const val QUALIFIER_BETA = 1
-            private const val QUALIFIER_RC = 2
-            private const val QUALIFIER_RELEASE = 3
-            private const val QUALIFIER_HOTFIX = 4
-            private const val QUALIFIER_BUILD = 5
-
-            fun parse(value: kotlin.String?): ParsedVersion {
-                val normalized: kotlin.String = safeVersion(value)
-                val split: Int = findSuffixStart(normalized)
-                val core = if (split < 0) normalized else normalized.substring(0, split)
-                val suffix = if (split < 0) "" else normalized.substring(split)
-                val numericParts: IntArray = parseNumericParts(core)
-                val qualifier: Qualifier = parseQualifier(suffix)
-                return ParsedVersion(
-                    normalized,
-                    numericParts,
-                    qualifier.known,
-                    qualifier.rank,
-                    qualifier.number,
-                    qualifier.text
-                )
-            }
-
-            private fun findSuffixStart(value: kotlin.String): Int {
-                for (i in 0..<value.length) {
-                    val ch = value.get(i)
-                    if ((ch >= '0' && ch <= '9') || ch == '.') {
-                        continue
-                    }
-                    return i
-                }
-                return -1
-            }
-
-            private fun parseNumericParts(core: kotlin.String?): IntArray {
-                val parts: Array<kotlin.String?> =
-                    safeVersion(core).split("\\.".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
-                val parsed = IntArray(parts.size)
-                for (i in parts.indices) {
-                    parsed[i] = parseVersionPart(parts[i])
-                }
-                return parsed
-            }
-
-            private fun parseQualifier(suffix: kotlin.String?): Qualifier {
-                if (suffix == null || suffix.isBlank()) {
-                    return Qualifier(true, QUALIFIER_RELEASE, 0, "release")
-                }
-                var normalized = suffix.trim { it <= ' ' }
-                while (!normalized.isEmpty()) {
-                    val ch = normalized.get(0)
-                    if (ch == '-' || ch == '_' || ch == '.') {
-                        normalized = normalized.substring(1)
-                        continue
-                    }
-                    break
-                }
-                if (normalized.isBlank()) {
-                    return Qualifier(true, QUALIFIER_RELEASE, 0, "release")
-                }
-                val lower = normalized.lowercase()
-                for (name in arrayOf<kotlin.String>("alpha", "beta", "rc", "hotfix", "fix", "build")) {
-                    if (!lower.startsWith(name)) {
-                        continue
-                    }
-                    var rest = normalized.substring(name.length)
-                    var number = 0
-                    if (!rest.isBlank()) {
-                        rest = rest.trim { it <= ' ' }
-                        while (!rest.isEmpty()) {
-                            val ch = rest.get(0)
-                            if (ch == '-' || ch == '_' || ch == '.') {
-                                rest = rest.substring(1)
-                                continue
-                            }
-                            break
-                        }
-                        if (!rest.isBlank()) {
-                            val digits = StringBuilder()
-                            var index = 0
-                            while (index < rest.length && Character.isDigit(rest.get(index))) {
-                                digits.append(rest.get(index))
-                                index++
-                            }
-                            if (digits.length > 0) {
-                                try {
-                                    number = digits.toString().toInt()
-                                } catch (ignored: NumberFormatException) {
-                                    number = 0
-                                }
-                            }
-                        }
-                    }
-                    val rank: Int = when (name) {
-                        "alpha" -> QUALIFIER_ALPHA
-                        "beta" -> QUALIFIER_BETA
-                        "rc" -> QUALIFIER_RC
-                        "hotfix", "fix" -> QUALIFIER_HOTFIX
-                        "build" -> QUALIFIER_BUILD
-                        else -> QUALIFIER_RELEASE
-                    }
-                    return Qualifier(true, rank, number, if ("fix" == name) "hotfix" else name)
-                }
-                return Qualifier(false, QUALIFIER_RELEASE, 0, normalized)
-            }
-        }
-    }
-
-    private class Qualifier(
-        val known: Boolean,
-        val rank: Int,
-        val number: Int,
-        text: kotlin.String?
-    ) {
-        val text: kotlin.String
-
-        init {
-            this.text = if (text == null) "" else text
-        }
     }
 
     private class UpdateContext(

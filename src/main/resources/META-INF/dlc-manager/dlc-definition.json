@@ -1549,7 +1549,7 @@
               "constraints": {}
             },
             {
-              "name": "ShowOnFirstRun",
+              "name": "showOnFirstRun",
               "type": "boolean",
               "required": false,
               "description": "Whether to open DLC Manager automatically on first run.",
@@ -1565,7 +1565,7 @@
               "constraints": {}
             },
             {
-              "name": "WaitingTime",
+              "name": "waitingTime",
               "type": "number",
               "required": false,
               "description": "Alarm confirmation wait time.",
@@ -1573,14 +1573,6 @@
               "constraints": {
                 "min": 0
               }
-            },
-            {
-              "name": "serverSupport",
-              "type": "boolean",
-              "required": false,
-              "description": "Whether to show the server manager entry.",
-              "enumValues": [],
-              "constraints": {}
             },
             {
               "name": "apiEnabled",
@@ -1807,6 +1799,14 @@
               "type": "boolean",
               "required": false,
               "description": "Require the modpack update check and update when a newer downloadable version is available.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "packUpdateChannel",
+              "type": "string",
+              "required": false,
+              "description": "Filter modpack update candidates by target version channel: all means every version, stable means release versions; beta, alpha, and nightly are also accepted.",
               "enumValues": [],
               "constraints": {}
             }

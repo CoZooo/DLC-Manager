@@ -5,7 +5,7 @@ import java.io.IOException
 import java.nio.file.Path
 import java.util.function.BooleanSupplier
 
-class SyncModel private constructor() {
+class DlcSyncModel private constructor() {
     enum class Mode { CONFIG, FILES }
     enum class Direction { PUSH, PULL }
     enum class Category { ALL, DLC, REQUIRED, UPDATE, MANAGER_CONFIG, PRESET }
@@ -64,11 +64,11 @@ class SyncModel private constructor() {
     interface Adapter {
         fun workDirectory(): Path
         @Throws(IOException::class) fun manifest(): List<Item>
-        @Throws(IOException::class) fun item(key: String): Item = manifest().firstOrNull { it.key == key } ?: throw SyncFailure("config_not_found", "$key")
+        @Throws(IOException::class) fun item(key: String): Item = manifest().firstOrNull { it.key == key } ?: throw DlcSyncFailure("config_not_found", "$key")
         @Throws(IOException::class) fun resolve(id: String): Path
         @Throws(IOException::class) fun validateKey(key: String)
         @Throws(IOException::class) fun validateIncoming(item: Item) {}
-        @Throws(IOException::class) fun writeSettings(key: String, settings: JsonObject, journal: Journal) { throw SyncFailure("settings_unavailable") }
+        @Throws(IOException::class) fun writeSettings(key: String, settings: JsonObject, journal: Journal) { throw DlcSyncFailure("settings_unavailable") }
         @Throws(IOException::class) fun journal(directory: Path): Journal
         @Throws(Exception::class) fun prepare(key: String, force: Boolean, canceled: BooleanSupplier, progress: Progress)
         @Throws(Exception::class) fun apply(key: String, enabled: Boolean?, journal: Journal, canceled: BooleanSupplier): Boolean

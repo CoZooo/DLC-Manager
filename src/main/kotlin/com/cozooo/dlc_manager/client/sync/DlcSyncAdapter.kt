@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.sync
 
-import com.cozooo.dlc_manager.sync.SyncFailure
-import com.cozooo.dlc_manager.sync.SyncModel.*
+import com.cozooo.dlc_manager.sync.DlcSyncFailure
+import com.cozooo.dlc_manager.sync.DlcSyncModel.*
 import com.cozooo.dlc_manager.core.*
 import com.cozooo.dlc_manager.client.remote.*
 import com.cozooo.dlc_manager.client.required.*
@@ -20,32 +20,32 @@ class DlcSyncAdapter @JvmOverloads constructor(private val quiesce: Quiesce = Qu
     override fun workDirectory(): Path = configuredRoots.first().resolve("tmp/sync")
     private fun roots() = configuredRoots
     private fun id(root: Path, path: Path?): String {
-        val normalized = path?.toAbsolutePath()?.normalize() ?: throw SyncFailure("invalid_path")
-        if (!normalized.startsWith(root) || normalized == root) throw SyncFailure("outside_root")
+        val normalized = path?.toAbsolutePath()?.normalize() ?: throw DlcSyncFailure("invalid_path")
+        if (!normalized.startsWith(root) || normalized == root) throw DlcSyncFailure("outside_root")
         return "${roots().indexOf(root)}:" + root.relativize(normalized).toString().replace('\\', '/')
     }
     override fun resolve(id: String): Path {
         if (id.startsWith("manager:")) return content.managerPath(id)
         val colon = id.indexOf(':')
-        if (colon <= 0) throw SyncFailure("invalid_resource")
-        val index = id.substring(0, colon).toIntOrNull() ?: throw SyncFailure("invalid_root")
-        if (index !in roots().indices) throw SyncFailure("root_missing")
+        if (colon <= 0) throw DlcSyncFailure("invalid_resource")
+        val index = id.substring(0, colon).toIntOrNull() ?: throw DlcSyncFailure("invalid_root")
+        if (index !in roots().indices) throw DlcSyncFailure("root_missing")
         val relative = id.substring(colon + 1)
-        if (relative.isBlank() || relative.contains('\\') || relative.contains(':') || relative.split('/').any { it.isEmpty() || it == "." || it == ".." }) throw SyncFailure("invalid_path")
+        if (relative.isBlank() || relative.contains('\\') || relative.contains(':') || relative.split('/').any { it.isEmpty() || it == "." || it == ".." }) throw DlcSyncFailure("invalid_path")
         val root = roots()[index]
         val path = aliases[id] ?: root.resolve(relative).normalize()
-        if (!path.startsWith(root) || path == root) throw SyncFailure("outside_root")
+        if (!path.startsWith(root) || path == root) throw DlcSyncFailure("outside_root")
         var part: Path? = path
-        while (part != null && part.startsWith(root)) { if (Files.isSymbolicLink(part)) throw SyncFailure("symbolic_path"); part = part.parent }
+        while (part != null && part.startsWith(root)) { if (Files.isSymbolicLink(part)) throw DlcSyncFailure("symbolic_path"); part = part.parent }
         return path
     }
     private fun file(root: Path, path: Path?, config: Boolean): File = file(root, path, path, config)
     private fun file(root: Path, path: Path?, canonical: Path?, config: Boolean): File {
-        if (path == null) throw SyncFailure("filename_missing")
+        if (path == null) throw DlcSyncFailure("filename_missing")
         val id = id(root, canonical)
         if (!config) aliases[id] = path.toAbsolutePath().normalize()
         resolve(id)
-        return File(id, if (Files.exists(path)) com.cozooo.dlc_manager.sync.SyncArchive.size(path) else -1,
+        return File(id, if (Files.exists(path)) com.cozooo.dlc_manager.sync.DlcSyncArchive.size(path) else -1,
             if (Files.exists(path)) DlcFileMatch.hash(path) else null)
     }
     private fun items() = DlcScanner().scan(false).values.filterNotNull().flatMap { it.filterNotNull() }
@@ -86,7 +86,7 @@ class DlcSyncAdapter @JvmOverloads constructor(private val quiesce: Quiesce = Qu
         resolve(id(root, directory))
         Files.walk(directory, depth).use { paths ->
             for (path in paths.filter { Files.isRegularFile(it) }.filter(::synchronizable).filter { !it.startsWith(root.resolve("remote/redirect")) }.toList()) {
-                if (Thread.currentThread().isInterrupted) throw SyncFailure("comparison_canceled")
+                if (Thread.currentThread().isInterrupted) throw DlcSyncFailure("comparison_canceled")
                 resolve(id(root, path)); com.cozooo.dclanguage.DcDocuments.read(path)
             }
         }
@@ -96,8 +96,8 @@ class DlcSyncAdapter @JvmOverloads constructor(private val quiesce: Quiesce = Qu
         val scanned = items()
         for (root in roots()) {
             validateConfigurations(root, "remote", Int.MAX_VALUE); validateConfigurations(root, "required", 1)
-            for (entry in DlcRemoteLoader.load(root)) { if (!synchronizable(entry.getConfigPath())) continue; if (Thread.currentThread().isInterrupted) throw SyncFailure("comparison_canceled"); result.add(remoteItem(root, entry, scanned)) }
-            for (entry in DlcRequiredLoader.load(root)) { if (!synchronizable(entry.getConfigPath())) continue; if (Thread.currentThread().isInterrupted) throw SyncFailure("comparison_canceled"); result.add(requiredItem(root, entry)) }
+            for (entry in DlcRemoteLoader.load(root)) { if (!synchronizable(entry.getConfigPath())) continue; if (Thread.currentThread().isInterrupted) throw DlcSyncFailure("comparison_canceled"); result.add(remoteItem(root, entry, scanned)) }
+            for (entry in DlcRequiredLoader.load(root)) { if (!synchronizable(entry.getConfigPath())) continue; if (Thread.currentThread().isInterrupted) throw DlcSyncFailure("comparison_canceled"); result.add(requiredItem(root, entry)) }
         }
         result.addAll(content.manifest())
         return result
@@ -108,7 +108,7 @@ class DlcSyncAdapter @JvmOverloads constructor(private val quiesce: Quiesce = Qu
         if (auxiliary(key)) return content.item(key, resolve(key))
         val root = roots()[key.substringBefore(':').toInt()]
         if (key.substringAfter(':').startsWith("remote/")) {
-            val entry = DlcRemoteLoader.loadSingle(resolve(key), root) ?: throw SyncFailure("invalid_remote")
+            val entry = DlcRemoteLoader.loadSingle(resolve(key), root) ?: throw DlcSyncFailure("invalid_remote")
             return remoteItem(root, entry, items())
         }
         return requiredItem(root, required(key))
@@ -120,7 +120,7 @@ class DlcSyncAdapter @JvmOverloads constructor(private val quiesce: Quiesce = Qu
         if (relative.startsWith("preset/") && DlcDcFormatUtil.isDcName(relative)) return
         if (relative.startsWith("update/") && relative.indexOf('/', 7) < 0 && relative.lowercase(java.util.Locale.ROOT).endsWith(".zip")) return
         if ((!relative.startsWith("remote/") && !relative.startsWith("required/")) || relative.startsWith("remote/redirect/") ||
-            !DlcDcFormatUtil.isDcName(relative) || path.fileName.toString().equals("notice.dc", true) || path.fileName.toString().equals("_metadata.dc", true)) throw SyncFailure("not_config")
+            !DlcDcFormatUtil.isDcName(relative) || path.fileName.toString().equals("notice.dc", true) || path.fileName.toString().equals("_metadata.dc", true)) throw DlcSyncFailure("not_config")
         if (!previous.containsKey(key) && relative.startsWith("remote/") && Files.isRegularFile(path)) {
             val entry = DlcRemoteLoader.loadSingle(path, roots()[key.substringBefore(':').toInt()])
             if (entry?.getTargetPath() != null) for (item in items()) {
@@ -129,11 +129,11 @@ class DlcSyncAdapter @JvmOverloads constructor(private val quiesce: Quiesce = Qu
         }
     }
     override fun validateIncoming(item: Item) {
-        if (com.cozooo.dlc_manager.sync.SyncModel.category(item) == Category.UPDATE && item.key !in com.cozooo.dlc_manager.sync.SyncModel.eligibleUpdates(listOf(item), content.manifest()))
-            throw SyncFailure("update_version")
+        if (com.cozooo.dlc_manager.sync.DlcSyncModel.category(item) == Category.UPDATE && item.key !in com.cozooo.dlc_manager.sync.DlcSyncModel.eligibleUpdates(listOf(item), content.manifest()))
+            throw DlcSyncFailure("update_version")
     }
     override fun writeSettings(key: String, settings: com.google.gson.JsonObject, journal: Journal) {
-        if (key != "manager:config.dc") throw SyncFailure("not_settings")
+        if (key != "manager:config.dc") throw DlcSyncFailure("not_settings")
         DlcSyncSettings.write(content.managerPath(key), settings, journal)
     }
     override fun journal(directory: Path): Journal {
@@ -162,16 +162,16 @@ class DlcSyncAdapter @JvmOverloads constructor(private val quiesce: Quiesce = Qu
         val root = roots()[key.substringBefore(':').toInt()]
         DlcUpdateJournal.beforeWrite(config)
         if (key.substringAfter(':').startsWith("remote/")) {
-            val entry = DlcRemoteLoader.loadSingle(config, root) ?: throw SyncFailure("invalid_remote")
+            val entry = DlcRemoteLoader.loadSingle(config, root) ?: throw DlcSyncFailure("invalid_remote")
             if (force && entry.getTargetPath() != null && Files.exists(entry.getTargetPath())) {
-                DlcUpdateJournal.beforeWrite(entry.getTargetPath()); DlcResourceHistory.delete(entry.getTargetPath() ?: throw SyncFailure("remote_missing"))
+                DlcUpdateJournal.beforeWrite(entry.getTargetPath()); DlcResourceHistory.delete(entry.getTargetPath() ?: throw DlcSyncFailure("remote_missing"))
             }
             if (entry.getTargetPath() == null || !Files.exists(entry.getTargetPath())) DlcRemoteService.downloadOne(entry,
                 { done, total -> progress.update("downloading", key, done, total) }, { canceled.asBoolean })
         } else {
             val entry = required(key)
             val existing = DlcRequiredService.resolveExistingFileName(entry)
-            if (force && existing != null) { val path = entry.resolveRequiredPath(existing) ?: throw SyncFailure("resource_missing", key); DlcUpdateJournal.beforeWrite(path); DlcResourceHistory.delete(path) }
+            if (force && existing != null) { val path = entry.resolveRequiredPath(existing) ?: throw DlcSyncFailure("resource_missing", key); DlcUpdateJournal.beforeWrite(path); DlcResourceHistory.delete(path) }
             val available = DlcRequiredService.resolveExistingFileName(entry)
             if (available == null || entry.resolveRequiredPath(available) == null || !Files.isRegularFile(entry.resolveRequiredPath(available))) DlcRequiredService.downloadOne(entry,
                 { done, total -> progress.update("downloading", key, done, total) }, { canceled.asBoolean })
@@ -180,26 +180,26 @@ class DlcSyncAdapter @JvmOverloads constructor(private val quiesce: Quiesce = Qu
     private fun required(key: String): DlcRequiredEntry {
         val config = resolve(key)
         for (root in roots()) for (entry in DlcRequiredLoader.load(root)) if (entry.getConfigPath()?.toAbsolutePath()?.normalize() == config) return entry
-        throw SyncFailure("invalid_required")
+        throw DlcSyncFailure("invalid_required")
     }
     override fun apply(key: String, enabled: Boolean?, journal: Journal, canceled: BooleanSupplier): Boolean {
         validateKey(key)
-        if (canceled.asBoolean) throw SyncFailure("canceled")
+        if (canceled.asBoolean) throw DlcSyncFailure("canceled")
         if (auxiliary(key)) {
             val value = content.item(key, resolve(key))
-            if (com.cozooo.dlc_manager.sync.SyncModel.category(value) == Category.UPDATE) { validateIncoming(value); return false }
-            if (com.cozooo.dlc_manager.sync.SyncModel.category(value) == Category.PRESET) return enabled == null || DlcSyncPresets.apply(value.identifier ?: throw SyncFailure("preset_missing", key), enabled, canceled)
+            if (com.cozooo.dlc_manager.sync.DlcSyncModel.category(value) == Category.UPDATE) { validateIncoming(value); return false }
+            if (com.cozooo.dlc_manager.sync.DlcSyncModel.category(value) == Category.PRESET) return enabled == null || DlcSyncPresets.apply(value.identifier ?: throw DlcSyncFailure("preset_missing", key), enabled, canceled)
             return true
         }
         if (key.substringAfter(':').startsWith("required/")) {
             val entry = required(key)
-            DlcRequiredInstaller.install(entry) { path -> if (canceled.asBoolean) throw SyncFailure("canceled"); journal.capture(path) }
+            DlcRequiredInstaller.install(entry) { path -> if (canceled.asBoolean) throw DlcSyncFailure("canceled"); journal.capture(path) }
             return entry.resolveInstallationTargets(DlcRequiredService.resolveExistingFileName(entry)).isNotEmpty()
         }
         val root = roots()[key.substringBefore(':').toInt()]
-        val remote = DlcRemoteLoader.loadSingle(resolve(key), root) ?: throw SyncFailure("remote_missing")
-        val target = remote.getTargetPath() ?: throw SyncFailure("remote_missing")
-        if (!Files.exists(target)) throw SyncFailure("remote_missing")
+        val remote = DlcRemoteLoader.loadSingle(resolve(key), root) ?: throw DlcSyncFailure("remote_missing")
+        val target = remote.getTargetPath() ?: throw DlcSyncFailure("remote_missing")
+        if (!Files.exists(target)) throw DlcSyncFailure("remote_missing")
         if (remote.getType() == DlcType.DLC_PACK) return false
         for (item in items()) if (item.getSourcePath()?.toAbsolutePath()?.normalize() == target.toAbsolutePath().normalize()) {
             val old = previous[key]
@@ -209,13 +209,13 @@ class DlcSyncAdapter @JvmOverloads constructor(private val quiesce: Quiesce = Qu
             DlcApplier.applySynced(item)
             return restart
         }
-        throw SyncFailure("apply")
+        throw DlcSyncFailure("apply")
     }
     private fun mark(directory: Path, status: String) {
         val data = com.google.gson.JsonObject(); data.addProperty("status", status)
         val temp = directory.resolve("sync.pending.dc")
         Files.createDirectories(directory)
-        if (!DlcDcConfigIO.write(temp, data, DlcDcConfigIO.Layout.GENERIC)) throw SyncFailure("recovery_save")
+        if (!DlcDcConfigIO.write(temp, data, DlcDcConfigIO.Layout.GENERIC)) throw DlcSyncFailure("recovery_save")
         try { Files.move(temp, directory.resolve("sync.dc"), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING) }
         catch (_: AtomicMoveNotSupportedException) { Files.move(temp, directory.resolve("sync.dc"), StandardCopyOption.REPLACE_EXISTING) }
     }
@@ -229,7 +229,7 @@ class DlcSyncAdapter @JvmOverloads constructor(private val quiesce: Quiesce = Qu
         var restored = false
         Files.walk(directory).use { paths ->
             for (path in paths.filter { it.fileName.toString() == "sync.dc" }.sorted(Comparator.reverseOrder()).toList()) {
-                val data = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC) ?: throw SyncFailure("invalid_recovery", "$path")
+                val data = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC) ?: throw DlcSyncFailure("invalid_recovery", "$path")
                 val status = DlcDcConfigIO.getStringIgnoreCase(data, "status")
                 if (status != "pending" && !(committed && status == "committed")) continue
                 DlcUpdateJournal.open(game, path.parent).use { it.rollback() }

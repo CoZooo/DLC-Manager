@@ -21,6 +21,7 @@ object DlcModrinthClient {
         .connectTimeout(Duration.ofMillis(DlcConfig.getConnectTimeoutMs().toLong()))
         .build()
     private val CACHE: MutableMap<String, ModrinthVersion> = ConcurrentHashMap()
+    private val VERSION_LIST_CACHE: MutableMap<String, List<ModrinthVersion>> = ConcurrentHashMap()
 
     @JvmStatic
     @Throws(IOException::class, InterruptedException::class)
@@ -96,6 +97,87 @@ object DlcModrinthClient {
             CACHE[cacheKey] = matched
         }
         return matched
+    }
+
+    @JvmStatic
+    @Throws(IOException::class, InterruptedException::class)
+    fun fetchVersions(projectIdOrSlug: String?, mcVersion: String?, loader: String?): List<ModrinthVersion> {
+        if (projectIdOrSlug.isNullOrBlank()) {
+            return emptyList()
+        }
+        val normalizedLoader = normalizeLoader(loader)
+        val cacheKey = "list:" + projectIdOrSlug + ":" + (mcVersion ?: "") + ":" + (loader ?: "")
+        VERSION_LIST_CACHE[cacheKey]?.let { return it }
+        var endpoint = "https://api.modrinth.com/v2/project/$projectIdOrSlug/version"
+        val params = ArrayList<String>()
+        if (!normalizedLoader.isNullOrBlank()) {
+            params.add("loaders=" + URLEncoder.encode("[\"$normalizedLoader\"]", StandardCharsets.UTF_8))
+        }
+        if (!mcVersion.isNullOrBlank()) {
+            params.add("game_versions=" + URLEncoder.encode("[\"$mcVersion\"]", StandardCharsets.UTF_8))
+        }
+        if (params.isNotEmpty()) {
+            endpoint += "?" + params.joinToString("&")
+        }
+        val request = HttpRequest.newBuilder()
+            .uri(URI.create(endpoint))
+            .header("User-Agent", "DLC-Manager")
+            .timeout(Duration.ofMillis(DlcConfig.getTaskTimeoutMs().toLong()))
+            .GET()
+            .build()
+        val response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString())
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            return emptyList()
+        }
+        val data = GSON.fromJson(response.body(), JsonArray::class.java) ?: return emptyList()
+        val versions = ArrayList<ModrinthVersion>()
+        for (element in data) {
+            if (!element.isJsonObject) {
+                continue
+            }
+            val obj = element.asJsonObject
+            if (!matchesGameVersion(obj, mcVersion, normalizedLoader)) {
+                continue
+            }
+            val version = ModrinthVersion()
+            version.versionId = getString(obj, "id")
+            version.versionNumber = getString(obj, "version_number")
+            version.versionType = getString(obj, "version_type")
+            version.datePublished = parseInstant(getString(obj, "date_published"))
+            val files = obj.getAsJsonArray("files")
+            if (files != null && files.size() > 0) {
+                val fileObj = files[0].asJsonObject
+                applyFile(version, fileObj)
+                for (fileElement in files) {
+                    val file = fileElement.asJsonObject
+                    if (file.has("primary") && file.get("primary").asBoolean) {
+                        applyFile(version, file)
+                        break
+                    }
+                }
+            }
+            val deps = obj.getAsJsonArray("dependencies")
+            if (deps != null) {
+                for (depElement in deps) {
+                    if (!depElement.isJsonObject) {
+                        continue
+                    }
+                    val depObj = depElement.asJsonObject
+                    val depType = getString(depObj, "dependency_type")
+                    if (!"required".equals(depType, ignoreCase = true)) {
+                        continue
+                    }
+                    val dep = ModrinthDependency()
+                    dep.versionId = getString(depObj, "version_id")
+                    dep.projectId = getString(depObj, "project_id")
+                    version.requiredDependencies.add(dep)
+                }
+            }
+            versions.add(version)
+        }
+        val snapshot = java.util.List.copyOf(versions)
+        VERSION_LIST_CACHE[cacheKey] = snapshot
+        return snapshot
     }
 
     @Throws(IOException::class, InterruptedException::class)
@@ -265,6 +347,10 @@ object DlcModrinthClient {
     }
 
     class ModrinthVersion {
+        @JvmField var versionId: String? = null
+        @JvmField var versionNumber: String? = null
+        @JvmField var versionType: String? = null
+        @JvmField var datePublished: Instant? = null
         @JvmField var fileName: String? = null
         @JvmField var url: String? = null
         @JvmField var sha1: String? = null

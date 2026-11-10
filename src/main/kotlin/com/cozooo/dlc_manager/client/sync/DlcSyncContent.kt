@@ -3,8 +3,8 @@ package com.cozooo.dlc_manager.client.sync
 import com.cozooo.dlc_manager.core.*
 import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage
-import com.cozooo.dlc_manager.sync.SyncFailure
-import com.cozooo.dlc_manager.sync.SyncModel.*
+import com.cozooo.dlc_manager.sync.DlcSyncFailure
+import com.cozooo.dlc_manager.sync.DlcSyncModel.*
 import com.google.gson.JsonObject
 import java.io.IOException
 import java.nio.file.*
@@ -13,11 +13,11 @@ import java.util.Locale
 class DlcSyncContent(private val roots: List<Path>) {
     private val manager = DlcPaths.managerConfigDir()
     fun managerPath(key: String): Path {
-        if (key != "manager:config.dc" && key != "manager:version.dc") throw SyncFailure("not_settings")
+        if (key != "manager:config.dc" && key != "manager:version.dc") throw DlcSyncFailure("not_settings")
         val path = manager.resolve(key.removePrefix("manager:"))
         var part: Path? = path
         while (part != null && part.startsWith(manager)) {
-            if (Files.isSymbolicLink(part)) throw SyncFailure("symbolic_settings")
+            if (Files.isSymbolicLink(part)) throw DlcSyncFailure("symbolic_settings")
             part = part.parent
         }
         return path
@@ -53,10 +53,10 @@ class DlcSyncContent(private val roots: List<Path>) {
         return result
     }
     private fun file(key: String, path: Path): File {
-        val anchor = if (path.startsWith(manager)) manager else roots.firstOrNull { path.startsWith(it) } ?: throw SyncFailure("outside_roots")
+        val anchor = if (path.startsWith(manager)) manager else roots.firstOrNull { path.startsWith(it) } ?: throw DlcSyncFailure("outside_roots")
         var part: Path? = path
         while (part != null && part.startsWith(anchor)) {
-            if (Files.isSymbolicLink(part)) throw SyncFailure("symbolic_file")
+            if (Files.isSymbolicLink(part)) throw DlcSyncFailure("symbolic_file")
             part = part.parent
         }
         return File(key, Files.size(path), DlcFileMatch.hash(path))
@@ -65,12 +65,12 @@ class DlcSyncContent(private val roots: List<Path>) {
         if (key == "manager:version.dc") {
             val value = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC)
             val base = DlcDcConfigIO.getStringIgnoreCase(value, "version") ?: DlcDcConfigIO.getStringIgnoreCase(value, "base")
-            if (base.isNullOrBlank()) throw SyncFailure("version_missing", key)
+            if (base.isNullOrBlank()) throw DlcSyncFailure("version_missing", key)
             val dlc = DlcDcConfigIO.getStringIgnoreCase(value, "dlc") ?: ""
             return Item(key, "version", file(key, path), emptyList(), null, emptyMap(), emptyMap(), Update(base, dlc, base, dlc, if (DlcPlatformServices.isDedicatedServer()) "server" else "client"))
         }
         if (key.startsWith("manager:")) return DlcSyncSettings.item(key, path)
-        if (!Files.isRegularFile(path)) throw SyncFailure("file_missing", "$key")
+        if (!Files.isRegularFile(path)) throw DlcSyncFailure("file_missing", "$key")
         if (configKey(key)) {
             com.cozooo.dclanguage.DcDocuments.read(path)
             val obj = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC)
@@ -81,12 +81,12 @@ class DlcSyncContent(private val roots: List<Path>) {
             val enabled = com.cozooo.dlc_manager.client.preset.DlcPresetStateStore.loadPresetStatus().getOrDefault(fallback, com.cozooo.dlc_manager.client.preset.DlcPresetStatus.OFF).isEnabled()
             return Item(key, fallback, file(key, path), emptyList(), enabled, names, localized(obj, "tip"))
         }
-        val pkg = DlcUpdatePackage.fromZip(path) ?: throw SyncFailure("invalid_update", "$key")
+        val pkg = DlcUpdatePackage.fromZip(path) ?: throw DlcSyncFailure("invalid_update", "$key")
         val manifest = pkg.getManifest()
-        val version = manifest.getVersion() ?: throw SyncFailure("invalid_update", "$key")
+        val version = manifest.getVersion() ?: throw DlcSyncFailure("invalid_update", "$key")
         val base = version.getBase()
         val old = version.getDlcOld()
-        if (base.isNullOrBlank()) throw SyncFailure("update_versions_missing", "$key")
+        if (base.isNullOrBlank()) throw DlcSyncFailure("update_versions_missing", "$key")
         val normalizedOld = old?.takeIf { it.isNotBlank() } ?: ""
         val updated = version.getDlcNew()?.takeIf { it.isNotBlank() } ?: normalizedOld
         val next = version.getBaseNew()?.takeIf { it.isNotBlank() } ?: base

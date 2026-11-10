@@ -125,11 +125,11 @@ public class DlcServerService {
     }
 
     public static void handleClient(Socket socket) {
-        try (com.cozooo.dlc_manager.sync.SyncEndpoint sync = new com.cozooo.dlc_manager.sync.SyncEndpoint(new com.cozooo.dlc_manager.client.sync.DlcSyncAdapter(canceled -> {
+        try (com.cozooo.dlc_manager.sync.DlcSyncEndpoint sync = new com.cozooo.dlc_manager.sync.DlcSyncEndpoint(new com.cozooo.dlc_manager.client.sync.DlcSyncAdapter(canceled -> {
                  DlcServerDownloadService.cancelRemoteDownload(); DlcServerDownloadService.cancelRequiredDownload();
                  long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(30);
                  while (DlcServerDownloadService.getRemoteDownloadStatus().running || DlcServerDownloadService.getRequiredDownloadStatus().running) {
-                     if (canceled.getAsBoolean() || System.nanoTime() > deadline) throw new com.cozooo.dlc_manager.sync.SyncFailure("server_downloads_stop");
+                     if (canceled.getAsBoolean() || System.nanoTime() > deadline) throw new com.cozooo.dlc_manager.sync.DlcSyncFailure("server_downloads_stop");
                      Thread.sleep(50);
                  }
              }));
@@ -172,8 +172,8 @@ public class DlcServerService {
                     handleSync(sync, request, writer);
                     continue;
                 }
-                com.cozooo.dlc_manager.sync.SyncEndpoint.OperationGuard guard;
-                try { guard = com.cozooo.dlc_manager.sync.SyncEndpoint.guard(DlcConfig.getDlcRoot().resolve("tmp/sync")); }
+                com.cozooo.dlc_manager.sync.DlcSyncEndpoint.OperationGuard guard;
+                try { guard = com.cozooo.dlc_manager.sync.DlcSyncEndpoint.guard(DlcConfig.getDlcRoot().resolve("tmp/sync")); }
                 catch (IOException busy) { writeError(writer, busy.getMessage()); continue; }
                 try (guard) {
                     if ("list".equals(type)) {
@@ -284,7 +284,7 @@ public class DlcServerService {
         }
     }
 
-    private static void handleSync(com.cozooo.dlc_manager.sync.SyncEndpoint sync, JsonObject request, BufferedWriter writer) throws IOException {
+    private static void handleSync(com.cozooo.dlc_manager.sync.DlcSyncEndpoint sync, JsonObject request, BufferedWriter writer) throws IOException {
         Thread actor = Thread.currentThread();
         Object gate = new Object();
         boolean[] finished = {false};

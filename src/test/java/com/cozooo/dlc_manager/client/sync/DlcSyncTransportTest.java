@@ -35,9 +35,9 @@ class DlcSyncTransportTest {
             });
             DlcServerEntry entry = new DlcServerEntry(); entry.host = "127.0.0.1"; entry.port = listener.getLocalPort(); entry.password = "sync-test";
             try (DlcServerSession session = DlcServerSession.connect(entry, 5000)) {
-                var items = SyncClient.manifest(request -> session.syncRequest(request));
-                assertEquals(java.util.List.of("manager:config.dc"), items.stream().map(SyncModel.Item::key).toList());
-                assertFalse(SyncEndpoint.JSON.toJson(items).contains("sync-test"));
+                var items = DlcSyncClient.manifest(request -> session.syncRequest(request));
+                assertEquals(java.util.List.of("manager:config.dc"), items.stream().map(DlcSyncModel.Item::key).toList());
+                assertFalse(DlcSyncEndpoint.JSON.toJson(items).contains("sync-test"));
             }
             accepted.get(5, TimeUnit.SECONDS);
         } finally { executor.shutdownNow(); }
@@ -54,12 +54,12 @@ class DlcSyncTransportTest {
             });
             DlcServerEntry entry = new DlcServerEntry(); entry.host = "127.0.0.1"; entry.port = listener.getLocalPort(); entry.password = "sync-test";
             try (DlcServerSession session = DlcServerSession.connect(entry, 5000)) {
-                SyncModel.Peer peer = session::syncRequest;
-                var begin = SyncClient.request("begin"); begin.addProperty("operation", java.util.UUID.randomUUID().toString()); SyncClient.checked(peer, begin);
-                var item = SyncClient.request("item"); item.addProperty("key", "0:required/main.dc"); SyncClient.checked(peer, item);
-                var write = SyncClient.request("write"); write.add("file", SyncEndpoint.JSON.toJsonTree(new SyncModel.File("0:downloaded/required/main.txt", 3, "wrong"))); write.addProperty("hash", "wrong"); SyncClient.checked(peer, write);
-                var chunk = SyncClient.request("write_chunk"); chunk.addProperty("data", "YmFk"); SyncClient.checked(peer, chunk);
-                assertThrows(IOException.class, () -> SyncClient.checked(peer, SyncClient.request("write_end")));
+                DlcSyncModel.Peer peer = session::syncRequest;
+                var begin = DlcSyncClient.request("begin"); begin.addProperty("operation", java.util.UUID.randomUUID().toString()); DlcSyncClient.checked(peer, begin);
+                var item = DlcSyncClient.request("item"); item.addProperty("key", "0:required/main.dc"); DlcSyncClient.checked(peer, item);
+                var write = DlcSyncClient.request("write"); write.add("file", DlcSyncEndpoint.JSON.toJsonTree(new DlcSyncModel.File("0:downloaded/required/main.txt", 3, "wrong"))); write.addProperty("hash", "wrong"); DlcSyncClient.checked(peer, write);
+                var chunk = DlcSyncClient.request("write_chunk"); chunk.addProperty("data", "YmFk"); DlcSyncClient.checked(peer, chunk);
+                assertThrows(IOException.class, () -> DlcSyncClient.checked(peer, DlcSyncClient.request("write_end")));
                 assertEquals("old resource", Files.readString(resource));
             }
             accepted.get(5, TimeUnit.SECONDS); assertEquals("old resource", Files.readString(resource));
@@ -80,21 +80,21 @@ class DlcSyncTransportTest {
             });
             DlcServerEntry entry = new DlcServerEntry(); entry.host = "127.0.0.1"; entry.port = listener.getLocalPort(); entry.password = "sync-test";
             try (DlcServerSession session = DlcServerSession.connect(entry, 5000)) {
-                SyncModel.Peer peer = session::syncRequest;
-                var begin = SyncClient.request("begin"); begin.addProperty("operation", operation); SyncClient.checked(peer, begin);
-                var item = SyncClient.request("item"); item.addProperty("key", "0:required/main.dc"); SyncClient.checked(peer, item);
+                DlcSyncModel.Peer peer = session::syncRequest;
+                var begin = DlcSyncClient.request("begin"); begin.addProperty("operation", operation); DlcSyncClient.checked(peer, begin);
+                var item = DlcSyncClient.request("item"); item.addProperty("key", "0:required/main.dc"); DlcSyncClient.checked(peer, item);
                 Path payload = Files.writeString(game.resolve("payload.txt"), "new");
                 String hash = com.cozooo.dlc_manager.core.DlcFileMatch.hash(payload);
-                var write = SyncClient.request("write"); write.add("file", SyncEndpoint.JSON.toJsonTree(new SyncModel.File("0:downloaded/required/main.txt", 3, hash))); write.addProperty("hash", hash); SyncClient.checked(peer, write);
-                var chunk = SyncClient.request("write_chunk"); chunk.addProperty("data", "bmV3"); SyncClient.checked(peer, chunk);
-                SyncClient.checked(peer, SyncClient.request("write_end")); SyncClient.checked(peer, SyncClient.request("apply"));
+                var write = DlcSyncClient.request("write"); write.add("file", DlcSyncEndpoint.JSON.toJsonTree(new DlcSyncModel.File("0:downloaded/required/main.txt", 3, hash))); write.addProperty("hash", hash); DlcSyncClient.checked(peer, write);
+                var chunk = DlcSyncClient.request("write_chunk"); chunk.addProperty("data", "bmV3"); DlcSyncClient.checked(peer, chunk);
+                DlcSyncClient.checked(peer, DlcSyncClient.request("write_end")); DlcSyncClient.checked(peer, DlcSyncClient.request("apply"));
                 assertEquals("new", Files.readString(resource)); assertEquals("new", Files.readString(applied));
             }
             try (DlcServerSession session = DlcServerSession.connect(entry, 5000)) {
-                SyncModel.Peer peer = session::syncRequest;
-                SyncClient.manifest(peer);
+                DlcSyncModel.Peer peer = session::syncRequest;
+                DlcSyncClient.manifest(peer);
                 assertEquals("new", Files.readString(resource)); assertEquals("new", Files.readString(applied));
-                var restore = SyncClient.request("recover_operation"); restore.addProperty("operation", operation); SyncClient.checked(peer, restore);
+                var restore = DlcSyncClient.request("recover_operation"); restore.addProperty("operation", operation); DlcSyncClient.checked(peer, restore);
             }
             accepted.get(5, TimeUnit.SECONDS);
             assertEquals("old", Files.readString(resource)); assertEquals("original", Files.readString(applied));

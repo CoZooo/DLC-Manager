@@ -1,8 +1,8 @@
 package com.cozooo.dlc_manager.client.sync;
 
-import com.cozooo.dlc_manager.sync.SyncFailure;
-import com.cozooo.dlc_manager.sync.SyncModel.*;
-import com.cozooo.dlc_manager.sync.SyncModel;
+import com.cozooo.dlc_manager.sync.DlcSyncFailure;
+import com.cozooo.dlc_manager.sync.DlcSyncModel.*;
+import com.cozooo.dlc_manager.sync.DlcSyncModel;
 import com.cozooo.dlc_manager.core.*;
 import com.cozooo.dlc_manager.client.remote.*;
 import com.cozooo.dlc_manager.client.required.*;
@@ -26,31 +26,31 @@ public final class DlcSyncAdapter implements Adapter {
     private List<Path> roots() { return configuredRoots; }
     private String id(Path root, Path path) throws IOException {
         Path normalized = path.toAbsolutePath().normalize();
-        if (!normalized.startsWith(root) || normalized.equals(root)) throw new SyncFailure("outside_root");
+        if (!normalized.startsWith(root) || normalized.equals(root)) throw new DlcSyncFailure("outside_root");
         return roots().indexOf(root) + ":" + root.relativize(normalized).toString().replace('\\', '/');
     }
     @Override public Path resolve(String id) throws IOException {
         if (id != null && id.startsWith("manager:")) return content.managerPath(id);
         int colon = id.indexOf(':');
-        if (colon <= 0) throw new SyncFailure("invalid_resource");
+        if (colon <= 0) throw new DlcSyncFailure("invalid_resource");
         int index;
         try { index = Integer.parseInt(id.substring(0, colon)); }
-        catch (NumberFormatException error) { throw new SyncFailure("invalid_root").causedBy(error); }
-        if (index < 0 || index >= roots().size()) throw new SyncFailure("root_missing");
+        catch (NumberFormatException error) { throw new DlcSyncFailure("invalid_root").causedBy(error); }
+        if (index < 0 || index >= roots().size()) throw new DlcSyncFailure("root_missing");
         String relative = id.substring(colon + 1);
-        if (relative.isBlank() || relative.contains("\\") || relative.contains(":") || Arrays.stream(relative.split("/", -1)).anyMatch(part -> part.isEmpty() || part.equals(".") || part.equals(".."))) throw new SyncFailure("invalid_path");
+        if (relative.isBlank() || relative.contains("\\") || relative.contains(":") || Arrays.stream(relative.split("/", -1)).anyMatch(part -> part.isEmpty() || part.equals(".") || part.equals(".."))) throw new DlcSyncFailure("invalid_path");
         Path root = roots().get(index), path = aliases.getOrDefault(id, root.resolve(relative).normalize());
-        if (!path.startsWith(root) || path.equals(root)) throw new SyncFailure("outside_root");
-        for (Path part = path; part != null && part.startsWith(root); part = part.getParent()) if (Files.isSymbolicLink(part)) throw new SyncFailure("symbolic_path");
+        if (!path.startsWith(root) || path.equals(root)) throw new DlcSyncFailure("outside_root");
+        for (Path part = path; part != null && part.startsWith(root); part = part.getParent()) if (Files.isSymbolicLink(part)) throw new DlcSyncFailure("symbolic_path");
         return path;
     }
     private File file(Path root, Path path, boolean config) throws IOException { return file(root, path, path, config); }
     private File file(Path root, Path path, Path canonical, boolean config) throws IOException {
-        if (path == null) throw new SyncFailure("filename_missing");
+        if (path == null) throw new DlcSyncFailure("filename_missing");
         String id = id(root, canonical);
         if (!config) aliases.put(id, path.toAbsolutePath().normalize());
         resolve(id);
-        return new File(id, Files.exists(path) ? com.cozooo.dlc_manager.sync.SyncArchive.size(path) : -1, Files.exists(path) ? DlcFileMatch.hash(path) : null);
+        return new File(id, Files.exists(path) ? com.cozooo.dlc_manager.sync.DlcSyncArchive.size(path) : -1, Files.exists(path) ? DlcFileMatch.hash(path) : null);
     }
     private List<DlcItem> items() { return new DlcScanner().scan(false).values().stream().flatMap(List::stream).toList(); }
     private Item remoteItem(Path root, DlcRemoteEntry entry, List<DlcItem> scanned) throws IOException {
@@ -89,7 +89,7 @@ public final class DlcSyncAdapter implements Adapter {
         resolve(id(root, directory));
         try (var paths = Files.walk(directory, depth)) {
             for (Path path : paths.filter(Files::isRegularFile).filter(this::synchronizable).filter(p -> !p.startsWith(root.resolve("remote/redirect"))).toList()) {
-                if (Thread.currentThread().isInterrupted()) throw new SyncFailure("comparison_canceled");
+                if (Thread.currentThread().isInterrupted()) throw new DlcSyncFailure("comparison_canceled");
                 resolve(id(root, path)); com.cozooo.dclanguage.DcDocuments.read(path);
             }
         }
@@ -99,8 +99,8 @@ public final class DlcSyncAdapter implements Adapter {
         List<DlcItem> scanned = items();
         for (Path root : roots()) {
             validateConfigurations(root, "remote", Integer.MAX_VALUE); validateConfigurations(root, "required", 1);
-            for (DlcRemoteEntry entry : DlcRemoteLoader.load(root)) { if (!synchronizable(entry.getConfigPath())) continue; if (Thread.currentThread().isInterrupted()) throw new SyncFailure("comparison_canceled"); result.add(remoteItem(root, entry, scanned)); }
-            for (DlcRequiredEntry entry : DlcRequiredLoader.load(root)) { if (!synchronizable(entry.getConfigPath())) continue; if (Thread.currentThread().isInterrupted()) throw new SyncFailure("comparison_canceled"); result.add(requiredItem(root, entry)); }
+            for (DlcRemoteEntry entry : DlcRemoteLoader.load(root)) { if (!synchronizable(entry.getConfigPath())) continue; if (Thread.currentThread().isInterrupted()) throw new DlcSyncFailure("comparison_canceled"); result.add(remoteItem(root, entry, scanned)); }
+            for (DlcRequiredEntry entry : DlcRequiredLoader.load(root)) { if (!synchronizable(entry.getConfigPath())) continue; if (Thread.currentThread().isInterrupted()) throw new DlcSyncFailure("comparison_canceled"); result.add(requiredItem(root, entry)); }
         }
         result.addAll(content.manifest());
         return result;
@@ -112,7 +112,7 @@ public final class DlcSyncAdapter implements Adapter {
         Path root = roots().get(Integer.parseInt(key.substring(0, key.indexOf(':'))));
         if (key.substring(key.indexOf(':') + 1).startsWith("remote/")) {
             DlcRemoteEntry entry = DlcRemoteLoader.loadSingle(resolve(key), root);
-            if (entry == null) throw new SyncFailure("invalid_remote");
+            if (entry == null) throw new DlcSyncFailure("invalid_remote");
             return remoteItem(root, entry, items());
         }
         return requiredItem(root, required(key));
@@ -124,7 +124,7 @@ public final class DlcSyncAdapter implements Adapter {
         if (relative.startsWith("preset/") && DlcDcFormatUtil.isDcName(relative)) return;
         if (relative.startsWith("update/") && relative.indexOf('/', 7) < 0 && relative.toLowerCase(Locale.ROOT).endsWith(".zip")) return;
         if (!(relative.startsWith("remote/") || relative.startsWith("required/")) || relative.startsWith("remote/redirect/")
-            || !DlcDcFormatUtil.isDcName(relative) || path.getFileName().toString().equalsIgnoreCase("notice.dc") || path.getFileName().toString().equalsIgnoreCase("_metadata.dc")) throw new SyncFailure("not_config");
+            || !DlcDcFormatUtil.isDcName(relative) || path.getFileName().toString().equalsIgnoreCase("notice.dc") || path.getFileName().toString().equalsIgnoreCase("_metadata.dc")) throw new DlcSyncFailure("not_config");
         if (!previous.containsKey(key) && relative.startsWith("remote/") && Files.isRegularFile(path)) {
             DlcRemoteEntry entry = DlcRemoteLoader.loadSingle(path, roots().get(Integer.parseInt(key.substring(0, key.indexOf(':')))));
             if (entry != null && entry.getTargetPath() != null) for (DlcItem item : items()) {
@@ -133,11 +133,11 @@ public final class DlcSyncAdapter implements Adapter {
         }
     }
     @Override public void validateIncoming(Item incoming) throws IOException {
-        if (SyncModel.category(incoming) == Category.UPDATE && !SyncModel.eligibleUpdates(List.of(incoming), content.manifest()).contains(incoming.key()))
-            throw new SyncFailure("update_version");
+        if (DlcSyncModel.category(incoming) == Category.UPDATE && !DlcSyncModel.eligibleUpdates(List.of(incoming), content.manifest()).contains(incoming.key()))
+            throw new DlcSyncFailure("update_version");
     }
     @Override public void writeSettings(String key, com.google.gson.JsonObject settings, Journal journal) throws IOException {
-        if (!key.equals("manager:config.dc")) throw new SyncFailure("not_settings");
+        if (!key.equals("manager:config.dc")) throw new DlcSyncFailure("not_settings");
         DlcSyncSettings.write(content.managerPath(key), settings, journal);
     }
     @Override public Journal journal(Path directory) throws IOException {
@@ -167,7 +167,7 @@ public final class DlcSyncAdapter implements Adapter {
         DlcUpdateJournal.beforeWrite(config);
         if (key.substring(key.indexOf(':') + 1).startsWith("remote/")) {
             DlcRemoteEntry entry = DlcRemoteLoader.loadSingle(config, root);
-            if (entry == null) throw new SyncFailure("invalid_remote");
+            if (entry == null) throw new DlcSyncFailure("invalid_remote");
             if (force && entry.getTargetPath() != null && Files.exists(entry.getTargetPath())) {
                 DlcUpdateJournal.beforeWrite(entry.getTargetPath()); DlcResourceHistory.delete(entry.getTargetPath());
             }
@@ -183,25 +183,25 @@ public final class DlcSyncAdapter implements Adapter {
     private DlcRequiredEntry required(String key) throws IOException {
         Path config = resolve(key);
         for (Path root : roots()) for (DlcRequiredEntry entry : DlcRequiredLoader.load(root)) if (entry.getConfigPath().toAbsolutePath().normalize().equals(config)) return entry;
-        throw new SyncFailure("invalid_required");
+        throw new DlcSyncFailure("invalid_required");
     }
     @Override public boolean apply(String key, Boolean enabled, Journal journal, BooleanSupplier canceled) throws Exception {
         validateKey(key);
-        if (canceled.getAsBoolean()) throw new SyncFailure("canceled");
+        if (canceled.getAsBoolean()) throw new DlcSyncFailure("canceled");
         if (auxiliary(key)) {
             Item value = content.item(key, resolve(key));
-            if (SyncModel.category(value) == Category.UPDATE) { validateIncoming(value); return false; }
-            if (SyncModel.category(value) == Category.PRESET) return enabled == null || DlcSyncPresets.apply(value.identifier(), enabled, canceled);
+            if (DlcSyncModel.category(value) == Category.UPDATE) { validateIncoming(value); return false; }
+            if (DlcSyncModel.category(value) == Category.PRESET) return enabled == null || DlcSyncPresets.apply(value.identifier(), enabled, canceled);
             return true;
         }
         if (key.substring(key.indexOf(':') + 1).startsWith("required/")) {
             DlcRequiredEntry entry = required(key);
-            DlcRequiredInstaller.install(entry, path -> { if (canceled.getAsBoolean()) throw new SyncFailure("canceled"); journal.capture(path); });
+            DlcRequiredInstaller.install(entry, path -> { if (canceled.getAsBoolean()) throw new DlcSyncFailure("canceled"); journal.capture(path); });
             return !entry.resolveInstallationTargets(DlcRequiredService.resolveExistingFileName(entry)).isEmpty();
         }
         Path root = roots().get(Integer.parseInt(key.substring(0, key.indexOf(':'))));
         DlcRemoteEntry remote = DlcRemoteLoader.loadSingle(resolve(key), root);
-        if (remote == null || remote.getTargetPath() == null || !Files.exists(remote.getTargetPath())) throw new SyncFailure("remote_missing");
+        if (remote == null || remote.getTargetPath() == null || !Files.exists(remote.getTargetPath())) throw new DlcSyncFailure("remote_missing");
         if (remote.getType() == DlcType.DLC_PACK) return false;
         for (DlcItem item : items()) if (item.getSourcePath().toAbsolutePath().normalize().equals(remote.getTargetPath().toAbsolutePath().normalize())) {
             DlcItem old = previous.get(key);
@@ -211,13 +211,13 @@ public final class DlcSyncAdapter implements Adapter {
             DlcApplier.applySynced(item);
             return restart;
         }
-        throw new SyncFailure("apply");
+        throw new DlcSyncFailure("apply");
     }
     private void mark(Path directory, String status) throws IOException {
         com.google.gson.JsonObject data = new com.google.gson.JsonObject(); data.addProperty("status", status);
         Path temp = directory.resolve("sync.pending.dc");
         Files.createDirectories(directory);
-        if (!DlcDcConfigIO.write(temp, data, DlcDcConfigIO.Layout.GENERIC)) throw new SyncFailure("recovery_save");
+        if (!DlcDcConfigIO.write(temp, data, DlcDcConfigIO.Layout.GENERIC)) throw new DlcSyncFailure("recovery_save");
         try { Files.move(temp, directory.resolve("sync.dc"), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
         catch (AtomicMoveNotSupportedException error) { Files.move(temp, directory.resolve("sync.dc"), StandardCopyOption.REPLACE_EXISTING); }
     }
@@ -232,7 +232,7 @@ public final class DlcSyncAdapter implements Adapter {
         try (var paths = Files.walk(directory)) {
             for (Path path : paths.filter(p -> p.getFileName().toString().equals("sync.dc")).sorted(Comparator.reverseOrder()).toList()) {
                 com.google.gson.JsonObject data = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC);
-                if (data == null) throw new SyncFailure("invalid_recovery", path);
+                if (data == null) throw new DlcSyncFailure("invalid_recovery", path);
                 String status = DlcDcConfigIO.getStringIgnoreCase(data, "status");
                 if (!"pending".equals(status) && !(committed && "committed".equals(status))) continue;
                 try (DlcUpdateJournal journal = DlcUpdateJournal.open(game, path.getParent())) { journal.rollback(); }

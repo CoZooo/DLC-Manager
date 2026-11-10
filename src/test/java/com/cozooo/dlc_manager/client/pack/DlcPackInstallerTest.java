@@ -153,7 +153,8 @@ class DlcPackInstallerTest {
         Path packageRoot = tempDir.resolve("package");
         writePack(packageRoot.resolve("metadata").resolve("pack.dc"), "Example");
         Files.createDirectories(packageRoot.resolve("config").resolve("dlc_manager"));
-        Files.writeString(packageRoot.resolve("config").resolve("dlc_manager").resolve("config.dc"), "blocked");
+        Files.writeString(packageRoot.resolve("config").resolve("dlc_manager").resolve("version.dc"), "blocked");
+        Files.writeString(packageRoot.resolve("config").resolve("dlc_manager").resolve("config.dc"), "allowed");
         Files.createDirectories(packageRoot.resolve("mods"));
         Files.writeString(packageRoot.resolve("mods").resolve("addon.jar"), "new jar");
 
@@ -161,9 +162,10 @@ class DlcPackInstallerTest {
         DlcPackInstaller installer = new DlcPackInstaller(instance, dlcRoot);
 
         DlcPackInstaller.InstallReport report = installer.install(pack);
-        assertEquals(1, report.filesWritten);
+        assertEquals(2, report.filesWritten);
         assertEquals("new jar", Files.readString(instance.resolve("mods").resolve("addon.jar")));
-        assertFalse(Files.exists(instance.resolve("config").resolve("dlc_manager").resolve("config.dc")));
+        assertEquals("allowed", Files.readString(instance.resolve("config").resolve("dlc_manager").resolve("config.dc")));
+        assertFalse(Files.exists(instance.resolve("config").resolve("dlc_manager").resolve("version.dc")));
         assertTrue(Files.exists(dlcRoot.resolve("tmp").resolve("pack").resolve("Example").resolve("meta.dc")));
     }
 

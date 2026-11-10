@@ -22,7 +22,7 @@ class SyncFailureTest {
     }
     @AfterEach void reset() { PlatformServices.setProvider(null); }
     @Test void messagesUseTheCurrentLanguageAndKeepResourceNamesAsArguments() {
-        SyncFailure failure = new SyncFailure("source_changed", "remote/example.dc");
+        DlcSyncFailure failure = new DlcSyncFailure("source_changed", "remote/example.dc");
         assertEquals("Source changed after comparison: remote/example.dc", failure.getMessage());
         language.set("zh_CN");
         assertEquals("比较后源文件已发生变化：remote/example.dc", failure.getMessage());
@@ -31,25 +31,25 @@ class SyncFailureTest {
     }
     @Test void receivedErrorsAreTranslatedInTheClientsLanguageInsteadOfTheServers() {
         JsonObject response = new JsonObject(); response.addProperty("ok", false);
-        SyncFailure source = new SyncFailure("resource_missing", "resource.zip");
+        DlcSyncFailure source = new DlcSyncFailure("resource_missing", "resource.zip");
         response.addProperty("reason", source.getMessage()); source.write(response);
         language.set("zh_cn");
-        IOException received = assertThrows(IOException.class, () -> SyncClient.checked(request -> response, SyncClient.request("inspect")));
+        IOException received = assertThrows(IOException.class, () -> DlcSyncClient.checked(request -> response, DlcSyncClient.request("inspect")));
         assertEquals("DLC 资源缺失：resource.zip", received.getMessage());
-        assertTrue(SyncFailure.is(received, "resource_missing"));
+        assertTrue(DlcSyncFailure.is(received, "resource_missing"));
     }
     @Test void cancellationAndBusyDetectionDoNotDependOnTranslatedMessages() {
         language.set("zh_cn");
-        SyncFailure failure = new SyncFailure("active").causedBy(new IOException("details"));
-        assertTrue(SyncFailure.is(failure, "active")); assertFalse(SyncFailure.is(failure, "canceled"));
+        DlcSyncFailure failure = new DlcSyncFailure("active").causedBy(new IOException("details"));
+        assertTrue(DlcSyncFailure.is(failure, "active")); assertFalse(DlcSyncFailure.is(failure, "canceled"));
         assertEquals("details", failure.getCause().getMessage());
     }
     @Test void unknownSystemErrorsKeepTheirOriginalDetailsAndInvalidRepliesAreLocalized() {
         JsonObject response = new JsonObject(); response.addProperty("ok", false); response.addProperty("reason", "permission denied: example.jar");
-        IOException error = assertThrows(IOException.class, () -> SyncClient.checked(request -> response, SyncClient.request("inspect")));
+        IOException error = assertThrows(IOException.class, () -> DlcSyncClient.checked(request -> response, DlcSyncClient.request("inspect")));
         assertEquals("permission denied: example.jar", error.getMessage());
         response.addProperty("reasonKey", "dlc_manager.sync.error.resource_missing"); response.addProperty("reasonArgs", "invalid"); language.set("zh_cn");
-        error = assertThrows(IOException.class, () -> SyncClient.checked(request -> response, SyncClient.request("inspect")));
+        error = assertThrows(IOException.class, () -> DlcSyncClient.checked(request -> response, DlcSyncClient.request("inspect")));
         assertEquals("收到的同步响应无效。", error.getMessage());
     }
 }

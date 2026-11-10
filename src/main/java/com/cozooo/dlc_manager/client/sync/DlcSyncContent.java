@@ -3,9 +3,9 @@ package com.cozooo.dlc_manager.client.sync;
 import com.cozooo.dlc_manager.core.*;
 import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
-import com.cozooo.dlc_manager.sync.SyncFailure;
-import com.cozooo.dlc_manager.sync.SyncModel;
-import com.cozooo.dlc_manager.sync.SyncModel.*;
+import com.cozooo.dlc_manager.sync.DlcSyncFailure;
+import com.cozooo.dlc_manager.sync.DlcSyncModel;
+import com.cozooo.dlc_manager.sync.DlcSyncModel.*;
 import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.nio.file.*;
@@ -16,9 +16,9 @@ final class DlcSyncContent {
     private final Path manager = DlcPaths.managerConfigDir();
     DlcSyncContent(List<Path> roots) { this.roots = List.copyOf(roots); }
     Path managerPath(String key) throws IOException {
-        if (!key.equals("manager:config.dc") && !key.equals("manager:version.dc")) throw new SyncFailure("not_settings");
+        if (!key.equals("manager:config.dc") && !key.equals("manager:version.dc")) throw new DlcSyncFailure("not_settings");
         Path path = manager.resolve(key.substring("manager:".length()));
-        for (Path part = path; part != null && part.startsWith(manager); part = part.getParent()) if (Files.isSymbolicLink(part)) throw new SyncFailure("symbolic_settings");
+        for (Path part = path; part != null && part.startsWith(manager); part = part.getParent()) if (Files.isSymbolicLink(part)) throw new DlcSyncFailure("symbolic_settings");
         return path;
     }
     private boolean configKey(String key) { return key.startsWith("manager:") || key.substring(key.indexOf(':') + 1).startsWith("preset/"); }
@@ -53,8 +53,8 @@ final class DlcSyncContent {
         return result;
     }
     private File file(String key, Path path) throws IOException {
-        Path anchor = path.startsWith(manager) ? manager : roots.stream().filter(path::startsWith).findFirst().orElseThrow(() -> new SyncFailure("outside_roots"));
-        for (Path part = path; part != null && part.startsWith(anchor); part = part.getParent()) if (Files.isSymbolicLink(part)) throw new SyncFailure("symbolic_file");
+        Path anchor = path.startsWith(manager) ? manager : roots.stream().filter(path::startsWith).findFirst().orElseThrow(() -> new DlcSyncFailure("outside_roots"));
+        for (Path part = path; part != null && part.startsWith(anchor); part = part.getParent()) if (Files.isSymbolicLink(part)) throw new DlcSyncFailure("symbolic_file");
         return new File(key, Files.size(path), DlcFileMatch.hash(path));
     }
     Item item(String key, Path path) throws IOException {
@@ -62,13 +62,13 @@ final class DlcSyncContent {
             JsonObject value = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC);
             String base = DlcDcConfigIO.getStringIgnoreCase(value, "version");
             if (base == null || base.isBlank()) base = DlcDcConfigIO.getStringIgnoreCase(value, "base");
-            if (base == null || base.isBlank()) throw new SyncFailure("version_missing", key);
+            if (base == null || base.isBlank()) throw new DlcSyncFailure("version_missing", key);
             String dlc = DlcDcConfigIO.getStringIgnoreCase(value, "dlc");
             String normalizedDlc = dlc == null ? "" : dlc;
             return new Item(key, "version", file(key, path), List.of(), null, Map.of(), Map.of(), new Update(base, normalizedDlc, base, normalizedDlc, DlcPlatformServices.isDedicatedServer() ? "server" : "client"));
         }
         if (key.startsWith("manager:")) return DlcSyncSettings.item(key, path);
-        if (!Files.isRegularFile(path)) throw new SyncFailure("file_missing", key);
+        if (!Files.isRegularFile(path)) throw new DlcSyncFailure("file_missing", key);
         if (configKey(key)) {
             com.cozooo.dclanguage.DcDocuments.read(path);
             JsonObject object = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC);
@@ -81,10 +81,10 @@ final class DlcSyncContent {
             return new Item(key, identifier, file(key, path), List.of(), enabled, names, localized(object, "tip"));
         }
         DlcUpdatePackage pkg = DlcUpdatePackage.fromZip(path);
-        if (pkg == null || pkg.getManifest().getVersion() == null) throw new SyncFailure("invalid_update", key);
+        if (pkg == null || pkg.getManifest().getVersion() == null) throw new DlcSyncFailure("invalid_update", key);
         var version = pkg.getManifest().getVersion();
         String base = version.getBase(), next = version.getBaseNew(), old = version.getDlcOld(), updated = version.getDlcNew();
-        if (base == null || base.isBlank()) throw new SyncFailure("update_versions_missing", key);
+        if (base == null || base.isBlank()) throw new DlcSyncFailure("update_versions_missing", key);
         if (next == null || next.isBlank()) next = base;
         if (old == null || old.isBlank()) old = "";
         if (updated == null || updated.isBlank()) updated = old;

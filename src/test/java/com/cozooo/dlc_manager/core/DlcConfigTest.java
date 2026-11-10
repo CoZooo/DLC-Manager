@@ -89,6 +89,33 @@ class DlcConfigTest {
     }
 
     @Test
+    void legacyUiKeysMigrateToNewKeys() throws IOException {
+        Path config = tempDir.resolve("config/dlc_manager/config.dc");
+        Files.writeString(config, "[ui]\nShowOnFirstRun = true\nWaitingTime = 7\n");
+        DlcConfig.loadClient();
+        assertTrue(DlcConfig.isShowOnFirstRun());
+        assertEquals(7, DlcConfig.getAlarmWaitingTime());
+
+        DlcConfig.saveClient();
+        String saved = Files.readString(config);
+        assertTrue(saved.contains("showOnFirstRun"));
+        assertTrue(saved.contains("waitingTime"));
+        assertFalse(saved.contains("ShowOnFirstRun"));
+        assertFalse(saved.contains("WaitingTime"));
+    }
+
+    @Test
+    void packUpdateChannelDefaultsToAllAndNormalizes() {
+        assertEquals("all", DlcConfig.getPackUpdateChannel());
+        DlcConfig.setPackUpdateChannel("BETA");
+        assertEquals("beta", DlcConfig.getPackUpdateChannel());
+        DlcConfig.setPackUpdateChannel("nightly");
+        assertEquals("nightly", DlcConfig.getPackUpdateChannel());
+        DlcConfig.setPackUpdateChannel("unknown");
+        assertEquals("all", DlcConfig.getPackUpdateChannel());
+    }
+
+    @Test
     void noticeDisplayModeAliasesAndPanelBoundsAreNormalized() {
         DlcConfig.setNoticeDisplayMode("title-panel");
         DlcConfig.setNoticeButtonOffsetX(9999);
@@ -153,6 +180,7 @@ class DlcConfigTest {
         DlcConfig.applySharedConfigJson(json);
         DlcConfig.applyServerConfigJson(json);
 
+        assertTrue(DlcConfig.isServerSupportOn());
         assertTrue(DlcConfig.isServerSupportOnServer());
         assertTrue(DlcConfig.isApiEnabled());
         assertEquals(10087, DlcConfig.getApiPort());

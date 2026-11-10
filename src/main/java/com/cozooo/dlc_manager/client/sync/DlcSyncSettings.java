@@ -1,8 +1,8 @@
 package com.cozooo.dlc_manager.client.sync;
 
 import com.cozooo.dlc_manager.core.*;
-import com.cozooo.dlc_manager.sync.SyncFailure;
-import com.cozooo.dlc_manager.sync.SyncModel.*;
+import com.cozooo.dlc_manager.sync.DlcSyncFailure;
+import com.cozooo.dlc_manager.sync.DlcSyncModel.*;
 import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.nio.file.*;
@@ -36,7 +36,7 @@ final class DlcSyncSettings {
         }
         journal.capture(path);
         Files.createDirectories(path.getParent());
-        if (!DlcDcConfigIO.write(path, original, DlcDcConfigIO.Layout.GENERIC)) throw new SyncFailure("settings_save");
+        if (!DlcDcConfigIO.write(path, original, DlcDcConfigIO.Layout.GENERIC)) throw new DlcSyncFailure("settings_save");
     }
     private static String existingKey(JsonObject object, String key) {
         for (String existing : object.keySet()) if (existing.equalsIgnoreCase(key)) return existing;

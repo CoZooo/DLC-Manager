@@ -25,6 +25,7 @@ public final class DlcModrinthClient {
         .connectTimeout(Duration.ofMillis(DlcConfig.getConnectTimeoutMs()))
         .build();
     private static final Map<String, ModrinthVersion> CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, List<ModrinthVersion>> VERSION_LIST_CACHE = new ConcurrentHashMap<>();
 
     private DlcModrinthClient() {
     }
@@ -109,6 +110,93 @@ public final class DlcModrinthClient {
             CACHE.put(cacheKey, matched);
         }
         return matched;
+    }
+
+    public static List<ModrinthVersion> fetchVersions(String projectIdOrSlug, String mcVersion, String loader)
+        throws IOException, InterruptedException {
+        if (projectIdOrSlug == null || projectIdOrSlug.isBlank()) {
+            return List.of();
+        }
+        String normalizedLoader = normalizeLoader(loader);
+        String cacheKey = "list:" + projectIdOrSlug + ":" + (mcVersion == null ? "" : mcVersion)
+            + ":" + (loader == null ? "" : loader);
+        List<ModrinthVersion> cached = VERSION_LIST_CACHE.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+        String endpoint = "https://api.modrinth.com/v2/project/" + projectIdOrSlug + "/version";
+        List<String> params = new ArrayList<>();
+        if (normalizedLoader != null && !normalizedLoader.isBlank()) {
+            params.add("loaders=" + URLEncoder.encode("[\"" + normalizedLoader + "\"]", StandardCharsets.UTF_8));
+        }
+        if (mcVersion != null && !mcVersion.isBlank()) {
+            params.add("game_versions=" + URLEncoder.encode("[\"" + mcVersion + "\"]", StandardCharsets.UTF_8));
+        }
+        if (!params.isEmpty()) {
+            endpoint = endpoint + "?" + String.join("&", params);
+        }
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create(endpoint))
+            .header("User-Agent", "DLC-Manager")
+            .timeout(Duration.ofMillis(DlcConfig.getTaskTimeoutMs()))
+            .GET()
+            .build();
+        HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            return List.of();
+        }
+        JsonArray data = GSON.fromJson(response.body(), JsonArray.class);
+        if (data == null) {
+            return List.of();
+        }
+        List<ModrinthVersion> versions = new ArrayList<>();
+        for (JsonElement element : data) {
+            if (!element.isJsonObject()) {
+                continue;
+            }
+            JsonObject obj = element.getAsJsonObject();
+            if (!matchesGameVersion(obj, mcVersion, normalizedLoader)) {
+                continue;
+            }
+            ModrinthVersion version = new ModrinthVersion();
+            version.versionId = getString(obj, "id");
+            version.versionNumber = getString(obj, "version_number");
+            version.versionType = getString(obj, "version_type");
+            version.datePublished = parseInstant(getString(obj, "date_published"));
+            JsonArray files = obj.getAsJsonArray("files");
+            if (files != null && files.size() > 0) {
+                JsonObject fileObj = files.get(0).getAsJsonObject();
+                applyFile(version, fileObj);
+                for (JsonElement fileElement : files) {
+                    JsonObject file = fileElement.getAsJsonObject();
+                    if (file.has("primary") && file.get("primary").getAsBoolean()) {
+                        applyFile(version, file);
+                        break;
+                    }
+                }
+            }
+            JsonArray deps = obj.getAsJsonArray("dependencies");
+            if (deps != null) {
+                for (JsonElement depElement : deps) {
+                    if (!depElement.isJsonObject()) {
+                        continue;
+                    }
+                    JsonObject depObj = depElement.getAsJsonObject();
+                    String depType = getString(depObj, "dependency_type");
+                    if (!"required".equalsIgnoreCase(depType)) {
+                        continue;
+                    }
+                    ModrinthDependency dep = new ModrinthDependency();
+                    dep.versionId = getString(depObj, "version_id");
+                    dep.projectId = getString(depObj, "project_id");
+                    version.requiredDependencies.add(dep);
+                }
+            }
+            versions.add(version);
+        }
+        List<ModrinthVersion> snapshot = List.copyOf(versions);
+        VERSION_LIST_CACHE.put(cacheKey, snapshot);
+        return snapshot;
     }
 
     private static ModrinthVersion fetchVersionByProjectVersion(String projectIdOrSlug, String version, String mcVersion, String loader)
@@ -282,6 +370,10 @@ public final class DlcModrinthClient {
     }
 
     public static final class ModrinthVersion {
+        public String versionId;
+        public String versionNumber;
+        public String versionType;
+        public Instant datePublished;
         public String fileName;
         public String url;
         public String sha1;

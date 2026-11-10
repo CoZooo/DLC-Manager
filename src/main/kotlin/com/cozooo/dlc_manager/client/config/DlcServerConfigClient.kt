@@ -51,8 +51,8 @@ object DlcServerConfigClient {
         "dlc_manager.config.comment.ui.isPresetFuncOn", "dlc_manager.config.ui.isPresetFuncOn"
     )
     private val UI_WAITING_TIME = DlcConfigValue.IntegerValue(
-        "WaitingTime", DlcConfig.DEFAULT_ALARM_WAITING_TIME, 0, 10,
-        "dlc_manager.config.comment.ui.WaitingTime", "dlc_manager.config.ui.WaitingTime"
+        "waitingTime", DlcConfig.DEFAULT_ALARM_WAITING_TIME, 0, 10,
+        "dlc_manager.config.comment.ui.waitingTime", "dlc_manager.config.ui.waitingTime"
     )
     private val MODPACK = DlcConfigValue.StringValue("modpack", DlcConfig.DEFAULT_MODPACK, "dlc_manager.config.comment.modpack.modpack", "dlc_manager.config.modpack.modpack")
     private val MODPACK_URL = DlcConfigValue.StringValue("modpackUrl", DlcConfig.DEFAULT_MODPACK_URL, "dlc_manager.config.comment.modpack.modpackUrl", "dlc_manager.config.modpack.modpackUrl")
@@ -181,7 +181,7 @@ object DlcServerConfigClient {
         UI_UPDATE_MANAGER.booleanValue = getBoolean(ui, "isUpdateManagerOn", UI_UPDATE_MANAGER.booleanValue)
         UI_SELF_UPDATE.booleanValue = getBoolean(ui, "isSelfUpdateAutoCheckOn", UI_SELF_UPDATE.booleanValue)
         UI_PRESET.booleanValue = getBoolean(ui, "isPresetFuncOn", UI_PRESET.booleanValue)
-        UI_WAITING_TIME.integerValue = getInt(ui, "WaitingTime", UI_WAITING_TIME.integerValue)
+        UI_WAITING_TIME.integerValue = getInt(ui, "waitingTime", getInt(ui, "WaitingTime", UI_WAITING_TIME.integerValue))
 
         val modpack = asObject(root, "modpack")
         MODPACK.setValueFromString(getString(modpack, "modpack", MODPACK.stringValue))
@@ -225,7 +225,7 @@ object DlcServerConfigClient {
         ui.addProperty("isUpdateManagerOn", UI_UPDATE_MANAGER.booleanValue)
         ui.addProperty("isSelfUpdateAutoCheckOn", UI_SELF_UPDATE.booleanValue)
         ui.addProperty("isPresetFuncOn", UI_PRESET.booleanValue)
-        ui.addProperty("WaitingTime", UI_WAITING_TIME.integerValue)
+        ui.addProperty("waitingTime", UI_WAITING_TIME.integerValue)
         root.add("ui", ui)
 
         val modpack = JsonObject()

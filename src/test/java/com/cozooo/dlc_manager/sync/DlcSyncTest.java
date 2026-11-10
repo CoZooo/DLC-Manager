@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.sync;
 
 import com.cozooo.dlc_manager.core.DlcFileMatch;
-import com.cozooo.dlc_manager.sync.SyncModel.*;
+import com.cozooo.dlc_manager.sync.DlcSyncModel.*;
 import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.nio.file.*;
@@ -21,30 +21,30 @@ class DlcSyncTest {
     @Test void resolvesLocalizedNamesAndShowsOneStatusForEachDifference() {
         Item named = new Item("remote/a.dc", "internal-id", file("remote/a.dc", "same"), List.of(file("data/a", "data")), true,
             Map.of("zh_cn", "中文名称", "en_us", "English name"));
-        Item transported = SyncEndpoint.JSON.fromJson(SyncEndpoint.JSON.toJson(named), Item.class);
-        assertEquals("中文名称", SyncModel.displayName(transported, "zh_CN"));
-        assertEquals("English name", SyncModel.displayName(transported, "fr_fr"));
-        assertEquals("internal-id", SyncModel.displayName(new Item(named.key(), named.identifier(), named.config(), named.resources(), true), "zh_cn"));
+        Item transported = DlcSyncEndpoint.JSON.fromJson(DlcSyncEndpoint.JSON.toJson(named), Item.class);
+        assertEquals("中文名称", DlcSyncModel.displayName(transported, "zh_CN"));
+        assertEquals("English name", DlcSyncModel.displayName(transported, "fr_fr"));
+        assertEquals("internal-id", DlcSyncModel.displayName(new Item(named.key(), named.identifier(), named.config(), named.resources(), true), "zh_cn"));
         Item unnamed = new Item("0:remote/folder/sample.dc", null, named.config(), named.resources(), true);
-        assertEquals("sample", SyncModel.displayName(unnamed, "zh_cn"));
-        assertEquals("server_missing", SyncModel.status(SyncModel.plan(List.of(named), List.of(), Direction.PUSH, true).get(0), Mode.CONFIG));
-        assertEquals("client_missing", SyncModel.status(SyncModel.plan(List.of(), List.of(named), Direction.PUSH, true).get(0), Mode.CONFIG));
+        assertEquals("sample", DlcSyncModel.displayName(unnamed, "zh_cn"));
+        assertEquals("server_missing", DlcSyncModel.status(DlcSyncModel.plan(List.of(named), List.of(), Direction.PUSH, true).get(0), Mode.CONFIG));
+        assertEquals("client_missing", DlcSyncModel.status(DlcSyncModel.plan(List.of(), List.of(named), Direction.PUSH, true).get(0), Mode.CONFIG));
         Item disabled = new Item(named.key(), named.identifier(), named.config(), named.resources(), false);
-        assertEquals("state_changed", SyncModel.status(SyncModel.plan(List.of(named), List.of(disabled), Direction.PUSH, true).get(0), Mode.CONFIG));
+        assertEquals("state_changed", DlcSyncModel.status(DlcSyncModel.plan(List.of(named), List.of(disabled), Direction.PUSH, true).get(0), Mode.CONFIG));
         Item different = new Item(named.key(), named.identifier(), file(named.key(), "other"), named.resources(), true);
-        assertEquals("content_changed", SyncModel.status(SyncModel.plan(List.of(named), List.of(different), Direction.PUSH, true).get(0), Mode.CONFIG));
+        assertEquals("content_changed", DlcSyncModel.status(DlcSyncModel.plan(List.of(named), List.of(different), Direction.PUSH, true).get(0), Mode.CONFIG));
     }
     @Test void hidesIdenticalItemsAndIncludesStateOnlyDifferencesOnlyWhenRequested() {
         Item a = item("remote/a.dc", "same", true), b = item("remote/a.dc", "same", false);
-        assertTrue(SyncModel.plan(List.of(a), List.of(a), Direction.PUSH, true).isEmpty());
-        assertTrue(SyncModel.plan(List.of(a), List.of(b), Direction.PUSH, false).isEmpty());
-        Row difference = SyncModel.plan(List.of(a), List.of(b), Direction.PUSH, true).get(0);
+        assertTrue(DlcSyncModel.plan(List.of(a), List.of(a), Direction.PUSH, true).isEmpty());
+        assertTrue(DlcSyncModel.plan(List.of(a), List.of(b), Direction.PUSH, false).isEmpty());
+        Row difference = DlcSyncModel.plan(List.of(a), List.of(b), Direction.PUSH, true).get(0);
         assertTrue(difference.stateChanged()); assertTrue(difference.replacement());
-        assertEquals(Direction.PULL, SyncModel.plan(List.of(), List.of(a), Direction.PUSH, true).get(0).direction());
-        assertEquals(a, SyncModel.plan(List.of(), List.of(a), Direction.PULL, true).get(0).source());
+        assertEquals(Direction.PULL, DlcSyncModel.plan(List.of(), List.of(a), Direction.PUSH, true).get(0).direction());
+        assertEquals(a, DlcSyncModel.plan(List.of(), List.of(a), Direction.PULL, true).get(0).source());
         Item unknown = new Item(a.key(), a.identifier(), a.config(), List.of(new File(a.resources().get(0).id(), -1, null)), a.enabled());
-        assertTrue(SyncModel.plan(List.of(unknown), List.of(a), Direction.PUSH, false, Mode.FILES).get(0).replacement());
-        assertTrue(SyncModel.plan(List.of(unknown), List.of(a), Direction.PUSH, false, Mode.CONFIG).isEmpty());
+        assertTrue(DlcSyncModel.plan(List.of(unknown), List.of(a), Direction.PUSH, false, Mode.FILES).get(0).replacement());
+        assertTrue(DlcSyncModel.plan(List.of(unknown), List.of(a), Direction.PUSH, false, Mode.CONFIG).isEmpty());
     }
     @Test void comparisonCachesStatusesWithoutReadingResourcesAgainForDisplay() {
         AtomicBoolean displayed = new AtomicBoolean();
@@ -60,7 +60,7 @@ class DlcSyncTest {
         };
         Item local = new Item("remote/a.dc", "a", file("remote/a.dc", "same"), resources, true);
         Item remote = new Item(local.key(), "a", local.config(), List.of(file("data/a", "old")), true);
-        Comparison comparison = SyncModel.compare(List.of(local), List.of(remote), Direction.PUSH, true, Mode.FILES);
+        Comparison comparison = DlcSyncModel.compare(List.of(local), List.of(remote), Direction.PUSH, true, Mode.FILES);
         assertEquals(1, comparison.rows().size());
         Row row = comparison.rows().get(0);
         displayed.set(true);
@@ -70,14 +70,14 @@ class DlcSyncTest {
     @Test void rebuildingAComparisonRefreshesCachedStatusesForModeDirectionAndNewManifests() {
         Item local = item("remote/a.dc", "same", true);
         Item remote = new Item(local.key(), local.identifier(), local.config(), List.of(new File(local.resources().get(0).id(), -1, null)), false);
-        Comparison config = SyncModel.compare(List.of(local), List.of(remote), Direction.PUSH, true, Mode.CONFIG);
-        Comparison files = SyncModel.compare(List.of(local), List.of(remote), Direction.PUSH, true, Mode.FILES);
-        Comparison pull = SyncModel.compare(List.of(), List.of(remote), Direction.PUSH, true, Mode.FILES);
+        Comparison config = DlcSyncModel.compare(List.of(local), List.of(remote), Direction.PUSH, true, Mode.CONFIG);
+        Comparison files = DlcSyncModel.compare(List.of(local), List.of(remote), Direction.PUSH, true, Mode.FILES);
+        Comparison pull = DlcSyncModel.compare(List.of(), List.of(remote), Direction.PUSH, true, Mode.FILES);
         assertEquals("state_changed", config.status(config.rows().get(0)));
         assertEquals("resources_missing", files.status(files.rows().get(0)));
         assertEquals("client_missing", pull.status(pull.rows().get(0)));
-        assertTrue(SyncModel.compare(List.of(local), List.of(remote), Direction.PUSH, false, Mode.CONFIG).rows().isEmpty());
-        Comparison unchanged = SyncModel.compare(List.of(local), List.of(local), Direction.PULL, true, Mode.FILES);
+        assertTrue(DlcSyncModel.compare(List.of(local), List.of(remote), Direction.PUSH, false, Mode.CONFIG).rows().isEmpty());
+        Comparison unchanged = DlcSyncModel.compare(List.of(local), List.of(local), Direction.PULL, true, Mode.FILES);
         assertTrue(unchanged.rows().isEmpty());
         assertTrue(unchanged.statuses().isEmpty());
         assertEquals("state_changed", config.status(config.rows().get(0)), "A new comparison must not mutate a previous snapshot");
@@ -90,20 +90,20 @@ class DlcSyncTest {
         Item preset = new Item("0:preset/main.dc", "preset", file("0:preset/main.dc", "same"), List.of(), null);
         Item required = item("0:required/main.dc", "same", false);
         Item version = update("0:info/version.dc", "1.0.0", "1.0.0", "server");
-        assertEquals(Category.MANAGER_CONFIG, SyncModel.category(manager));
-        assertEquals(Category.PRESET, SyncModel.category(preset));
-        assertEquals(Category.REQUIRED, SyncModel.category(required));
-        assertEquals(Category.UPDATE, SyncModel.category(version));
-        assertEquals(Category.DLC, SyncModel.category(item("0:remote/main.dc", "same", false)));
-        assertEquals(2, SyncModel.plan(List.of(manager, preset, version), List.of(), Direction.PUSH, true, Mode.CONFIG).size());
-        assertTrue(SyncModel.plan(List.of(manager, preset, version), List.of(manager, preset), Direction.PUSH, true, Mode.FILES).isEmpty());
+        assertEquals(Category.MANAGER_CONFIG, DlcSyncModel.category(manager));
+        assertEquals(Category.PRESET, DlcSyncModel.category(preset));
+        assertEquals(Category.REQUIRED, DlcSyncModel.category(required));
+        assertEquals(Category.UPDATE, DlcSyncModel.category(version));
+        assertEquals(Category.DLC, DlcSyncModel.category(item("0:remote/main.dc", "same", false)));
+        assertEquals(2, DlcSyncModel.plan(List.of(manager, preset, version), List.of(), Direction.PUSH, true, Mode.CONFIG).size());
+        assertTrue(DlcSyncModel.plan(List.of(manager, preset, version), List.of(manager, preset), Direction.PUSH, true, Mode.FILES).isEmpty());
     }
     @Test void appliesDlcBeforePresetsAndDisablesOldPresetsBeforeEnablingNewOnes() {
         Item off = new Item("0:preset/z-old.dc", "old", file("0:preset/z-old.dc", "off"), List.of(), false);
         Item on = new Item("0:preset/a-new.dc", "new", file("0:preset/a-new.dc", "on"), List.of(), true);
         Item dlc = item("0:remote/main.dc", "main", true);
         List<Row> rows = List.of(new Row(on.key(), on, null, Direction.PUSH, false, true), new Row(off.key(), off, null, Direction.PUSH, false, true), new Row(dlc.key(), dlc, null, Direction.PUSH, false, true));
-        assertEquals(List.of(dlc.key(), off.key(), on.key()), SyncModel.ordered(rows).stream().map(Row::key).toList());
+        assertEquals(List.of(dlc.key(), off.key(), on.key()), DlcSyncModel.ordered(rows).stream().map(Row::key).toList());
     }
     @Test void offersOnlyReachablePlatformCompatibleUpdatesInFilesMode() {
         Item installed = update("0:info/version.dc", "1.0.0", "1.0.0", "server");
@@ -114,35 +114,35 @@ class DlcSyncTest {
             update("0:update/client.zip", "1.0.0", "1.9.0", "client"),
             update("0:update/downgrade.zip", "1.0.0", "0.9.0", "server"),
             update("1:update/other-root.zip", "1.0.0", "1.1.0", "server"));
-        List<Row> rows = SyncModel.plan(packages, List.of(installed), Direction.PUSH, true, Mode.FILES);
+        List<Row> rows = DlcSyncModel.plan(packages, List.of(installed), Direction.PUSH, true, Mode.FILES);
         assertEquals(Set.of(first.key(), second.key()), rows.stream().map(Row::key).collect(java.util.stream.Collectors.toSet()));
-        assertEquals(List.of(first.key(), second.key()), SyncModel.ordered(rows).stream().map(Row::key).toList());
-        assertTrue(SyncModel.plan(packages, List.of(installed), Direction.PUSH, true, Mode.CONFIG).isEmpty());
-        assertTrue(SyncModel.plan(packages, List.of(), Direction.PUSH, true, Mode.FILES).isEmpty());
-        assertEquals(Set.of(second.key()), SyncModel.eligibleUpdates(List.of(second), List.of(installed, first)));
-        assertTrue(SyncModel.eligibleUpdates(List.of(second), List.of(installed)).isEmpty());
-        assertTrue(SyncModel.plan(List.of(first), List.of(installed, first), Direction.PUSH, true, Mode.FILES).isEmpty());
-        assertEquals(Direction.PULL, SyncModel.plan(List.of(installed), List.of(first), Direction.PUSH, true, Mode.FILES).get(0).direction());
+        assertEquals(List.of(first.key(), second.key()), DlcSyncModel.ordered(rows).stream().map(Row::key).toList());
+        assertTrue(DlcSyncModel.plan(packages, List.of(installed), Direction.PUSH, true, Mode.CONFIG).isEmpty());
+        assertTrue(DlcSyncModel.plan(packages, List.of(), Direction.PUSH, true, Mode.FILES).isEmpty());
+        assertEquals(Set.of(second.key()), DlcSyncModel.eligibleUpdates(List.of(second), List.of(installed, first)));
+        assertTrue(DlcSyncModel.eligibleUpdates(List.of(second), List.of(installed)).isEmpty());
+        assertTrue(DlcSyncModel.plan(List.of(first), List.of(installed, first), Direction.PUSH, true, Mode.FILES).isEmpty());
+        assertEquals(Direction.PULL, DlcSyncModel.plan(List.of(installed), List.of(first), Direction.PUSH, true, Mode.FILES).get(0).direction());
         Item baseOnly = new Item("0:update/base.zip", "base", file("0:update/base.zip", "base"), List.of(), null, Map.of(), Map.of(), new Update("1.0.0", "1.0.0", "2.0.0", "1.0.0", "server"));
-        assertEquals(Set.of(baseOnly.key()), SyncModel.eligibleUpdates(List.of(baseOnly), List.of(installed)));
+        assertEquals(Set.of(baseOnly.key()), DlcSyncModel.eligibleUpdates(List.of(baseOnly), List.of(installed)));
     }
     @Test void showsTheStateOptionOnlyForDifferentStatesOfSharedItems() {
         Item enabled = item("remote/a.dc", "same", true), disabled = item("remote/a.dc", "same", false);
-        assertFalse(SyncModel.hasStateDifferences(List.of(enabled), List.of(enabled)));
-        assertTrue(SyncModel.hasStateDifferences(List.of(enabled), List.of(disabled)));
-        assertFalse(SyncModel.hasStateDifferences(List.of(enabled), List.of()));
+        assertFalse(DlcSyncModel.hasStateDifferences(List.of(enabled), List.of(enabled)));
+        assertTrue(DlcSyncModel.hasStateDifferences(List.of(enabled), List.of(disabled)));
+        assertFalse(DlcSyncModel.hasStateDifferences(List.of(enabled), List.of()));
         Item renamed = new Item(disabled.key(), "different-dlc", disabled.config(), disabled.resources(), false);
-        assertFalse(SyncModel.hasStateDifferences(List.of(enabled), List.of(renamed)));
-        assertFalse(SyncModel.plan(List.of(enabled), List.of(), Direction.PUSH, true).get(0).stateChanged());
-        assertTrue(SyncModel.hasStateDifferences(List.of(enabled), List.of(disabled)), "Visibility must not depend on whether the state option is currently selected");
+        assertFalse(DlcSyncModel.hasStateDifferences(List.of(enabled), List.of(renamed)));
+        assertFalse(DlcSyncModel.plan(List.of(enabled), List.of(), Direction.PUSH, true).get(0).stateChanged());
+        assertTrue(DlcSyncModel.hasStateDifferences(List.of(enabled), List.of(disabled)), "Visibility must not depend on whether the state option is currently selected");
     }
     @Test void anUnappliedStateIsSkippedWithoutFailingOrUndoingTransferredContent() throws Exception {
         for (boolean contentChanged : List.of(false, true)) {
             Fixture left = new Fixture(temp.resolve("local-skip-" + contentChanged)), right = new Fixture(temp.resolve("server-skip-" + contentChanged));
             left.add("a", contentChanged ? "new config" : "same", "same data", true);
             right.add("a", contentChanged ? "old config" : "same", "same data", false); right.failEnable = true;
-            try (SyncEndpoint source = new SyncEndpoint(left); SyncEndpoint target = new SyncEndpoint(right)) {
-                Result result = new SyncClient(source, target, target).execute(plan(source, target, true), Mode.CONFIG, true, quiet);
+            try (DlcSyncEndpoint source = new DlcSyncEndpoint(left); DlcSyncEndpoint target = new DlcSyncEndpoint(right)) {
+                Result result = new DlcSyncClient(source, target, target).execute(plan(source, target, true), Mode.CONFIG, true, quiet);
                 assertTrue(result.errors().isEmpty(), result.errors().toString());
                 assertEquals(contentChanged ? 1 : 0, result.completed());
                 assertEquals(contentChanged ? "new config" : "same", Files.readString(right.root.resolve("remote/a.dc")));
@@ -154,26 +154,26 @@ class DlcSyncTest {
     @Test void acceptingOnlyPartOfAStateDoesNotRequireAnIdenticalFinalFlag() throws Exception {
         Fixture left = new Fixture(temp.resolve("local-part")), right = new Fixture(temp.resolve("server-part"));
         left.add("a", "same", "same data", true); right.add("a", "same", "same data", false);
-        try (SyncEndpoint source = new SyncEndpoint(left); SyncEndpoint endpoint = new SyncEndpoint(right)) {
+        try (DlcSyncEndpoint source = new DlcSyncEndpoint(left); DlcSyncEndpoint endpoint = new DlcSyncEndpoint(right)) {
             Peer target = request -> {
                 if (request.get("action").getAsString().equals("apply")) { request = request.deepCopy(); request.remove("enabled"); }
                 return endpoint.call(request);
             };
-            Result result = new SyncClient(source, target, endpoint).execute(plan(source, endpoint, true), Mode.CONFIG, true, quiet);
+            Result result = new DlcSyncClient(source, target, endpoint).execute(plan(source, endpoint, true), Mode.CONFIG, true, quiet);
             assertTrue(result.errors().isEmpty()); assertEquals("false", Files.readString(right.root.resolve("state/a")));
         }
     }
     @Test void configurationModeIgnoresResourcesWhileKeepingTheirMetadataAvailable() throws Exception {
         Fixture left = new Fixture(temp.resolve("local")), right = new Fixture(temp.resolve("server"));
         left.add("a", "same", null, true); right.add("a", "same", "server data", true);
-        try (SyncEndpoint source = new SyncEndpoint(left); SyncEndpoint target = new SyncEndpoint(right)) {
-            List<Item> local = SyncClient.manifest(source), remote = SyncClient.manifest(target);
+        try (DlcSyncEndpoint source = new DlcSyncEndpoint(left); DlcSyncEndpoint target = new DlcSyncEndpoint(right)) {
+            List<Item> local = DlcSyncClient.manifest(source), remote = DlcSyncClient.manifest(target);
             assertEquals(-1, local.get(0).resources().get(0).size());
             assertTrue(remote.get(0).resources().get(0).size() > 0);
-            assertTrue(SyncModel.plan(local, remote, Direction.PUSH, true, Mode.CONFIG).isEmpty());
-            Row missing = SyncModel.plan(local, remote, Direction.PUSH, true, Mode.FILES).get(0);
-            assertEquals("resources_missing", SyncModel.status(missing, Mode.FILES));
-            assertFalse(SyncModel.differences(missing, Mode.CONFIG).contains("resources_missing"));
+            assertTrue(DlcSyncModel.plan(local, remote, Direction.PUSH, true, Mode.CONFIG).isEmpty());
+            Row missing = DlcSyncModel.plan(local, remote, Direction.PUSH, true, Mode.FILES).get(0);
+            assertEquals("resources_missing", DlcSyncModel.status(missing, Mode.FILES));
+            assertFalse(DlcSyncModel.differences(missing, Mode.CONFIG).contains("resources_missing"));
         }
     }
     @Test void sendsOnlyChangedFilesAndDoesNotTransferForStateOnlyChanges() throws Exception {
@@ -182,10 +182,10 @@ class DlcSyncTest {
             left.add("a", "new config", "new data", true);
             right.add("a", variant == 1 ? "old config" : "new config", variant == 0 ? "old data" : "new data", variant != 2);
             List<String> reads = new ArrayList<>(), writes = new ArrayList<>();
-            try (SyncEndpoint source = new SyncEndpoint(left); SyncEndpoint target = new SyncEndpoint(right)) {
+            try (DlcSyncEndpoint source = new DlcSyncEndpoint(left); DlcSyncEndpoint target = new DlcSyncEndpoint(right)) {
                 Peer trackedSource = request -> { if (request.get("action").getAsString().equals("read")) reads.add(request.get("id").getAsString()); return source.call(request); };
                 Peer trackedTarget = request -> { if (request.get("action").getAsString().equals("write")) writes.add(request.getAsJsonObject("file").get("id").getAsString()); return target.call(request); };
-                Result result = new SyncClient(trackedSource, trackedTarget, target).execute(plan(source, target, true), Mode.FILES, true, quiet);
+                Result result = new DlcSyncClient(trackedSource, trackedTarget, target).execute(plan(source, target, true), Mode.FILES, true, quiet);
                 assertTrue(result.errors().isEmpty(), result.errors().toString()); assertEquals(1, result.completed());
                 List<String> expected = variant == 0 ? List.of("data/a") : variant == 1 ? List.of("remote/a.dc") : List.of();
                 assertEquals(expected, reads); assertEquals(expected, writes);
@@ -196,8 +196,8 @@ class DlcSyncTest {
         Fixture left = new Fixture(temp.resolve("local")), right = new Fixture(temp.resolve("server"));
         left.add("a", "same", "new data", true); right.add("a", "same", "old data", true);
         right.captureFailure = right.root.resolve("data/a");
-        try (SyncEndpoint source = new SyncEndpoint(left); SyncEndpoint target = new SyncEndpoint(right)) {
-            Result result = new SyncClient(source, target, target).execute(plan(source, target, true), Mode.FILES, true, quiet);
+        try (DlcSyncEndpoint source = new DlcSyncEndpoint(left); DlcSyncEndpoint target = new DlcSyncEndpoint(right)) {
+            Result result = new DlcSyncClient(source, target, target).execute(plan(source, target, true), Mode.FILES, true, quiet);
             assertEquals(0, result.completed()); assertEquals(1, result.errors().size());
             assertEquals("old data", Files.readString(right.root.resolve("data/a")));
         }
@@ -205,8 +205,8 @@ class DlcSyncTest {
     @Test void filesModePreparesOnSourceAndAppliesOnTargetWithoutDownloadingThere() throws Exception {
         Fixture left = new Fixture(temp.resolve("local")), right = new Fixture(temp.resolve("server"));
         left.add("a", "config", null, true);
-        try (SyncEndpoint source = new SyncEndpoint(left); SyncEndpoint target = new SyncEndpoint(right)) {
-            Result result = new SyncClient(source, target, target).execute(plan(source, target, true), Mode.FILES, true, quiet);
+        try (DlcSyncEndpoint source = new DlcSyncEndpoint(left); DlcSyncEndpoint target = new DlcSyncEndpoint(right)) {
+            Result result = new DlcSyncClient(source, target, target).execute(plan(source, target, true), Mode.FILES, true, quiet);
             assertEquals(1, result.completed()); assertTrue(result.errors().isEmpty(), result.errors().toString());
             assertEquals(1, left.downloads); assertEquals(0, right.downloads);
             assertEquals("downloaded", Files.readString(right.root.resolve("data/a")));
@@ -217,8 +217,8 @@ class DlcSyncTest {
     @Test void configurationModeDownloadsOnlyOnTargetAndCanKeepTargetState() throws Exception {
         Fixture left = new Fixture(temp.resolve("local")), right = new Fixture(temp.resolve("server"));
         left.add("a", "new config", null, true); right.add("a", "old config", "old", false);
-        try (SyncEndpoint source = new SyncEndpoint(left); SyncEndpoint target = new SyncEndpoint(right)) {
-            Result result = new SyncClient(source, target, target).execute(plan(source, target, false), Mode.CONFIG, false, quiet);
+        try (DlcSyncEndpoint source = new DlcSyncEndpoint(left); DlcSyncEndpoint target = new DlcSyncEndpoint(right)) {
+            Result result = new DlcSyncClient(source, target, target).execute(plan(source, target, false), Mode.CONFIG, false, quiet);
             assertEquals(1, result.completed()); assertEquals(0, left.downloads);
             assertEquals("false", Files.readString(right.root.resolve("state/a")));
             assertFalse(Files.exists(right.root.resolve("applied/a")));
@@ -228,8 +228,8 @@ class DlcSyncTest {
         Fixture left = new Fixture(temp.resolve("local")), right = new Fixture(temp.resolve("server"));
         left.add("a", "new", null, true); left.add("b", "new", "new data", true);
         right.add("a", "old", "old data", false);
-        try (SyncEndpoint source = new SyncEndpoint(left); SyncEndpoint target = new SyncEndpoint(right)) {
-            SyncClient client = new SyncClient(source, target, target);
+        try (DlcSyncEndpoint source = new DlcSyncEndpoint(left); DlcSyncEndpoint target = new DlcSyncEndpoint(right)) {
+            DlcSyncClient client = new DlcSyncClient(source, target, target);
             Result result = client.execute(plan(source, target, true), Mode.FILES, true, (phase, resource, done, total) -> {
                 if (phase.equals("preparing") && resource.equals("remote/b.dc")) client.cancel();
             });
@@ -247,14 +247,14 @@ class DlcSyncTest {
         left.add("a", "new", "new data", true); left.add("b", "new", "new data", true);
         right.add("a", "old", "old data", false);
         AtomicBoolean corrupt = new AtomicBoolean(true);
-        try (SyncEndpoint source = new SyncEndpoint(left); SyncEndpoint endpoint = new SyncEndpoint(right)) {
+        try (DlcSyncEndpoint source = new DlcSyncEndpoint(left); DlcSyncEndpoint endpoint = new DlcSyncEndpoint(right)) {
             Peer target = request -> {
                 if (request.get("action").getAsString().equals("write_chunk") && corrupt.getAndSet(false)) {
                     request = request.deepCopy(); request.addProperty("data", Base64.getEncoder().encodeToString("bad".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
                 }
                 return endpoint.call(request);
             };
-            Result result = new SyncClient(source, target, endpoint).execute(plan(source, target, true), Mode.FILES, true, quiet);
+            Result result = new DlcSyncClient(source, target, endpoint).execute(plan(source, target, true), Mode.FILES, true, quiet);
             assertEquals(1, result.completed()); assertEquals(1, result.errors().size());
             assertEquals("old", Files.readString(right.root.resolve("remote/a.dc")));
             assertEquals("old data", Files.readString(right.root.resolve("data/a")));
@@ -264,8 +264,8 @@ class DlcSyncTest {
     @Test void applicationFailureKeepsChangesUntilExplicitRollback() throws Exception {
         Fixture left = new Fixture(temp.resolve("local")), right = new Fixture(temp.resolve("server"));
         left.add("a", "new", "new data", true); right.add("a", "old", "old data", false); right.failApply = true;
-        try (SyncEndpoint source = new SyncEndpoint(left); SyncEndpoint target = new SyncEndpoint(right)) {
-            SyncClient client = new SyncClient(source, target, target);
+        try (DlcSyncEndpoint source = new DlcSyncEndpoint(left); DlcSyncEndpoint target = new DlcSyncEndpoint(right)) {
+            DlcSyncClient client = new DlcSyncClient(source, target, target);
             Result result = client.execute(plan(source, target, true), Mode.FILES, true, quiet);
             assertEquals(0, result.completed()); assertEquals(1, result.errors().size());
             assertEquals("new", Files.readString(right.root.resolve("remote/a.dc")));
@@ -281,23 +281,23 @@ class DlcSyncTest {
     }
     @Test void refusesUnscopedPathsAndDoesNotOverwriteOnTruncation() throws Exception {
         Fixture right = new Fixture(temp.resolve("server")); right.add("a", "config", "old", false);
-        try (SyncEndpoint target = new SyncEndpoint(right)) {
-            JsonObject begin = SyncClient.request("begin"); begin.addProperty("operation", UUID.randomUUID().toString()); SyncClient.checked(target, begin);
-            JsonObject choose = SyncClient.request("item"); choose.addProperty("key", "mods/other.jar"); assertFalse(target.call(choose).get("ok").getAsBoolean());
-            choose.addProperty("key", "remote/a.dc"); SyncClient.checked(target, choose);
-            JsonObject write = SyncClient.request("write"); write.add("file", SyncEndpoint.JSON.toJsonTree(new File("data/a", 99, "unused"))); write.addProperty("hash", "incorrect"); SyncClient.checked(target, write);
-            assertFalse(target.call(SyncClient.request("write_end")).get("ok").getAsBoolean());
+        try (DlcSyncEndpoint target = new DlcSyncEndpoint(right)) {
+            JsonObject begin = DlcSyncClient.request("begin"); begin.addProperty("operation", UUID.randomUUID().toString()); DlcSyncClient.checked(target, begin);
+            JsonObject choose = DlcSyncClient.request("item"); choose.addProperty("key", "mods/other.jar"); assertFalse(target.call(choose).get("ok").getAsBoolean());
+            choose.addProperty("key", "remote/a.dc"); DlcSyncClient.checked(target, choose);
+            JsonObject write = DlcSyncClient.request("write"); write.add("file", DlcSyncEndpoint.JSON.toJsonTree(new File("data/a", 99, "unused"))); write.addProperty("hash", "incorrect"); DlcSyncClient.checked(target, write);
+            assertFalse(target.call(DlcSyncClient.request("write_end")).get("ok").getAsBoolean());
             assertEquals("old", Files.readString(right.root.resolve("data/a")));
-            SyncClient.checked(target, SyncClient.request("rollback"));
+            DlcSyncClient.checked(target, DlcSyncClient.request("rollback"));
         }
     }
     @Test void rejectsTargetChangesMadeAfterComparison() throws Exception {
         Fixture left = new Fixture(temp.resolve("local")), right = new Fixture(temp.resolve("server"));
         left.add("a", "new", "new data", true); right.add("a", "old", "old data", false);
-        try (SyncEndpoint source = new SyncEndpoint(left); SyncEndpoint target = new SyncEndpoint(right)) {
+        try (DlcSyncEndpoint source = new DlcSyncEndpoint(left); DlcSyncEndpoint target = new DlcSyncEndpoint(right)) {
             List<Row> rows = plan(source, target, true);
             right.write("remote/a.dc", "edited after comparison");
-            assertThrows(IOException.class, () -> new SyncClient(source, target, target).execute(rows, Mode.FILES, true, quiet));
+            assertThrows(IOException.class, () -> new DlcSyncClient(source, target, target).execute(rows, Mode.FILES, true, quiet));
             assertEquals("edited after comparison", Files.readString(right.root.resolve("remote/a.dc")));
             assertEquals("old data", Files.readString(right.root.resolve("data/a")));
         }
@@ -305,8 +305,8 @@ class DlcSyncTest {
     @Test void supportsStateOnlyUpdatesWithoutChangingDirectionOrDownloading() throws Exception {
         Fixture left = new Fixture(temp.resolve("local")), right = new Fixture(temp.resolve("server"));
         left.add("a", "same", "same data", true); right.add("a", "same", "same data", false);
-        try (SyncEndpoint source = new SyncEndpoint(left); SyncEndpoint target = new SyncEndpoint(right)) {
-            Result result = new SyncClient(source, target, target).execute(plan(source, target, true), Mode.CONFIG, true, quiet);
+        try (DlcSyncEndpoint source = new DlcSyncEndpoint(left); DlcSyncEndpoint target = new DlcSyncEndpoint(right)) {
+            Result result = new DlcSyncClient(source, target, target).execute(plan(source, target, true), Mode.CONFIG, true, quiet);
             assertEquals(1, result.completed()); assertEquals(0, left.downloads + right.downloads);
             assertEquals("true", Files.readString(right.root.resolve("state/a")));
             assertEquals("same data", Files.readString(right.root.resolve("applied/a")));
@@ -315,9 +315,9 @@ class DlcSyncTest {
     @Test void pullsResourcesAndPreservesStateUnlessStateSyncIsSelected() throws Exception {
         Fixture left = new Fixture(temp.resolve("local")), right = new Fixture(temp.resolve("server"));
         left.add("a", "old", "old data", false); right.add("a", "new", "new data", true);
-        try (SyncEndpoint source = new SyncEndpoint(left); SyncEndpoint target = new SyncEndpoint(right)) {
-            List<Row> rows = SyncModel.plan(SyncClient.manifest(source), SyncClient.manifest(target), Direction.PULL, false);
-            Result result = new SyncClient(source, target, target).execute(rows, Mode.FILES, false, quiet);
+        try (DlcSyncEndpoint source = new DlcSyncEndpoint(left); DlcSyncEndpoint target = new DlcSyncEndpoint(right)) {
+            List<Row> rows = DlcSyncModel.plan(DlcSyncClient.manifest(source), DlcSyncClient.manifest(target), Direction.PULL, false);
+            Result result = new DlcSyncClient(source, target, target).execute(rows, Mode.FILES, false, quiet);
             assertEquals(List.of("remote/a.dc"), result.succeeded());
             assertEquals("new data", Files.readString(left.root.resolve("data/a")));
             assertEquals("false", Files.readString(left.root.resolve("state/a")));
@@ -327,13 +327,13 @@ class DlcSyncTest {
     @Test void lostItemAcknowledgmentKeepsEarlierChangesAndAllowsRollback() throws Exception {
         Fixture left = new Fixture(temp.resolve("local")), right = new Fixture(temp.resolve("server"));
         left.add("a", "new", "new data", true); right.add("a", "old", "old data", false);
-        try (SyncEndpoint source = new SyncEndpoint(left); SyncEndpoint target = new SyncEndpoint(right)) {
+        try (DlcSyncEndpoint source = new DlcSyncEndpoint(left); DlcSyncEndpoint target = new DlcSyncEndpoint(right)) {
             Peer lost = request -> {
                 JsonObject response = source.call(request);
                 if (request.get("action").getAsString().equals("item_done")) throw new IOException("Connection lost after item acknowledgment");
                 return response;
             };
-            SyncClient client = new SyncClient(lost, target, target);
+            DlcSyncClient client = new DlcSyncClient(lost, target, target);
             assertThrows(IOException.class, () -> client.execute(plan(source, target, true), Mode.FILES, true, quiet));
             assertEquals("new", Files.readString(right.root.resolve("remote/a.dc")));
             assertEquals("new data", Files.readString(right.root.resolve("data/a")));
@@ -347,13 +347,13 @@ class DlcSyncTest {
     @Test void successfulSyncCanBeUndoneAfterConnectionsClose() throws Exception {
         Fixture left = new Fixture(temp.resolve("local")), right = new Fixture(temp.resolve("server"));
         left.add("a", "new", "new data", true); right.add("a", "old", "old data", false);
-        SyncClient client;
-        try (SyncEndpoint source = new SyncEndpoint(left); SyncEndpoint target = new SyncEndpoint(right)) {
-            client = new SyncClient(source, target, target);
+        DlcSyncClient client;
+        try (DlcSyncEndpoint source = new DlcSyncEndpoint(left); DlcSyncEndpoint target = new DlcSyncEndpoint(right)) {
+            client = new DlcSyncClient(source, target, target);
             assertEquals(1, client.execute(plan(source, target, true), Mode.FILES, true, quiet).completed());
         }
         assertEquals("new data", Files.readString(right.root.resolve("data/a")));
-        try (SyncEndpoint source = new SyncEndpoint(left); SyncEndpoint target = new SyncEndpoint(right)) {
+        try (DlcSyncEndpoint source = new DlcSyncEndpoint(left); DlcSyncEndpoint target = new DlcSyncEndpoint(right)) {
             client.rollback(source, target);
         }
         assertEquals("old data", Files.readString(right.root.resolve("data/a")));
@@ -363,10 +363,10 @@ class DlcSyncTest {
     @Test void cancelingALaterOperationDoesNotUndoAnEarlierKeptSynchronization() throws Exception {
         Fixture left = new Fixture(temp.resolve("local")), right = new Fixture(temp.resolve("server"));
         left.add("a", "first", "first data", false); right.add("a", "old", "old data", false);
-        try (SyncEndpoint source = new SyncEndpoint(left); SyncEndpoint target = new SyncEndpoint(right)) {
-            new SyncClient(source, target, target).execute(plan(source, target, true), Mode.FILES, true, quiet);
+        try (DlcSyncEndpoint source = new DlcSyncEndpoint(left); DlcSyncEndpoint target = new DlcSyncEndpoint(right)) {
+            new DlcSyncClient(source, target, target).execute(plan(source, target, true), Mode.FILES, true, quiet);
             left.add("a", "second", "second data", false);
-            SyncClient client = new SyncClient(source, target, target);
+            DlcSyncClient client = new DlcSyncClient(source, target, target);
             Result result = client.execute(plan(source, target, true), Mode.FILES, true, (phase, name, done, total) -> {
                 if (phase.equals("applying")) client.cancel();
             });
@@ -378,18 +378,18 @@ class DlcSyncTest {
     @Test void changedSourceAndBusyLegacyOperationsCannotSilentlyOverwriteTarget() throws Exception {
         Fixture left = new Fixture(temp.resolve("local")), right = new Fixture(temp.resolve("server"));
         left.add("a", "new", "new data", true); right.add("a", "old", "old data", false);
-        try (SyncEndpoint source = new SyncEndpoint(left); SyncEndpoint target = new SyncEndpoint(right)) {
+        try (DlcSyncEndpoint source = new DlcSyncEndpoint(left); DlcSyncEndpoint target = new DlcSyncEndpoint(right)) {
             Peer changing = request -> {
                 if (request.get("action").getAsString().equals("read") && request.get("id").getAsString().equals("data/a")) left.write("data/a", "changed after comparison");
                 return source.call(request);
             };
-            Result result = new SyncClient(changing, target, target).execute(plan(source, target, true), Mode.FILES, true, quiet);
+            Result result = new DlcSyncClient(changing, target, target).execute(plan(source, target, true), Mode.FILES, true, quiet);
             assertEquals(0, result.completed()); assertEquals(1, result.errors().size());
             assertEquals("old data", Files.readString(right.root.resolve("data/a")));
-            JsonObject begin = SyncClient.request("begin"); begin.addProperty("operation", UUID.randomUUID().toString()); SyncClient.checked(target, begin);
-            assertThrows(IOException.class, () -> SyncEndpoint.guard(right.workDirectory()));
-            SyncClient.checked(target, SyncClient.request("rollback"));
-            try (var guard = SyncEndpoint.guard(right.workDirectory())) { assertFalse(SyncEndpoint.busy(right.workDirectory())); }
+            JsonObject begin = DlcSyncClient.request("begin"); begin.addProperty("operation", UUID.randomUUID().toString()); DlcSyncClient.checked(target, begin);
+            assertThrows(IOException.class, () -> DlcSyncEndpoint.guard(right.workDirectory()));
+            DlcSyncClient.checked(target, DlcSyncClient.request("rollback"));
+            try (var guard = DlcSyncEndpoint.guard(right.workDirectory())) { assertFalse(DlcSyncEndpoint.busy(right.workDirectory())); }
         }
     }
     @Test void transfersMultipleChunksWithFullIntegrityVerification() throws Exception {
@@ -397,9 +397,9 @@ class DlcSyncTest {
         String payload = "0123456789".repeat(250000);
         left.add("a", "config", payload, true);
         java.util.concurrent.atomic.AtomicInteger chunks = new java.util.concurrent.atomic.AtomicInteger();
-        try (SyncEndpoint source = new SyncEndpoint(left); SyncEndpoint endpoint = new SyncEndpoint(right)) {
+        try (DlcSyncEndpoint source = new DlcSyncEndpoint(left); DlcSyncEndpoint endpoint = new DlcSyncEndpoint(right)) {
             Peer target = request -> { if (request.get("action").getAsString().equals("write_chunk")) chunks.incrementAndGet(); return endpoint.call(request); };
-            Result result = new SyncClient(source, target, endpoint).execute(plan(source, endpoint, true), Mode.FILES, true, quiet);
+            Result result = new DlcSyncClient(source, target, endpoint).execute(plan(source, endpoint, true), Mode.FILES, true, quiet);
             assertEquals(1, result.completed()); assertTrue(result.errors().isEmpty()); assertTrue(chunks.get() >= 4);
             assertEquals(DlcFileMatch.fullHash(left.root.resolve("data/a")), DlcFileMatch.fullHash(right.root.resolve("data/a")));
             assertEquals(payload, Files.readString(right.root.resolve("data/a")));
@@ -425,17 +425,17 @@ class DlcSyncTest {
         left.write("info/version.dc", "installed 1.0.0"); right.write("info/version.dc", "installed 1.0.0");
         left.write("update/z-first.zip", "first update payload"); left.write("update/a-second.zip", "second update payload");
         List<String> written = new ArrayList<>();
-        try (SyncEndpoint source = new SyncEndpoint(left); SyncEndpoint endpoint = new SyncEndpoint(right)) {
+        try (DlcSyncEndpoint source = new DlcSyncEndpoint(left); DlcSyncEndpoint endpoint = new DlcSyncEndpoint(right)) {
             Peer target = request -> { if (request.get("action").getAsString().equals("write")) written.add(request.getAsJsonObject("file").get("id").getAsString()); return endpoint.call(request); };
             List<Row> rows = plan(source, endpoint, false);
             assertEquals(2, rows.size());
             Row later = rows.stream().filter(row -> row.key().endsWith("a-second.zip")).findFirst().orElseThrow();
-            Result rejected = new SyncClient(source, target, endpoint).execute(List.of(later), Mode.FILES, false, quiet);
+            Result rejected = new DlcSyncClient(source, target, endpoint).execute(List.of(later), Mode.FILES, false, quiet);
             assertEquals(0, rejected.completed()); assertEquals(1, rejected.errors().size()); assertTrue(written.isEmpty());
             assertFalse(Files.exists(right.resolve(later.key())));
-            Result wrongMode = new SyncClient(source, target, endpoint).execute(rows, Mode.CONFIG, false, quiet);
+            Result wrongMode = new DlcSyncClient(source, target, endpoint).execute(rows, Mode.CONFIG, false, quiet);
             assertEquals(0, wrongMode.completed()); assertEquals(2, wrongMode.errors().size()); assertTrue(written.isEmpty());
-            Result result = new SyncClient(source, target, endpoint).execute(rows, Mode.FILES, false, quiet);
+            Result result = new DlcSyncClient(source, target, endpoint).execute(rows, Mode.FILES, false, quiet);
             assertEquals(2, result.completed()); assertTrue(result.errors().isEmpty()); assertFalse(result.requiresRestart());
             assertEquals(List.of("update/z-first.zip", "update/a-second.zip"), written);
             assertEquals("first update payload", Files.readString(right.resolve("update/z-first.zip")));
@@ -459,13 +459,13 @@ class DlcSyncTest {
             return result;
         }
         @Override public void validateIncoming(Item item) throws IOException {
-            if (!SyncModel.eligibleUpdates(List.of(item), manifest()).contains(item.key())) throw new IOException("Missing update prerequisite");
+            if (!DlcSyncModel.eligibleUpdates(List.of(item), manifest()).contains(item.key())) throw new IOException("Missing update prerequisite");
         }
         @Override public void prepare(String key, boolean force, BooleanSupplier canceled, Progress progress) {}
         @Override public boolean apply(String key, Boolean enabled, Journal journal, BooleanSupplier canceled) throws IOException { validateIncoming(item(key)); return false; }
     }
 
-    private List<Row> plan(Peer a, Peer b, boolean states) throws IOException { return SyncModel.plan(SyncClient.manifest(a), SyncClient.manifest(b), Direction.PUSH, states); }
+    private List<Row> plan(Peer a, Peer b, boolean states) throws IOException { return DlcSyncModel.plan(DlcSyncClient.manifest(a), DlcSyncClient.manifest(b), Direction.PUSH, states); }
 
     private static class Fixture implements Adapter {
         final Map<Path, Journal> journals = new LinkedHashMap<>();

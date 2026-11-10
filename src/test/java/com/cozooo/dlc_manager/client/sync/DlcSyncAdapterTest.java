@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.sync;
 
 import com.cozooo.dlc_manager.sync.*;
-import com.cozooo.dlc_manager.sync.SyncModel.*;
+import com.cozooo.dlc_manager.sync.DlcSyncModel.*;
 import com.cozooo.dlc_manager.core.*;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.cozooo.dlc_manager.test.TestPlatformProvider;
@@ -24,29 +24,29 @@ class DlcSyncAdapterTest {
         Files.writeString(game.resolve("config/unrelated.txt"), "keep");
     }
     @AfterEach void reset() { com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState.clearAll(); DlcRuntimeState.clearOverrides(); PlatformServices.setProvider(null); DlcConfig.setDlcRoot("DLC"); }
-    private void start(SyncEndpoint endpoint) throws Exception {
-        JsonObject begin = SyncClient.request("begin"); begin.addProperty("operation", UUID.randomUUID().toString()); SyncClient.checked(endpoint, begin);
-        JsonObject row = SyncClient.request("item"); row.addProperty("key", "0:required/main.dc"); SyncClient.checked(endpoint, row);
+    private void start(DlcSyncEndpoint endpoint) throws Exception {
+        JsonObject begin = DlcSyncClient.request("begin"); begin.addProperty("operation", UUID.randomUUID().toString()); DlcSyncClient.checked(endpoint, begin);
+        JsonObject row = DlcSyncClient.request("item"); row.addProperty("key", "0:required/main.dc"); DlcSyncClient.checked(endpoint, row);
     }
-    private void upload(SyncEndpoint endpoint, String value) throws Exception { upload(endpoint, "0:downloaded/required/main.txt", value); }
-    private void upload(SyncEndpoint endpoint, String id, String value) throws Exception {
+    private void upload(DlcSyncEndpoint endpoint, String value) throws Exception { upload(endpoint, "0:downloaded/required/main.txt", value); }
+    private void upload(DlcSyncEndpoint endpoint, String id, String value) throws Exception {
         Path bytes = Files.writeString(game.resolve("incoming.txt"), value);
-        JsonObject write = SyncClient.request("write"); write.add("file", SyncEndpoint.JSON.toJsonTree(new File(id, Files.size(bytes), DlcFileMatch.fullHash(bytes))));
-        write.addProperty("hash", DlcFileMatch.fullHash(bytes)); SyncClient.checked(endpoint, write);
-        JsonObject chunk = SyncClient.request("write_chunk"); chunk.addProperty("data", Base64.getEncoder().encodeToString(Files.readAllBytes(bytes))); SyncClient.checked(endpoint, chunk);
-        SyncClient.checked(endpoint, SyncClient.request("write_end"));
+        JsonObject write = DlcSyncClient.request("write"); write.add("file", DlcSyncEndpoint.JSON.toJsonTree(new File(id, Files.size(bytes), DlcFileMatch.fullHash(bytes))));
+        write.addProperty("hash", DlcFileMatch.fullHash(bytes)); DlcSyncClient.checked(endpoint, write);
+        JsonObject chunk = DlcSyncClient.request("write_chunk"); chunk.addProperty("data", Base64.getEncoder().encodeToString(Files.readAllBytes(bytes))); DlcSyncClient.checked(endpoint, chunk);
+        DlcSyncClient.checked(endpoint, DlcSyncClient.request("write_end"));
     }
     @Test void manifestIncludesLocalizedNamesForRemoteAndRequiredDlc() throws Exception {
         Files.writeString(root.resolve("required/main.dc"), "identifier='main'\nfile_name='main.txt'\nappliedTarget='config/main.txt'\n[DisplayName]\nzh_CN='必要资源'\nen_US='Required resource'\n[tip]\nzh_CN='必要资源说明'\n");
         Files.createDirectories(root.resolve("remote"));
         Files.writeString(root.resolve("remote/main.dc"), "identifier='remote-main'\ntype='mod'\nfile_name='main.jar'\n[DisplayName]\nzh_CN='远程内容'\nen_US='Remote content'\n[tip]\nen_US='Remote description'\n");
-        try (SyncEndpoint endpoint = new SyncEndpoint(new DlcSyncAdapter())) {
-            Map<String, Item> items = SyncModel.index(SyncClient.manifest(endpoint));
-            assertEquals("必要资源", SyncModel.displayName(items.get("0:required/main.dc"), "zh_cn"));
-            assertEquals("Remote content", SyncModel.displayName(items.get("0:remote/main.dc"), "en_us"));
+        try (DlcSyncEndpoint endpoint = new DlcSyncEndpoint(new DlcSyncAdapter())) {
+            Map<String, Item> items = DlcSyncModel.index(DlcSyncClient.manifest(endpoint));
+            assertEquals("必要资源", DlcSyncModel.displayName(items.get("0:required/main.dc"), "zh_cn"));
+            assertEquals("Remote content", DlcSyncModel.displayName(items.get("0:remote/main.dc"), "en_us"));
             assertEquals("远程内容", items.get("0:remote/main.dc").displayNames().get("zh_cn"));
-            assertEquals("必要资源说明", SyncModel.tooltip(items.get("0:required/main.dc"), "zh_cn"));
-            assertEquals("Remote description", SyncModel.tooltip(items.get("0:remote/main.dc"), "en_us"));
+            assertEquals("必要资源说明", DlcSyncModel.tooltip(items.get("0:required/main.dc"), "zh_cn"));
+            assertEquals("Remote description", DlcSyncModel.tooltip(items.get("0:remote/main.dc"), "en_us"));
         }
     }
 
@@ -82,10 +82,10 @@ class DlcSyncAdapterTest {
     @Test void usesCurrentResourceDirectoryAndRestoresAppliedFilesAfterCompletedItem() throws Exception {
         DlcSyncAdapter adapter = new DlcSyncAdapter();
         assertEquals("0:downloaded/required/main.txt", adapter.manifest().get(0).resources().get(0).id());
-        try (SyncEndpoint endpoint = new SyncEndpoint(adapter)) {
-            start(endpoint); upload(endpoint, "new resource"); SyncClient.checked(endpoint, SyncClient.request("apply"));
+        try (DlcSyncEndpoint endpoint = new DlcSyncEndpoint(adapter)) {
+            start(endpoint); upload(endpoint, "new resource"); DlcSyncClient.checked(endpoint, DlcSyncClient.request("apply"));
             assertEquals("new resource", Files.readString(game.resolve("config/main.txt")));
-            SyncClient.checked(endpoint, SyncClient.request("item_done")); SyncClient.checked(endpoint, SyncClient.request("rollback"));
+            DlcSyncClient.checked(endpoint, DlcSyncClient.request("item_done")); DlcSyncClient.checked(endpoint, DlcSyncClient.request("rollback"));
             assertEquals("original user file", Files.readString(game.resolve("config/main.txt")));
             assertEquals("old resource", Files.readString(root.resolve("downloaded/required/main.txt")));
             assertEquals("keep", Files.readString(game.resolve("config/unrelated.txt")));
@@ -98,12 +98,12 @@ class DlcSyncAdapterTest {
         }
     }
     @Test void disconnectKeepsChangesAndSuccessfulCommitIsNotReplayedByRecovery() throws Exception {
-        try (SyncEndpoint endpoint = new SyncEndpoint(new DlcSyncAdapter())) { start(endpoint); upload(endpoint, "uncommitted"); }
+        try (DlcSyncEndpoint endpoint = new DlcSyncEndpoint(new DlcSyncAdapter())) { start(endpoint); upload(endpoint, "uncommitted"); }
         new DlcSyncAdapter().recover();
         assertEquals("uncommitted", Files.readString(root.resolve("downloaded/required/main.txt")));
-        try (SyncEndpoint endpoint = new SyncEndpoint(new DlcSyncAdapter())) {
-            start(endpoint); upload(endpoint, "committed"); SyncClient.checked(endpoint, SyncClient.request("apply"));
-            SyncClient.checked(endpoint, SyncClient.request("item_done")); SyncClient.checked(endpoint, SyncClient.request("commit"));
+        try (DlcSyncEndpoint endpoint = new DlcSyncEndpoint(new DlcSyncAdapter())) {
+            start(endpoint); upload(endpoint, "committed"); DlcSyncClient.checked(endpoint, DlcSyncClient.request("apply"));
+            DlcSyncClient.checked(endpoint, DlcSyncClient.request("item_done")); DlcSyncClient.checked(endpoint, DlcSyncClient.request("commit"));
         }
         new DlcSyncAdapter().recover();
         assertEquals("committed", Files.readString(root.resolve("downloaded/required/main.txt")));
@@ -111,19 +111,19 @@ class DlcSyncAdapterTest {
     }
     @Test void retainedAppliedFilesCanBeRestoredAfterClosingAndReopeningTheEndpoint() throws Exception {
         String operation = UUID.randomUUID().toString();
-        try (SyncEndpoint endpoint = new SyncEndpoint(new DlcSyncAdapter())) {
-            JsonObject begin = SyncClient.request("begin"); begin.addProperty("operation", operation); SyncClient.checked(endpoint, begin);
-            JsonObject row = SyncClient.request("item"); row.addProperty("key", "0:required/main.dc"); SyncClient.checked(endpoint, row);
-            upload(endpoint, "retained"); SyncClient.checked(endpoint, SyncClient.request("apply"));
+        try (DlcSyncEndpoint endpoint = new DlcSyncEndpoint(new DlcSyncAdapter())) {
+            JsonObject begin = DlcSyncClient.request("begin"); begin.addProperty("operation", operation); DlcSyncClient.checked(endpoint, begin);
+            JsonObject row = DlcSyncClient.request("item"); row.addProperty("key", "0:required/main.dc"); DlcSyncClient.checked(endpoint, row);
+            upload(endpoint, "retained"); DlcSyncClient.checked(endpoint, DlcSyncClient.request("apply"));
             endpoint.disconnectCurrent();
-            assertThrows(java.io.IOException.class, () -> SyncClient.checked(endpoint, SyncClient.request("apply")));
+            assertThrows(java.io.IOException.class, () -> DlcSyncClient.checked(endpoint, DlcSyncClient.request("apply")));
         }
         new DlcSyncAdapter().recover();
         assertEquals("retained", Files.readString(root.resolve("downloaded/required/main.txt")));
         assertEquals("retained", Files.readString(game.resolve("config/main.txt")));
-        try (SyncEndpoint endpoint = new SyncEndpoint(new DlcSyncAdapter())) {
-            JsonObject restore = SyncClient.request("recover_operation"); restore.addProperty("operation", operation); SyncClient.checked(endpoint, restore);
-            SyncClient.checked(endpoint, restore);
+        try (DlcSyncEndpoint endpoint = new DlcSyncEndpoint(new DlcSyncAdapter())) {
+            JsonObject restore = DlcSyncClient.request("recover_operation"); restore.addProperty("operation", operation); DlcSyncClient.checked(endpoint, restore);
+            DlcSyncClient.checked(endpoint, restore);
         }
         assertEquals("old resource", Files.readString(root.resolve("downloaded/required/main.txt")));
         assertEquals("original user file", Files.readString(game.resolve("config/main.txt")));
@@ -136,8 +136,8 @@ class DlcSyncAdapterTest {
         try (Journal journal = adapter.journal(adapter.workDirectory().resolve(interrupted).resolve("00000000-item/journal"))) {
             journal.capture(resource); Files.writeString(resource, "partial result");
         }
-        try (SyncEndpoint endpoint = new SyncEndpoint(new DlcSyncAdapter())) {
-            JsonObject begin = SyncClient.request("begin"); begin.addProperty("operation", UUID.randomUUID().toString()); SyncClient.checked(endpoint, begin);
+        try (DlcSyncEndpoint endpoint = new DlcSyncEndpoint(new DlcSyncAdapter())) {
+            JsonObject begin = DlcSyncClient.request("begin"); begin.addProperty("operation", UUID.randomUUID().toString()); DlcSyncClient.checked(endpoint, begin);
             assertEquals("partial result", Files.readString(resource));
         }
         new DlcSyncAdapter().recoverOperation(interrupted);
@@ -153,18 +153,18 @@ class DlcSyncAdapterTest {
         initial.setEnabled(true); DlcApplier.applySynced(initial);
         Files.writeString(game.resolve("mods/conflict.jar"), "unrelated conflicting mod");
         DlcSyncAdapter adapter = new DlcSyncAdapter();
-        try (SyncEndpoint endpoint = new SyncEndpoint(adapter)) {
-            JsonObject begin = SyncClient.request("begin"); begin.addProperty("operation", UUID.randomUUID().toString()); SyncClient.checked(endpoint, begin);
-            JsonObject row = SyncClient.request("item"); row.addProperty("key", "0:remote/main.dc"); SyncClient.checked(endpoint, row);
+        try (DlcSyncEndpoint endpoint = new DlcSyncEndpoint(adapter)) {
+            JsonObject begin = DlcSyncClient.request("begin"); begin.addProperty("operation", UUID.randomUUID().toString()); DlcSyncClient.checked(endpoint, begin);
+            JsonObject row = DlcSyncClient.request("item"); row.addProperty("key", "0:remote/main.dc"); DlcSyncClient.checked(endpoint, row);
             upload(endpoint, "0:remote/main.dc", "identifier='remote-main'\ntype='mod'\nfile_name='new.jar'\nconflicts=['mods/conflict.jar']\n");
             Path next = com.cozooo.dlc_manager.client.remote.DlcRemoteLoader.loadSingle(config, root).resolveTargetPath("new.jar");
             String id = "0:" + root.relativize(next).toString().replace('\\', '/');
             upload(endpoint, id, "new mod payload");
-            JsonObject apply = SyncClient.request("apply"); apply.addProperty("enabled", true); SyncClient.checked(endpoint, apply);
+            JsonObject apply = DlcSyncClient.request("apply"); apply.addProperty("enabled", true); DlcSyncClient.checked(endpoint, apply);
             assertFalse(Files.exists(game.resolve("mods/old.jar")));
             assertEquals("new mod payload", Files.readString(game.resolve("mods/new.jar")));
             assertFalse(Files.exists(game.resolve("mods/conflict.jar")));
-            SyncClient.checked(endpoint, SyncClient.request("item_done")); SyncClient.checked(endpoint, SyncClient.request("rollback"));
+            DlcSyncClient.checked(endpoint, DlcSyncClient.request("item_done")); DlcSyncClient.checked(endpoint, DlcSyncClient.request("rollback"));
             assertEquals(original, Files.readString(config));
             assertEquals("old mod", Files.readString(game.resolve("mods/old.jar")));
             assertEquals("unrelated conflicting mod", Files.readString(game.resolve("mods/conflict.jar")));
@@ -177,11 +177,11 @@ class DlcSyncAdapterTest {
     }
     @Test void explicitRecoveryCanUndoAnAcknowledgmentLostAfterCommit() throws Exception {
         String operation = UUID.randomUUID().toString();
-        try (SyncEndpoint endpoint = new SyncEndpoint(new DlcSyncAdapter())) {
-            JsonObject begin = SyncClient.request("begin"); begin.addProperty("operation", operation); SyncClient.checked(endpoint, begin);
-            JsonObject row = SyncClient.request("item"); row.addProperty("key", "0:required/main.dc"); SyncClient.checked(endpoint, row);
-            upload(endpoint, "new resource"); SyncClient.checked(endpoint, SyncClient.request("apply"));
-            SyncClient.checked(endpoint, SyncClient.request("item_done")); SyncClient.checked(endpoint, SyncClient.request("commit"));
+        try (DlcSyncEndpoint endpoint = new DlcSyncEndpoint(new DlcSyncAdapter())) {
+            JsonObject begin = DlcSyncClient.request("begin"); begin.addProperty("operation", operation); DlcSyncClient.checked(endpoint, begin);
+            JsonObject row = DlcSyncClient.request("item"); row.addProperty("key", "0:required/main.dc"); DlcSyncClient.checked(endpoint, row);
+            upload(endpoint, "new resource"); DlcSyncClient.checked(endpoint, DlcSyncClient.request("apply"));
+            DlcSyncClient.checked(endpoint, DlcSyncClient.request("item_done")); DlcSyncClient.checked(endpoint, DlcSyncClient.request("commit"));
         }
         new DlcSyncAdapter().recoverOperation(operation);
         assertEquals("old resource", Files.readString(root.resolve("downloaded/required/main.txt")));
@@ -202,13 +202,13 @@ class DlcSyncAdapterTest {
             DlcConfig.setDownloadMirrorMode("direct"); DlcConfig.setMaxRetryCount(1);
             String config = "# keep comment\nidentifier='main'\nfile_name='main.txt'\nappliedTarget='config/main.txt'\nunknown='keep'\ndownloadPriority='directurl'\ndirectUrl='http://127.0.0.1:" + server.getAddress().getPort() + "/main.txt'\n";
             Files.writeString(root.resolve("required/main.dc"), config);
-            try (SyncEndpoint endpoint = new SyncEndpoint(new DlcSyncAdapter())) {
+            try (DlcSyncEndpoint endpoint = new DlcSyncEndpoint(new DlcSyncAdapter())) {
                 start(endpoint);
-                JsonObject prepare = SyncClient.request("prepare"); prepare.addProperty("force", true); SyncClient.checked(endpoint, prepare);
+                JsonObject prepare = DlcSyncClient.request("prepare"); prepare.addProperty("force", true); DlcSyncClient.checked(endpoint, prepare);
                 assertEquals("downloaded resource", Files.readString(root.resolve("downloaded/required/main.txt")));
-                SyncClient.checked(endpoint, SyncClient.request("apply"));
+                DlcSyncClient.checked(endpoint, DlcSyncClient.request("apply"));
                 assertEquals("downloaded resource", Files.readString(game.resolve("config/main.txt")));
-                SyncClient.checked(endpoint, SyncClient.request("item_done")); SyncClient.checked(endpoint, SyncClient.request("rollback"));
+                DlcSyncClient.checked(endpoint, DlcSyncClient.request("item_done")); DlcSyncClient.checked(endpoint, DlcSyncClient.request("rollback"));
             }
             assertEquals(config, Files.readString(root.resolve("required/main.dc")));
             assertEquals("old resource", Files.readString(root.resolve("downloaded/required/main.txt")));
@@ -224,19 +224,19 @@ class DlcSyncAdapterTest {
         Files.writeString(target.resolve("old.txt"), "original");
         Path source = game.resolve("source-folder"), archive = game.resolve("folder.zip");
         Files.createDirectories(source.resolve("nested/empty")); Files.writeString(source.resolve("nested/new.txt"), "new resource");
-        SyncArchive.pack(source, archive, () -> false);
+        DlcSyncArchive.pack(source, archive, () -> false);
         DlcSyncAdapter adapter = new DlcSyncAdapter();
         String key = "0:remote/folder.dc", id = "0:" + root.relativize(target).toString().replace('\\', '/');
         assertEquals(DlcFileMatch.fullHash(target), adapter.item(key).resources().get(0).hash());
-        try (SyncEndpoint endpoint = new SyncEndpoint(adapter)) {
-            JsonObject begin = SyncClient.request("begin"); begin.addProperty("operation", UUID.randomUUID().toString()); SyncClient.checked(endpoint, begin);
-            JsonObject row = SyncClient.request("item"); row.addProperty("key", key); SyncClient.checked(endpoint, row);
-            JsonObject write = SyncClient.request("write"); write.add("file", SyncEndpoint.JSON.toJsonTree(new File(id, Files.size(archive), DlcFileMatch.fullHash(source))));
-            write.addProperty("hash", DlcFileMatch.fullHash(archive)); write.addProperty("directory", true); write.addProperty("resourceSize", SyncArchive.size(source)); SyncClient.checked(endpoint, write);
-            JsonObject chunk = SyncClient.request("write_chunk"); chunk.addProperty("data", Base64.getEncoder().encodeToString(Files.readAllBytes(archive))); SyncClient.checked(endpoint, chunk);
-            SyncClient.checked(endpoint, SyncClient.request("write_end"));
+        try (DlcSyncEndpoint endpoint = new DlcSyncEndpoint(adapter)) {
+            JsonObject begin = DlcSyncClient.request("begin"); begin.addProperty("operation", UUID.randomUUID().toString()); DlcSyncClient.checked(endpoint, begin);
+            JsonObject row = DlcSyncClient.request("item"); row.addProperty("key", key); DlcSyncClient.checked(endpoint, row);
+            JsonObject write = DlcSyncClient.request("write"); write.add("file", DlcSyncEndpoint.JSON.toJsonTree(new File(id, Files.size(archive), DlcFileMatch.fullHash(source))));
+            write.addProperty("hash", DlcFileMatch.fullHash(archive)); write.addProperty("directory", true); write.addProperty("resourceSize", DlcSyncArchive.size(source)); DlcSyncClient.checked(endpoint, write);
+            JsonObject chunk = DlcSyncClient.request("write_chunk"); chunk.addProperty("data", Base64.getEncoder().encodeToString(Files.readAllBytes(archive))); DlcSyncClient.checked(endpoint, chunk);
+            DlcSyncClient.checked(endpoint, DlcSyncClient.request("write_end"));
             assertEquals(DlcFileMatch.fullHash(source), DlcFileMatch.fullHash(target)); assertFalse(Files.exists(target.resolve("old.txt")));
-            SyncClient.checked(endpoint, SyncClient.request("item_done")); SyncClient.checked(endpoint, SyncClient.request("rollback"));
+            DlcSyncClient.checked(endpoint, DlcSyncClient.request("item_done")); DlcSyncClient.checked(endpoint, DlcSyncClient.request("rollback"));
             assertEquals("original", Files.readString(target.resolve("old.txt"))); assertFalse(Files.exists(target.resolve("nested")));
         }
         Path malicious = game.resolve("escape.zip");
@@ -244,7 +244,7 @@ class DlcSyncAdapterTest {
             output.putNextEntry(new java.util.zip.ZipEntry("../escape.txt")); output.write(1); output.closeEntry();
         }
         Journal journal = adapter.journal(root.resolve("tmp/test-directory-recovery"));
-        try { assertThrows(java.io.IOException.class, () -> SyncArchive.install(malicious, target, 1, "invalid", journal, () -> false)); }
+        try { assertThrows(java.io.IOException.class, () -> DlcSyncArchive.install(malicious, target, 1, "invalid", journal, () -> false)); }
         finally { journal.close(); }
         assertEquals("original", Files.readString(target.resolve("old.txt"))); assertFalse(Files.exists(target.getParent().resolve("escape.txt")));
     }
@@ -264,10 +264,10 @@ class DlcSyncAdapterTest {
             output.putNextEntry(new java.util.zip.ZipEntry("extra.txt")); output.write("extra".getBytes(java.nio.charset.StandardCharsets.UTF_8)); output.closeEntry();
         }
         Files.writeString(root.resolve("required/main.dc"), "identifier='main'\nfile_name='main.zip'\nunzip=true\nappliedTarget='config/'\n");
-        try (SyncEndpoint endpoint = new SyncEndpoint(new DlcSyncAdapter())) {
-            start(endpoint); SyncClient.checked(endpoint, SyncClient.request("apply"));
+        try (DlcSyncEndpoint endpoint = new DlcSyncEndpoint(new DlcSyncAdapter())) {
+            start(endpoint); DlcSyncClient.checked(endpoint, DlcSyncClient.request("apply"));
             assertEquals("new extracted resource", Files.readString(game.resolve("config/main.txt"))); assertTrue(Files.exists(game.resolve("config/extra.txt")));
-            SyncClient.checked(endpoint, SyncClient.request("item_done")); SyncClient.checked(endpoint, SyncClient.request("rollback"));
+            DlcSyncClient.checked(endpoint, DlcSyncClient.request("item_done")); DlcSyncClient.checked(endpoint, DlcSyncClient.request("rollback"));
         }
         assertEquals("original user file", Files.readString(game.resolve("config/main.txt"))); assertFalse(Files.exists(game.resolve("config/extra.txt")));
         assertFalse(Files.exists(root.resolve("tmp/required/history.dc")));
@@ -286,19 +286,19 @@ class DlcSyncAdapterTest {
         Files.createDirectories(version.getParent());
         Files.writeString(version, "base='1.0.0'\ndlc='1.0.0'\n");
     }
-    private void beginItem(SyncEndpoint endpoint, String key) throws Exception {
-        JsonObject begin = SyncClient.request("begin"); begin.addProperty("operation", UUID.randomUUID().toString()); SyncClient.checked(endpoint, begin);
-        JsonObject row = SyncClient.request("item"); row.addProperty("key", key); SyncClient.checked(endpoint, row);
+    private void beginItem(DlcSyncEndpoint endpoint, String key) throws Exception {
+        JsonObject begin = DlcSyncClient.request("begin"); begin.addProperty("operation", UUID.randomUUID().toString()); DlcSyncClient.checked(endpoint, begin);
+        JsonObject row = DlcSyncClient.request("item"); row.addProperty("key", key); DlcSyncClient.checked(endpoint, row);
     }
-    private void validate(SyncEndpoint endpoint, Item item) throws Exception {
-        JsonObject request = SyncClient.request("validate"); request.add("item", SyncEndpoint.JSON.toJsonTree(item)); SyncClient.checked(endpoint, request);
+    private void validate(DlcSyncEndpoint endpoint, Item item) throws Exception {
+        JsonObject request = DlcSyncClient.request("validate"); request.add("item", DlcSyncEndpoint.JSON.toJsonTree(item)); DlcSyncClient.checked(endpoint, request);
     }
-    private void uploadBytes(SyncEndpoint endpoint, String key, byte[] bytes) throws Exception {
+    private void uploadBytes(DlcSyncEndpoint endpoint, String key, byte[] bytes) throws Exception {
         Path incoming = Files.write(game.resolve("incoming.zip"), bytes);
-        JsonObject write = SyncClient.request("write"); write.add("file", SyncEndpoint.JSON.toJsonTree(new File(key, bytes.length, DlcFileMatch.fullHash(incoming))));
-        write.addProperty("hash", DlcFileMatch.fullHash(incoming)); SyncClient.checked(endpoint, write);
-        JsonObject chunk = SyncClient.request("write_chunk"); chunk.addProperty("data", Base64.getEncoder().encodeToString(bytes)); SyncClient.checked(endpoint, chunk);
-        SyncClient.checked(endpoint, SyncClient.request("write_end"));
+        JsonObject write = DlcSyncClient.request("write"); write.add("file", DlcSyncEndpoint.JSON.toJsonTree(new File(key, bytes.length, DlcFileMatch.fullHash(incoming))));
+        write.addProperty("hash", DlcFileMatch.fullHash(incoming)); DlcSyncClient.checked(endpoint, write);
+        JsonObject chunk = DlcSyncClient.request("write_chunk"); chunk.addProperty("data", Base64.getEncoder().encodeToString(bytes)); DlcSyncClient.checked(endpoint, chunk);
+        DlcSyncClient.checked(endpoint, DlcSyncClient.request("write_end"));
     }
     @Test void discoversPresetsManagerConfigurationsAndUpdateMetadataWithoutExtractingOrCreatingVersion() throws Exception {
         Path manager = game.resolve("config/dlc_manager"); Files.createDirectories(manager);
@@ -309,8 +309,8 @@ class DlcSyncAdapterTest {
         Path zip = updateZip("next.zip", "universal", "1.0.0", "1.1.0", null);
         updateZip("base.zip", "universal", "1.0.0", null, "2.0.0");
         DlcSyncAdapter adapter = new DlcSyncAdapter();
-        Map<String, Item> before = SyncModel.index(adapter.manifest());
-        assertEquals("测试预设", SyncModel.displayName(before.get("0:preset/nested/main.dc"), "zh_cn"));
+        Map<String, Item> before = DlcSyncModel.index(adapter.manifest());
+        assertEquals("测试预设", DlcSyncModel.displayName(before.get("0:preset/nested/main.dc"), "zh_cn"));
         assertTrue(before.get("manager:config.dc").displayNames().isEmpty());
         assertFalse(before.containsKey("manager:config-server.dc"));
         assertEquals("1.0.0", before.get("0:update/base.zip").update().dlcNew());
@@ -319,7 +319,7 @@ class DlcSyncAdapterTest {
         assertFalse(Files.exists(game.resolve("config/dlc_manager/version.dc")));
         assertFalse(Files.exists(root.resolve("tmp/_staging")));
         installedVersion();
-        assertTrue(SyncModel.versionState(SyncModel.index(adapter.manifest()).get("manager:version.dc")));
+        assertTrue(DlcSyncModel.versionState(DlcSyncModel.index(adapter.manifest()).get("manager:version.dc")));
         assertThrows(java.io.IOException.class, () -> adapter.validateKey("0:info/version.dc"));
         assertThrows(java.io.IOException.class, () -> adapter.resolve("manager:../other.dc"));
         assertThrows(java.io.IOException.class, () -> adapter.resolve("manager:state.dc"));
@@ -332,20 +332,20 @@ class DlcSyncAdapterTest {
         byte[] original = Files.readAllBytes(zip);
         DlcSyncAdapter adapter = new DlcSyncAdapter(); Item expected = adapter.item(key);
         byte[] replacement = Files.readAllBytes(updateZip("payload.zip", "universal", "1.0.0", "1.2.0", null));
-        try (SyncEndpoint endpoint = new SyncEndpoint(adapter)) {
+        try (DlcSyncEndpoint endpoint = new DlcSyncEndpoint(adapter)) {
             beginItem(endpoint, key); validate(endpoint, expected); uploadBytes(endpoint, key, replacement);
-            assertFalse(SyncClient.checked(endpoint, SyncClient.request("apply")).get("requiresRestart").getAsBoolean());
-            SyncClient.checked(endpoint, SyncClient.request("item_done"));
+            assertFalse(DlcSyncClient.checked(endpoint, DlcSyncClient.request("apply")).get("requiresRestart").getAsBoolean());
+            DlcSyncClient.checked(endpoint, DlcSyncClient.request("item_done"));
             assertArrayEquals(replacement, Files.readAllBytes(zip));
             assertEquals(version, Files.readString(game.resolve("config/dlc_manager/version.dc")));
             assertFalse(Files.exists(game.resolve("mods/new.jar")));
             assertFalse(Files.exists(root.resolve("tmp/_staging")));
-            SyncClient.checked(endpoint, SyncClient.request("rollback"));
+            DlcSyncClient.checked(endpoint, DlcSyncClient.request("rollback"));
         }
         assertArrayEquals(original, Files.readAllBytes(zip));
-        try (SyncEndpoint endpoint = new SyncEndpoint(new DlcSyncAdapter())) {
+        try (DlcSyncEndpoint endpoint = new DlcSyncEndpoint(new DlcSyncAdapter())) {
             beginItem(endpoint, key); validate(endpoint, expected); uploadBytes(endpoint, key, replacement);
-            SyncClient.checked(endpoint, SyncClient.request("apply")); SyncClient.checked(endpoint, SyncClient.request("item_done")); SyncClient.checked(endpoint, SyncClient.request("commit"));
+            DlcSyncClient.checked(endpoint, DlcSyncClient.request("apply")); DlcSyncClient.checked(endpoint, DlcSyncClient.request("item_done")); DlcSyncClient.checked(endpoint, DlcSyncClient.request("commit"));
         }
         new DlcSyncAdapter().recover();
         assertArrayEquals(replacement, Files.readAllBytes(zip)); assertEquals(version, Files.readString(game.resolve("config/dlc_manager/version.dc"))); assertFalse(Files.exists(game.resolve("mods/new.jar")));
@@ -354,13 +354,13 @@ class DlcSyncAdapterTest {
         installedVersion();
         Path incoming = updateZip("later.zip", "universal", "1.1.0", "1.2.0", null);
         DlcSyncAdapter adapter = new DlcSyncAdapter(); Item item = adapter.item("0:update/later.zip");
-        try (SyncEndpoint endpoint = new SyncEndpoint(adapter)) {
+        try (DlcSyncEndpoint endpoint = new DlcSyncEndpoint(adapter)) {
             beginItem(endpoint, item.key());
             assertThrows(java.io.IOException.class, () -> validate(endpoint, item));
             updateZip("first.zip", "universal", "1.0.0", "1.1.0", null);
             validate(endpoint, item);
             assertEquals(Files.size(incoming), item.config().size());
-            SyncClient.checked(endpoint, SyncClient.request("rollback"));
+            DlcSyncClient.checked(endpoint, DlcSyncClient.request("rollback"));
         }
     }
     @Test void preservesManagerAndPresetTextAndRollsBackTheirOverwrites() throws Exception {
@@ -368,12 +368,12 @@ class DlcSyncAdapterTest {
             DlcSyncAdapter adapter = new DlcSyncAdapter(); Path path = adapter.resolve(key); Files.createDirectories(path.getParent());
             String original = "# original\nidentifier='before'\nunknown='retain'\n", replacement = "# incoming\nidentifier='after'\nunknown='preserve'\n";
             Files.writeString(path, original);
-            try (SyncEndpoint endpoint = new SyncEndpoint(adapter)) {
+            try (DlcSyncEndpoint endpoint = new DlcSyncEndpoint(adapter)) {
                 beginItem(endpoint, key); upload(endpoint, key, replacement);
-                assertTrue(SyncClient.checked(endpoint, SyncClient.request("apply")).get("requiresRestart").getAsBoolean());
-                SyncClient.checked(endpoint, SyncClient.request("item_done"));
+                assertTrue(DlcSyncClient.checked(endpoint, DlcSyncClient.request("apply")).get("requiresRestart").getAsBoolean());
+                DlcSyncClient.checked(endpoint, DlcSyncClient.request("item_done"));
                 assertEquals(replacement, Files.readString(path));
-                SyncClient.checked(endpoint, SyncClient.request("rollback"));
+                DlcSyncClient.checked(endpoint, DlcSyncClient.request("rollback"));
             }
             assertEquals(original, Files.readString(path));
         }
@@ -394,9 +394,9 @@ class DlcSyncAdapterTest {
         com.cozooo.dlc_manager.client.preset.DlcPresetStateStore.savePresetStatus(Map.of("preset-main", com.cozooo.dlc_manager.client.preset.DlcPresetStatus.ON));
         Item enabled = adapter.item("0:preset/main.dc");
         assertEquals(false, disabled.enabled()); assertEquals(true, enabled.enabled());
-        assertTrue(SyncModel.plan(List.of(enabled), List.of(disabled), Direction.PUSH, false, Mode.CONFIG).isEmpty());
-        Row row = SyncModel.plan(List.of(enabled), List.of(disabled), Direction.PUSH, true, Mode.CONFIG).get(0);
-        assertEquals("state_changed", SyncModel.status(row, Mode.CONFIG));
+        assertTrue(DlcSyncModel.plan(List.of(enabled), List.of(disabled), Direction.PUSH, false, Mode.CONFIG).isEmpty());
+        Row row = DlcSyncModel.plan(List.of(enabled), List.of(disabled), Direction.PUSH, true, Mode.CONFIG).get(0);
+        assertEquals("state_changed", DlcSyncModel.status(row, Mode.CONFIG));
     }
     @Test void presetMetadataUsesTheSameIdentifierPrecedenceAsThePresetLoader() throws Exception {
         presetWithMod();
@@ -408,13 +408,13 @@ class DlcSyncAdapterTest {
     @Test void presetSyncRunsEnableAndConflictOperationsAndRollbackRestoresEverything() throws Exception {
         presetWithMod();
         Path state = com.cozooo.dlc_manager.client.preset.DlcPresetStateStore.getStatePath();
-        try (SyncEndpoint endpoint = new SyncEndpoint(new DlcSyncAdapter())) {
+        try (DlcSyncEndpoint endpoint = new DlcSyncEndpoint(new DlcSyncAdapter())) {
             beginItem(endpoint, "0:preset/main.dc");
-            JsonObject apply = SyncClient.request("apply"); apply.addProperty("enabled", true); SyncClient.checked(endpoint, apply);
+            JsonObject apply = DlcSyncClient.request("apply"); apply.addProperty("enabled", true); DlcSyncClient.checked(endpoint, apply);
             assertEquals("preset mod", Files.readString(game.resolve("mods/preset.jar")));
             assertFalse(Files.exists(game.resolve("config/unrelated.txt")));
             assertTrue(com.cozooo.dlc_manager.client.preset.DlcPresetStateStore.loadPresetStatus().get("preset-main").isEnabled());
-            SyncClient.checked(endpoint, SyncClient.request("item_done")); SyncClient.checked(endpoint, SyncClient.request("rollback"));
+            DlcSyncClient.checked(endpoint, DlcSyncClient.request("item_done")); DlcSyncClient.checked(endpoint, DlcSyncClient.request("rollback"));
         }
         assertFalse(Files.exists(game.resolve("mods/preset.jar")));
         assertEquals("keep", Files.readString(game.resolve("config/unrelated.txt")));
@@ -423,11 +423,11 @@ class DlcSyncAdapterTest {
     }
     @Test void presetRecoveryAfterLostCommitAcknowledgmentRestoresFilesAndRuntime() throws Exception {
         presetWithMod(); String operation = UUID.randomUUID().toString();
-        try (SyncEndpoint endpoint = new SyncEndpoint(new DlcSyncAdapter())) {
-            JsonObject begin = SyncClient.request("begin"); begin.addProperty("operation", operation); SyncClient.checked(endpoint, begin);
-            JsonObject item = SyncClient.request("item"); item.addProperty("key", "0:preset/main.dc"); SyncClient.checked(endpoint, item);
-            JsonObject apply = SyncClient.request("apply"); apply.addProperty("enabled", true); SyncClient.checked(endpoint, apply);
-            SyncClient.checked(endpoint, SyncClient.request("item_done")); SyncClient.checked(endpoint, SyncClient.request("commit"));
+        try (DlcSyncEndpoint endpoint = new DlcSyncEndpoint(new DlcSyncAdapter())) {
+            JsonObject begin = DlcSyncClient.request("begin"); begin.addProperty("operation", operation); DlcSyncClient.checked(endpoint, begin);
+            JsonObject item = DlcSyncClient.request("item"); item.addProperty("key", "0:preset/main.dc"); DlcSyncClient.checked(endpoint, item);
+            JsonObject apply = DlcSyncClient.request("apply"); apply.addProperty("enabled", true); DlcSyncClient.checked(endpoint, apply);
+            DlcSyncClient.checked(endpoint, DlcSyncClient.request("item_done")); DlcSyncClient.checked(endpoint, DlcSyncClient.request("commit"));
         }
         new DlcSyncAdapter().recoverOperation(operation);
         assertFalse(Files.exists(game.resolve("mods/preset.jar")));
@@ -437,18 +437,18 @@ class DlcSyncAdapterTest {
     }
     @Test void enabledPresetMayBePartialOnTheDestinationWithoutFailingSynchronization() throws Exception {
         presetWithMod(); Files.writeString(root.resolve("preset/main.dc"), "identifier='preset-main'\nenable=['preset-mod','missing-dlc']\n");
-        try (SyncEndpoint endpoint = new SyncEndpoint(new DlcSyncAdapter())) {
+        try (DlcSyncEndpoint endpoint = new DlcSyncEndpoint(new DlcSyncAdapter())) {
             beginItem(endpoint, "0:preset/main.dc");
-            JsonObject apply = SyncClient.request("apply"); apply.addProperty("enabled", true);
-            SyncClient.checked(endpoint, apply);
+            JsonObject apply = DlcSyncClient.request("apply"); apply.addProperty("enabled", true);
+            DlcSyncClient.checked(endpoint, apply);
             assertEquals(com.cozooo.dlc_manager.client.preset.DlcPresetStatus.PART, com.cozooo.dlc_manager.client.preset.DlcPresetStateStore.loadPresetStatus().get("preset-main"));
             assertEquals("preset mod", Files.readString(game.resolve("mods/preset.jar")));
             Item partial = new DlcSyncAdapter().item("0:preset/main.dc");
             assertEquals(true, partial.enabled());
             com.cozooo.dlc_manager.client.preset.DlcPresetStateStore.savePresetStatus(Map.of("preset-main", com.cozooo.dlc_manager.client.preset.DlcPresetStatus.ON));
             Item full = new DlcSyncAdapter().item("0:preset/main.dc");
-            assertTrue(SyncModel.plan(List.of(full), List.of(partial), Direction.PUSH, true, Mode.CONFIG).isEmpty());
-            SyncClient.checked(endpoint, SyncClient.request("rollback"));
+            assertTrue(DlcSyncModel.plan(List.of(full), List.of(partial), Direction.PUSH, true, Mode.CONFIG).isEmpty());
+            DlcSyncClient.checked(endpoint, DlcSyncClient.request("rollback"));
         }
         assertFalse(com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState.isPresetEnabled("preset-main"));
         assertTrue(com.cozooo.dlc_manager.client.preset.DlcPresetStateStore.loadPresetStatus().isEmpty());
@@ -460,18 +460,18 @@ class DlcSyncAdapterTest {
         Files.writeString(path, original);
         DlcSyncAdapter adapter = new DlcSyncAdapter();
         assertThrows(java.io.IOException.class, () -> adapter.resolve("manager:config-server.dc"));
-        assertFalse(SyncEndpoint.JSON.toJson(adapter.item("manager:config.dc")).contains("secret"));
-        try (SyncEndpoint endpoint = new SyncEndpoint(adapter)) {
+        assertFalse(DlcSyncEndpoint.JSON.toJson(adapter.item("manager:config.dc")).contains("secret"));
+        try (DlcSyncEndpoint endpoint = new DlcSyncEndpoint(adapter)) {
             beginItem(endpoint, "manager:config.dc");
             JsonObject values = DlcConfig.buildSyncConfigJson(null); values.getAsJsonObject("downloads").addProperty("maxConcurrentDownloads", 3);
-            JsonObject settings = SyncClient.request("settings"); settings.add("settings", values); SyncClient.checked(endpoint, settings);
-            SyncClient.checked(endpoint, SyncClient.request("apply")); SyncClient.checked(endpoint, SyncClient.request("item_done"));
+            JsonObject settings = DlcSyncClient.request("settings"); settings.add("settings", values); DlcSyncClient.checked(endpoint, settings);
+            DlcSyncClient.checked(endpoint, DlcSyncClient.request("apply")); DlcSyncClient.checked(endpoint, DlcSyncClient.request("item_done"));
             JsonObject after = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC);
             assertEquals(3, after.getAsJsonObject("downloads").get("maxConcurrentDownloads").getAsInt());
             assertEquals("secret", after.getAsJsonObject("api").get("apiToken").getAsString());
             assertEquals("private", after.getAsJsonObject("server").get("serverPassword").getAsString());
             assertTrue(after.getAsJsonObject("ui").get("showDependencyReminder").getAsBoolean());
-            SyncClient.checked(endpoint, SyncClient.request("rollback"));
+            DlcSyncClient.checked(endpoint, DlcSyncClient.request("rollback"));
             assertEquals(original, Files.readString(path));
         }
     }

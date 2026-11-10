@@ -6,8 +6,8 @@ import java.util.*;
 import java.util.function.BooleanSupplier;
 import com.google.gson.JsonObject;
 
-public final class SyncModel {
-    private SyncModel() {}
+public final class DlcSyncModel {
+    private DlcSyncModel() {}
     public enum Mode { CONFIG, FILES }
     public enum Direction { PUSH, PULL }
     public enum Category { ALL, DLC, REQUIRED, UPDATE, MANAGER_CONFIG, PRESET }
@@ -46,12 +46,12 @@ public final class SyncModel {
         List<Item> manifest() throws IOException;
         default Item item(String key) throws IOException {
             for (Item item : manifest()) if (item.key().equals(key)) return item;
-            throw new SyncFailure("config_not_found", key);
+            throw new DlcSyncFailure("config_not_found", key);
         }
         Path resolve(String id) throws IOException;
         void validateKey(String key) throws IOException;
         default void validateIncoming(Item item) throws IOException {}
-        default void writeSettings(String key, JsonObject settings, Journal journal) throws IOException { throw new SyncFailure("settings_unavailable"); }
+        default void writeSettings(String key, JsonObject settings, Journal journal) throws IOException { throw new DlcSyncFailure("settings_unavailable"); }
         Journal journal(Path directory) throws IOException;
         void prepare(String key, boolean force, BooleanSupplier canceled, Progress progress) throws Exception;
         boolean apply(String key, Boolean enabled, Journal journal, BooleanSupplier canceled) throws Exception;

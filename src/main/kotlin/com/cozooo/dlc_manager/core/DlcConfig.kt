@@ -29,7 +29,6 @@ object DlcConfig {
     const val DEFAULT_SHOW_ON_FIRST_RUN: Boolean = false
     const val DEFAULT_SHOW_DEPENDENCY_REMINDER: Boolean = false
     const val DEFAULT_ALARM_WAITING_TIME: Int = 0
-    const val DEFAULT_SERVER_SUPPORT: Boolean = true
     const val DEFAULT_SERVER_PASSWORD: String = ""
     const val DEFAULT_API_ENABLED: Boolean = false
     const val DEFAULT_API_PORT: Int = 10086
@@ -71,6 +70,7 @@ object DlcConfig {
     const val DEFAULT_UPDATE_GIT_REPO_URL: String = ""
     const val DEFAULT_MODPACK_AUTO_UPDATE: Boolean = false
     const val DEFAULT_MODPACK_FORCE_UPDATE: Boolean = false
+    const val DEFAULT_PACK_UPDATE_CHANNEL: String = "all"
 
     private var dlcRoot = DEFAULT_DLC_ROOT
     private var taczRoot = DEFAULT_TACZ_ROOT
@@ -87,7 +87,6 @@ object DlcConfig {
     private var showOnFirstRun = DEFAULT_SHOW_ON_FIRST_RUN
     private var showDependencyReminder = DEFAULT_SHOW_DEPENDENCY_REMINDER
     private var alarmWaitingTime = DEFAULT_ALARM_WAITING_TIME
-    private var serverSupportClient = DEFAULT_SERVER_SUPPORT
     private var serverPassword = DEFAULT_SERVER_PASSWORD
     private var apiEnabled = DEFAULT_API_ENABLED
     private var apiPort = DEFAULT_API_PORT
@@ -115,6 +114,7 @@ object DlcConfig {
     private var updateGitRepoClient = DEFAULT_UPDATE_GIT_REPO_URL
     private var modpackAutoUpdate = DEFAULT_MODPACK_AUTO_UPDATE
     private var modpackForceUpdate = DEFAULT_MODPACK_FORCE_UPDATE
+    private var packUpdateChannel = DEFAULT_PACK_UPDATE_CHANNEL
     private var maxConcurrentDownloads = DEFAULT_MAX_CONCURRENT_DOWNLOADS
     private var maxSegmentsPerFile = DEFAULT_MAX_SEGMENTS_PER_FILE
     private var minSegmentMb = DEFAULT_MIN_SEGMENT_MB
@@ -146,7 +146,6 @@ object DlcConfig {
     fun buildServerConfigJson(): JsonObject {
         val root = JsonObject()
         writeShared(root)
-        root.getAsJsonObject("ui")?.remove("serverSupport")
         writeServer(root)
         return root
     }
@@ -164,7 +163,7 @@ object DlcConfig {
         ui.addProperty("isUpdateManagerOn", DEFAULT_UPDATE_MANAGER_ON)
         ui.addProperty("isSelfUpdateAutoCheckOn", DEFAULT_SELF_UPDATE_AUTO_CHECK_ON)
         ui.addProperty("isPresetFuncOn", DEFAULT_PRESET_FUNC_ON)
-        ui.addProperty("WaitingTime", DEFAULT_ALARM_WAITING_TIME)
+        ui.addProperty("waitingTime", DEFAULT_ALARM_WAITING_TIME)
         defaults.add("ui", ui)
         val downloads = JsonObject()
         downloads.addProperty("maxConcurrentDownloads", DEFAULT_MAX_CONCURRENT_DOWNLOADS)
@@ -181,6 +180,7 @@ object DlcConfig {
         modpack.addProperty("updateGitRepo", DEFAULT_UPDATE_GIT_REPO_URL)
         modpack.addProperty("autoUpdate", DEFAULT_MODPACK_AUTO_UPDATE)
         modpack.addProperty("forceUpdate", DEFAULT_MODPACK_FORCE_UPDATE)
+        modpack.addProperty("packUpdateChannel", DEFAULT_PACK_UPDATE_CHANNEL)
         defaults.add("modpack", modpack)
         for ((section, entries) in defaults.entrySet()) {
             val incoming = DlcDcConfigIO.getObjectIgnoreCase(source, section)
@@ -244,7 +244,7 @@ object DlcConfig {
     @JvmStatic fun isShowOnFirstRun(): Boolean = showOnFirstRun
     @JvmStatic fun isShowDependencyReminder(): Boolean = showDependencyReminder
     @JvmStatic fun getAlarmWaitingTime(): Int = alarmWaitingTime
-    @JvmStatic fun isServerSupportOn(): Boolean = serverSupportClient
+    @JvmStatic fun isServerSupportOn(): Boolean = true
     @JvmStatic fun isServerSupportOnServer(): Boolean = true
     @JvmStatic fun getServerPassword(): String = serverPassword
     @JvmStatic fun isApiEnabled(): Boolean = apiEnabled
@@ -279,6 +279,7 @@ object DlcConfig {
     @JvmStatic fun getServerUpdateGitRepoUrl(): String = getUpdateGitRepoUrl()
     @JvmStatic fun isModpackAutoUpdateOn(): Boolean = modpackAutoUpdate
     @JvmStatic fun isModpackForceUpdateOn(): Boolean = modpackForceUpdate
+    @JvmStatic fun getPackUpdateChannel(): String = packUpdateChannel
 
     @JvmStatic
     fun computeTitleButtonPosition(screenWidth: Int, screenHeight: Int, buttonWidth: Int, buttonHeight: Int, defaultX: Int, defaultY: Int): IntArray {
@@ -349,7 +350,6 @@ object DlcConfig {
     @JvmStatic fun setShowOnFirstRun(value: Boolean) { showOnFirstRun = value }
     @JvmStatic fun setShowDependencyReminder(value: Boolean) { showDependencyReminder = value }
     @JvmStatic fun setAlarmWaitingTime(value: Int) { alarmWaitingTime = clampInt(value, 0, 10, DEFAULT_ALARM_WAITING_TIME) }
-    @JvmStatic fun setServerSupportOn(value: Boolean) { serverSupportClient = value }
     @JvmStatic fun setServerSupportOnServer(@Suppress("UNUSED_PARAMETER") value: Boolean) {}
     @JvmStatic fun setServerPassword(value: String?) { serverPassword = value ?: DEFAULT_SERVER_PASSWORD }
     @JvmStatic fun setApiEnabled(value: Boolean) { apiEnabled = value }
@@ -378,6 +378,17 @@ object DlcConfig {
     @JvmStatic fun setUpdateGitRepoUrl(value: String?) { updateGitRepoClient = value ?: DEFAULT_UPDATE_GIT_REPO_URL }
     @JvmStatic fun setModpackAutoUpdateOn(value: Boolean) { modpackAutoUpdate = value }
     @JvmStatic fun setModpackForceUpdateOn(value: Boolean) { modpackForceUpdate = value }
+    @JvmStatic fun setPackUpdateChannel(value: String?) { packUpdateChannel = normalizePackUpdateChannel(value) }
+
+    private fun normalizePackUpdateChannel(value: String?): String {
+        if (value.isNullOrBlank()) {
+            return DEFAULT_PACK_UPDATE_CHANNEL
+        }
+        return when (value.trim().lowercase(Locale.ROOT)) {
+            "stable", "beta", "alpha", "nightly" -> value.trim().lowercase(Locale.ROOT)
+            else -> DEFAULT_PACK_UPDATE_CHANNEL
+        }
+    }
     @JvmStatic fun setServerModpackUrl(value: String?) = setModpackUrl(value)
     @JvmStatic fun setServerUpdateGitRepoUrl(value: String?) = setUpdateGitRepoUrl(value)
     @JvmStatic fun setMaxConcurrentDownloads(value: Int) { maxConcurrentDownloads = maxOf(1, value) }
@@ -407,7 +418,6 @@ object DlcConfig {
         showOnFirstRun = DEFAULT_SHOW_ON_FIRST_RUN
         showDependencyReminder = DEFAULT_SHOW_DEPENDENCY_REMINDER
         alarmWaitingTime = DEFAULT_ALARM_WAITING_TIME
-        serverSupportClient = DEFAULT_SERVER_SUPPORT
         serverPassword = DEFAULT_SERVER_PASSWORD
         apiEnabled = DEFAULT_API_ENABLED
         apiPort = DEFAULT_API_PORT
@@ -435,6 +445,7 @@ object DlcConfig {
         updateGitRepoClient = DEFAULT_UPDATE_GIT_REPO_URL
         modpackAutoUpdate = DEFAULT_MODPACK_AUTO_UPDATE
         modpackForceUpdate = DEFAULT_MODPACK_FORCE_UPDATE
+        packUpdateChannel = DEFAULT_PACK_UPDATE_CHANNEL
         maxConcurrentDownloads = DEFAULT_MAX_CONCURRENT_DOWNLOADS
         maxSegmentsPerFile = DEFAULT_MAX_SEGMENTS_PER_FILE
         minSegmentMb = DEFAULT_MIN_SEGMENT_MB
@@ -586,10 +597,9 @@ object DlcConfig {
         obj.addProperty("isPresetFuncOn", presetFuncOn)
         obj.addProperty("isPackFuncOn", packFuncOn)
         obj.addProperty("isPButtomShown", pButtonShown)
-        obj.addProperty("ShowOnFirstRun", showOnFirstRun)
+        obj.addProperty("showOnFirstRun", showOnFirstRun)
         obj.addProperty("showDependencyReminder", showDependencyReminder)
-        obj.addProperty("WaitingTime", alarmWaitingTime)
-        obj.addProperty("serverSupport", serverSupportClient)
+        obj.addProperty("waitingTime", alarmWaitingTime)
         obj.addProperty("titleAnchor", titleAnchor)
         obj.addProperty("titleOffsetX", titleOffsetX)
         obj.addProperty("titleOffsetY", titleOffsetY)
@@ -638,6 +648,7 @@ object DlcConfig {
         obj.addProperty("updateGitRepo", updateGitRepoClient)
         obj.addProperty("autoUpdate", modpackAutoUpdate)
         obj.addProperty("forceUpdate", modpackForceUpdate)
+        obj.addProperty("packUpdateChannel", packUpdateChannel)
         root.add("modpack", obj)
     }
 
@@ -677,9 +688,10 @@ object DlcConfig {
         "isPackFuncOn" to { value -> packFuncOn = asBoolean(value, DEFAULT_PACK_FUNC_ON) },
         "isPButtomShown" to { value -> pButtonShown = asBoolean(value, DEFAULT_P_BUTTON_SHOWN) },
         "ShowOnFirstRun" to { value -> showOnFirstRun = asBoolean(value, DEFAULT_SHOW_ON_FIRST_RUN) },
+        "showOnFirstRun" to { value -> showOnFirstRun = asBoolean(value, DEFAULT_SHOW_ON_FIRST_RUN) },
         "showDependencyReminder" to { value -> showDependencyReminder = asBoolean(value, DEFAULT_SHOW_DEPENDENCY_REMINDER) },
         "WaitingTime" to { value -> alarmWaitingTime = clampInt(asInt(value, DEFAULT_ALARM_WAITING_TIME), 0, 10, DEFAULT_ALARM_WAITING_TIME) },
-        "serverSupport" to { value -> serverSupportClient = asBoolean(value, DEFAULT_SERVER_SUPPORT) },
+        "waitingTime" to { value -> alarmWaitingTime = clampInt(asInt(value, DEFAULT_ALARM_WAITING_TIME), 0, 10, DEFAULT_ALARM_WAITING_TIME) },
         "titleAnchor" to { value -> titleAnchor = asString(value, DEFAULT_TITLE_ANCHOR) },
         "titleOffsetX" to { value -> titleOffsetX = asInt(value, DEFAULT_TITLE_OFFSET_X) },
         "titleOffsetY" to { value -> titleOffsetY = asInt(value, DEFAULT_TITLE_OFFSET_Y) },
@@ -713,6 +725,7 @@ object DlcConfig {
         "updateGitRepo" to { value -> updateGitRepoClient = asString(value, DEFAULT_UPDATE_GIT_REPO_URL) },
         "autoUpdate" to { value -> modpackAutoUpdate = asBoolean(value, DEFAULT_MODPACK_AUTO_UPDATE) },
         "forceUpdate" to { value -> modpackForceUpdate = asBoolean(value, DEFAULT_MODPACK_FORCE_UPDATE) },
+        "packUpdateChannel" to { value -> packUpdateChannel = normalizePackUpdateChannel(asString(value, DEFAULT_PACK_UPDATE_CHANNEL)) },
     )
 
     private fun buildDownloadReaders(): Map<String, (JsonElement) -> Unit> = mapOf(

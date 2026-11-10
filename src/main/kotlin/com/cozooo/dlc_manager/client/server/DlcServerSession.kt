@@ -353,7 +353,7 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
         while (true) {
             val response = readObject()
             if (string(response, "type") == "dlc_sync_progress") continue
-            if (string(response, "requestId") != id) throw com.cozooo.dlc_manager.sync.SyncFailure("unsupported")
+            if (string(response, "requestId") != id) throw com.cozooo.dlc_manager.sync.DlcSyncFailure("unsupported")
             return response
         }
     }
