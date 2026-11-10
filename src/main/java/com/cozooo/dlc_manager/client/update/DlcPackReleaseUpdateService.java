@@ -38,6 +38,7 @@ public final class DlcPackReleaseUpdateService {
     private static final String DEFAULT_VERSION = "1.0.0";
     private static final String UNIVERSAL_PREFIX = "Universal_";
     private static final String[] VERSION_PAIR_DELIMITERS = new String[] {"_", "+", "@", "~", " "};
+    private static final Pattern VERSION_PATTERN = Pattern.compile("\\d+(?:\\.\\d+)*(?:[-+_][0-9A-Za-z][0-9A-Za-z._+-]*)?");
     private static final int RELEASES_PER_PAGE = 100;
     private static final int RELEASES_MAX_PAGES = 10;
     private static final String CNB_API_HOST = "api.cnb.cool";
@@ -1059,12 +1060,33 @@ public final class DlcPackReleaseUpdateService {
             if (index <= 0 || index >= tag.length() - 1) {
                 continue;
             }
-            ParsedTagParts parsed = parseTagParts(tag.substring(0, index), tag.substring(index + 1));
+            String oldRaw = tag.substring(0, index);
+            String newRaw = tag.substring(index + 1);
+            if (!looksLikeVersion(oldRaw) || !looksLikeVersion(newRaw)) {
+                continue;
+            }
+            ParsedTagParts parsed = parseTagParts(oldRaw, newRaw);
+            if (parsed != null) {
+                return parsed;
+            }
+        }
+        int underscore = tag.indexOf('_');
+        if (underscore > 0 && underscore == tag.lastIndexOf('_') && underscore < tag.length() - 1) {
+            String oldRaw = tag.substring(0, underscore);
+            String newRaw = tag.substring(underscore + 1);
+            if (!looksLikeVersion(oldRaw) || !looksLikeVersion(newRaw)) {
+                return null;
+            }
+            ParsedTagParts parsed = parseTagParts(oldRaw, newRaw);
             if (parsed != null) {
                 return parsed;
             }
         }
         return null;
+    }
+
+    private static boolean looksLikeVersion(String value) {
+        return value != null && VERSION_PATTERN.matcher(value.trim()).matches();
     }
 
     private static ParsedTagParts parseTagParts(String oldRaw, String newRaw) {

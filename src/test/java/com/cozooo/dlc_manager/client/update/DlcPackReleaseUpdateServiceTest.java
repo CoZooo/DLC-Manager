@@ -54,6 +54,41 @@ class DlcPackReleaseUpdateServiceTest {
         assertEquals("1.0.0", field(legacy, "newDlc"));
     }
 
+    @Test
+    void parsesHyphenSeparatedTagsWithPrereleaseVersions() throws Exception {
+        Object alphaToBeta = invoke("parseTag", new Class<?>[] {String.class}, "1.1.0-alpha1-1.1.0-beta1");
+        assertEquals("1.1.0-alpha1", field(alphaToBeta, "oldBase"));
+        assertEquals("1.1.0-beta1", field(alphaToBeta, "newBase"));
+
+        Object stableToStable = invoke("parseTag", new Class<?>[] {String.class}, "1.0.0-1.1.0");
+        assertEquals("1.0.0", field(stableToStable, "oldBase"));
+        assertEquals("1.1.0", field(stableToStable, "newBase"));
+    }
+
+    @Test
+    void parsesUnderscoreSeparatedTagsWithPrereleaseVersions() throws Exception {
+        Object stable = invoke("parseTag", new Class<?>[] {String.class}, "1.0.0_1.1.0");
+        assertEquals("1.0.0", field(stable, "oldBase"));
+        assertEquals("1.1.0", field(stable, "newBase"));
+
+        Object prerelease = invoke("parseTag", new Class<?>[] {String.class}, "1.1.0-alpha1_1.1.0-beta1");
+        assertEquals("1.1.0-alpha1", field(prerelease, "oldBase"));
+        assertEquals("1.1.0-beta1", field(prerelease, "newBase"));
+
+        Object singlePrerelease = invoke("parseTag", new Class<?>[] {String.class}, "1.0.0_1.1.0-beta1");
+        assertEquals("1.0.0", field(singlePrerelease, "oldBase"));
+        assertEquals("1.1.0-beta1", field(singlePrerelease, "newBase"));
+    }
+
+    @Test
+    void keepsLegacyDlcPairTagsWithTwoUnderscores() throws Exception {
+        Object legacy = invoke("parseTag", new Class<?>[] {String.class}, "3.14.0_1.0.0-3.14.2_1.0.0");
+        assertEquals("3.14.0", field(legacy, "oldBase"));
+        assertEquals("1.0.0", field(legacy, "oldDlc"));
+        assertEquals("3.14.2", field(legacy, "newBase"));
+        assertEquals("1.0.0", field(legacy, "newDlc"));
+    }
+
     private static Object invoke(String name, Class<?>[] parameterTypes, Object... args) throws Exception {
         Method method = DlcPackReleaseUpdateService.class.getDeclaredMethod(name, parameterTypes);
         method.setAccessible(true);

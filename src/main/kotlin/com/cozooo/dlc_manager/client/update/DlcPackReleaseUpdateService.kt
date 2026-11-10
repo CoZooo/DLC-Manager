@@ -33,6 +33,7 @@ object DlcPackReleaseUpdateService {
     private const val DEFAULT_VERSION = "1.0.0"
     private const val UNIVERSAL_PREFIX = "Universal_"
     private val VERSION_PAIR_DELIMITERS = arrayOf("_", "+", "@", "~", " ")
+    private val VERSION_PATTERN = Regex("\\d+(?:\\.\\d+)*(?:[-+_][0-9A-Za-z][0-9A-Za-z._+-]*)?")
     private const val RELEASES_PER_PAGE = 100
     private const val RELEASES_MAX_PAGES = 10
     private const val CNB_API_HOST = "api.cnb.cool"
@@ -776,11 +777,25 @@ object DlcPackReleaseUpdateService {
             index = tag.indexOf('-', index + 1)
             if (index < 0) break
             if (index <= 0 || index >= tag.length - 1) continue
-            val parsed = parseTagParts(tag.substring(0, index), tag.substring(index + 1))
+            val oldRaw = tag.substring(0, index)
+            val newRaw = tag.substring(index + 1)
+            if (!looksLikeVersion(oldRaw) || !looksLikeVersion(newRaw)) continue
+            val parsed = parseTagParts(oldRaw, newRaw)
+            if (parsed != null) return parsed
+        }
+        val underscore = tag.indexOf('_')
+        if (underscore > 0 && underscore == tag.lastIndexOf('_') && underscore < tag.length - 1) {
+            val oldRaw = tag.substring(0, underscore)
+            val newRaw = tag.substring(underscore + 1)
+            if (!looksLikeVersion(oldRaw) || !looksLikeVersion(newRaw)) return null
+            val parsed = parseTagParts(oldRaw, newRaw)
             if (parsed != null) return parsed
         }
         return null
     }
+
+    private fun looksLikeVersion(value: String?): Boolean =
+        value != null && VERSION_PATTERN.matches(value.trim())
 
     private fun parseTagParts(oldRaw: String?, newRaw: String?): ParsedTagParts? {
         val oldPair = parseVersionPart(oldRaw) ?: return null
