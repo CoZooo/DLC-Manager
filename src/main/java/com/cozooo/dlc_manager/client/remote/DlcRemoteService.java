@@ -331,7 +331,7 @@ public final class DlcRemoteService {
         }
         return switch (entry.getType()) {
             case MOD -> ".jar";
-            case RESOURCE_PACK, DATA_PACK, TACZ_PACK, DLC_PACK, UNKNOWN -> ".zip";
+            case RESOURCE_PACK, DATA_PACK, TACZ_PACK, DLC_PACK, COLLECTION, UNKNOWN -> ".zip";
         };
     }
 

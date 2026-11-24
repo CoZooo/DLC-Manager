@@ -1131,6 +1131,7 @@ class DlcServerScreen(
                     DlcType.DATA_PACK -> "data"
                     DlcType.TACZ_PACK -> "tacz"
                     DlcType.DLC_PACK -> "dlcpack"
+                    DlcType.COLLECTION -> "collection"
                     DlcType.UNKNOWN -> "other"
                 }
                 if (id.equals(type, ignoreCase = true) || dlcType.name.equals(type, ignoreCase = true)) {

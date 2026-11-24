@@ -8,6 +8,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRedirectEntry
 import com.cozooo.dlc_manager.client.remote.DlcRedirectLoader
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState
+import com.cozooo.dlc_manager.client.required.DlcRequiredRuntime
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient
 import com.cozooo.dlc_manager.core.DlcApplyMode
@@ -206,6 +207,11 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
             updateResourcePackSelection()
             if (shouldShowApplyFailureScreen(applyResult)) {
                 showApplyFailureScreen(applyResult)
+                return
+            }
+            val completion = DlcRequiredRuntime.collectMissingOrApply()
+            if (completion.isNotEmpty()) {
+                Minecraft.getInstance().setScreen(DlcRequiredDownloadScreen(this, completion))
                 return
             }
         }

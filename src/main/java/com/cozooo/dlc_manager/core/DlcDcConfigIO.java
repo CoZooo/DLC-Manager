@@ -8,6 +8,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public final class DlcDcConfigIO {
     public enum Layout {
@@ -25,10 +27,11 @@ public final class DlcDcConfigIO {
         if (!isDc(path)) {
             return null;
         }
-        if (layout == Layout.DLC_STRUCTURED && !isNoticeConfigPath(path)) {
-            return DlcDcFormatUtil.read(path);
-        }
-        return DlcDcFormatUtil.readGeneric(path);
+        JsonObject result = layout == Layout.DLC_STRUCTURED && !isNoticeConfigPath(path)
+            ? DlcDcFormatUtil.read(path)
+            : DlcDcFormatUtil.readGeneric(path);
+        canonicalizeAliases(result);
+        return result;
     }
 
     public static boolean write(Path originalPath, JsonObject obj, Layout layout) {
@@ -39,9 +42,13 @@ public final class DlcDcConfigIO {
         if (target == null) {
             return false;
         }
+        canonicalizeAliases(obj);
         JsonObject source = obj;
         if (layout == Layout.DLC_STRUCTURED && isInfoPath(target)) {
             source = stripDownloadKeys(obj);
+        }
+        if (layout == Layout.DLC_STRUCTURED) {
+            migrateAliasSpelling(target);
         }
         boolean written = layout == Layout.DLC_STRUCTURED && !isNoticeConfigPath(target)
             ? DlcDcFormatUtil.write(target, source)
@@ -56,6 +63,29 @@ public final class DlcDcConfigIO {
             }
         }
         return true;
+    }
+
+    private static void migrateAliasSpelling(Path path) {
+        if (!Files.exists(path)) return;
+        try {
+            String original = Files.readString(path);
+            Matcher matcher = Pattern.compile("(?m)^(\\s*)(file_name|filename|appliedTarget|isHidden)(\\s*=)").matcher(original);
+            StringBuffer buffer = new StringBuffer();
+            while (matcher.find()) {
+                String raw = matcher.group(2);
+                String canonical = switch (raw.toLowerCase(Locale.ROOT)) {
+                    case "file_name", "filename" -> "source";
+                    case "appliedtarget" -> "target";
+                    case "ishidden" -> "hidden";
+                    default -> raw;
+                };
+                matcher.appendReplacement(buffer, Matcher.quoteReplacement(matcher.group(1) + canonical + matcher.group(3)));
+            }
+            matcher.appendTail(buffer);
+            String migrated = buffer.toString();
+            if (!migrated.equals(original)) Files.writeString(path, migrated);
+        } catch (IOException ignored) {
+        }
     }
 
     public static Path toDcPath(Path path) {
@@ -80,6 +110,20 @@ public final class DlcDcConfigIO {
             String candidate = entry.getKey();
             if (candidate != null && candidate.equalsIgnoreCase(key)) {
                 return entry.getValue();
+            }
+        }
+        java.util.List<String> aliases = switch (key.toLowerCase(Locale.ROOT)) {
+            case "source", "file_name", "filename" -> java.util.List.of("source", "file_name", "filename");
+            case "target", "appliedtarget" -> java.util.List.of("target", "appliedTarget");
+            case "hidden", "ishidden" -> java.util.List.of("hidden", "isHidden");
+            default -> java.util.List.of();
+        };
+        for (String alias : aliases) {
+            for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
+                String candidate = entry.getKey();
+                if (candidate != null && candidate.equalsIgnoreCase(alias)) {
+                    return entry.getValue();
+                }
             }
         }
         return null;
@@ -151,6 +195,69 @@ public final class DlcDcConfigIO {
         if (matched != null) {
             obj.remove(matched);
         }
+    }
+
+    public static boolean canonicalizeAliases(JsonObject obj) {
+        if (obj == null) {
+            return false;
+        }
+        boolean changed = false;
+        changed = promoteAlias(obj, "source", java.util.List.of("file_name", "filename")) || changed;
+        changed = promoteAlias(obj, "target", java.util.List.of("appliedTarget")) || changed;
+        changed = promoteAlias(obj, "hidden", java.util.List.of("isHidden")) || changed;
+        for (JsonElement value : obj.asMap().values()) {
+            if (value.isJsonObject()) {
+                changed = canonicalizeAliases(value.getAsJsonObject()) || changed;
+            } else if (value.isJsonArray()) {
+                for (JsonElement child : value.getAsJsonArray()) {
+                    if (child.isJsonObject()) {
+                        changed = canonicalizeAliases(child.getAsJsonObject()) || changed;
+                    }
+                }
+            }
+        }
+        return changed;
+    }
+
+    private static boolean promoteAlias(JsonObject obj, String canonical, java.util.List<String> aliases) {
+        boolean changed = false;
+        JsonElement replacement = obj.get(canonical);
+        boolean replaced = false;
+        JsonObject rebuilt = new JsonObject();
+        for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
+            String key = entry.getKey();
+            JsonElement value = entry.getValue();
+            if (key.equalsIgnoreCase(canonical)) {
+                if (!key.equals(canonical)) changed = true;
+                rebuilt.add(canonical, value);
+                replacement = value;
+                replaced = true;
+            } else if (aliases.stream().anyMatch(alias -> key.equalsIgnoreCase(alias))) {
+                if (!replaced && replacement == null) {
+                    rebuilt.add(canonical, value.deepCopy());
+                    replacement = value;
+                    replaced = true;
+                }
+                changed = true;
+            } else {
+                rebuilt.add(key, value);
+            }
+        }
+        if (!replaced && replacement != null) rebuilt.add(canonical, replacement);
+        if (changed) {
+            obj.entrySet().clear();
+            rebuilt.entrySet().forEach(entry -> obj.add(entry.getKey(), entry.getValue()));
+        }
+        return changed;
+    }
+
+    private static JsonElement findIgnoreCase(JsonObject obj, String key) {
+        for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
+            if (entry.getKey().equalsIgnoreCase(key)) {
+                return entry.getValue();
+            }
+        }
+        return null;
     }
 
     private static boolean isInfoPath(Path path) {

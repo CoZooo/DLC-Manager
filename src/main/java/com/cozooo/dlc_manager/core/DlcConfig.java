@@ -1442,11 +1442,11 @@ public class DlcConfig {
             }
         }
 
-        String fileName = DlcDcConfigIO.getStringIgnoreCase(out, "file_name");
+        String fileName = DlcDcConfigIO.getStringIgnoreCase(out, "source");
         if (fileName == null || fileName.isBlank()) {
             fileName = fallbackName == null ? "" : fallbackName;
-            DlcDcConfigIO.removeIgnoreCase(out, "file_name");
-            out.addProperty("file_name", fileName);
+            DlcDcConfigIO.removeIgnoreCase(out, "source");
+            out.addProperty("source", fileName);
         }
 
         String identifier = DlcDcConfigIO.getStringIgnoreCase(out, "identifier");
@@ -1459,8 +1459,8 @@ public class DlcConfig {
         if (!DlcDcConfigIO.hasIgnoreCase(out, "type")) {
             out.addProperty("type", "others");
         }
-        if (!DlcDcConfigIO.hasIgnoreCase(out, "isHidden")) {
-            out.addProperty("isHidden", false);
+        if (!DlcDcConfigIO.hasIgnoreCase(out, "hidden")) {
+            out.addProperty("hidden", false);
         }
         if (!DlcDcConfigIO.hasIgnoreCase(out, "AllowEnableByAll")) {
             out.addProperty("AllowEnableByAll", true);

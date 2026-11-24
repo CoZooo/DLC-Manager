@@ -116,7 +116,7 @@ object DlcRequiredLoader {
         if (!identifier.isNullOrBlank()) {
             entry.setIdentifier(identifier)
         }
-        val fileName = getString(obj, "file_name")
+        val fileName = getString(obj, "source")
         if (!fileName.isNullOrBlank()) {
             entry.setRequiredFileName(fileName)
         }
@@ -149,7 +149,7 @@ object DlcRequiredLoader {
         if (priority.isNotBlank()) {
             entry.setDownloadPriority(priority)
         }
-        val applied = getString(obj, "appliedTarget")
+        val applied = getString(obj, "target")
         entry.setAppliedTargetRaw(applied ?: "")
         val unzip = DlcDcConfigIO.getIgnoreCase(obj, "unzip")
         entry.setUnzip(unzip != null && unzip.isJsonPrimitive && unzip.asJsonPrimitive.isBoolean && unzip.asBoolean)
@@ -286,9 +286,9 @@ object DlcRequiredLoader {
         ordered.addProperty("priority", if (priority.isNullOrBlank()) "curseforge" else priority)
         ordered.addProperty("identifier", identifier)
         if (!fileName.isNullOrBlank()) {
-            ordered.addProperty("file_name", fileName)
+            ordered.addProperty("source", fileName)
         }
-        ordered.addProperty("appliedTarget", appliedTarget ?: "")
+        ordered.addProperty("target", appliedTarget ?: "")
         ordered.add("dependencies", deps.element ?: JsonPrimitive(""))
 
         for ((key, value) in obj.entrySet()) {
@@ -465,9 +465,10 @@ object DlcRequiredLoader {
                 || lowered == "curseforge_fileid"
                 || lowered == "priority"
                 || lowered == "identifier"
+                || lowered == "source"
                 || lowered == "file_name"
+                || lowered == "target"
                 || lowered == "appliedtarget"
-                || lowered == "appliedtaget"
                 || lowered == "dependencies"
             ) {
                 return true

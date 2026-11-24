@@ -1296,7 +1296,7 @@ object DlcServerDownloadService {
         return if (entry != null) {
             when (entry.getType()) {
                 DlcType.MOD -> "download.jar"
-                DlcType.RESOURCE_PACK, DlcType.DATA_PACK, DlcType.TACZ_PACK, DlcType.DLC_PACK, DlcType.UNKNOWN, null -> "download.zip"
+                DlcType.RESOURCE_PACK, DlcType.DATA_PACK, DlcType.TACZ_PACK, DlcType.DLC_PACK, DlcType.COLLECTION, DlcType.UNKNOWN, null -> "download.zip"
             }
         } else {
             "download.zip"
@@ -1344,9 +1344,9 @@ object DlcServerDownloadService {
         ordered.addProperty("priority", DlcDownloadCandidate.readPriority(obj))
         ordered.addProperty("identifier", getIdentifier(obj))
         ordered.addProperty("type", getString(obj, "type"))
-        val fileName = if (fileNameOverride.isNullOrBlank()) getString(obj, "file_name") else fileNameOverride
-        ordered.addProperty("file_name", fileName)
-        ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false))
+        val fileName = if (fileNameOverride.isNullOrBlank()) getString(obj, "source") else fileNameOverride
+        ordered.addProperty("source", fileName)
+        ordered.addProperty("hidden", getBoolean(obj, "hidden", false))
         ordered.addProperty("AllowEnableByAll", getBoolean(obj, "AllowEnableByAll", true))
         val deps = DlcDcConfigIO.getIgnoreCase(obj, "dependencies")
         if (deps == null || deps.isJsonNull) {
@@ -1416,9 +1416,9 @@ object DlcServerDownloadService {
         }
         ordered.addProperty("priority", DlcDownloadCandidate.readPriority(obj))
         ordered.addProperty("identifier", getString(obj, "identifier"))
-        val fileName = if (fileNameOverride.isNullOrBlank()) getString(obj, "file_name") else fileNameOverride
-        ordered.addProperty("file_name", fileName)
-        ordered.addProperty("appliedTarget", getString(obj, "appliedTarget"))
+        val fileName = if (fileNameOverride.isNullOrBlank()) getString(obj, "source") else fileNameOverride
+        ordered.addProperty("source", fileName)
+        ordered.addProperty("target", getString(obj, "target"))
         val dependencies = DlcDcConfigIO.getIgnoreCase(obj, "dependencies")
         ordered.add("dependencies", dependencies ?: JsonPrimitive(""))
         for ((key, value) in obj.entrySet()) {

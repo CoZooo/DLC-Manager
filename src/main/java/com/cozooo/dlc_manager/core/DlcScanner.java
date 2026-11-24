@@ -61,6 +61,7 @@ public class DlcScanner {
         Path localLegacyTmpDir = DlcTmpPaths.legacyRoot(root);
         Map<String, String> groupedOwners = buildGroupedOwners(tooltips);
         RemoteMetadataLookup remoteMetadata = buildRemoteMetadata(root);
+        addCollectionItems(grouped, root, tooltips, detectInstalledState);
         try {
             Files.walkFileTree(root, new SimpleFileVisitor<>() {
                 @Override
@@ -138,6 +139,66 @@ public class DlcScanner {
             });
         } catch (IOException ignored) {
         }
+    }
+
+    private void addCollectionItems(Map<DlcType, List<DlcItem>> grouped, Path root,
+        Map<String, DlcTooltipLoader.TooltipData> tooltips, boolean detectInstalledState) {
+        String rootId = DlcPathUtil.toGameRelativePath(root).replace('\\', '/');
+        if (tooltips == null) return;
+        for (Map.Entry<String, DlcTooltipLoader.TooltipData> entry : tooltips.entrySet()) {
+            String name = entry.getKey();
+            DlcTooltipLoader.TooltipData data = entry.getValue();
+            if (data == null || data.getType() != DlcType.COLLECTION || data.getSource() == null || data.getSource().isBlank()) continue;
+            Path source = DlcCollectionSource.resolve(root, data.getSource());
+            if (source == null) continue;
+            DlcItem item = new DlcItem(
+                "collection:" + rootId + "|" + name,
+                data.getIdentifier() == null || data.getIdentifier().isBlank() ? name : data.getIdentifier(),
+                name,
+                DlcType.COLLECTION,
+                source,
+                List.of(),
+                null,
+                false,
+                data.getTips(),
+                data.getDisplayName().isEmpty() ? Map.of("en_us", name) : data.getDisplayName(),
+                data.getDependencies(),
+                data.getConflicts(),
+                data.AllowEnableByAll(),
+                data.isHidden(),
+                false,
+                data.isAlarm()
+            );
+            item.setAlarmTips(data.getAlarmTips());
+            item.setRedirectUrl(data.getRedirectUrl());
+            item.setDlcRoot(root);
+            item.setMatchMode(data.getMatchMode());
+            if (detectInstalledState) {
+                try {
+                    List<Path> installed = DlcItemFiles.installed(item);
+                    item.setEnabled(!installed.isEmpty() || collectionStateStillPresent(item));
+                    item.getAppliedTargets().addAll(installed);
+                } catch (IOException ignored) {
+                    item.setEnabled(false);
+                }
+            } else {
+                item.setEnabled(isEnabledInState(item.getId()));
+            }
+            grouped.get(DlcType.COLLECTION).add(item);
+        }
+    }
+
+    private boolean collectionStateStillPresent(DlcItem item) {
+        if (item.getType() != DlcType.COLLECTION) return false;
+        DlcStateConfig.DlcState state = DlcStateConfig.getState(item.getId());
+        if (state == null || !state.enabled || state.appliedTargets == null || state.appliedTargets.isEmpty()) return false;
+        for (String raw : state.appliedTargets) {
+            Path path = DlcPaths.parsePathLenient(raw);
+            if (path == null) return false;
+            Path resolved = path.isAbsolute() ? path : DlcPaths.gameDir().resolve(path);
+            if (!Files.exists(resolved.normalize())) return false;
+        }
+        return true;
     }
 
     private boolean isUnderInfoDir(Path path, Path infoDir) {

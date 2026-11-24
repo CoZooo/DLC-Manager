@@ -1880,11 +1880,11 @@ public final class DlcUpdateService {
     );
     private static final Set<String> INFO_ALLOWED_BASIC_KEYS = Set.of(
         "identifier",
-        "file_name",
+        "source",
         "type",
-        "appliedTarget",
+        "target",
         "RedirectUrl",
-        "isHidden",
+        "hidden",
         "AllowEnableByAll",
         "dependencies",
         "conflicts",
@@ -2113,7 +2113,7 @@ public final class DlcUpdateService {
         if (obj == null) {
             return;
         }
-        obj.addProperty("file_name", fileName);
+        obj.addProperty("source", fileName);
         writeJson(configPath, obj);
         Path dlcRoot = getDlcRoot();
         if (dlcRoot != null) {
@@ -2129,7 +2129,7 @@ public final class DlcUpdateService {
         if (obj == null) {
             return;
         }
-        obj.addProperty("file_name", fileName);
+        obj.addProperty("source", fileName);
         writeJson(configPath, obj);
         Path dlcRoot = getDlcRoot();
         if (dlcRoot != null) {
@@ -2145,7 +2145,7 @@ public final class DlcUpdateService {
         if (info == null) {
             return;
         }
-        upsertCaseInsensitive(info, "file_name", safeCopy(new com.google.gson.JsonPrimitive(fileName)));
+        upsertCaseInsensitive(info, "source", safeCopy(new com.google.gson.JsonPrimitive(fileName)));
         Path infoDir = infoPath.getParent();
         if (infoDir == null) {
             backupPath(DlcPathUtil.toGameRelativePath(infoPath), infoPath, context);

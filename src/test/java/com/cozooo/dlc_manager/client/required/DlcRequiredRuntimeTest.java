@@ -132,9 +132,9 @@ class DlcRequiredRuntimeTest {
         assertNotNull(saved);
         String written = Files.readString(config).toLowerCase(java.util.Locale.ROOT);
         assertTrue(List.of("isinlist", "ishidden", "displayname", "tip", "redirecturl").stream().noneMatch(written::contains));
-        assertEquals("downloaded.jar", saved.get("file_name").getAsString());
-        assertEquals("mods/main.jar", saved.get("appliedTarget").getAsString());
+        assertEquals("downloaded.jar", saved.get("source").getAsString());
+        assertEquals("mods/main.jar", saved.get("target").getAsString());
         assertEquals("preserved", saved.get("custom").getAsString());
-        assertEquals("child.jar", saved.getAsJsonObject("dependencies").getAsJsonObject("child").get("file_name").getAsString());
+        assertEquals("child.jar", saved.getAsJsonObject("dependencies").getAsJsonObject("child").get("source").getAsString());
     }
 }

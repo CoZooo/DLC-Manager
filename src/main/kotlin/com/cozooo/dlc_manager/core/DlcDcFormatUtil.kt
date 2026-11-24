@@ -229,7 +229,7 @@ object DlcDcFormatUtil {
         val previous = readNode(document)
         previous.entrySet().forEach { (key, _) -> if (get(value, key) == null) removeField(document, key) }
         for ((key, current) in value.entrySet()) {
-            if (get(previous, key)?.toString() == current.toString()) continue
+            if (get(previous, key)?.toString() == current.toString() && actualKey(previous, key) == key) continue
             if (key.equals("dependencies", true) || key.equals("conflicts", true)) {
                 val relation = writeRelation(current, objectValue(document, key))
                 val spelling = actualKey(document, key)
@@ -292,8 +292,29 @@ object DlcDcFormatUtil {
 
     private fun get(value: JsonObject, key: String): JsonElement? = value.get(actualKey(value, key))
 
-    private fun put(value: JsonObject, key: String, element: JsonElement) = value.add(actualKey(value, key), element)
+    private fun put(value: JsonObject, key: String, element: JsonElement) {
+        val existing = actualKey(value, key)
+        if (existing == key) {
+            value.add(key, element)
+            return
+        }
+        val rebuilt = JsonObject()
+        for ((candidate, child) in value.entrySet()) {
+            if (candidate == existing) rebuilt.add(key, element) else rebuilt.add(candidate, child)
+        }
+        value.entrySet().clear()
+        rebuilt.entrySet().forEach { (candidate, child) -> value.add(candidate, child) }
+    }
 
-    private fun actualKey(value: JsonObject, key: String): String =
-        if (value.has(key)) key else value.keySet().firstOrNull { it.equals(key, true) } ?: key
+    private fun actualKey(value: JsonObject, key: String): String {
+        if (value.has(key)) return key
+        value.keySet().firstOrNull { it.equals(key, true) }?.let { return it }
+        val aliases = when (key.lowercase(Locale.ROOT)) {
+            "source", "file_name", "filename" -> listOf("source", "file_name", "filename")
+            "target", "appliedtarget" -> listOf("target", "appliedTarget")
+            "hidden", "ishidden" -> listOf("hidden", "isHidden")
+            else -> emptyList()
+        }
+        return aliases.asSequence().flatMap { alias -> value.keySet().asSequence().filter { it.equals(alias, true) } }.firstOrNull() ?: key
+    }
 }

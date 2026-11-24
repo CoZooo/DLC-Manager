@@ -54,11 +54,11 @@ class DlcDcLanguageIntegrationTest {
         assertEquals("private", value.get("custom_provider").getAsString());
         assertTrue(value.getAsJsonObject("future").getAsJsonObject("integration").get("enabled").getAsBoolean());
         assertTrue(DlcDcConfigIO.write(path, value, DlcDcConfigIO.Layout.DLC_STRUCTURED));
-        assertEquals(source, Files.readString(path));
+        assertEquals(source.replace("file_name", "source"), Files.readString(path));
 
-        value.addProperty("file_name", "updated.jar");
+        value.addProperty("source", "updated.jar");
         assertTrue(DlcDcConfigIO.write(path, value, DlcDcConfigIO.Layout.DLC_STRUCTURED));
-        assertEquals(source.replace("required.jar", "updated.jar"), Files.readString(path));
+        assertEquals(source.replace("file_name", "source").replace("required.jar", "updated.jar"), Files.readString(path));
     }
 
     @Test

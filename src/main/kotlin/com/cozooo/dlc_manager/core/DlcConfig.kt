@@ -935,11 +935,11 @@ object DlcConfig {
                 out.add(key, value)
             }
         }
-        var fileName = DlcDcConfigIO.getStringIgnoreCase(out, "file_name")
+        var fileName = DlcDcConfigIO.getStringIgnoreCase(out, "source")
         if (fileName.isNullOrBlank()) {
             fileName = fallbackName ?: ""
-            DlcDcConfigIO.removeIgnoreCase(out, "file_name")
-            out.addProperty("file_name", fileName)
+            DlcDcConfigIO.removeIgnoreCase(out, "source")
+            out.addProperty("source", fileName)
         }
         var identifier = DlcDcConfigIO.getStringIgnoreCase(out, "identifier")
         if (identifier.isNullOrBlank()) {
@@ -948,7 +948,7 @@ object DlcConfig {
             out.addProperty("identifier", identifier)
         }
         if (!DlcDcConfigIO.hasIgnoreCase(out, "type")) out.addProperty("type", "others")
-        if (!DlcDcConfigIO.hasIgnoreCase(out, "isHidden")) out.addProperty("isHidden", false)
+        if (!DlcDcConfigIO.hasIgnoreCase(out, "hidden")) out.addProperty("hidden", false)
         if (!DlcDcConfigIO.hasIgnoreCase(out, "AllowEnableByAll")) out.addProperty("AllowEnableByAll", true)
         if (!DlcDcConfigIO.hasIgnoreCase(out, "dependencies")) out.addProperty("dependencies", "")
         if (!DlcDcConfigIO.hasIgnoreCase(out, "conflicts")) out.addProperty("conflicts", "")

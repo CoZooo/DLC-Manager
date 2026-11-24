@@ -70,10 +70,9 @@ tools/dc-editor/tsconfig.node.tsbuildinfo
 
 **/__pycache__/
 **/logs/
-tools/dc-editor/OPERATION_TRACKING.txt
 debug.log
 
-PLAN.md
+docs/
 samples/
 .idea/gradle.xml
 

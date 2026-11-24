@@ -20,6 +20,7 @@ public class DlcTooltipLoader {
         "datapack", DlcType.DATA_PACK,
         "gunpack", DlcType.TACZ_PACK,
         "dlcpack", DlcType.DLC_PACK,
+        "collection", DlcType.COLLECTION,
         "config", DlcType.UNKNOWN,
         "others", DlcType.UNKNOWN
     );
@@ -37,7 +38,7 @@ public class DlcTooltipLoader {
                     TooltipEntry entry = readEntry(path);
                     if (entry != null && entry.dlcName != null) {
                         TooltipData data = new TooltipData(entry.dlcIdentifier, entry.tip, entry.displayName, entry.type, entry.typeValid, entry.hasTypeField, entry.configType,
-                            entry.hidden, entry.allowEnableByAll, entry.dependencies, entry.conflicts, entry.appliedTargetRaw, entry.redirectUrl, entry.fileNames, entry.alarm);
+                            entry.hidden, entry.allowEnableByAll, entry.dependencies, entry.conflicts, entry.appliedTargetRaw, entry.redirectUrl, entry.fileNames, entry.source, entry.alarm);
                         data.setAlarmTips(entry.alarmTips);
                         data.setMatchMode(entry.matchMode);
                         result.put(entry.dlcName, data);
@@ -130,13 +131,13 @@ public class DlcTooltipLoader {
         if (typeValue == null) {
             typeValue = toTypeString(type);
         }
-        boolean hidden = getBoolean(obj, "isHidden", false);
+        boolean hidden = getBoolean(obj, "hidden", false);
         boolean allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true);
         JsonElement dependencies = normalizeRelationElement(DlcDcConfigIO.getIgnoreCase(obj, "dependencies"));
         JsonElement conflicts = normalizeRelationElement(DlcDcConfigIO.getIgnoreCase(obj, "conflicts"));
         boolean alarm = getBoolean(obj, "alarm", false);
         JsonObject tip = localizedObjectFromAny(obj, "tip");
-        String appliedTarget = getString(obj, "appliedTarget");
+        String appliedTarget = getString(obj, "target");
 
         String redirectUrl = getString(obj, "RedirectUrl");
         obj = buildOrderedTooltipObject(obj, dlcName, identifier, displayName, typeValue, appliedTarget, redirectUrl,
@@ -154,8 +155,10 @@ public class DlcTooltipLoader {
         }
         TooltipEntry entry = new TooltipEntry();
         entry.dlcName = getFileName(obj);
-        if ((entry.dlcName == null || entry.dlcName.isBlank()) && path != null && path.getFileName() != null) {
-            entry.dlcName = DlcDcFormatUtil.stripConfigExtension(path.getFileName().toString());
+        if (entry.dlcName == null || entry.dlcName.isBlank()) {
+            entry.dlcName = path != null && path.getFileName() != null
+                ? DlcDcFormatUtil.stripConfigExtension(path.getFileName().toString())
+                : entry.dlcName;
         }
         if (entry.dlcName == null || entry.dlcName.isBlank()) {
             return null;
@@ -165,7 +168,7 @@ public class DlcTooltipLoader {
             entry.dlcIdentifier = entry.dlcName;
         }
         entry.hasTypeField = DlcDcConfigIO.hasIgnoreCase(obj, "type");
-        entry.hidden = getBoolean(obj, "isHidden", false);
+        entry.hidden = getBoolean(obj, "hidden", false);
         entry.allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true);
         entry.dependencies = parseDependencyNames(DlcDcConfigIO.getIgnoreCase(obj, "dependencies"));
         entry.conflicts = parseDependencyNames(DlcDcConfigIO.getIgnoreCase(obj, "conflicts"));
@@ -178,11 +181,12 @@ public class DlcTooltipLoader {
         if (entry.fileNames.isEmpty()) {
             entry.fileNames = parseFileNames(DlcDcConfigIO.getIgnoreCase(obj, "files"));
         }
+        entry.source = getString(obj, "source");
         entry.displayName = readLocalized(localizedObjectFromAny(obj, "DisplayName"));
         if (entry.displayName.isEmpty() && entry.dlcName != null) {
             entry.displayName = readLocalized(buildDefaultDisplayName(entry.dlcName));
         }
-        entry.appliedTargetRaw = getString(obj, "appliedTarget");
+        entry.appliedTargetRaw = getString(obj, "target");
         entry.redirectUrl = getString(obj, "RedirectUrl");
         String type = getString(obj, "type");
         if (type != null) {
@@ -214,16 +218,17 @@ public class DlcTooltipLoader {
         if (obj == null) {
             return false;
         }
-        return DlcDcConfigIO.hasIgnoreCase(obj, "file_name")
+        return DlcDcConfigIO.hasIgnoreCase(obj, "source")
             || DlcDcConfigIO.hasIgnoreCase(obj, "identifier")
             || DlcDcConfigIO.hasIgnoreCase(obj, "DisplayName")
             || DlcDcConfigIO.hasIgnoreCase(obj, "tip")
             || DlcDcConfigIO.hasIgnoreCase(obj, "type")
-            || DlcDcConfigIO.hasIgnoreCase(obj, "appliedTarget")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "target")
             || DlcDcConfigIO.hasIgnoreCase(obj, "RedirectUrl")
             || DlcDcConfigIO.hasIgnoreCase(obj, "dependencies")
             || DlcDcConfigIO.hasIgnoreCase(obj, "conflicts")
-            || DlcDcConfigIO.hasIgnoreCase(obj, "isHidden")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "source")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "hidden")
             || DlcDcConfigIO.hasIgnoreCase(obj, "AllowEnableByAll")
             || DlcDcConfigIO.hasIgnoreCase(obj, "alarm")
             || DlcDcConfigIO.hasIgnoreCase(obj, "Alarm");
@@ -267,7 +272,7 @@ public class DlcTooltipLoader {
     }
 
     private String getFileName(JsonObject obj) {
-        return getString(obj, "file_name");
+        return getString(obj, "source");
     }
 
     private boolean getBoolean(JsonObject obj, String key, boolean fallback) {
@@ -285,7 +290,7 @@ public class DlcTooltipLoader {
         if (obj == null) {
             return false;
         }
-        return !DlcDcConfigIO.hasIgnoreCase(obj, "file_name") || !DlcDcConfigIO.hasIgnoreCase(obj, "identifier");
+        return !DlcDcConfigIO.hasIgnoreCase(obj, "source") || !DlcDcConfigIO.hasIgnoreCase(obj, "identifier");
     }
 
     private boolean hasLegacyDownloadKeys(JsonObject obj) {
@@ -370,7 +375,8 @@ public class DlcTooltipLoader {
         String appliedTarget, String redirectUrl,
         boolean hidden, boolean allowEnableByAll, JsonElement dependencies, JsonElement conflicts, boolean alarm, JsonObject tip) {
         JsonObject ordered = new JsonObject();
-        ordered.addProperty("file_name", dlcName);
+        String sourceValue = getString(source, "source");
+        ordered.addProperty("source", sourceValue == null ? dlcName : sourceValue);
         ordered.addProperty("identifier", dlcIdentifier == null ? dlcName : dlcIdentifier);
         JsonObject normalizedDisplay = displayName;
         if (normalizedDisplay == null || normalizedDisplay.entrySet().isEmpty()) {
@@ -379,12 +385,12 @@ public class DlcTooltipLoader {
         ordered.add("DisplayName", normalizedDisplay);
         ordered.addProperty("type", type);
         if (appliedTarget != null && !appliedTarget.isBlank()) {
-            ordered.addProperty("appliedTarget", appliedTarget);
+            ordered.addProperty("target", appliedTarget);
         }
         if (redirectUrl != null && !redirectUrl.isBlank()) {
             ordered.addProperty("RedirectUrl", redirectUrl);
         }
-        ordered.addProperty("isHidden", hidden);
+        ordered.addProperty("hidden", hidden);
         ordered.addProperty("AllowEnableByAll", allowEnableByAll);
         ordered.add("dependencies", dependencies == null ? new com.google.gson.JsonPrimitive("") : dependencies);
         ordered.add("conflicts", conflicts == null ? new com.google.gson.JsonPrimitive("") : conflicts);
@@ -557,6 +563,7 @@ public class DlcTooltipLoader {
         String appliedTargetRaw;
         String redirectUrl;
         java.util.List<String> fileNames = java.util.List.of();
+        String source;
         boolean alarm;
         Map<String, String> alarmTips = java.util.Map.of();
         String matchMode = "hash";
@@ -577,6 +584,7 @@ public class DlcTooltipLoader {
         private final String appliedTargetRaw;
         private final String redirectUrl;
         private final java.util.List<String> fileNames;
+        private final String source;
         private final boolean alarm;
         private Map<String, String> alarmTips = java.util.Map.of();
         private String matchMode = "hash";
@@ -586,6 +594,13 @@ public class DlcTooltipLoader {
         public TooltipData(String identifier, Map<String, String> tips, Map<String, String> displayName, DlcType type, boolean typeValid, boolean hasTypeField, boolean configType,
             boolean hidden, boolean allowEnableByAll, java.util.List<String> dependencies, java.util.List<String> conflicts,
             String appliedTargetRaw, String redirectUrl, java.util.List<String> fileNames, boolean alarm) {
+            this(identifier, tips, displayName, type, typeValid, hasTypeField, configType, hidden, allowEnableByAll,
+                dependencies, conflicts, appliedTargetRaw, redirectUrl, fileNames, null, alarm);
+        }
+
+        public TooltipData(String identifier, Map<String, String> tips, Map<String, String> displayName, DlcType type, boolean typeValid, boolean hasTypeField, boolean configType,
+            boolean hidden, boolean allowEnableByAll, java.util.List<String> dependencies, java.util.List<String> conflicts,
+            String appliedTargetRaw, String redirectUrl, java.util.List<String> fileNames, String source, boolean alarm) {
             this.identifier = identifier;
             this.tips = tips == null ? Map.of() : tips;
             this.displayName = displayName == null ? Map.of() : displayName;
@@ -600,6 +615,7 @@ public class DlcTooltipLoader {
             this.appliedTargetRaw = appliedTargetRaw;
             this.redirectUrl = redirectUrl;
             this.fileNames = fileNames == null ? java.util.List.of() : fileNames;
+            this.source = source;
             this.alarm = alarm;
         }
 
@@ -659,6 +675,10 @@ public class DlcTooltipLoader {
             return fileNames;
         }
 
+        public String getSource() {
+            return source;
+        }
+
         public boolean isAlarm() {
             return alarm;
         }
@@ -689,6 +709,7 @@ public class DlcTooltipLoader {
             case DATA_PACK -> "datapack";
             case TACZ_PACK -> "gunpack";
             case DLC_PACK -> "dlcpack";
+            case COLLECTION -> "collection";
             case UNKNOWN -> "others";
         };
     }

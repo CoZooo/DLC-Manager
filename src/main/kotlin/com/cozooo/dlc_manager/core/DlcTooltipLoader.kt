@@ -41,6 +41,7 @@ class DlcTooltipLoader {
                                 entry.appliedTargetRaw,
                                 entry.redirectUrl,
                                 entry.fileNames,
+                                entry.source,
                                 entry.alarm,
                             )
                             data.setAlarmTips(entry.alarmTips)
@@ -135,13 +136,13 @@ class DlcTooltipLoader {
         if (typeValue == null) {
             typeValue = toTypeString(type)
         }
-        val hidden = getBoolean(obj, "isHidden", false)
+        val hidden = getBoolean(obj, "hidden", false)
         val allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true)
         val dependencies = normalizeRelationElement(DlcDcConfigIO.getIgnoreCase(obj, "dependencies"))
         val conflicts = normalizeRelationElement(DlcDcConfigIO.getIgnoreCase(obj, "conflicts"))
         val alarm = getBoolean(obj, "alarm", false)
         val tip = localizedObjectFromAny(obj, "tip")
-        val appliedTarget = getString(obj, "appliedTarget")
+        val appliedTarget = getString(obj, "target")
         val redirectUrl = getString(obj, "RedirectUrl")
         obj = buildOrderedTooltipObject(
             obj,
@@ -179,7 +180,7 @@ class DlcTooltipLoader {
             entry.dlcIdentifier = entry.dlcName
         }
         entry.hasTypeField = DlcDcConfigIO.hasIgnoreCase(obj, "type")
-        entry.hidden = getBoolean(obj, "isHidden", false)
+        entry.hidden = getBoolean(obj, "hidden", false)
         entry.allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true)
         entry.dependencies = parseDependencyNames(DlcDcConfigIO.getIgnoreCase(obj, "dependencies"))
         entry.conflicts = parseDependencyNames(DlcDcConfigIO.getIgnoreCase(obj, "conflicts"))
@@ -192,11 +193,12 @@ class DlcTooltipLoader {
         if (entry.fileNames.isEmpty()) {
             entry.fileNames = parseFileNames(DlcDcConfigIO.getIgnoreCase(obj, "files"))
         }
+        entry.source = getString(obj, "source")
         entry.displayName = readLocalized(localizedObjectFromAny(obj, "DisplayName"))
         if (entry.displayName.isEmpty() && entry.dlcName != null) {
             entry.displayName = readLocalized(buildDefaultDisplayName(entry.dlcName))
         }
-        entry.appliedTargetRaw = getString(obj, "appliedTarget")
+        entry.appliedTargetRaw = getString(obj, "target")
         entry.redirectUrl = getString(obj, "RedirectUrl")
         val type = getString(obj, "type")
         if (type != null) {
@@ -228,16 +230,17 @@ class DlcTooltipLoader {
         if (obj == null) {
             return false
         }
-        return DlcDcConfigIO.hasIgnoreCase(obj, "file_name") ||
+        return DlcDcConfigIO.hasIgnoreCase(obj, "source") ||
             DlcDcConfigIO.hasIgnoreCase(obj, "identifier") ||
             DlcDcConfigIO.hasIgnoreCase(obj, "DisplayName") ||
             DlcDcConfigIO.hasIgnoreCase(obj, "tip") ||
             DlcDcConfigIO.hasIgnoreCase(obj, "type") ||
-            DlcDcConfigIO.hasIgnoreCase(obj, "appliedTarget") ||
+            DlcDcConfigIO.hasIgnoreCase(obj, "target") ||
             DlcDcConfigIO.hasIgnoreCase(obj, "RedirectUrl") ||
             DlcDcConfigIO.hasIgnoreCase(obj, "dependencies") ||
             DlcDcConfigIO.hasIgnoreCase(obj, "conflicts") ||
-            DlcDcConfigIO.hasIgnoreCase(obj, "isHidden") ||
+            DlcDcConfigIO.hasIgnoreCase(obj, "source") ||
+            DlcDcConfigIO.hasIgnoreCase(obj, "hidden") ||
             DlcDcConfigIO.hasIgnoreCase(obj, "AllowEnableByAll") ||
             DlcDcConfigIO.hasIgnoreCase(obj, "alarm") ||
             DlcDcConfigIO.hasIgnoreCase(obj, "Alarm")
@@ -282,7 +285,7 @@ class DlcTooltipLoader {
     }
 
     private fun getFileName(obj: JsonObject?): String? {
-        return getString(obj, "file_name")
+        return getString(obj, "source")
     }
 
     private fun getBoolean(obj: JsonObject?, key: String, fallback: Boolean): Boolean {
@@ -300,7 +303,7 @@ class DlcTooltipLoader {
         if (obj == null) {
             return false
         }
-        return !DlcDcConfigIO.hasIgnoreCase(obj, "file_name") || !DlcDcConfigIO.hasIgnoreCase(obj, "identifier")
+        return !DlcDcConfigIO.hasIgnoreCase(obj, "source") || !DlcDcConfigIO.hasIgnoreCase(obj, "identifier")
     }
 
     private fun hasLegacyDownloadKeys(obj: JsonObject?): Boolean {
@@ -392,7 +395,8 @@ class DlcTooltipLoader {
         tip: JsonObject?,
     ): JsonObject {
         val ordered = JsonObject()
-        ordered.addProperty("file_name", dlcName)
+        val sourceValue = getString(source, "source") ?: dlcName
+        ordered.addProperty("source", sourceValue)
         ordered.addProperty("identifier", dlcIdentifier ?: dlcName)
         var normalizedDisplay = displayName
         if (normalizedDisplay == null || normalizedDisplay.entrySet().isEmpty()) {
@@ -401,12 +405,12 @@ class DlcTooltipLoader {
         ordered.add("DisplayName", normalizedDisplay)
         ordered.addProperty("type", type)
         if (!appliedTarget.isNullOrBlank()) {
-            ordered.addProperty("appliedTarget", appliedTarget)
+            ordered.addProperty("target", appliedTarget)
         }
         if (!redirectUrl.isNullOrBlank()) {
             ordered.addProperty("RedirectUrl", redirectUrl)
         }
-        ordered.addProperty("isHidden", hidden)
+        ordered.addProperty("hidden", hidden)
         ordered.addProperty("AllowEnableByAll", allowEnableByAll)
         ordered.add("dependencies", dependencies ?: JsonPrimitive(""))
         ordered.add("conflicts", conflicts ?: JsonPrimitive(""))
@@ -578,6 +582,7 @@ class DlcTooltipLoader {
         var appliedTargetRaw: String? = null
         var redirectUrl: String? = null
         var fileNames: List<String> = emptyList()
+        var source: String? = null
         var alarm = false
         var alarmTips: Map<String, String> = emptyMap()
         var matchMode: String = "hash"
@@ -598,6 +603,7 @@ class DlcTooltipLoader {
         private val appliedTargetRaw: String?,
         private val redirectUrl: String?,
         fileNames: List<String>?,
+        private val source: String?,
         private val alarm: Boolean,
     ) {
         private val tips: Map<String, String> = tips ?: emptyMap()
@@ -625,6 +631,7 @@ class DlcTooltipLoader {
         fun getAppliedTargetRaw(): String? = appliedTargetRaw
         fun getRedirectUrl(): String? = redirectUrl
         fun getFileNames(): List<String> = fileNames
+        fun getSource(): String? = source
         fun isAlarm(): Boolean = alarm
         fun getAlarmTips(): Map<String, String> = alarmTips
         fun setAlarmTips(values: Map<String, String>?) { alarmTips = values ?: emptyMap() }
@@ -638,6 +645,7 @@ class DlcTooltipLoader {
             "datapack" to DlcType.DATA_PACK,
             "gunpack" to DlcType.TACZ_PACK,
             "dlcpack" to DlcType.DLC_PACK,
+            "collection" to DlcType.COLLECTION,
             "config" to DlcType.UNKNOWN,
             "others" to DlcType.UNKNOWN,
         )
@@ -661,6 +669,7 @@ class DlcTooltipLoader {
                 DlcType.DATA_PACK -> "datapack"
                 DlcType.TACZ_PACK -> "gunpack"
                 DlcType.DLC_PACK -> "dlcpack"
+                DlcType.COLLECTION -> "collection"
                 DlcType.UNKNOWN -> "others"
             }
         }

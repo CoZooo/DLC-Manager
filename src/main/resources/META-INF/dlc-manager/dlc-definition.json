@@ -37,7 +37,7 @@
               "defaultValue": "hash"
             },
             {
-              "name": "file_name",
+              "name": "source",
               "type": "string",
               "required": false,
               "description": "DLC file name (including extension).",
@@ -56,19 +56,20 @@
               "name": "type",
               "type": "string",
               "required": false,
-              "description": "DLC type. Supported values: mod, resourcepack, datapack, gunpack, config, others.",
+              "description": "DLC type. Supported values: mod, resourcepack, datapack, gunpack, collection, config, others.",
               "enumValues": [
                 "mod",
                 "resourcepack",
                 "datapack",
                 "gunpack",
+                "collection",
                 "config",
                 "others"
               ],
               "constraints": {}
             },
             {
-              "name": "appliedTarget",
+              "name": "target",
               "type": "string",
               "required": false,
               "description": "Applied target path, enter a relative path.",
@@ -84,7 +85,7 @@
               "constraints": {}
             },
             {
-              "name": "isHidden",
+              "name": "hidden",
               "type": "boolean",
               "required": false,
               "description": "Whether this entry is hidden, useful for libraries or internal prerequisites.",
@@ -299,7 +300,7 @@
               "defaultValue": "hash"
             },
             {
-              "name": "file_name",
+              "name": "source",
               "type": "string",
               "required": false,
               "description": "DLC file name (including extension).",
@@ -331,7 +332,7 @@
               "constraints": {}
             },
             {
-              "name": "appliedTarget",
+              "name": "target",
               "type": "string",
               "required": false,
               "description": "Applied target path, enter a relative path.",
@@ -347,7 +348,7 @@
               "constraints": {}
             },
             {
-              "name": "isHidden",
+              "name": "hidden",
               "type": "boolean",
               "required": false,
               "description": "Whether this entry is hidden, useful for libraries or internal prerequisites.",
@@ -562,7 +563,7 @@
               "defaultValue": "hash"
             },
             {
-              "name": "file_name",
+              "name": "source",
               "type": "string",
               "required": false,
               "description": "DLC file name (including extension), used as the final downloaded file name.",
@@ -570,7 +571,7 @@
               "constraints": {}
             },
             {
-              "name": "appliedTarget",
+              "name": "target",
               "type": "string",
               "required": false,
               "description": "Relative destination directory or file name for copies. End directories with / to disambiguate. When unzip is true for a .zip resource, every target is an extraction directory.",
@@ -581,7 +582,7 @@
               "name": "unzip",
               "type": "boolean",
               "required": false,
-              "description": "Extract .zip resources into appliedTarget directories when true. Defaults to false; other file types are always copied.",
+              "description": "Extract .zip resources into target directories when true. Defaults to false; other file types are always copied.",
               "enumValues": [],
               "constraints": {},
               "defaultValue": false
@@ -955,7 +956,7 @@
           "description": "",
           "fields": [
             {
-              "name": "isHidden",
+              "name": "hidden",
               "type": "boolean",
               "required": false,
               "description": "Whether to hide this update package in the update list.",
@@ -1155,7 +1156,7 @@
           "description": "",
           "fields": [
             {
-              "name": "appliedTarget",
+              "name": "target",
               "type": "string",
               "required": false,
               "description": "Destination path.",

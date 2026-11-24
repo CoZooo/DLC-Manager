@@ -482,6 +482,7 @@ public class DlcApplier {
     private static boolean requiresRestartOnToggle(DlcItem item) {
         return item.getType() == DlcType.MOD
             || item.getType() == DlcType.TACZ_PACK
+            || item.getType() == DlcType.COLLECTION
             || DlcConfigTypeSupport.isConfigType(item);
     }
 
@@ -489,7 +490,7 @@ public class DlcApplier {
         List<Path> statePaths = new ArrayList<>();
         String key = DlcResourceHistory.key(item.getId(), "dlc");
         try {
-            for (DlcItemFiles.Target pair : DlcItemFiles.expected(item)) {
+            for (DlcItemFiles.Target pair : DlcItemFiles.expected(item, true)) {
                 Path target = pair.target();
                 if (pair.searchByHash() && "hash".equals(item.getMatchMode())) {
                     Path matching = DlcFileMatch.find(pair.source(), target.getParent(), "hash");
@@ -512,6 +513,9 @@ public class DlcApplier {
     private static RemovalResult removeItem(DlcItem item, DlcStateConfig.DlcState previous) {
         List<String> messages = new ArrayList<>();
         try {
+            if (item.getType() == DlcType.COLLECTION) {
+                restoreCollectionCompletion(item, messages);
+            }
             if (DlcResourceHistory.restore(item.getDlcRoot(), "dlc", DlcResourceHistory.key(item.getId(), "dlc"), false)) return new RemovalResult(messages);
         } catch (IOException exception) {
             messages.add("Failed to restore " + item.getName() + ": " + exception.getMessage());
@@ -545,6 +549,17 @@ public class DlcApplier {
             messages.add("Failed to remove some files for " + item.getName() + ": " + String.join(", ", failedPaths));
         }
         return new RemovalResult(messages);
+    }
+
+    private static void restoreCollectionCompletion(DlcItem item, List<String> messages) {
+        try {
+            List<com.cozooo.dlc_manager.client.required.DlcRequiredEntry> entries = DlcCollectionSource.completionEntries(item.getSourcePath(), item.getDlcRoot(), item.getIdentifier());
+            for (com.cozooo.dlc_manager.client.required.DlcRequiredEntry entry : entries) {
+                DlcResourceHistory.restore(item.getDlcRoot(), "required", entry.getHistoryKey(), false);
+            }
+        } catch (IOException exception) {
+            messages.add("Failed to restore collection completion files for " + item.getName() + ": " + exception.getMessage());
+        }
     }
 
     private static void restoreConfigItem(DlcItem item, DlcStateConfig.DlcState previous, List<String> messages) {

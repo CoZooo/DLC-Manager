@@ -135,7 +135,7 @@ object DlcApiService {
                 json.addProperty("configType", item.isConfigType())
                 json.addProperty("alarm", item.isAlarm())
                 json.addProperty("allowEnableByAll", item.AllowEnableByAll())
-                json.addProperty("appliedTarget", blank(item.getAppliedTargetRaw()))
+                json.addProperty("target", blank(item.getAppliedTargetRaw()))
                 json.addProperty("sourcePath", item.getSourcePath()?.toString() ?: "")
                 json.add("sourcePaths", toStringArray(item.getSourcePaths()))
                 json.add("displayNames", toJsonObject(item.getDisplayNames()))

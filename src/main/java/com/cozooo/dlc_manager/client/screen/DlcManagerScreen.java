@@ -22,6 +22,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState;
+import com.cozooo.dlc_manager.client.required.DlcRequiredRuntime;
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
@@ -232,6 +233,11 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
             updateResourcePackSelection();
             if (shouldShowApplyFailureScreen(applyResult)) {
                 showApplyFailureScreen(applyResult);
+                return;
+            }
+            List<com.cozooo.dlc_manager.client.required.DlcRequiredEntry> completion = DlcRequiredRuntime.collectMissingOrApply();
+            if (!completion.isEmpty()) {
+                minecraft.setScreen(new DlcRequiredDownloadScreen(this, completion));
                 return;
             }
         }

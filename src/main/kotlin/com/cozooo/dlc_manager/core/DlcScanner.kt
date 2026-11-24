@@ -60,6 +60,7 @@ class DlcScanner {
         val localLegacyTmpDir = DlcTmpPaths.legacyRoot(root)
         val groupedOwners = buildGroupedOwners(tooltips)
         val remoteMetadata = buildRemoteMetadata(root)
+        addCollectionItems(grouped, root, tooltips, detectInstalledState)
         try {
             Files.walkFileTree(
                 root,
@@ -135,6 +136,64 @@ class DlcScanner {
                 },
             )
         } catch (_: IOException) {
+        }
+    }
+
+    private fun addCollectionItems(
+        grouped: MutableMap<DlcType?, MutableList<DlcItem?>?>,
+        root: Path,
+        tooltips: Map<String, DlcTooltipLoader.TooltipData>,
+        detectInstalledState: Boolean,
+    ) {
+        val rootId = DlcPathUtil.toGameRelativePath(root).replace('\\', '/')
+        for ((name, data) in tooltips) {
+            if (data.getType() != DlcType.COLLECTION || data.getSource().isNullOrBlank()) continue
+            val source = DlcCollectionSource.resolve(root, data.getSource()) ?: continue
+            val item = DlcItem(
+                "collection:$rootId|$name",
+                data.getIdentifier().takeUnless { it.isNullOrBlank() } ?: name,
+                name,
+                DlcType.COLLECTION,
+                source,
+                emptyList<Path>(),
+                null,
+                false,
+                data.getTips(),
+                data.getDisplayName().ifEmpty { mapOf("en_us" to name) },
+                data.getDependencies(),
+                data.getConflicts(),
+                data.AllowEnableByAll(),
+                data.isHidden(),
+                false,
+                data.isAlarm(),
+            )
+            item.setAlarmTips(data.getAlarmTips())
+            item.setRedirectUrl(data.getRedirectUrl())
+            item.setDlcRoot(root)
+            item.setMatchMode(data.getMatchMode())
+            if (detectInstalledState) {
+                try {
+                    val installed = DlcItemFiles.installed(item)
+                    item.setEnabled(installed.isNotEmpty() || collectionStateStillPresent(item))
+                    item.getAppliedTargets().addAll(installed)
+                } catch (_: IOException) {
+                    item.setEnabled(false)
+                }
+            } else {
+                item.setEnabled(DlcStateConfig.getState(item.getId())?.enabled == true)
+            }
+            grouped[DlcType.COLLECTION]?.add(item)
+        }
+    }
+
+    private fun collectionStateStillPresent(item: DlcItem): Boolean {
+        if (item.getType() != DlcType.COLLECTION) return false
+        val state = DlcStateConfig.getState(item.getId()) ?: return false
+        val targets = state.appliedTargets ?: return false
+        return state.enabled && targets.isNotEmpty() && targets.all { raw ->
+            val path = DlcPaths.parsePathLenient(raw) ?: return@all false
+            val resolved = if (path.isAbsolute) path else DlcPaths.gameDir().resolve(path)
+            Files.exists(resolved.normalize())
         }
     }
 
@@ -393,6 +452,7 @@ class DlcScanner {
                 entry.getAppliedTargetRaw(),
                 entry.getRedirectUrl(),
                 emptyList(),
+                null,
                 entry.isAlarm(),
             )
             data.setAlarmTips(entry.getAlarmTips())

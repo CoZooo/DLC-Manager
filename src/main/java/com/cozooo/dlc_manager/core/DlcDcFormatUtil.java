@@ -285,7 +285,7 @@ public final class DlcDcFormatUtil {
             String key = entry.getKey();
             JsonElement current = entry.getValue();
             JsonElement before = get(previous, key);
-            if (before != null && before.toString().equals(current.toString())) continue;
+            if (before != null && before.toString().equals(current.toString()) && actualKey(previous, key).equals(key)) continue;
             if (key.equalsIgnoreCase("dependencies") || key.equalsIgnoreCase("conflicts")) {
                 JsonObject relation = writeRelation(current, object(document, key));
                 String spelling = actualKey(document, key);
@@ -364,12 +364,32 @@ public final class DlcDcFormatUtil {
     }
 
     private static void put(JsonObject value, String key, JsonElement element) {
-        value.add(actualKey(value, key), element);
+        String existing = actualKey(value, key);
+        if (existing.equals(key)) {
+            value.add(key, element);
+            return;
+        }
+        JsonObject rebuilt = new JsonObject();
+        for (var entry : value.entrySet()) {
+            if (entry.getKey().equals(existing)) rebuilt.add(key, element);
+            else rebuilt.add(entry.getKey(), entry.getValue());
+        }
+        value.entrySet().clear();
+        rebuilt.entrySet().forEach(entry -> value.add(entry.getKey(), entry.getValue()));
     }
 
     private static String actualKey(JsonObject value, String key) {
         if (value.has(key)) return key;
         for (String candidate : value.keySet()) if (candidate.equalsIgnoreCase(key)) return candidate;
+        java.util.List<String> aliases = switch (key.toLowerCase(Locale.ROOT)) {
+            case "source", "file_name", "filename" -> java.util.List.of("source", "file_name", "filename");
+            case "target", "appliedtarget" -> java.util.List.of("target", "appliedTarget");
+            case "hidden", "ishidden" -> java.util.List.of("hidden", "isHidden");
+            default -> java.util.List.of();
+        };
+        for (String alias : aliases) {
+            for (String candidate : value.keySet()) if (candidate.equalsIgnoreCase(alias)) return candidate;
+        }
         return key;
     }
 }

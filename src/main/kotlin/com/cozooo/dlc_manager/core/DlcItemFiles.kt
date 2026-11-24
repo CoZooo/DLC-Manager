@@ -11,8 +11,16 @@ object DlcItemFiles {
     }
 
     @JvmStatic fun expected(item: DlcItem): List<Target> {
+        return expected(item, true)
+    }
+
+    @JvmStatic fun expected(item: DlcItem, allowCollectionDownloads: Boolean): List<Target> {
         val result = ArrayList<Target>()
-        if (item.getType() == DlcType.UNKNOWN) {
+        if (item.getType() == DlcType.COLLECTION) {
+            for (entry in DlcCollectionSource.entries(item.getSourcePath(), item.getDlcRoot(), DlcPaths.gameDir(), allowCollectionDownloads, item.getIdentifier())) {
+                result.add(Target(entry.source, DlcPathUtil.resolveInside(DlcPaths.gameDir(), entry.relativePath), false))
+            }
+        } else if (item.getType() == DlcType.UNKNOWN) {
             val target = DlcPaths.resolveAppliedTarget(item.getAppliedTargetRaw()) ?: return result
             val sources = item.getSourcePaths()
             if (sources.isEmpty()) return result
@@ -36,7 +44,7 @@ object DlcItemFiles {
     @JvmStatic @Throws(IOException::class)
     fun installed(item: DlcItem): List<Path> {
         val result = ArrayList<Path>()
-        for (pair in expected(item)) {
+        for (pair in expected(item, false)) {
             val target = if (pair.searchByHash()) DlcFileMatch.find(pair.source(), pair.target().parent, item.getMatchMode())
                 else if (DlcFileMatch.matches(pair.source(), pair.target(), item.getMatchMode())) pair.target() else null
             if (target == null) return emptyList()

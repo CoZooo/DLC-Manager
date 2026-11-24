@@ -379,9 +379,10 @@ class DlcUpdateManifest {
                 return null
             }
             val manifest = DlcUpdateManifest()
+            DlcDcConfigIO.canonicalizeAliases(source)
             val obj = DlcUpdateCompatibility.knownFields(source, manifest.unknownParameters)
             manifest.version = parseVersion(DlcDcConfigIO.getObjectIgnoreCase(obj, "version"))
-            manifest.hidden = getBoolean(obj, "isHidden", false)
+            manifest.hidden = getBoolean(obj, "hidden", false)
             val updateDLCMConfig = parseUpdateDLCM(DlcDcConfigIO.getIgnoreCase(obj, "UpdateDLCM"))
             manifest.updateDLCM = updateDLCMConfig.enabled
             manifest.updateDLCMVersion = updateDLCMConfig.version
@@ -679,7 +680,7 @@ class DlcUpdateManifest {
             val obj = element.asJsonObject
             val entry = AddEntry()
             entry.setSourcePath(key)
-            entry.setAppliedTarget(getString(obj, "appliedTarget"))
+            entry.setAppliedTarget(getString(obj, "target"))
             entry.setOverrideMode(parseOverride(DlcDcConfigIO.getIgnoreCase(obj, "override")))
             entry.setSourceIsDir(key != null && key.endsWith("/"))
             return entry

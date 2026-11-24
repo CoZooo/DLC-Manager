@@ -129,7 +129,7 @@ public final class DlcRequiredLoader {
         if (identifier != null && !identifier.isBlank()) {
             entry.setIdentifier(identifier);
         }
-        String fileName = getString(obj, "file_name");
+        String fileName = getString(obj, "source");
         if (fileName != null && !fileName.isBlank()) {
             entry.setRequiredFileName(fileName);
         }
@@ -163,7 +163,7 @@ public final class DlcRequiredLoader {
             entry.setDownloadPriority(priority);
         }
         String applied = null;
-        applied = getString(obj, "appliedTarget");
+        applied = getString(obj, "target");
         entry.setAppliedTargetRaw(applied == null ? "" : applied);
         JsonElement unzip = DlcDcConfigIO.getIgnoreCase(obj, "unzip");
         entry.setUnzip(unzip != null && unzip.isJsonPrimitive() && unzip.getAsJsonPrimitive().isBoolean() && unzip.getAsBoolean());
@@ -306,9 +306,9 @@ public final class DlcRequiredLoader {
         ordered.addProperty("priority", priority == null || priority.isBlank() ? "curseforge" : priority);
         ordered.addProperty("identifier", identifier == null ? "" : identifier);
         if (fileName != null && !fileName.isBlank()) {
-            ordered.addProperty("file_name", fileName);
+            ordered.addProperty("source", fileName);
         }
-        ordered.addProperty("appliedTarget", appliedTarget == null ? "" : appliedTarget);
+        ordered.addProperty("target", appliedTarget == null ? "" : appliedTarget);
         ordered.add("dependencies", deps.element == null ? new JsonPrimitive("") : deps.element);
 
         for (var e : obj.entrySet()) {
@@ -495,7 +495,9 @@ public final class DlcRequiredLoader {
                 || "curseforge_fileid".equals(lowered)
                 || "priority".equals(lowered)
                 || "identifier".equals(lowered)
+                || "source".equals(lowered)
                 || "file_name".equals(lowered)
+                || "target".equals(lowered)
                 || "appliedtarget".equals(lowered)
                 || "appliedtaget".equals(lowered)
                 || "dependencies".equals(lowered)) {

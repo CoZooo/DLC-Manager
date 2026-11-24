@@ -134,6 +134,34 @@ class DlcApplierTest {
     }
 
     @Test
+    void collectionCopiesRelativePathsAndRestoresOverwrittenFilesOnDisable() throws Exception {
+        Path source = dlcRoot.resolve("collections/example");
+        Files.createDirectories(source.resolve("config"));
+        Files.createDirectories(source.resolve("kubejs/server_scripts"));
+        Files.writeString(source.resolve("config/example.toml"), "collection");
+        Files.writeString(source.resolve("kubejs/server_scripts/example.js"), "script");
+        Path existing = gameDir.resolve("config/example.toml");
+        Files.createDirectories(existing.getParent());
+        Files.writeString(existing, "original");
+        DlcItem item = new DlcItem(
+            "collection:example", "example", "example", DlcType.COLLECTION, source, List.of(), null, false,
+            null, null, List.of(), List.of(), true, false, false, false
+        );
+
+        item.setEnabled(true);
+        DlcApplier.apply(List.of(item), DlcApplyMode.RESTART_ONLY);
+
+        assertEquals("collection", Files.readString(existing));
+        assertEquals("script", Files.readString(gameDir.resolve("kubejs/server_scripts/example.js")));
+
+        item.setEnabled(false);
+        DlcApplier.apply(List.of(item), DlcApplyMode.RESTART_ONLY);
+
+        assertEquals("original", Files.readString(existing));
+        assertFalse(Files.exists(gameDir.resolve("kubejs/server_scripts/example.js")));
+    }
+
+    @Test
     void configTypeDlcBacksUpExistingTargetAndRestoresItOnDisable() throws Exception {
         Files.createDirectories(dlcRoot);
         Path source = dlcRoot.resolve("override.toml");

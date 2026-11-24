@@ -7,6 +7,11 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcConfig;
+import com.cozooo.dlc_manager.core.DlcCollectionSource;
+import com.cozooo.dlc_manager.core.DlcPathUtil;
+import com.cozooo.dlc_manager.core.DlcStateConfig;
+import com.cozooo.dlc_manager.core.DlcTooltipLoader;
+import com.cozooo.dlc_manager.core.DlcType;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -45,8 +50,32 @@ public final class DlcRequiredRuntime {
 
     public static List<DlcRequiredEntry> loadEntries() {
         List<DlcRequiredEntry> entries = new ArrayList<>();
-        for (Path root : DlcConfig.getDlcRoots()) entries.addAll(DlcRequiredLoader.load(root));
+        for (Path root : DlcConfig.getDlcRoots()) {
+            entries.addAll(DlcRequiredLoader.load(root));
+            entries.addAll(loadCollectionEntries(root));
+        }
         return entries;
+    }
+
+    private static List<DlcRequiredEntry> loadCollectionEntries(Path root) {
+        List<DlcRequiredEntry> result = new ArrayList<>();
+        Map<String, DlcTooltipLoader.TooltipData> tooltips = new DlcTooltipLoader().loadTooltips(root);
+        String rootId = DlcPathUtil.toGameRelativePath(root).replace('\\', '/');
+        for (Map.Entry<String, DlcTooltipLoader.TooltipData> tooltip : tooltips.entrySet()) {
+            String name = tooltip.getKey();
+            DlcTooltipLoader.TooltipData data = tooltip.getValue();
+            if (data.getType() != DlcType.COLLECTION || data.getSource() == null || data.getSource().isBlank()) continue;
+            String itemId = "collection:" + rootId + "|" + name;
+            DlcStateConfig.DlcState state = DlcStateConfig.getState(itemId);
+            if (state == null || !state.enabled) continue;
+            Path source = DlcCollectionSource.resolve(root, data.getSource());
+            if (source == null) continue;
+            try {
+                result.addAll(DlcCollectionSource.completionEntries(source, root, itemId));
+            } catch (IOException ignored) {
+            }
+        }
+        return result;
     }
 
     public static List<DlcRequiredEntry> loadAllEntries() {
@@ -545,14 +574,14 @@ public final class DlcRequiredRuntime {
 
         String fileName = fileNameOverride;
         if (fileName == null || fileName.isBlank()) {
-            fileName = getString(obj, "file_name");
+            fileName = getString(obj, "source");
         }
         if (fileName != null && !fileName.isBlank()) {
-            ordered.addProperty("file_name", fileName);
+            ordered.addProperty("source", fileName);
         }
 
-        String applied = getString(obj, "appliedTarget");
-        ordered.addProperty("appliedTarget", applied == null ? "" : applied);
+        String applied = getString(obj, "target");
+        ordered.addProperty("target", applied == null ? "" : applied);
 
         com.google.gson.JsonElement deps = obj.get("dependencies");
         ordered.add("dependencies", deps == null ? new com.google.gson.JsonPrimitive("") : deps);

@@ -472,6 +472,7 @@ object DlcApplier {
     private fun requiresRestartOnToggle(item: DlcItem): Boolean {
         return item.getType() == DlcType.MOD ||
             item.getType() == DlcType.TACZ_PACK ||
+            item.getType() == DlcType.COLLECTION ||
             DlcConfigTypeSupport.isConfigType(item)
     }
 
@@ -479,7 +480,7 @@ object DlcApplier {
         val statePaths = ArrayList<Path>()
         val key = DlcResourceHistory.key(item.getId() ?: "", "dlc")
         try {
-            for (pair in DlcItemFiles.expected(item)) {
+            for (pair in DlcItemFiles.expected(item, true)) {
                 var target = pair.target()
                 if (pair.searchByHash() && item.getMatchMode() == "hash") {
                     val matching = DlcFileMatch.find(pair.source(), target.parent, "hash")
@@ -502,6 +503,9 @@ object DlcApplier {
     private fun removeItem(item: DlcItem, previous: DlcStateConfig.DlcState?): RemovalResult {
         val messages = ArrayList<String>()
         try {
+            if (item.getType() == DlcType.COLLECTION) {
+                restoreCollectionCompletion(item, messages)
+            }
             if (DlcResourceHistory.restore(item.getDlcRoot(), "dlc", DlcResourceHistory.key(item.getId() ?: "", "dlc"), false)) return RemovalResult(messages)
         } catch (exception: IOException) {
             messages.add("Failed to restore ${item.getName()}: ${exception.message}")
@@ -533,6 +537,17 @@ object DlcApplier {
             messages.add("Failed to remove some files for " + item.getName() + ": " + failedPaths.joinToString(", "))
         }
         return RemovalResult(messages)
+    }
+
+    private fun restoreCollectionCompletion(item: DlcItem, messages: MutableList<String>) {
+        try {
+            val entries = DlcCollectionSource.completionEntries(item.getSourcePath(), item.getDlcRoot(), item.getIdentifier())
+            for (entry in entries) {
+                DlcResourceHistory.restore(item.getDlcRoot(), "required", entry.getHistoryKey(), false)
+            }
+        } catch (exception: IOException) {
+            messages.add("Failed to restore collection completion files for ${item.getName()}: ${exception.message}")
+        }
     }
 
     private fun restoreConfigItem(item: DlcItem, previous: DlcStateConfig.DlcState, messages: MutableList<String>) {

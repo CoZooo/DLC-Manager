@@ -72,6 +72,11 @@ public final class DlcPackModrinthManifest {
             .filter(file -> !DlcPackInstallPlan.isMetadataFile(file.path) && !DlcPackInstallPlan.isIgnoredModpackJarPath(file.path)).toList();
     }
 
+    public static List<FileRef> resolveManifestRequirements(DlcPackPackage pack) {
+        if (pack == null || pack.format != DlcPackPackage.Format.MODRINTH) return List.of();
+        return filesForEnvironment(pack).stream().filter(file -> !hasOverride(pack, file.path)).toList();
+    }
+
     public static List<DlcPackInstallPlan.FileEntry> resolveManifestTargets(DlcPackPackage pack) {
         return filesForEnvironment(pack).stream().filter(file -> !hasOverride(pack, file.path))
             .map(file -> new DlcPackInstallPlan.FileEntry(pack.manifestFile, file.path)).toList();

@@ -35,6 +35,20 @@ object DlcPackCFResolver {
 
     @JvmStatic
     @Throws(IOException::class, InterruptedException::class)
+    fun resolveManifestRequirements(pack: DlcPackPackage?): List<ManifestRequirement> {
+        if (pack == null || pack.format != DlcPackPackage.Format.CURSEFORGE || pack.manifestFiles.isEmpty()) {
+            return emptyList()
+        }
+        val result = ArrayList<ManifestRequirement>()
+        for (ref in pack.manifestFiles) {
+            val target = resolveManifestTarget(pack, ref) ?: continue
+            result.add(ManifestRequirement(ref.projectId, ref.fileId, target.fileName, target.relativePath))
+        }
+        return result
+    }
+
+    @JvmStatic
+    @Throws(IOException::class, InterruptedException::class)
     fun downloadManifestFiles(
         pack: DlcPackPackage?,
         staging: Path,
@@ -359,6 +373,13 @@ object DlcPackCFResolver {
         val targetDirectory: Path,
         val fileName: String,
         val relativePath: String,
+    )
+
+    class ManifestRequirement(
+        @JvmField val projectId: String,
+        @JvmField val fileId: String,
+        @JvmField val fileName: String,
+        @JvmField val relativePath: String,
     )
 
     private class ManifestDownload(

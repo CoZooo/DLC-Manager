@@ -70,9 +70,10 @@ public class DlcUpdateManifest {
             return null;
         }
         DlcUpdateManifest manifest = new DlcUpdateManifest();
+        DlcDcConfigIO.canonicalizeAliases(obj);
         obj = DlcUpdateCompatibility.knownFields(obj, manifest.unknownParameters);
         manifest.version = parseVersion(DlcDcConfigIO.getObjectIgnoreCase(obj, "version"));
-        manifest.hidden = getBoolean(obj, "isHidden", false);
+        manifest.hidden = getBoolean(obj, "hidden", false);
         UpdateDLCMConfig updateDLCMConfig = parseUpdateDLCM(DlcDcConfigIO.getIgnoreCase(obj, "UpdateDLCM"));
         manifest.updateDLCM = updateDLCMConfig.enabled;
         manifest.updateDLCMVersion = updateDLCMConfig.version;
@@ -432,7 +433,7 @@ public class DlcUpdateManifest {
         JsonObject obj = element.getAsJsonObject();
         AddEntry entry = new AddEntry();
         entry.sourcePath = key;
-        entry.appliedTarget = getString(obj, "appliedTarget");
+        entry.appliedTarget = getString(obj, "target");
         entry.overrideMode = parseOverride(DlcDcConfigIO.getIgnoreCase(obj, "override"));
         entry.sourceIsDir = key != null && key.endsWith("/");
         return entry;

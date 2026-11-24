@@ -1994,11 +1994,11 @@ object DlcUpdateService {
     )
     private val INFO_ALLOWED_BASIC_KEYS = mutableSetOf<kotlin.String?>(
         "identifier",
-        "file_name",
+        "source",
         "type",
-        "appliedTarget",
+        "target",
         "RedirectUrl",
-        "isHidden",
+        "hidden",
         "AllowEnableByAll",
         "dependencies",
         "conflicts",
@@ -2234,7 +2234,7 @@ object DlcUpdateService {
         if (obj == null) {
             return
         }
-        obj.addProperty("file_name", fileName)
+        obj.addProperty("source", fileName)
         writeJson(configPath, obj)
         val dlcRoot: Path? = dlcRoot
         if (dlcRoot != null) {
@@ -2250,7 +2250,7 @@ object DlcUpdateService {
         if (obj == null) {
             return
         }
-        obj.addProperty("file_name", fileName)
+        obj.addProperty("source", fileName)
         writeJson(configPath, obj)
         val dlcRoot: Path? = dlcRoot
         if (dlcRoot != null) {
@@ -2266,7 +2266,7 @@ object DlcUpdateService {
         if (info == null) {
             return
         }
-        upsertCaseInsensitive(info, "file_name", safeCopy(JsonPrimitive(fileName)))
+        upsertCaseInsensitive(info, "source", safeCopy(JsonPrimitive(fileName)))
         val infoDir = infoPath.getParent()
         if (infoDir == null) {
             backupPath(DlcPathUtil.toGameRelativePath(infoPath), infoPath, context)

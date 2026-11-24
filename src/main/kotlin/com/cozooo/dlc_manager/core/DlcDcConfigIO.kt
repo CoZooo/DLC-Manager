@@ -22,10 +22,13 @@ object DlcDcConfigIO {
         if (!isDc(path)) {
             return null
         }
-        if (layout == Layout.DLC_STRUCTURED && !isNoticeConfigPath(path)) {
-            return DlcDcFormatUtil.read(path)
+        val result = if (layout == Layout.DLC_STRUCTURED && !isNoticeConfigPath(path)) {
+            DlcDcFormatUtil.read(path)
+        } else {
+            DlcDcFormatUtil.readGeneric(path)
         }
-        return DlcDcFormatUtil.readGeneric(path)
+        canonicalizeAliases(result)
+        return result
     }
 
     @JvmStatic
@@ -34,9 +37,13 @@ object DlcDcConfigIO {
             return false
         }
         val target = DlcDcFormatUtil.toDcPath(originalPath) ?: return false
+        canonicalizeAliases(obj)
         var source = obj
         if (layout == Layout.DLC_STRUCTURED && isInfoPath(target)) {
             source = stripDownloadKeys(obj)
+        }
+        if (layout == Layout.DLC_STRUCTURED) {
+            migrateAliasSpelling(target)
         }
         val written = if (layout == Layout.DLC_STRUCTURED && !isNoticeConfigPath(target)) {
             DlcDcFormatUtil.write(target, source)
@@ -53,6 +60,24 @@ object DlcDcConfigIO {
             }
         }
         return true
+    }
+
+    private fun migrateAliasSpelling(path: Path) {
+        if (!Files.exists(path)) return
+        try {
+            val original = Files.readString(path)
+            val migrated = original.replace(Regex("(?m)^(\\s*)(file_name|filename|appliedTarget|isHidden)(\\s*=)")) { match ->
+                val canonical = when (match.groupValues[2].lowercase(Locale.ROOT)) {
+                    "file_name", "filename" -> "source"
+                    "appliedtarget" -> "target"
+                    "ishidden" -> "hidden"
+                    else -> match.groupValues[2]
+                }
+                match.groupValues[1] + canonical + match.groupValues[3]
+            }
+            if (migrated != original) Files.writeString(path, migrated)
+        } catch (_: IOException) {
+        }
     }
 
     @JvmStatic
@@ -79,6 +104,19 @@ object DlcDcConfigIO {
         for ((candidate, value) in obj.entrySet()) {
             if (candidate != null && candidate.equals(key, ignoreCase = true)) {
                 return value
+            }
+        }
+        val aliases = when (key.lowercase(Locale.ROOT)) {
+            "source", "file_name", "filename" -> listOf("source", "file_name", "filename")
+            "target", "appliedtarget" -> listOf("target", "appliedTarget")
+            "hidden", "ishidden" -> listOf("hidden", "isHidden")
+            else -> emptyList()
+        }
+        for (alias in aliases) {
+            for ((candidate, value) in obj.entrySet()) {
+                if (candidate != null && candidate.equals(alias, ignoreCase = true)) {
+                    return value
+                }
             }
         }
         return null
@@ -147,6 +185,68 @@ object DlcDcConfigIO {
         if (matched != null) {
             obj.remove(matched)
         }
+    }
+
+    @JvmStatic
+    fun canonicalizeAliases(obj: JsonObject?): Boolean {
+        if (obj == null) {
+            return false
+        }
+        var changed = false
+        changed = promoteAlias(obj, "source", listOf("file_name", "filename")) || changed
+        changed = promoteAlias(obj, "target", listOf("appliedTarget")) || changed
+        changed = promoteAlias(obj, "hidden", listOf("isHidden")) || changed
+        for ((_, value) in obj.entrySet()) {
+            if (value.isJsonObject) {
+                changed = canonicalizeAliases(value.asJsonObject) || changed
+            } else if (value.isJsonArray) {
+                for (child in value.asJsonArray) {
+                    if (child.isJsonObject) {
+                        changed = canonicalizeAliases(child.asJsonObject) || changed
+                    }
+                }
+            }
+        }
+        return changed
+    }
+
+    private fun promoteAlias(obj: JsonObject, canonical: String, aliases: List<String>): Boolean {
+        var changed = false
+        var replacement: JsonElement? = obj.get(canonical)
+        var replaced = false
+        val rebuilt = JsonObject()
+        for ((key, value) in obj.entrySet()) {
+            if (key.equals(canonical, ignoreCase = true)) {
+                if (key != canonical) changed = true
+                rebuilt.add(canonical, value)
+                replacement = value
+                replaced = true
+            } else if (aliases.any { key.equals(it, ignoreCase = true) }) {
+                if (!replaced && replacement == null) {
+                    rebuilt.add(canonical, value.deepCopy())
+                    replacement = value
+                    replaced = true
+                }
+                changed = true
+            } else {
+                rebuilt.add(key, value)
+            }
+        }
+        if (!replaced && replacement != null) rebuilt.add(canonical, replacement)
+        if (changed) {
+            obj.entrySet().clear()
+            rebuilt.entrySet().forEach { (key, value) -> obj.add(key, value) }
+        }
+        return changed
+    }
+
+    private fun findIgnoreCase(obj: JsonObject, key: String): JsonElement? {
+        for ((candidate, value) in obj.entrySet()) {
+            if (candidate.equals(key, ignoreCase = true)) {
+                return value
+            }
+        }
+        return null
     }
 
     private fun isInfoPath(path: Path?): Boolean {

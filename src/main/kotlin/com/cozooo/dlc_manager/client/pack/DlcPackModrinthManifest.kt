@@ -71,6 +71,12 @@ object DlcPackModrinthManifest {
     }
 
     @JvmStatic
+    fun resolveManifestRequirements(pack: DlcPackPackage?): List<FileRef> {
+        if (pack == null || pack.format != DlcPackPackage.Format.MODRINTH) return emptyList()
+        return filesForEnvironment(pack).filter { !hasOverride(pack, it.path) }
+    }
+
+    @JvmStatic
     fun resolveManifestTargets(pack: DlcPackPackage): List<DlcPackInstallPlan.FileEntry> = filesForEnvironment(pack).filter { !hasOverride(pack, it.path) }
         .map { DlcPackInstallPlan.FileEntry(pack.manifestFile ?: pack.root, it.path) }
 

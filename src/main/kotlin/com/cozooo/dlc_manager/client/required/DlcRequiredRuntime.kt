@@ -7,6 +7,11 @@ import com.cozooo.dlc_manager.client.download.DlcModrinthClient
 import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil
 import com.cozooo.dlc_manager.core.DlcConfig
+import com.cozooo.dlc_manager.core.DlcCollectionSource
+import com.cozooo.dlc_manager.core.DlcPathUtil
+import com.cozooo.dlc_manager.core.DlcStateConfig
+import com.cozooo.dlc_manager.core.DlcTooltipLoader
+import com.cozooo.dlc_manager.core.DlcType
 import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
@@ -45,7 +50,29 @@ object DlcRequiredRuntime {
 
     @JvmStatic
     fun loadEntries(): List<DlcRequiredEntry> {
-        return DlcConfig.getDlcRoots().flatMap { DlcRequiredLoader.load(it) }
+        val result = ArrayList<DlcRequiredEntry>()
+        for (root in DlcConfig.getDlcRoots()) {
+            result.addAll(DlcRequiredLoader.load(root))
+            result.addAll(loadCollectionEntries(root))
+        }
+        return result
+    }
+
+    private fun loadCollectionEntries(root: Path): List<DlcRequiredEntry> {
+        val result = ArrayList<DlcRequiredEntry>()
+        val tooltips = DlcTooltipLoader().loadTooltips(root)
+        val rootId = DlcPathUtil.toGameRelativePath(root).replace('\\', '/')
+        for ((name, data) in tooltips) {
+            if (data.getType() != DlcType.COLLECTION || data.getSource().isNullOrBlank()) continue
+            val itemId = "collection:$rootId|$name"
+            if (DlcStateConfig.getState(itemId)?.enabled != true) continue
+            val source = DlcCollectionSource.resolve(root, data.getSource()) ?: continue
+            try {
+                result.addAll(DlcCollectionSource.completionEntries(source, root, itemId))
+            } catch (_: IOException) {
+            }
+        }
+        return result
     }
 
     @JvmStatic
@@ -527,14 +554,14 @@ object DlcRequiredRuntime {
 
         var fileName = fileNameOverride
         if (fileName.isNullOrBlank()) {
-            fileName = getString(obj, "file_name")
+            fileName = getString(obj, "source")
         }
         if (!fileName.isNullOrBlank()) {
-            ordered.addProperty("file_name", fileName)
+            ordered.addProperty("source", fileName)
         }
 
-        val applied = getString(obj, "appliedTarget")
-        ordered.addProperty("appliedTarget", if (applied.isEmpty()) "" else applied)
+        val applied = getString(obj, "target")
+        ordered.addProperty("target", if (applied.isEmpty()) "" else applied)
 
         val deps = obj.get("dependencies")
         ordered.add("dependencies", deps ?: JsonPrimitive(""))

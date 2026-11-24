@@ -124,9 +124,9 @@ object DlcRemoteRuntime {
             type = "mod"
         }
         ordered.addProperty("type", type)
-        val appliedTarget = getString(obj, "appliedTarget")
+        val appliedTarget = getString(obj, "target")
         if (!appliedTarget.isNullOrBlank()) {
-            ordered.addProperty("appliedTarget", appliedTarget)
+            ordered.addProperty("target", appliedTarget)
         }
 
         var fileName = fileNameOverride
@@ -134,10 +134,10 @@ object DlcRemoteRuntime {
             fileName = getFileName(obj)
         }
         if (!fileName.isNullOrBlank()) {
-            ordered.addProperty("file_name", fileName)
+            ordered.addProperty("source", fileName)
         }
 
-        ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false))
+        ordered.addProperty("hidden", getBoolean(obj, "hidden", false))
         ordered.addProperty("AllowEnableByAll", getBoolean(obj, "AllowEnableByAll", true))
 
         val deps = obj.get("dependencies")
@@ -184,7 +184,7 @@ object DlcRemoteRuntime {
     }
 
     private fun getFileName(obj: JsonObject): String {
-        return getString(obj, "file_name")
+        return getString(obj, "source")
     }
 
     private fun normalizeRelationElement(element: JsonElement?): JsonElement {

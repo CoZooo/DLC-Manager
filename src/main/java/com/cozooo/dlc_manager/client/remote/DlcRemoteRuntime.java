@@ -134,9 +134,9 @@ public final class DlcRemoteRuntime {
             type = "mod";
         }
         ordered.addProperty("type", type);
-        String appliedTarget = getString(obj, "appliedTarget");
+        String appliedTarget = getString(obj, "target");
         if (appliedTarget != null && !appliedTarget.isBlank()) {
-            ordered.addProperty("appliedTarget", appliedTarget);
+            ordered.addProperty("target", appliedTarget);
         }
 
         String fileName = fileNameOverride;
@@ -144,10 +144,10 @@ public final class DlcRemoteRuntime {
             fileName = getFileName(obj);
         }
         if (fileName != null && !fileName.isBlank()) {
-            ordered.addProperty("file_name", fileName);
+            ordered.addProperty("source", fileName);
         }
 
-        ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false));
+        ordered.addProperty("hidden", getBoolean(obj, "hidden", false));
         ordered.addProperty("AllowEnableByAll", getBoolean(obj, "AllowEnableByAll", true));
 
         JsonElement deps = obj.get("dependencies");
@@ -191,7 +191,7 @@ public final class DlcRemoteRuntime {
     }
 
     private static String getFileName(JsonObject obj) {
-        return getString(obj, "file_name");
+        return getString(obj, "source");
     }
 
     private static JsonElement normalizeRelationElement(JsonElement element) {

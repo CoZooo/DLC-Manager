@@ -32,6 +32,7 @@
   "dlc_manager.group.resource_packs": "Resource Packs",
   "dlc_manager.group.data_packs": "Data Packs",
   "dlc_manager.group.tacz_packs": "TACZ Packs",
+  "dlc_manager.group.collections": "Collections",
   "dlc_manager.group.root": "Root",
   "dlc_manager.group.other": "Other",
   "dlc_manager.apply.deferred_restart": "Some file operations are scheduled after process exit. Restart to finish DLC changes.",

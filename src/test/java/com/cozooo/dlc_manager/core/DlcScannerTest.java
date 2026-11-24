@@ -125,6 +125,23 @@ class DlcScannerTest {
     }
 
     @Test
+    void scanLoadsCollectionEntriesFromInfoSourceWithoutAFileName() throws Exception {
+        Path source = dlcRoot.resolve("collections/example");
+        Files.createDirectories(source.resolve("config"));
+        Files.createDirectories(source.resolve("kubejs/server_scripts"));
+        Files.writeString(source.resolve("config/example.toml"), "config");
+        Files.writeString(source.resolve("kubejs/server_scripts/example.js"), "script");
+        Files.createDirectories(dlcRoot.resolve("info"));
+        Files.writeString(dlcRoot.resolve("info/example.dc"), "[basic]\nidentifier='example'\ntype='collection'\nsource='collections/example'\n");
+
+        var items = new DlcScanner().scan().get(DlcType.COLLECTION);
+
+        assertEquals(1, items.size());
+        assertEquals("example", items.get(0).getIdentifier());
+        assertEquals(source, items.get(0).getSourcePath());
+    }
+
+    @Test
     void folderMetadataIsNotAResourceAndRemoteItemsKeepTheirLogicalOrigin() throws Exception {
         Files.createDirectories(dlcRoot.resolve("remote/A"));
         Files.createDirectories(dlcRoot.resolve("A"));

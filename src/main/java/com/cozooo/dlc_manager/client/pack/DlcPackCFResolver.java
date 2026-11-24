@@ -40,6 +40,20 @@ public final class DlcPackCFResolver {
         return entries;
     }
 
+    public static List<ManifestRequirement> resolveManifestRequirements(DlcPackPackage pack) throws IOException, InterruptedException {
+        if (pack == null || pack.format != DlcPackPackage.Format.CURSEFORGE || pack.manifestFiles.isEmpty()) {
+            return List.of();
+        }
+        List<ManifestRequirement> result = new ArrayList<>();
+        for (DlcPackManifest.FileRef ref : pack.manifestFiles) {
+            ManifestTarget target = resolveManifestTarget(pack, ref);
+            if (target != null) {
+                result.add(new ManifestRequirement(ref.projectId, ref.fileId, target.fileName, target.relativePath));
+            }
+        }
+        return result;
+    }
+
     public static List<DlcPackInstallPlan.FileEntry> downloadManifestFiles(DlcPackPackage pack, Path staging, Path packDir,
                                                                            DlcDownloadService.CancelChecker cancelChecker)
         throws IOException, InterruptedException {
@@ -390,6 +404,20 @@ public final class DlcPackCFResolver {
         private ManifestTarget(DlcCurseForgeClient.CurseForgeFile file, Path targetDirectory, String fileName, String relativePath) {
             this.file = file;
             this.targetDirectory = targetDirectory;
+            this.fileName = fileName;
+            this.relativePath = relativePath;
+        }
+    }
+
+    public static final class ManifestRequirement {
+        public final String projectId;
+        public final String fileId;
+        public final String fileName;
+        public final String relativePath;
+
+        private ManifestRequirement(String projectId, String fileId, String fileName, String relativePath) {
+            this.projectId = projectId;
+            this.fileId = fileId;
             this.fileName = fileName;
             this.relativePath = relativePath;
         }

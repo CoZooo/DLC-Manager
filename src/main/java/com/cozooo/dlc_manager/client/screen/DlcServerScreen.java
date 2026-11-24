@@ -1253,6 +1253,7 @@ public class DlcServerScreen extends DlcManagerPageScreen implements DlcReturnPo
             case DATA_PACK -> "data";
             case TACZ_PACK -> "tacz";
             case DLC_PACK -> "dlcpack";
+            case COLLECTION -> "collection";
             case UNKNOWN -> "other";
         };
     }

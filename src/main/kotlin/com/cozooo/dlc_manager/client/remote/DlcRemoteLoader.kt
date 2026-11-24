@@ -286,8 +286,8 @@ object DlcRemoteLoader {
         val curseProjectId = getString(obj, "curseforge_projectid")
         val curseFileId = getString(obj, "curseforge_fileid")
         val priority = DlcDownloadCandidate.readPriority(obj)
-        var fileName = getString(obj, "file_name")
-        var appliedTarget = getString(obj, "appliedTarget")
+        var fileName = getString(obj, "source")
+        var appliedTarget = getString(obj, "target")
         val redirectUrl = getString(obj, "RedirectUrl")
         if (appliedTarget != null) {
             appliedTarget = appliedTarget.trim()
@@ -325,7 +325,7 @@ object DlcRemoteLoader {
         if (type == null) {
             type = DlcType.MOD
         }
-        var hidden = getBoolean(obj, "isHidden", false)
+        var hidden = getBoolean(obj, "hidden", false)
         val allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true)
         val alarm = getBoolean(obj, "alarm", false)
         if (type == DlcType.DLC_PACK) {
@@ -353,15 +353,15 @@ object DlcRemoteLoader {
         ordered.addProperty("identifier", identifier)
         ordered.addProperty("type", DlcTooltipLoader.toTypeString(type))
         if (!appliedTarget.isNullOrBlank()) {
-            ordered.addProperty("appliedTarget", appliedTarget)
+            ordered.addProperty("target", appliedTarget)
         }
         if (!redirectUrl.isNullOrBlank()) {
             ordered.addProperty("RedirectUrl", redirectUrl)
         }
         if (!fileName.isNullOrBlank()) {
-            ordered.addProperty("file_name", fileName)
+            ordered.addProperty("source", fileName)
         }
-        ordered.addProperty("isHidden", hidden)
+        ordered.addProperty("hidden", hidden)
         ordered.addProperty("AllowEnableByAll", allowEnableByAll)
         ordered.add("dependencies", deps.element)
         ordered.add("conflicts", conflicts.element)
@@ -670,14 +670,14 @@ object DlcRemoteLoader {
             return false
         }
         val hasIdentifier = DlcDcConfigIO.hasIgnoreCase(obj, "identifier")
-            || DlcDcConfigIO.hasIgnoreCase(obj, "file_name")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "source")
             || DlcDcConfigIO.hasIgnoreCase(obj, "name")
         if (!hasIdentifier) {
             return false
         }
         for ((key, _) in obj.entrySet()) {
             if ("identifier".equals(key, ignoreCase = true)
-                || "file_name".equals(key, ignoreCase = true)
+                || "source".equals(key, ignoreCase = true)
                 || "name".equals(key, ignoreCase = true)
             ) {
                 continue
@@ -693,7 +693,7 @@ object DlcRemoteLoader {
         }
         var identifier = getString(obj, "identifier")
         if (identifier.isNullOrBlank()) {
-            identifier = getString(obj, "file_name")
+            identifier = getString(obj, "source")
         }
         if (identifier.isNullOrBlank()) {
             identifier = getString(obj, "name")
@@ -714,12 +714,12 @@ object DlcRemoteLoader {
             || DlcDcConfigIO.hasIgnoreCase(obj, "curseforge_projectid")
             || DlcDcConfigIO.hasIgnoreCase(obj, "curseforge_fileid")
             || DlcDcConfigIO.hasIgnoreCase(obj, "identifier")
-            || DlcDcConfigIO.hasIgnoreCase(obj, "file_name")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "source")
             || DlcDcConfigIO.hasIgnoreCase(obj, "type")
-            || DlcDcConfigIO.hasIgnoreCase(obj, "appliedTarget")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "target")
             || DlcDcConfigIO.hasIgnoreCase(obj, "DisplayName")
             || DlcDcConfigIO.hasIgnoreCase(obj, "tip")
-            || DlcDcConfigIO.hasIgnoreCase(obj, "isHidden")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "hidden")
             || DlcDcConfigIO.hasIgnoreCase(obj, "AllowEnableByAll")
             || DlcDcConfigIO.hasIgnoreCase(obj, "dependencies")
             || DlcDcConfigIO.hasIgnoreCase(obj, "conflicts")
@@ -730,7 +730,7 @@ object DlcRemoteLoader {
         if (obj == null) {
             return false
         }
-        return !DlcDcConfigIO.hasIgnoreCase(obj, "file_name") || !DlcDcConfigIO.hasIgnoreCase(obj, "identifier")
+        return !DlcDcConfigIO.hasIgnoreCase(obj, "source") || !DlcDcConfigIO.hasIgnoreCase(obj, "identifier")
     }
 
     private fun getString(obj: JsonObject?, key: String): String? = DlcDcConfigIO.getStringIgnoreCase(obj, key)

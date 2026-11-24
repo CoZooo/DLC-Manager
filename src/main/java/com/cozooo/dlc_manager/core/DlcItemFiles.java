@@ -10,8 +10,19 @@ public final class DlcItemFiles {
     private DlcItemFiles() {}
 
     public static List<Target> expected(DlcItem item) {
+        return expected(item, true);
+    }
+
+    public static List<Target> expected(DlcItem item, boolean allowCollectionDownloads) {
         List<Target> result = new ArrayList<>();
-        if (item.getType() == DlcType.UNKNOWN) {
+        if (item.getType() == DlcType.COLLECTION) {
+            try {
+                for (var entry : DlcCollectionSource.entries(item.getSourcePath(), item.getDlcRoot(), DlcPaths.gameDir(), allowCollectionDownloads, item.getIdentifier())) {
+                    result.add(new Target(entry.source, DlcPathUtil.resolveInside(DlcPaths.gameDir(), entry.relativePath), false));
+                }
+            } catch (IOException ignored) {
+            }
+        } else if (item.getType() == DlcType.UNKNOWN) {
             Path target = DlcPaths.resolveAppliedTarget(item.getAppliedTargetRaw());
             List<Path> sources = item.getSourcePaths();
             if (target == null || sources.isEmpty()) return result;
@@ -35,7 +46,7 @@ public final class DlcItemFiles {
 
     public static List<Path> installed(DlcItem item) throws IOException {
         List<Path> result = new ArrayList<>();
-        for (Target pair : expected(item)) {
+        for (Target pair : expected(item, false)) {
             Path target = pair.searchByHash() ? DlcFileMatch.find(pair.source(), pair.target().getParent(), item.getMatchMode())
                     : DlcFileMatch.matches(pair.source(), pair.target(), item.getMatchMode()) ? pair.target() : null;
             if (target == null) return List.of();

@@ -32,6 +32,7 @@
   "dlc_manager.group.resource_packs": "资源包",
   "dlc_manager.group.data_packs": "数据包",
   "dlc_manager.group.tacz_packs": "TACZ 枪包",
+  "dlc_manager.group.collections": "集合",
   "dlc_manager.group.root": "根目录",
   "dlc_manager.group.other": "其他",
   "dlc_manager.apply.deferred_restart": "部分文件操作已安排在退出后处理。请重启完成 DLC 变更。",

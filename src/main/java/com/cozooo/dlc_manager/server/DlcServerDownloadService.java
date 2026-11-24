@@ -1460,7 +1460,7 @@ public final class DlcServerDownloadService {
         if (entry != null) {
             return switch (entry.getType()) {
                 case MOD -> "download.jar";
-                case RESOURCE_PACK, DATA_PACK, TACZ_PACK, DLC_PACK, UNKNOWN -> "download.zip";
+                case RESOURCE_PACK, DATA_PACK, TACZ_PACK, DLC_PACK, COLLECTION, UNKNOWN -> "download.zip";
             };
         }
         return "download.zip";
@@ -1523,14 +1523,14 @@ public final class DlcServerDownloadService {
         ordered.addProperty("identifier", getIdentifier(obj));
         ordered.addProperty("type", getString(obj, "type"));
         String fileName = fileNameOverride == null || fileNameOverride.isBlank()
-            ? getString(obj, "file_name")
+            ? getString(obj, "source")
             : fileNameOverride;
         if (fileName != null) {
-            ordered.addProperty("file_name", fileName);
+            ordered.addProperty("source", fileName);
         } else {
-            ordered.addProperty("file_name", "");
+            ordered.addProperty("source", "");
         }
-        ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false));
+        ordered.addProperty("hidden", getBoolean(obj, "hidden", false));
         ordered.addProperty("AllowEnableByAll", getBoolean(obj, "AllowEnableByAll", true));
         JsonElement deps = DlcDcConfigIO.getIgnoreCase(obj, "dependencies");
         if (deps == null || deps.isJsonNull()) {
@@ -1611,14 +1611,14 @@ public final class DlcServerDownloadService {
         ordered.addProperty("priority", DlcDownloadCandidate.readPriority(obj));
         ordered.addProperty("identifier", getString(obj, "identifier"));
         String fileName = fileNameOverride == null || fileNameOverride.isBlank()
-            ? getString(obj, "file_name")
+            ? getString(obj, "source")
             : fileNameOverride;
         if (fileName != null) {
-            ordered.addProperty("file_name", fileName);
+            ordered.addProperty("source", fileName);
         } else {
-            ordered.addProperty("file_name", "");
+            ordered.addProperty("source", "");
         }
-        ordered.addProperty("appliedTarget", getString(obj, "appliedTarget"));
+        ordered.addProperty("target", getString(obj, "target"));
         JsonElement dependencies = DlcDcConfigIO.getIgnoreCase(obj, "dependencies");
         ordered.add("dependencies", dependencies == null ? new JsonPrimitive("") : dependencies);
         for (var entry : obj.entrySet()) {
