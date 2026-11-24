@@ -30,6 +30,10 @@ function categoryKey(header: string, schema: DocumentSchema): string {
 }
 
 function fieldKey(key: string, schema: DocumentSchema): string {
+  const normalized = key.toLowerCase();
+  if (normalized === "file_name" || normalized === "filename") return "source";
+  if (normalized === "appliedtarget") return "target";
+  if (normalized === "ishidden") return "hidden";
   if (!schema.sectionTemplate) return key;
   const declared = schema.sectionTemplate.fields.find((field) => field.key.toLowerCase() === key.toLowerCase());
   if (declared) return declared.key;
@@ -409,6 +413,7 @@ export function parseStructuredDocument(text: string, schema: DocumentSchema): {
     model[currentSection][key] = parseValueByKind(valueText, kind);
   }
 
+  normalizeCanonicalAliases(model);
   if (schema.type === "info") {
     normalizeInfoMultiFileModel(model);
   }
@@ -423,6 +428,26 @@ export function parseStructuredDocument(text: string, schema: DocumentSchema): {
   normalizeVersionAliases(model, schema);
 
   return { model, issues };
+}
+
+function normalizeCanonicalAliases(model: StructuredModel): void {
+  for (const section of Object.values(model)) {
+    if (!section || typeof section !== "object" || Array.isArray(section)) {
+      continue;
+    }
+    if (section.source === undefined && typeof section.file_name === "string") {
+      section.source = section.file_name;
+    }
+    if (section.target === undefined && section.appliedTarget !== undefined) {
+      section.target = section.appliedTarget;
+    }
+    if (section.hidden === undefined && section.isHidden !== undefined) {
+      section.hidden = section.isHidden;
+    }
+    delete section.file_name;
+    delete section.appliedTarget;
+    delete section.isHidden;
+  }
 }
 
 function normalizeVersionAliases(model: StructuredModel, schema: DocumentSchema): void {
@@ -494,7 +519,7 @@ export function serializeStructuredDocument(model: StructuredModel, schema: Docu
         if (!enabled) {
           continue;
         }
-        const primary = typeof values.file_name === "string" ? values.file_name.trim() : "";
+        const primary = typeof values.source === "string" ? values.source.trim() : "";
         const extras = Array.isArray(values.fileNames)
           ? values.fileNames.map((item) => item.trim()).filter(Boolean)
           : [];
@@ -602,6 +627,7 @@ interface RawFieldSpan {
 }
 
 function patchStructuredDocument(rawText: string, model: StructuredModel, schema: DocumentSchema): string {
+  normalizeCanonicalAliases(model);
   const previous = parseStructuredDocument(rawText, schema).model || {};
   const newline = rawText.includes("\r\n") ? "\r\n" : "\n";
   const fields: RawFieldSpan[] = [];
@@ -773,7 +799,7 @@ function normalizeInfoMultiFileModel(model: StructuredModel) {
   if (!Array.isArray(current)) {
     return;
   }
-  const primary = typeof basic.file_name === "string" ? basic.file_name.trim() : "";
+  const primary = typeof basic.source === "string" ? basic.source.trim() : "";
   let removedPrimary = false;
   const extras = current.filter((item) => {
     const trimmed = item.trim();
@@ -1162,7 +1188,7 @@ function hydrateUpdateFileSections(rawText: string, model: StructuredModel, issu
       }
       const key = trimmed.slice(0, eq).trim();
       const value = parseUpdateInlineValue(trimmed.slice(eq + 1).trim());
-      if ("appliedTarget" === key) {
+      if ("target" === key) {
         pendingTarget = value;
         pendingTargetLine = lineNumber;
       } else if ("override" === key) {
@@ -1246,7 +1272,7 @@ function serializeUpdateFileSections(model: StructuredModel): string {
         continue;
       }
       out.push(`    ${formatString(source)}:`);
-      out.push(`      appliedTarget = ${formatString(target)}`);
+      out.push(`      target = ${formatString(target)}`);
       if (overrideValue) {
         out.push(`      override = ${serializeOverrideValue(overrideValue)}`);
       }
@@ -1507,8 +1533,12 @@ function isEmptyLocalizedLinkSection(values: Record<string, StructuredValue>): b
 function addDocumentSpecificIssues(model: StructuredModel, schema: DocumentSchema, issues: ValidationIssue[]) {
   if (schema.type === "info") {
     const basic = model.basic || {};
-    requireNonEmptyString(issues, basic.file_name, "[basic].file_name 为空。", "warning");
     const typeValue = readString(basic.type);
+    if (typeValue === "collection") {
+      requireNonEmptyString(issues, basic.source, "[basic].source 为空；collection 需要填写相对 DLC 目录的来源路径。", "error");
+      return;
+    }
+    requireNonEmptyString(issues, basic.source, "[basic].source 为空。", "warning");
     if (typeValue === "dlcpack") {
       issues.push({
         severity: "error",
@@ -1516,10 +1546,10 @@ function addDocumentSpecificIssues(model: StructuredModel, schema: DocumentSchem
         source: "schema"
       });
     }
-    if ((typeValue === "others" || typeValue === "config") && !readString(basic.appliedTarget)) {
+    if ((typeValue === "others" || typeValue === "config") && !readString(basic.target)) {
       issues.push({
         severity: "warning",
-        message: "[basic].appliedTarget 为空；type 为 others/config 时通常需要填写应用目标路径。",
+        message: "[basic].target 为空；type 为 others/config 时通常需要填写应用目标路径。",
         source: "schema"
       });
     }
@@ -1529,15 +1559,15 @@ function addDocumentSpecificIssues(model: StructuredModel, schema: DocumentSchem
   if (schema.type === "remote") {
     const basic = model.basic || {};
     const download = model.download || {};
-    requireNonEmptyString(issues, basic.file_name, "[basic].file_name 为空。", "warning");
+    requireNonEmptyString(issues, basic.source, "[basic].source 为空。", "warning");
     const typeValue = readString(basic.type);
     if (typeValue !== "dlcpack") {
       requireNonEmptyString(issues, basic.identifier, "[basic].identifier 为空。", "error");
     }
-    if (typeValue === "others" && !readString(basic.appliedTarget)) {
+    if (typeValue === "others" && !readString(basic.target)) {
       issues.push({
         severity: "warning",
-        message: "[basic].appliedTarget 为空；type 为 others 时通常需要填写应用目标路径。",
+        message: "[basic].target 为空；type 为 others 时通常需要填写应用目标路径。",
         source: "schema"
       });
     }
@@ -1555,7 +1585,7 @@ function addDocumentSpecificIssues(model: StructuredModel, schema: DocumentSchem
   if (schema.type === "required") {
     const basic = model.basic || {};
     const download = model.download || {};
-    requireNonEmptyString(issues, basic.file_name, "[basic].file_name 为空。", "warning");
+    requireNonEmptyString(issues, basic.source, "[basic].source 为空。", "warning");
     if (!hasAnyDownloadSource(download)) {
       issues.push({
         severity: "warning",

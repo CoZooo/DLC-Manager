@@ -1,5 +1,5 @@
-import { EditorDocument, StructuredModel } from "../../models/editor";
-import { documentSchemas } from "../../schemas/documentSchemas";
+import { EditorDocument, EditorTargetVersion, StructuredModel } from "../../models/editor";
+import { getDocumentSchemas } from "../../schemas/versionedSchemas";
 
 function readIdentifier(model: StructuredModel | null): string {
   const identifier = model?.basic?.identifier;
@@ -21,10 +21,11 @@ export function documentSavePath(path: string | undefined, name: string): string
 
 export function deriveDocumentNaming(
   document: Pick<EditorDocument, "type" | "name" | "structuredModel" | "lastIdentifier">,
-  model: StructuredModel | null
+  model: StructuredModel | null,
+  version: EditorTargetVersion = "5.0"
 ): Pick<EditorDocument, "name" | "lastIdentifier"> {
   const name = effectiveDocumentName(document);
-  const schema = documentSchemas[document.type];
+  const schema = getDocumentSchemas(version)[document.type];
   const hasIdentifier = schema.sections.some((section) =>
     section.key === "basic" && section.fields.some((field) => field.key === "identifier")
   );

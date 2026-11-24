@@ -1,5 +1,6 @@
 import {
   DocumentType,
+  EditorTargetVersion,
   OpenDocumentResult,
   PickedFileResult,
   SaveArchiveRequest,
@@ -8,7 +9,7 @@ import {
   StructuredModel,
   ValidationIssue
 } from "../../models/editor";
-import { documentSchemas } from "../../schemas/documentSchemas";
+import { getDocumentSchemas } from "../../schemas/versionedSchemas";
 import { createEmptyTemplate } from "../document/templates";
 import { parseStructuredDocument, serializeStructuredDocument, validateStructuredModel } from "../document/simpleDc";
 import { detectDocumentType } from "../document/typeDetection";
@@ -27,6 +28,8 @@ declare global {
 
 export class LocalBackend implements EditorBackend {
   readonly mode = "local" as const;
+
+  constructor(private readonly targetVersion: EditorTargetVersion = "5.0") {}
 
   async openWithPicker(): Promise<OpenDocumentResult | null> {
     const opened = await this.openManyWithPicker();
@@ -90,20 +93,20 @@ export class LocalBackend implements EditorBackend {
   }
 
   async createNew(type: DocumentType): Promise<OpenDocumentResult> {
-    const schema = documentSchemas[type];
+    const schema = getDocumentSchemas(this.targetVersion)[type];
     return {
       name: schema.defaultFileName,
       path: schema.defaultFileName,
-      text: createEmptyTemplate(type)
+      text: createEmptyTemplate(type, this.targetVersion)
     };
   }
 
   async detectType(path: string | undefined, text: string): Promise<DocumentType> {
-    return detectDocumentType(path, text);
+    return detectDocumentType(path, text, this.targetVersion);
   }
 
   async parse(type: DocumentType, text: string): Promise<ParsedDocumentResult> {
-    const schema = documentSchemas[type];
+    const schema = getDocumentSchemas(this.targetVersion)[type];
     const parsed = parseStructuredDocument(text, schema);
     return {
       type,
@@ -113,17 +116,17 @@ export class LocalBackend implements EditorBackend {
   }
 
   async validate(type: DocumentType, text: string, model: StructuredModel | null): Promise<ValidationIssue[]> {
-    const schema = documentSchemas[type];
+    const schema = getDocumentSchemas(this.targetVersion)[type];
     const parsed = parseStructuredDocument(text, schema);
     return [...parsed.issues, ...validateStructuredModel(model ?? parsed.model, schema)];
   }
 
   async serialize(type: DocumentType, model: StructuredModel): Promise<string> {
-    return serializeStructuredDocument(model, documentSchemas[type]);
+    return serializeStructuredDocument(model, getDocumentSchemas(this.targetVersion)[type]);
   }
 
   async serializeForSave(type: DocumentType, model: StructuredModel): Promise<string> {
-    return serializeStructuredDocument(model, documentSchemas[type], { applyImplicitDefaultLocale: true });
+    return serializeStructuredDocument(model, getDocumentSchemas(this.targetVersion)[type], { applyImplicitDefaultLocale: true });
   }
 
   async save(request: SaveDocumentRequest): Promise<SaveDocumentResult> {

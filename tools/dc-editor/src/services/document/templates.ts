@@ -1,7 +1,10 @@
-import { DocumentType, StructuredModel } from "../../models/editor";
+import { DocumentType, EditorTargetVersion, StructuredModel } from "../../models/editor";
 import { requiredBasicDefaults } from "../../schemas/documentSchemas";
 
-export function createEmptyTemplate(type: DocumentType): string {
+export function createEmptyTemplate(type: DocumentType, version: EditorTargetVersion = "5.0"): string {
+  if (version === "4.0") {
+    return createEmptyTemplate40(type);
+  }
   switch (type) {
     case "folder_metadata":
       return "";
@@ -9,11 +12,11 @@ export function createEmptyTemplate(type: DocumentType): string {
       return [
         "[basic]",
         'identifier = ""',
-        'file_name = ""',
+        'source = ""',
         'mode = "hash"',
         'type = "mod"',
         'RedirectUrl = ""',
-        "isHidden = false",
+        "hidden = false",
         "AllowEnableByAll = true",
         "alarm = false",
         "",
@@ -38,11 +41,11 @@ export function createEmptyTemplate(type: DocumentType): string {
         "",
         "[basic]",
         'identifier = ""',
-        'file_name = ""',
+        'source = ""',
         'mode = "hash"',
         'type = "mod"',
         'RedirectUrl = ""',
-        "isHidden = false",
+        "hidden = false",
         "AllowEnableByAll = true",
         "alarm = false",
         "",
@@ -67,9 +70,9 @@ export function createEmptyTemplate(type: DocumentType): string {
         "",
         "[basic]",
         'identifier = ""',
-        'file_name = ""',
+        'source = ""',
         'mode = "hash"',
-        'appliedTarget = ""',
+        'target = ""',
         `unzip = ${requiredBasicDefaults.unzip}`,
         "",
         "[dependencies]",
@@ -120,7 +123,7 @@ export function createEmptyTemplate(type: DocumentType): string {
       ].join("\n");
     case "update":
       return [
-        "isHidden = false",
+        "hidden = false",
         "",
         "[version]",
         'platform = "universal"',
@@ -152,8 +155,233 @@ export function createEmptyTemplate(type: DocumentType): string {
         "isPresetFuncOn = true",
         "isPackFuncOn = true",
         "isPButtomShown = true",
-        "ShowOnFirstRun = false",
+        "showOnFirstRun = false",
         "showDependencyReminder = false",
+        "waitingTime = 0",
+        "apiEnabled = false",
+        "apiPort = 0",
+        'apiToken = ""',
+        'noticeDisplayMode = "manager_button"',
+        'noticeButtonAnchor = "bottom_right"',
+        "noticeButtonOffsetX = 0",
+        "noticeButtonOffsetY = 0",
+        'noticePanelAnchor = "top_left"',
+        "noticePanelOffsetX = 0",
+        "noticePanelOffsetY = 0",
+        "noticePanelWidth = 0",
+        "noticePanelHeight = 0",
+        'titleAnchor = "auto"',
+        "titleOffsetX = 0",
+        "titleOffsetY = 0",
+        'titleUpdateAnchor = "auto"',
+        "titleUpdateOffsetX = 0",
+        "titleUpdateOffsetY = 0",
+        "",
+        "[modpack]",
+        'modpack = ""',
+        'modpackUrl = ""',
+        'updateGitRepo = ""',
+        'packUpdateChannel = "all"',
+        "",
+        "[downloads]",
+        "maxConcurrentDownloads = 5",
+        "maxSegmentsPerFile = 4",
+        "minSegmentMB = 20",
+        "maxRetryCount = 2",
+        "connectTimeoutSeconds = 10",
+        "taskTimeoutSeconds = 60",
+        'downloadMirrorMode = "official_only"',
+        ""
+      ].join("\n");
+    case "pack":
+      return [
+        "[basic]",
+        'identifier = ""',
+        'version = "1.0.0"',
+        'platform = "universal"',
+        'gameVersion = ""',
+        'modLoader = ""',
+        'author = ""',
+        "",
+        "[modpack]",
+        'modpack = ""',
+        'base = ""',
+        'dlc = ""',
+        "",
+        "[links]",
+        'homepage = ""',
+        'issue = ""',
+        'sponsor = ""',
+        "",
+        "[dependencies]",
+        "",
+        "[conflicts]",
+        "",
+        "[DisplayName]",
+        "",
+        "[description]",
+        ""
+      ].join("\n");
+    default:
+      return "";
+  }
+}
+
+function createEmptyTemplate40(type: DocumentType): string {
+  switch (type) {
+    case "info":
+      return [
+        "[basic]",
+        'identifier = ""',
+        'source = ""',
+        'type = "mod"',
+        'RedirectUrl = ""',
+        "isInList = false",
+        "hidden = false",
+        "AllowEnableByAll = true",
+        "alarm = false",
+        "",
+        "[dependencies]",
+        "",
+        "[conflicts]",
+        "",
+        "[DisplayName]",
+        "",
+        "[tip]",
+        ""
+      ].join("\n");
+    case "remote":
+      return [
+        "[download]",
+        'modrinth_projectid = ""',
+        'modrinth_versionid = ""',
+        'curseforge_projectid = ""',
+        'curseforge_fileid = ""',
+        "directUrl = []",
+        'priority = ["curseforge", "modrinth", "directUrl"]',
+        "",
+        "[basic]",
+        'identifier = ""',
+        'source = ""',
+        'type = "mod"',
+        'RedirectUrl = ""',
+        "isInList = false",
+        "hidden = false",
+        "AllowEnableByAll = true",
+        "alarm = false",
+        "",
+        "[dependencies]",
+        "",
+        "[conflicts]",
+        "",
+        "[DisplayName]",
+        "",
+        "[tip]",
+        ""
+      ].join("\n");
+    case "required":
+      return [
+        "[download]",
+        'modrinth_projectid = ""',
+        'modrinth_versionid = ""',
+        'curseforge_projectid = ""',
+        'curseforge_fileid = ""',
+        "directUrl = []",
+        'priority = ["curseforge", "modrinth", "directUrl"]',
+        "",
+        "[basic]",
+        'identifier = ""',
+        'source = ""',
+        'target = ""',
+        'RedirectUrl = ""',
+        "isInList = false",
+        "hidden = false",
+        "",
+        "[dependencies]",
+        ""
+      ].join("\n");
+    case "preset":
+      return [
+        "[basic]",
+        'identifier = ""',
+        "alarm = false",
+        "",
+        "[dependencies]",
+        "",
+        "[conflicts]",
+        "",
+        "[DisplayName]",
+        "",
+        "[tip]",
+        ""
+      ].join("\n");
+    case "notice":
+      return [
+        "isNoticeEnabled = false",
+        "neverShow = false",
+        'ShowFrequency = "perlaunchmanager"',
+        "",
+        "[Title]",
+        "",
+        "[Subhead]",
+        "enabled = false",
+        "",
+        "[ContentUrl]",
+        "",
+        "[Contents]",
+        ""
+      ].join("\n");
+    case "redirect":
+      return [
+        'RedirectUrl = ""',
+        'available = ""',
+        "",
+        "[DisplayName]",
+        "",
+        "[notice]",
+        "",
+        "[tip]",
+        ""
+      ].join("\n");
+    case "update":
+      return [
+        "hidden = false",
+        "",
+        "[version]",
+        'platform = "universal"',
+        'base = ""',
+        'base_new = ""',
+        'dlc = ""',
+        'dlc_new = ""',
+        "",
+        "[changelog]",
+        "",
+        "[file]",
+        ""
+      ].join("\n");
+    case "version":
+      return [
+        'base = "1.0.0"',
+        'dlc = ""'
+      ].join("\n");
+    case "config":
+      return [
+        "[paths]",
+        'dlcRoot = "DLC"',
+        'taczRoot = "tacz"',
+        'resourcepackRoot = "resourcepacks"',
+        'datapackRoot = "datapacks"',
+        "",
+        "[ui]",
+        "isEnableAllButtonShown = true",
+        "isConfigButtonShown = false",
+        "isUButtomShown = true",
+        "isUpdateManagerOn = true",
+        "isSelfUpdateAutoCheckOn = true",
+        "isPresetFuncOn = true",
+        "isPackFuncOn = true",
+        "isPButtomShown = true",
+        "ShowOnFirstRun = false",
         "WaitingTime = 0",
         "serverSupport = true",
         "apiEnabled = false",
@@ -187,8 +415,9 @@ export function createEmptyTemplate(type: DocumentType): string {
         "maxRetryCount = 2",
         "connectTimeoutSeconds = 10",
         "taskTimeoutSeconds = 60",
-        'downloadMirrorMode = "official_only"',
-        ""
+        'downloadMirrorMode = "smart_precheck"',
+        "downloadMirrorProbeCount = 3",
+        'downloadMirrorProbeStrategy = "single_best"'
       ].join("\n");
     case "pack":
       return [

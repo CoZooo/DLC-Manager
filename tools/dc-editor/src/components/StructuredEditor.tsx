@@ -149,7 +149,7 @@ export function StructuredEditor(props: StructuredEditorProps) {
                             props.onChange(withValue(model, section.key, field.key, nextValue))
                           }
                         />
-                        {props.schema.type === "info" && section.key === "basic" && field.key === "file_name" && (
+                        {props.schema.type === "info" && section.key === "basic" && field.key === "source" && (
                           <InfoMultiFileEditor
                             locale={props.locale}
                             typeValue={typeof sectionValues.type === "string" ? sectionValues.type : ""}

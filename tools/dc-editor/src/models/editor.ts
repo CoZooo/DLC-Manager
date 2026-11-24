@@ -2,6 +2,7 @@ export type DocumentType =
   | "info"
   | "remote"
   | "required"
+  | "required_notice"
   | "preset"
   | "notice"
   | "redirect"
@@ -10,6 +11,8 @@ export type DocumentType =
   | "config"
   | "pack"
   | "folder_metadata";
+
+export type EditorTargetVersion = "4.0" | "5.0";
 
 export type FieldKind =
   | "text"

@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { DocumentSchema, DocumentType } from "../models/editor";
+import { DocumentSchema, DocumentType, EditorTargetVersion } from "../models/editor";
 import { EditorLocale, t, translateStaticText } from "../i18n/editorI18n";
 
 interface SidebarProps {
   currentType: DocumentType;
+  targetVersion: EditorTargetVersion;
   schemas: Record<DocumentType, DocumentSchema>;
   orderedTypes: DocumentType[];
   showDocumentActions: boolean;
   locale: EditorLocale;
   onTypeSelect(type: DocumentType): void;
+  onChangeTargetVersion(version: EditorTargetVersion): void;
   onChangeLocale(locale: EditorLocale): void;
   onNew(): void;
   onImport(): void;
@@ -84,6 +86,26 @@ export function Sidebar(props: SidebarProps) {
           </div>
         </div>
       )}
+
+      <div className="sidebar-block">
+        <div className="sidebar-title">{t(props.locale, "targetVersion")}</div>
+        <div className="sidebar-actions">
+          <button
+            type="button"
+            className={props.targetVersion === "4.0" ? "active" : ""}
+            onClick={() => props.onChangeTargetVersion("4.0")}
+          >
+            {t(props.locale, "version40")}
+          </button>
+          <button
+            type="button"
+            className={props.targetVersion === "5.0" ? "active" : ""}
+            onClick={() => props.onChangeTargetVersion("5.0")}
+          >
+            {t(props.locale, "version50")}
+          </button>
+        </div>
+      </div>
 
       <div className="sidebar-block">
         <div className="sidebar-title">{t(props.locale, "types")}</div>

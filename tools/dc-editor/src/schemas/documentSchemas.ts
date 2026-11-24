@@ -7,6 +7,7 @@ const typeOptions = [
   { value: "resourcepack", label: "resourcepack" },
   { value: "datapack", label: "datapack" },
   { value: "gunpack", label: "gunpack" },
+  { value: "collection", label: "collection" },
   { value: "config", label: "config" },
   { value: "others", label: "others" }
 ];
@@ -29,7 +30,15 @@ const downloadMirrorModeOptions = [
   { value: "mirror_first", label: "mirror_first" }
 ];
 
-const basicFields = (options?: { includeType?: boolean; includeDlcPackType?: boolean; includeAppliedTarget?: boolean; appliedTargetOnlyFor?: string[] }): SectionSchema => ({
+const packUpdateChannelOptions = [
+  { value: "all", label: "all" },
+  { value: "stable", label: "stable" },
+  { value: "beta", label: "beta" },
+  { value: "alpha", label: "alpha" },
+  { value: "nightly", label: "nightly" }
+];
+
+const basicFields = (options?: { includeType?: boolean; includeDlcPackType?: boolean; includeAppliedTarget?: boolean; targetOnlyFor?: string[] }): SectionSchema => ({
   key: "basic",
   label: "[basic]",
   fields: [
@@ -47,8 +56,8 @@ const basicFields = (options?: { includeType?: boolean; includeDlcPackType?: boo
       help: "static.help.matchMode"
     },
     {
-      key: "file_name",
-      label: "file_name",
+      key: "source",
+      label: "source",
       kind: "text",
       help: "static.help.fileName"
     },
@@ -75,19 +84,19 @@ const basicFields = (options?: { includeType?: boolean; includeDlcPackType?: boo
       : []),
     ...((options?.includeAppliedTarget ?? false)
       ? [{
-          key: "appliedTarget",
-          label: "appliedTarget",
+          key: "target",
+          label: "target",
           kind: "text" as const,
-          ...((options?.appliedTargetOnlyFor && options.appliedTargetOnlyFor.length > 0)
+          ...((options?.targetOnlyFor && options.targetOnlyFor.length > 0)
             ? {
                 visibleWhen: {
                   sectionKey: "basic",
                   fieldKey: "type",
-                  oneOf: options.appliedTargetOnlyFor
+                  oneOf: options.targetOnlyFor
                 }
               }
             : {}),
-          help: "static.help.appliedTarget"
+          help: "static.help.target"
         }]
       : []),
     {
@@ -97,10 +106,10 @@ const basicFields = (options?: { includeType?: boolean; includeDlcPackType?: boo
       help: "static.help.redirectUrl"
     },
     {
-      key: "isHidden",
-      label: "isHidden",
+      key: "hidden",
+      label: "hidden",
       kind: "boolean",
-      help: "static.help.isHiddenLibrary",
+      help: "static.help.hiddenLibrary",
       toggleLabels: { checked: "static.label.hidden", unchecked: "static.label.hidden" }
     },
     {
@@ -128,8 +137,8 @@ export const requiredBasicDefaults = Object.fromEntries(requiredBasicFields
 const requiredBasicHelp: Record<string, string> = {
   identifier: "static.help.dependencyIdentifier",
   mode: "static.help.matchMode",
-  file_name: "static.help.downloadFileName",
-  appliedTarget: "static.help.requiredAppliedTarget",
+  source: "static.help.downloadFileName",
+  target: "static.help.requiredAppliedTarget",
   unzip: "static.help.requiredUnzip"
 };
 
@@ -147,7 +156,7 @@ const requiredBasicSection: SectionSchema = {
     ...(field.name === "unzip"
       ? { toggleLabels: { checked: "static.label.extractZip", unchecked: "static.label.extractZip" } }
       : {}),
-    ...(field.name === "appliedTarget" ? { placeholder: "mods/" } : {})
+    ...(field.name === "target" ? { placeholder: "mods/" } : {})
   }))
 };
 
@@ -304,10 +313,9 @@ const configUiSection: SectionSchema = {
     { key: "isPresetFuncOn", label: "isPresetFuncOn", kind: "boolean", help: "static.help.configPresetFunc" },
     { key: "isPackFuncOn", label: "isPackFuncOn", kind: "boolean", help: "static.help.configPackFunc" },
     { key: "isPButtomShown", label: "isPButtomShown", kind: "boolean", help: "static.help.configPButton" },
-    { key: "ShowOnFirstRun", label: "ShowOnFirstRun", kind: "boolean", help: "static.help.configShowOnFirstRun" },
+    { key: "showOnFirstRun", label: "showOnFirstRun", kind: "boolean", help: "static.help.configShowOnFirstRun" },
     { key: "showDependencyReminder", label: "showDependencyReminder", kind: "boolean", help: "static.help.configShowDependencyReminder" },
-    { key: "WaitingTime", label: "WaitingTime", kind: "number", help: "static.help.configWaitingTime" },
-    { key: "serverSupport", label: "serverSupport", kind: "boolean", help: "static.help.configServerSupport" },
+    { key: "waitingTime", label: "waitingTime", kind: "number", help: "static.help.configWaitingTime" },
     { key: "apiEnabled", label: "apiEnabled", kind: "boolean", help: "static.help.configApiEnabled" },
     { key: "apiPort", label: "apiPort", kind: "number", help: "static.help.configApiPort" },
     { key: "apiToken", label: "apiToken", kind: "text", help: "static.help.configApiToken" },
@@ -337,7 +345,8 @@ const configModpackSection: SectionSchema = {
     { key: "modpackUrl", label: "modpackUrl", kind: "text", help: "static.help.configModpackUrl" },
     { key: "updateGitRepo", label: "updateGitRepo", kind: "text", help: "static.help.configUpdateGitRepo" },
     { key: "autoUpdate", label: "autoUpdate", kind: "boolean", help: "static.help.configModpackAutoUpdate" },
-    { key: "forceUpdate", label: "forceUpdate", kind: "boolean", help: "static.help.configModpackForceUpdate" }
+    { key: "forceUpdate", label: "forceUpdate", kind: "boolean", help: "static.help.configModpackForceUpdate" },
+    { key: "packUpdateChannel", label: "packUpdateChannel", kind: "select", options: packUpdateChannelOptions, help: "static.help.configPackUpdateChannel" }
   ]
 };
 
@@ -413,7 +422,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
     defaultFileName: "info.dc",
     supportsStructured: true,
     sections: [
-      basicFields({ includeAppliedTarget: true, appliedTargetOnlyFor: ["others", "config"] }),
+      basicFields({ includeAppliedTarget: true, targetOnlyFor: ["others", "config"] }),
       dependenciesSection,
       conflictsSection,
       displayNameSection,
@@ -471,7 +480,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
           }
         ]
       },
-      basicFields({ includeDlcPackType: true, includeAppliedTarget: true, appliedTargetOnlyFor: ["others"] }),
+      basicFields({ includeDlcPackType: true, includeAppliedTarget: true, targetOnlyFor: ["others"] }),
       dependenciesSection,
       conflictsSection,
       displayNameSection,
@@ -567,7 +576,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
   },
   notice: {
     type: "notice",
-    label: "Information",
+    label: "Notice",
     summary: "static.summary.notice",
     defaultFileName: "notice.dc",
     supportsStructured: true,
@@ -676,8 +685,8 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
         label: "static.label.rootFields",
         fields: [
           {
-            key: "isHidden",
-            label: "isHidden",
+            key: "hidden",
+            label: "hidden",
             kind: "boolean",
             help: "static.help.updateHidden",
             toggleLabels: { checked: "static.label.hidden", unchecked: "static.label.hidden" }
@@ -735,12 +744,14 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
             key: "dlc",
             label: "dlc",
             kind: "text",
+            hiddenInForm: true,
             help: "static.help.updateDlc"
           },
           {
             key: "dlc_new",
             label: "dlc_new",
             kind: "text",
+            hiddenInForm: true,
             help: "static.help.updateDlcNew"
           }
         ]
@@ -825,6 +836,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
             key: "dlc",
             label: "dlc",
             kind: "text",
+            hiddenInForm: true,
             help: "static.help.versionDlc"
           }
         ]
@@ -884,6 +896,14 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
         }
       }
     ]
+  },
+  required_notice: {
+    type: "required_notice",
+    label: "Required Notice",
+    summary: "static.summary.requiredNotice",
+    defaultFileName: "notice.dc",
+    supportsStructured: false,
+    sections: []
   }
 };
 

@@ -470,6 +470,11 @@ button:disabled {
   gap: 8px;
 }
 
+.sidebar-actions button.active {
+  border-color: var(--accent);
+  background: #dcefe8;
+}
+
 .type-item {
   display: flex;
   flex-direction: column;

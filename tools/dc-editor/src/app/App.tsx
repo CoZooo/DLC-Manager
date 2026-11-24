@@ -9,16 +9,18 @@ import {
   DocumentSchema,
   DocumentType,
   EditorDocument,
+  EditorTargetVersion,
   StructuredModel,
   ValidationIssue
 } from "../models/editor";
 import {
-  configurableDocumentTypes,
-  documentSchemas
-} from "../schemas/documentSchemas";
+  ALL_DOCUMENT_TYPES,
+  getConfigurableDocumentTypes,
+  getDocumentSchemas,
+  isEditorTargetVersion
+} from "../schemas/versionedSchemas";
 import { EditorBackend } from "../services/backend/EditorBackend";
 import { LocalBackend } from "../services/backend/LocalBackend";
-import { detectDocumentType } from "../services/document/typeDetection";
 import { deriveDocumentNaming, documentSavePath, effectiveDocumentName } from "../services/document/documentNaming";
 import { formatPresetListFieldsInRaw, serializeStructuredDocumentWithPreservedRaw } from "../services/document/simpleDc";
 import { EDITOR_LOCALE_STORAGE_KEY, EditorLocale, t, translateStaticText } from "../i18n/editorI18n";
@@ -60,6 +62,7 @@ function guessDlcTypeFromFileName(name: string): string | null {
 type EditorView = "form" | "raw" | "preview" | "validation";
 
 interface PersistedAppState {
+  targetVersion: EditorTargetVersion;
   currentType: DocumentType;
   documents: EditorDocument[];
   activeDocumentId: string | null;
@@ -84,7 +87,7 @@ interface DocumentHistoryState {
 }
 
 function isDocumentTypeValue(value: unknown): value is DocumentType {
-  return typeof value === "string" && value in documentSchemas;
+  return typeof value === "string" && (ALL_DOCUMENT_TYPES as string[]).includes(value);
 }
 
 function isEditorViewValue(value: unknown): value is EditorView {
@@ -101,7 +104,11 @@ function loadPersistedState(): PersistedAppState | null {
       return null;
     }
     const parsed = JSON.parse(raw) as Partial<PersistedAppState>;
-    const currentType = isDocumentTypeValue(parsed.currentType) ? parsed.currentType : "info";
+    const targetVersion = isEditorTargetVersion(parsed.targetVersion) ? parsed.targetVersion : "5.0";
+    const availableTypes = getConfigurableDocumentTypes(targetVersion);
+    const currentType = isDocumentTypeValue(parsed.currentType) && availableTypes.includes(parsed.currentType)
+      ? parsed.currentType
+      : availableTypes[0];
     const activeView = isEditorViewValue(parsed.activeView) ? parsed.activeView : "form";
     const sidebarVisible = typeof parsed.sidebarVisible === "boolean" ? parsed.sidebarVisible : true;
     const legacyDocument = (parsed as { document?: EditorDocument | null }).document;
@@ -116,6 +123,7 @@ function loadPersistedState(): PersistedAppState | null {
     const homeVisible = typeof parsed.homeVisible === "boolean" ? parsed.homeVisible : documents.length === 0;
     const status = typeof parsed.status === "string" ? parsed.status : "就绪。";
     return {
+      targetVersion,
       currentType,
       documents,
       activeDocumentId,
@@ -224,8 +232,8 @@ function validateDocumentFileName(name: string): ValidationIssue[] {
   return [];
 }
 
-function isConfigurableType(type: DocumentType): boolean {
-  return configurableDocumentTypes.includes(type);
+function isConfigurableType(type: DocumentType, types: DocumentType[]): boolean {
+  return types.includes(type);
 }
 
 function schemaHasField(schema: DocumentSchema, sectionKey: string, fieldKey: string): boolean {
@@ -311,9 +319,12 @@ export function App() {
   const currentDocumentIdRef = useRef<string | null>(null);
   const persisted = loadPersistedState();
   const [locale, setLocale] = useState<EditorLocale>(initialLocale);
+  const [targetVersion, setTargetVersion] = useState<EditorTargetVersion>(persisted?.targetVersion ?? "5.0");
+  const schemas = useMemo(() => getDocumentSchemas(targetVersion), [targetVersion]);
+  const configurableTypes = useMemo(() => getConfigurableDocumentTypes(targetVersion), [targetVersion]);
   const backend: EditorBackend = useMemo(() => {
-    return new LocalBackend();
-  }, []);
+    return new LocalBackend(targetVersion);
+  }, [targetVersion]);
 
   const [currentType, setCurrentType] = useState<DocumentType>(persisted?.currentType ?? "info");
   const [documents, setDocuments] = useState<EditorDocument[]>(persisted?.documents ?? []);
@@ -355,8 +366,25 @@ export function App() {
     }
     return documents.findIndex((item) => item.id === editingDocument.id);
   }, [documents, editingDocument]);
-  const schema = editingDocument ? documentSchemas[editingDocument.type] : documentSchemas[currentType];
+  const schema = editingDocument ? schemas[editingDocument.type] : schemas[currentType];
   const allowPreview = editingDocument?.type === "notice";
+
+  const changeTargetVersion = (next: EditorTargetVersion) => {
+    if (next === targetVersion) {
+      return;
+    }
+    if (documents.some((document) => document.isDirty) && !window.confirm(t(locale, "versionSwitchConfirm"))) {
+      return;
+    }
+    const nextConfigurable = getConfigurableDocumentTypes(next);
+    setDocuments([]);
+    setActiveDocumentId(null);
+    setHomeVisible(true);
+    setHistory({ docId: null, past: [], future: [] });
+    setTargetVersion(next);
+    setCurrentType((previous) => nextConfigurable.includes(previous) ? previous : nextConfigurable[0]);
+    setStatus(t(locale, "versionChanged", { version: next }));
+  };
 
   useEffect(() => {
     currentDocumentIdRef.current = editingDocument?.id ?? null;
@@ -385,6 +413,7 @@ export function App() {
       return;
     }
     const snapshot: PersistedAppState = {
+      targetVersion,
       currentType,
       documents,
       activeDocumentId,
@@ -394,7 +423,7 @@ export function App() {
       status
     };
     window.sessionStorage.setItem(APP_STATE_STORAGE_KEY, JSON.stringify(snapshot));
-  }, [currentType, documents, activeDocumentId, activeView, sidebarVisible, homeVisible, status]);
+  }, [targetVersion, currentType, documents, activeDocumentId, activeView, sidebarVisible, homeVisible, status]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -437,7 +466,7 @@ export function App() {
           const current = previous[index];
           const keepStructuredDraft = preserveStructuredDraftRef.current === current.id;
           const model = keepStructuredDraft ? current.structuredModel : parsed.model;
-          const naming = deriveDocumentNaming(current, parsed.issues.some((issue) => issue.severity === "error") ? null : model);
+          const naming = deriveDocumentNaming(current, parsed.issues.some((issue) => issue.severity === "error") ? null : model, targetVersion);
           const currentName = naming.name;
           const next = {
             ...current,
@@ -560,7 +589,7 @@ export function App() {
     setCurrentType(active.type);
     setHomeVisible(false);
     setSidebarVisible(false);
-    setActiveView(documentSchemas[active.type].supportsStructured ? "form" : "raw");
+    setActiveView(schemas[active.type].supportsStructured ? "form" : "raw");
   };
 
   const commitDocumentEdit = (nextDocument: EditorDocument) => {
@@ -588,11 +617,11 @@ export function App() {
       const importedDocs: EditorDocument[] = [];
       for (const item of opened) {
         const type = await backend.detectType(item.path, item.text);
-        if (!isConfigurableType(type)) {
-          setStatus(t(locale, "typeNotEditable", { type: documentSchemas[type].label }));
+        if (!isConfigurableType(type, configurableTypes)) {
+          setStatus(t(locale, "typeNotEditable", { type: schemas[type].label }));
           continue;
         }
-        importedDocs.push(buildDocument(type, item.name, item.text, documentSchemas[type], "imported", item.path));
+        importedDocs.push(buildDocument(type, item.name, item.text, schemas[type], "imported", item.path));
       }
       if (!importedDocs.length) {
         return;
@@ -607,10 +636,10 @@ export function App() {
   const createNew = async () => {
     try {
       const created = await backend.createNew(currentType);
-      const type = detectDocumentType(created.path, created.text);
-      const next = buildDocument(type, created.name, created.text, documentSchemas[type], "new", created.path);
+      const type = await backend.detectType(created.path, created.text);
+      const next = buildDocument(type, created.name, created.text, schemas[type], "new", created.path);
       mergeDocuments([next]);
-      setStatus(t(locale, "createdType", { type: documentSchemas[type].label }));
+      setStatus(t(locale, "createdType", { type: schemas[type].label }));
     } catch (error) {
       setStatus(error instanceof Error ? error.message : t(locale, "createFailed"));
     }
@@ -627,8 +656,8 @@ export function App() {
         return;
       }
       const created = await backend.createNew("info");
-      const type = detectDocumentType(created.path, created.text);
-      const targetSchema = documentSchemas[type];
+      const type = await backend.detectType(created.path, created.text);
+      const targetSchema = schemas[type];
       const parsed = await backend.parse(type, created.text);
       const model = parsed.model ? structuredClone(parsed.model) : {};
 
@@ -639,7 +668,7 @@ export function App() {
         return;
       }
 
-      const canFillFileName = schemaHasField(targetSchema, "basic", "file_name");
+      const canFillFileName = schemaHasField(targetSchema, "basic", "source");
       const canFillIdentifier = schemaHasField(targetSchema, "basic", "identifier");
       const canFillType = schemaHasField(targetSchema, "basic", "type");
 
@@ -651,7 +680,7 @@ export function App() {
       }
 
       if (canFillFileName) {
-        model.basic.file_name = picked.name;
+        model.basic.source = picked.name;
       }
       if (canFillIdentifier && typeof model.basic.identifier === "string") {
         model.basic.identifier = toIdentifier(picked.name);
@@ -672,7 +701,7 @@ export function App() {
         "new",
         created.path
       );
-      Object.assign(next, deriveDocumentNaming(next, model));
+      Object.assign(next, deriveDocumentNaming(next, model, targetVersion));
       next.structuredModel = model;
       next.isDirty = next.rawText !== next.originalText || next.name !== next.originalName;
       mergeDocuments([next]);
@@ -715,10 +744,10 @@ export function App() {
       return;
     }
     const nextRaw = (editingDocument.type === "update" || editingDocument.type === "required" || editingDocument.type === "folder_metadata")
-      ? serializeStructuredDocumentWithPreservedRaw(editingDocument.rawText, model, documentSchemas[editingDocument.type], { applyImplicitDefaultLocale: true })
+      ? serializeStructuredDocumentWithPreservedRaw(editingDocument.rawText, model, schemas[editingDocument.type], { applyImplicitDefaultLocale: true })
       : await backend.serializeForSave(editingDocument.type, model);
     preserveStructuredDraftRef.current = editingDocument.id;
-    const naming = deriveDocumentNaming(editingDocument, model);
+    const naming = deriveDocumentNaming(editingDocument, model, targetVersion);
     commitDocumentEdit({
       ...editingDocument,
       structuredModel: model,
@@ -748,7 +777,7 @@ export function App() {
     try {
       const textToSave = editingDocument.structuredEnabled && editingDocument.structuredModel
         ? (editingDocument.type === "update" || editingDocument.type === "required" || editingDocument.type === "folder_metadata")
-          ? serializeStructuredDocumentWithPreservedRaw(editingDocument.rawText, editingDocument.structuredModel, documentSchemas[editingDocument.type], { applyImplicitDefaultLocale: true })
+          ? serializeStructuredDocumentWithPreservedRaw(editingDocument.rawText, editingDocument.structuredModel, schemas[editingDocument.type], { applyImplicitDefaultLocale: true })
           : await backend.serializeForSave(editingDocument.type, editingDocument.structuredModel)
         : editingDocument.rawText;
       if (editingDocument.structuredEnabled && editingDocument.structuredModel) {
@@ -807,7 +836,7 @@ export function App() {
       for (const doc of documents) {
         const textToSave = doc.structuredEnabled && doc.structuredModel
           ? (doc.type === "update" || doc.type === "required" || doc.type === "folder_metadata")
-            ? serializeStructuredDocumentWithPreservedRaw(doc.rawText, doc.structuredModel, documentSchemas[doc.type], { applyImplicitDefaultLocale: true })
+            ? serializeStructuredDocumentWithPreservedRaw(doc.rawText, doc.structuredModel, schemas[doc.type], { applyImplicitDefaultLocale: true })
             : await backend.serializeForSave(doc.type, doc.structuredModel)
           : doc.rawText;
         zip.file(effectiveDocumentName(doc), textToSave);
@@ -938,10 +967,12 @@ export function App() {
           <Sidebar
             locale={locale}
             currentType={currentType}
-            schemas={documentSchemas}
-            orderedTypes={configurableDocumentTypes}
+            targetVersion={targetVersion}
+            schemas={schemas}
+            orderedTypes={configurableTypes}
             showDocumentActions={!homeVisible}
             onTypeSelect={setCurrentType}
+            onChangeTargetVersion={changeTargetVersion}
             onChangeLocale={setLocale}
             onNew={createNew}
             onImport={importDocument}
@@ -970,7 +1001,7 @@ export function App() {
             <div className="editor-grid">
               {activeView === "form" && (
                 <StructuredEditor
-                  key={`form-${editingDocument.id}`}
+                  key={`form-${targetVersion}-${editingDocument.id}`}
                   locale={locale}
                   schema={schema}
                   model={editingDocument.structuredModel}

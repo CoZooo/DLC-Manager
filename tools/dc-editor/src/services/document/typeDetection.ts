@@ -1,4 +1,4 @@
-import { DocumentType } from "../../models/editor";
+import { DocumentType, EditorTargetVersion } from "../../models/editor";
 
 function pathBaseName(path?: string): string {
   if (!path) {
@@ -99,12 +99,20 @@ function looksLikePackConfig(text?: string): boolean {
     && hasSectionAssignment(text, "basic", "version");
 }
 
-export function detectDocumentType(path?: string, text?: string): DocumentType {
+export function detectDocumentType(path?: string, text?: string, version: EditorTargetVersion = "5.0"): DocumentType {
   const name = pathBaseName(path).toLowerCase();
   const lowerPath = (path || "").toLowerCase();
   const body = (text || "").toLowerCase();
 
-  if (name === "_metadata.dc") return "folder_metadata";
+  if (version === "5.0" && name === "_metadata.dc") return "folder_metadata";
+
+  if (version === "4.0" && (
+    (name === "notice.dc" && (lowerPath.includes("/required/") || lowerPath.includes("\\required\\"))) ||
+    body.includes("[download_desc]") ||
+    body.includes("[manage_desc]")
+  )) {
+    return "required_notice";
+  }
 
   if (isPackMetadataPath(path || "") || (name === "pack.dc" && looksLikePackConfig(text))) {
     return "pack";

@@ -126,6 +126,7 @@ val sharedClasses = listOf(
     "client/update/DlcUpdateVersion",
     "core/DlcApplier",
     "core/DlcApplyMode",
+    "core/DlcCollectionSource",
     "core/DlcConfig",
     "core/DlcConfigTypeSupport",
     "core/DlcVersionUtil",
