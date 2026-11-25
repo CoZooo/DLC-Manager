@@ -42,7 +42,15 @@ function fieldKey(key: string, schema: DocumentSchema): string {
 }
 
 function documentSections(schema: DocumentSchema, model: StructuredModel): SectionSchema[] {
-  if (!schema.sectionTemplate) return schema.sections;
+  if (!schema.sectionTemplate) {
+    if (schema.type !== "info") return schema.sections;
+    const remoteTemplate = schema.sections.find((section) => section.key === "remote");
+    if (!remoteTemplate) return schema.sections;
+    const dynamic = Object.keys(model)
+      .filter((key) => key.startsWith("remote.") && key !== "remote")
+      .map((key) => ({ ...remoteTemplate, key, label: `[${key}]` }));
+    return [...schema.sections.filter((section) => section.key !== "remote"), ...dynamic];
+  }
   const template = schema.sectionTemplate;
   return Object.keys(model).filter((key) => key !== ROOT_SECTION_KEY).map((key) => ({
     ...template, key, label: `[${key}]`,
@@ -346,7 +354,10 @@ export function parseStructuredDocument(text: string, schema: DocumentSchema): {
       model[currentSection] = model[currentSection] || {};
     }
 
-    const kind = fieldKinds[`${currentSection}.${key}`] || fieldKinds[`*.${key}`] || "text";
+    const kind = fieldKinds[`${currentSection}.${key}`]
+      || (currentSection.startsWith("remote.") ? fieldKinds[`remote.${key}`] : undefined)
+      || fieldKinds[`*.${key}`]
+      || "text";
     if (schema.sectionTemplate && kind === "number") {
       const number = new RegExp(`^(?:${languageDefinition.syntax.numberPattern})$`).test(valueText) ? Number(valueText) : NaN;
       model[currentSection][key] = Number.isFinite(number) ? number : valueText;

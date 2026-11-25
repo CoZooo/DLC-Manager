@@ -69,6 +69,14 @@
               "constraints": {}
             },
             {
+              "name": "include",
+              "type": "array",
+              "required": false,
+              "description": "DLC identifiers to merge into a collection and hide from the ordinary list.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
               "name": "target",
               "type": "string",
               "required": false,
@@ -196,6 +204,102 @@
               "required": false,
               "description": "Localized value keyed by language code.",
               "enumValues": [],
+              "constraints": {}
+            }
+          ]
+        },
+        {
+          "path": [
+            "remote"
+          ],
+          "name": "remote",
+          "required": false,
+          "description": "Inline remote files used by collection DLC entries.",
+          "fields": []
+        },
+        {
+          "path": [
+            "remote",
+            "*"
+          ],
+          "name": "*",
+          "required": false,
+          "description": "Inline remote file definition.",
+          "fields": [
+            {
+              "name": "identifier",
+              "type": "string",
+              "required": false,
+              "description": "Inline remote identifier.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "source",
+              "type": "string",
+              "required": false,
+              "description": "Downloaded file name.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "target",
+              "type": "string",
+              "required": true,
+              "description": "Applied target path relative to the game directory.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "modrinth_projectid",
+              "type": "string",
+              "required": false,
+              "description": "Modrinth project ID or slug.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "modrinth_versionid",
+              "type": "string",
+              "required": false,
+              "description": "Modrinth version ID or version string.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "curseforge_projectid",
+              "type": "string",
+              "required": false,
+              "description": "CurseForge project ID or slug.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "curseforge_fileid",
+              "type": "string",
+              "required": false,
+              "description": "CurseForge file ID, version string, or file name.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "directUrl",
+              "type": "string|array",
+              "required": false,
+              "description": "Direct download links.",
+              "enumValues": [],
+              "constraints": {}
+            },
+            {
+              "name": "priority",
+              "type": "array",
+              "required": false,
+              "description": "Download source priority order.",
+              "enumValues": [
+                "curseforge",
+                "modrinth",
+                "directUrl"
+              ],
               "constraints": {}
             }
           ]

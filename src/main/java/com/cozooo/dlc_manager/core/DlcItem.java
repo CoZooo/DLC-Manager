@@ -3,6 +3,7 @@ package com.cozooo.dlc_manager.core;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import com.google.gson.JsonObject;
 
 public class DlcItem {
     private final String id;
@@ -27,6 +28,10 @@ public class DlcItem {
     private String matchMode = "hash";
     private Path dlcRoot;
     private Path groupDirectory;
+    private java.util.List<String> collectionIncludeIdentifiers = java.util.List.of();
+    private java.util.List<DlcItem> collectionIncludedItems = java.util.List.of();
+    private java.util.List<JsonObject> collectionRemoteEntries = java.util.List.of();
+    private boolean includedHidden;
     private boolean dirty;
 
     public DlcItem(String id, String identifier, String name, DlcType type, Path sourcePath, String appliedTargetRaw, boolean enabled, java.util.Map<String, String> tooltips,
@@ -105,6 +110,14 @@ public class DlcItem {
     public void setDlcRoot(Path value) { dlcRoot = value; }
     public Path getGroupDirectory() { return groupDirectory; }
     public void setGroupDirectory(Path value) { groupDirectory = value; }
+    public java.util.List<String> getCollectionIncludeIdentifiers() { return collectionIncludeIdentifiers; }
+    public void setCollectionIncludeIdentifiers(java.util.List<String> value) { collectionIncludeIdentifiers = value == null ? java.util.List.of() : value; }
+    public java.util.List<DlcItem> getCollectionIncludedItems() { return collectionIncludedItems; }
+    public void setCollectionIncludedItems(java.util.List<DlcItem> value) { collectionIncludedItems = value == null ? java.util.List.of() : value; }
+    public java.util.List<JsonObject> getCollectionRemoteEntries() { return collectionRemoteEntries; }
+    public void setCollectionRemoteEntries(java.util.List<JsonObject> value) { collectionRemoteEntries = value == null ? java.util.List.of() : value; }
+    public boolean isIncludedHidden() { return includedHidden; }
+    public void setIncludedHidden(boolean value) { includedHidden = value; }
 
     public String getId() {
         return id;

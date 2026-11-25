@@ -8,9 +8,8 @@ import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcCollectionSource;
-import com.cozooo.dlc_manager.core.DlcPathUtil;
-import com.cozooo.dlc_manager.core.DlcStateConfig;
-import com.cozooo.dlc_manager.core.DlcTooltipLoader;
+import com.cozooo.dlc_manager.core.DlcScanner;
+import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcType;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -50,28 +49,20 @@ public final class DlcRequiredRuntime {
 
     public static List<DlcRequiredEntry> loadEntries() {
         List<DlcRequiredEntry> entries = new ArrayList<>();
+        Map<DlcType, List<DlcItem>> scanned = new DlcScanner().scan(false);
         for (Path root : DlcConfig.getDlcRoots()) {
             entries.addAll(DlcRequiredLoader.load(root));
-            entries.addAll(loadCollectionEntries(root));
+            entries.addAll(loadCollectionEntries(root, scanned.getOrDefault(DlcType.COLLECTION, List.of())));
         }
         return entries;
     }
 
-    private static List<DlcRequiredEntry> loadCollectionEntries(Path root) {
+    private static List<DlcRequiredEntry> loadCollectionEntries(Path root, List<DlcItem> collections) {
         List<DlcRequiredEntry> result = new ArrayList<>();
-        Map<String, DlcTooltipLoader.TooltipData> tooltips = new DlcTooltipLoader().loadTooltips(root);
-        String rootId = DlcPathUtil.toGameRelativePath(root).replace('\\', '/');
-        for (Map.Entry<String, DlcTooltipLoader.TooltipData> tooltip : tooltips.entrySet()) {
-            String name = tooltip.getKey();
-            DlcTooltipLoader.TooltipData data = tooltip.getValue();
-            if (data.getType() != DlcType.COLLECTION || data.getSource() == null || data.getSource().isBlank()) continue;
-            String itemId = "collection:" + rootId + "|" + name;
-            DlcStateConfig.DlcState state = DlcStateConfig.getState(itemId);
-            if (state == null || !state.enabled) continue;
-            Path source = DlcCollectionSource.resolve(root, data.getSource());
-            if (source == null) continue;
+        for (DlcItem item : collections) {
+            if (!item.isEnabled() || !root.equals(item.getDlcRoot())) continue;
             try {
-                result.addAll(DlcCollectionSource.completionEntries(source, root, itemId));
+                result.addAll(DlcCollectionSource.completionEntries(item));
             } catch (IOException ignored) {
             }
         }

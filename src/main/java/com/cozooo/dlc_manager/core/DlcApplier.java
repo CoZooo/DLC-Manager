@@ -553,7 +553,7 @@ public class DlcApplier {
 
     private static void restoreCollectionCompletion(DlcItem item, List<String> messages) {
         try {
-            List<com.cozooo.dlc_manager.client.required.DlcRequiredEntry> entries = DlcCollectionSource.completionEntries(item.getSourcePath(), item.getDlcRoot(), item.getIdentifier());
+            List<com.cozooo.dlc_manager.client.required.DlcRequiredEntry> entries = DlcCollectionSource.completionEntries(item);
             for (com.cozooo.dlc_manager.client.required.DlcRequiredEntry entry : entries) {
                 DlcResourceHistory.restore(item.getDlcRoot(), "required", entry.getHistoryKey(), false);
             }

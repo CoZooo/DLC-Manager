@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.core
 
 import java.nio.file.Path
+import com.google.gson.JsonObject
 
 class DlcItem {
     private val idValue: String?
@@ -24,6 +25,10 @@ class DlcItem {
     private var matchModeValue: String = "hash"
     private var dlcRootValue: Path? = null
     private var groupDirectoryValue: Path? = null
+    private var collectionIncludeIdentifiersValue: List<String> = emptyList()
+    private var collectionIncludedItemsValue: List<DlcItem> = emptyList()
+    private var collectionRemoteEntriesValue: List<JsonObject> = emptyList()
+    private var includedHiddenValue: Boolean = false
     private var redirectUrlValue: String? = null
     private var dirtyValue: Boolean = false
 
@@ -244,6 +249,14 @@ class DlcItem {
     fun setDlcRoot(value: Path?) { dlcRootValue = value }
     fun getGroupDirectory(): Path? = groupDirectoryValue
     fun setGroupDirectory(value: Path?) { groupDirectoryValue = value }
+    fun getCollectionIncludeIdentifiers(): List<String> = collectionIncludeIdentifiersValue
+    fun setCollectionIncludeIdentifiers(value: List<String>?) { collectionIncludeIdentifiersValue = value ?: emptyList() }
+    fun getCollectionIncludedItems(): List<DlcItem> = collectionIncludedItemsValue
+    fun setCollectionIncludedItems(value: List<DlcItem>?) { collectionIncludedItemsValue = value ?: emptyList() }
+    fun getCollectionRemoteEntries(): List<JsonObject> = collectionRemoteEntriesValue
+    fun setCollectionRemoteEntries(value: List<JsonObject>?) { collectionRemoteEntriesValue = value ?: emptyList() }
+    fun isIncludedHidden(): Boolean = includedHiddenValue
+    fun setIncludedHidden(value: Boolean) { includedHiddenValue = value }
 
     fun getId(): String? = idValue
     fun getIdentifier(): String? = identifierValue

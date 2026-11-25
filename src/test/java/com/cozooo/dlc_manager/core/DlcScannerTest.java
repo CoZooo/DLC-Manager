@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -139,6 +140,131 @@ class DlcScannerTest {
         assertEquals(1, items.size());
         assertEquals("example", items.get(0).getIdentifier());
         assertEquals(source, items.get(0).getSourcePath());
+    }
+
+    @Test
+    void collectionIncludesMergeFilesAndMarkIncludedEntriesHidden() throws Exception {
+        Path collectionSource = dlcRoot.resolve("collections/example");
+        Files.createDirectories(collectionSource.resolve("config"));
+        Files.writeString(collectionSource.resolve("config/example.toml"), "config");
+        Files.writeString(dlcRoot.resolve("child.jar"), "jar");
+        Files.createDirectories(dlcRoot.resolve("downloaded/required"));
+        Files.writeString(dlcRoot.resolve("downloaded/required/inline.jar"), "inline");
+        Files.createDirectories(dlcRoot.resolve("info"));
+        Files.writeString(dlcRoot.resolve("info/example.dc"), """
+            [basic]
+            identifier = "example"
+            source = "collections/example"
+            type = "collection"
+            include = ["child"]
+
+            [remote.inline]
+            source = "inline.jar"
+            directUrl = "https://example.com/inline.jar"
+            target = "mods/"
+            """);
+        Files.writeString(dlcRoot.resolve("info/child.dc"), """
+            [basic]
+            identifier = "child"
+            source = "child.jar"
+            type = "mod"
+            """);
+
+        var grouped = new DlcScanner().scan();
+
+        DlcItem child = grouped.get(DlcType.MOD).stream().filter(item -> "child".equals(item.getIdentifier())).findFirst().orElseThrow();
+        assertTrue(child.isIncludedHidden());
+        DlcItem collection = grouped.get(DlcType.COLLECTION).stream().filter(item -> "example".equals(item.getIdentifier())).findFirst().orElseThrow();
+        assertEquals(List.of(child), collection.getCollectionIncludedItems());
+        assertEquals(Set.of("config/example.toml", "mods/child.jar", "mods/inline.jar"), DlcItemFiles.expected(collection).stream().map(target -> DlcPathUtil.toGameRelativePath(target.target())).collect(java.util.stream.Collectors.toSet()));
+    }
+
+    @Test
+    void collectionIncludeIgnoresCollectionTargetsAndRepeatedIdentifiers() throws Exception {
+        Files.createDirectories(dlcRoot.resolve("collections/outer/config"));
+        Files.createDirectories(dlcRoot.resolve("collections/inner/config"));
+        Files.writeString(dlcRoot.resolve("collections/outer/config/outer.toml"), "outer");
+        Files.writeString(dlcRoot.resolve("collections/inner/config/inner.toml"), "inner");
+        Files.writeString(dlcRoot.resolve("child.jar"), "jar");
+        Files.createDirectories(dlcRoot.resolve("info"));
+        Files.writeString(dlcRoot.resolve("info/outer.dc"), """
+            [basic]
+            identifier = "outer"
+            source = "collections/outer"
+            type = "collection"
+            include = ["inner", "child", "child"]
+            """);
+        Files.writeString(dlcRoot.resolve("info/inner.dc"), """
+            [basic]
+            identifier = "inner"
+            source = "collections/inner"
+            type = "collection"
+            include = ["child"]
+            """);
+        Files.writeString(dlcRoot.resolve("info/child.dc"), """
+            [basic]
+            identifier = "child"
+            source = "child.jar"
+            type = "mod"
+            """);
+
+        var grouped = new DlcScanner().scan();
+
+        DlcItem child = grouped.get(DlcType.MOD).stream().filter(item -> "child".equals(item.getIdentifier())).findFirst().orElseThrow();
+        DlcItem outer = grouped.get(DlcType.COLLECTION).stream().filter(item -> "outer".equals(item.getIdentifier())).findFirst().orElseThrow();
+        DlcItem inner = grouped.get(DlcType.COLLECTION).stream().filter(item -> "inner".equals(item.getIdentifier())).findFirst().orElseThrow();
+        assertTrue(child.isIncludedHidden());
+        assertEquals(false, inner.isIncludedHidden());
+        assertEquals(List.of(child), outer.getCollectionIncludedItems());
+        assertEquals(List.of(child), inner.getCollectionIncludedItems());
+        assertEquals(Set.of("config/outer.toml", "mods/child.jar"), DlcItemFiles.expected(outer).stream().map(target -> DlcPathUtil.toGameRelativePath(target.target())).collect(java.util.stream.Collectors.toSet()));
+        assertEquals(Set.of("config/inner.toml", "mods/child.jar"), DlcItemFiles.expected(inner).stream().map(target -> DlcPathUtil.toGameRelativePath(target.target())).collect(java.util.stream.Collectors.toSet()));
+    }
+
+    @Test
+    void scanLoadsCollectionsFromSecondaryDlcRoots() throws Exception {
+        Path secondary = gameDir.resolve("DLC2");
+        DlcConfig.setDlcRoot("DLC,DLC2");
+        Files.createDirectories(secondary.resolve("collections/extra/config"));
+        Files.writeString(secondary.resolve("collections/extra/config/extra.toml"), "extra");
+        Files.createDirectories(secondary.resolve("info"));
+        Files.writeString(secondary.resolve("info/extra.dc"), """
+            [basic]
+            identifier = "extra"
+            source = "collections/extra"
+            type = "collection"
+            """);
+
+        var collections = new DlcScanner().scan().get(DlcType.COLLECTION);
+
+        assertTrue(collections.stream().anyMatch(item -> "extra".equals(item.getIdentifier())));
+    }
+
+    @Test
+    void nonCollectionIncludeFieldIsIgnored() throws Exception {
+        Files.writeString(dlcRoot.resolve("child.jar"), "jar");
+        Files.writeString(dlcRoot.resolve("other.jar"), "jar");
+        Files.createDirectories(dlcRoot.resolve("info"));
+        Files.writeString(dlcRoot.resolve("info/child.dc"), """
+            [basic]
+            identifier = "child"
+            source = "child.jar"
+            type = "mod"
+            include = ["other"]
+            """);
+        Files.writeString(dlcRoot.resolve("info/other.dc"), """
+            [basic]
+            identifier = "other"
+            source = "other.jar"
+            type = "mod"
+            """);
+
+        var grouped = new DlcScanner().scan();
+
+        DlcItem child = grouped.get(DlcType.MOD).stream().filter(item -> "child".equals(item.getIdentifier())).findFirst().orElseThrow();
+        DlcItem other = grouped.get(DlcType.MOD).stream().filter(item -> "other".equals(item.getIdentifier())).findFirst().orElseThrow();
+        assertTrue(child.getCollectionIncludedItems().isEmpty());
+        assertEquals(false, other.isIncludedHidden());
     }
 
     @Test

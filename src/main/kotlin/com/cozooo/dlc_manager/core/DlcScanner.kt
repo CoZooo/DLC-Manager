@@ -27,18 +27,20 @@ class DlcScanner {
 
             val roots = DlcConfig.getDlcRoots()
             val tooltipLoader = DlcTooltipLoader()
-            val mainDlcRoot = if (DlcConfig.getDlcRoots().isEmpty()) null else DlcConfig.getDlcRoots()[0]
+            val mainDlcRoot = if (roots.isEmpty()) null else roots[0]
             val mainInfoDir = mainDlcRoot?.resolve("info")
-            val tooltips = if (mainDlcRoot == null) emptyMap() else tooltipLoader.loadTooltips(mainDlcRoot)
+            val mainTooltips = if (mainDlcRoot == null) emptyMap() else tooltipLoader.loadTooltips(mainDlcRoot)
             val seen = HashSet<Path>()
             for (root in roots) {
                 if (!Files.exists(root) || seen.contains(root)) {
                     continue
                 }
                 seen.add(root)
+                val tooltips = if (root == mainDlcRoot) mainTooltips else tooltipLoader.loadTooltips(root)
                 scanRoot(grouped, root, tooltips, tooltipLoader, mainInfoDir, detectInstalledState)
             }
 
+            finalizeCollectionIncludes(grouped)
             return grouped
         } finally { DlcFileMatch.endScan() }
     }
@@ -168,6 +170,8 @@ class DlcScanner {
                 data.isAlarm(),
             )
             item.setAlarmTips(data.getAlarmTips())
+            item.setCollectionIncludeIdentifiers(data.getIncludes())
+            item.setCollectionRemoteEntries(data.getRemoteEntries())
             item.setRedirectUrl(data.getRedirectUrl())
             item.setDlcRoot(root)
             item.setMatchMode(data.getMatchMode())
@@ -184,6 +188,33 @@ class DlcScanner {
             }
             grouped[DlcType.COLLECTION]?.add(item)
         }
+    }
+
+    private fun finalizeCollectionIncludes(grouped: MutableMap<DlcType?, MutableList<DlcItem?>?>) {
+        val byIdentifier = HashMap<String, DlcItem>()
+        for (items in grouped.values) {
+            for (item in items.orEmpty()) {
+                val identifier = item?.getIdentifier()
+                if (!identifier.isNullOrBlank()) byIdentifier.putIfAbsent(identifier, item)
+            }
+        }
+        for (item in grouped[DlcType.COLLECTION].orEmpty().filterNotNull()) {
+            val included = resolveIncludedItems(item, byIdentifier)
+            item.setCollectionIncludedItems(included)
+            for (entry in included) entry.setIncludedHidden(true)
+        }
+    }
+
+    private fun resolveIncludedItems(item: DlcItem, byIdentifier: Map<String, DlcItem>): List<DlcItem> {
+        val result = ArrayList<DlcItem>()
+        if (item.getType() != DlcType.COLLECTION) return result
+        for (identifier in item.getCollectionIncludeIdentifiers()) {
+            val included = byIdentifier[identifier] ?: continue
+            if (included === item || included.getType() == DlcType.COLLECTION) continue
+            if (result.any { it.getId() == included.getId() }) continue
+            result.add(included)
+        }
+        return result
     }
 
     private fun collectionStateStillPresent(item: DlcItem): Boolean {

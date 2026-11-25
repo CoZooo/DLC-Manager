@@ -15,19 +15,32 @@ object DlcItemFiles {
     }
 
     @JvmStatic fun expected(item: DlcItem, allowCollectionDownloads: Boolean): List<Target> {
+        return expected(item, allowCollectionDownloads, HashSet())
+    }
+
+    private fun expected(item: DlcItem, allowCollectionDownloads: Boolean, visited: MutableSet<String>): List<Target> {
         val result = ArrayList<Target>()
-        if (item.getType() == DlcType.COLLECTION) {
-            for (entry in DlcCollectionSource.entries(item.getSourcePath(), item.getDlcRoot(), DlcPaths.gameDir(), allowCollectionDownloads, item.getIdentifier())) {
-                result.add(Target(entry.source, DlcPathUtil.resolveInside(DlcPaths.gameDir(), entry.relativePath), false))
+        val id = item.getId()
+        if (id != null && !visited.add(id)) return result
+        try {
+            if (item.getType() == DlcType.COLLECTION) {
+            val sources = item.getSourcePaths().ifEmpty { listOfNotNull(item.getSourcePath()) }
+            for (source in sources) {
+                for (entry in DlcCollectionSource.entries(source, item.getDlcRoot(), DlcPaths.gameDir(), allowCollectionDownloads, item.getIdentifier(), item.getCollectionRemoteEntries())) {
+                    result.add(Target(entry.source, DlcPathUtil.resolveInside(DlcPaths.gameDir(), entry.relativePath), false))
+                }
             }
-        } else if (item.getType() == DlcType.UNKNOWN) {
+            for (included in item.getCollectionIncludedItems()) {
+                result.addAll(expected(included, allowCollectionDownloads, visited))
+            }
+            } else if (item.getType() == DlcType.UNKNOWN) {
             val target = DlcPaths.resolveAppliedTarget(item.getAppliedTargetRaw()) ?: return result
             val sources = item.getSourcePaths()
             if (sources.isEmpty()) return result
             val directory = DlcPaths.isAppliedTargetDirectory(item.getAppliedTargetRaw(), target, sources[0])
             if (!directory && sources.size > 1) return result
             for (source in sources) result.add(Target(source, if (directory) target.resolve(source.fileName) else target, false))
-        } else {
+            } else {
             val source = item.getSourcePath() ?: return result
             val directories = when (item.getType()) {
                 DlcType.MOD -> listOf(DlcPaths.modsDir())
@@ -37,8 +50,11 @@ object DlcItemFiles {
                 else -> emptyList()
             }
             for (directory in directories) result.add(Target(source, directory.resolve(source.fileName), true))
+            }
+            return result
+        } finally {
+            if (id != null) visited.remove(id)
         }
-        return result
     }
 
     @JvmStatic @Throws(IOException::class)

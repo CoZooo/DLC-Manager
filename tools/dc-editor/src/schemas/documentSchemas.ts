@@ -38,7 +38,7 @@ const packUpdateChannelOptions = [
   { value: "nightly", label: "nightly" }
 ];
 
-const basicFields = (options?: { includeType?: boolean; includeDlcPackType?: boolean; includeAppliedTarget?: boolean; targetOnlyFor?: string[] }): SectionSchema => ({
+const basicFields = (options?: { includeType?: boolean; includeDlcPackType?: boolean; includeAppliedTarget?: boolean; targetOnlyFor?: string[]; includeCollectionInclude?: boolean }): SectionSchema => ({
   key: "basic",
   label: "[basic]",
   fields: [
@@ -61,6 +61,15 @@ const basicFields = (options?: { includeType?: boolean; includeDlcPackType?: boo
       kind: "text",
       help: "static.help.fileName"
     },
+    ...((options?.includeCollectionInclude ?? false)
+      ? [{
+          key: "include",
+          label: "include",
+          kind: "list" as const,
+          visibleWhen: { sectionKey: "basic", fieldKey: "type", equals: "collection" },
+          help: "static.help.collectionInclude"
+        }]
+      : []),
     {
       key: "__multiFileEnabled",
       label: "__multiFileEnabled",
@@ -183,6 +192,22 @@ const conflictsSection: SectionSchema = {
       kind: "list",
       help: "static.help.conflicts"
     }
+  ]
+};
+
+const collectionRemoteSection: SectionSchema = {
+  key: "remote",
+  label: "[remote.*]",
+  fields: [
+    { key: "identifier", label: "identifier", kind: "text" },
+    { key: "source", label: "source", kind: "text" },
+    { key: "target", label: "target", kind: "text", help: "static.help.target" },
+    { key: "modrinth_projectid", label: "modrinth_projectid", kind: "text", help: "static.help.modrinthProject" },
+    { key: "modrinth_versionid", label: "modrinth_versionid", kind: "text", help: "static.help.modrinthVersion" },
+    { key: "curseforge_projectid", label: "curseforge_projectid", kind: "text", help: "static.help.curseforgeProject" },
+    { key: "curseforge_fileid", label: "curseforge_fileid", kind: "text", help: "static.help.curseforgeFile" },
+    { key: "directUrl", label: "directUrl", kind: "list", help: "static.help.directUrl" },
+    { key: "priority", label: "priority", kind: "ordered-select-list", options: priorityOptions, help: "static.help.priority" }
   ]
 };
 
@@ -422,12 +447,13 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
     defaultFileName: "info.dc",
     supportsStructured: true,
     sections: [
-      basicFields({ includeAppliedTarget: true, targetOnlyFor: ["others", "config"] }),
+      basicFields({ includeAppliedTarget: true, targetOnlyFor: ["others", "config"], includeCollectionInclude: true }),
       dependenciesSection,
       conflictsSection,
       displayNameSection,
       tipSection,
-      alarmSection
+      alarmSection,
+      collectionRemoteSection
     ]
   },
   remote: {

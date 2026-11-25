@@ -541,7 +541,7 @@ object DlcApplier {
 
     private fun restoreCollectionCompletion(item: DlcItem, messages: MutableList<String>) {
         try {
-            val entries = DlcCollectionSource.completionEntries(item.getSourcePath(), item.getDlcRoot(), item.getIdentifier())
+            val entries = DlcCollectionSource.completionEntries(item)
             for (entry in entries) {
                 DlcResourceHistory.restore(item.getDlcRoot(), "required", entry.getHistoryKey(), false)
             }

@@ -8,9 +8,8 @@ import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcCollectionSource
-import com.cozooo.dlc_manager.core.DlcPathUtil
-import com.cozooo.dlc_manager.core.DlcStateConfig
-import com.cozooo.dlc_manager.core.DlcTooltipLoader
+import com.cozooo.dlc_manager.core.DlcItem
+import com.cozooo.dlc_manager.core.DlcScanner
 import com.cozooo.dlc_manager.core.DlcType
 import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import com.google.gson.Gson
@@ -51,24 +50,20 @@ object DlcRequiredRuntime {
     @JvmStatic
     fun loadEntries(): List<DlcRequiredEntry> {
         val result = ArrayList<DlcRequiredEntry>()
+        val collections = DlcScanner().scan(false)[DlcType.COLLECTION].orEmpty().filterNotNull()
         for (root in DlcConfig.getDlcRoots()) {
             result.addAll(DlcRequiredLoader.load(root))
-            result.addAll(loadCollectionEntries(root))
+            result.addAll(loadCollectionEntries(root, collections))
         }
         return result
     }
 
-    private fun loadCollectionEntries(root: Path): List<DlcRequiredEntry> {
+    private fun loadCollectionEntries(root: Path, collections: List<DlcItem>): List<DlcRequiredEntry> {
         val result = ArrayList<DlcRequiredEntry>()
-        val tooltips = DlcTooltipLoader().loadTooltips(root)
-        val rootId = DlcPathUtil.toGameRelativePath(root).replace('\\', '/')
-        for ((name, data) in tooltips) {
-            if (data.getType() != DlcType.COLLECTION || data.getSource().isNullOrBlank()) continue
-            val itemId = "collection:$rootId|$name"
-            if (DlcStateConfig.getState(itemId)?.enabled != true) continue
-            val source = DlcCollectionSource.resolve(root, data.getSource()) ?: continue
+        for (item in collections) {
+            if (!item.isEnabled() || item.getDlcRoot() != root) continue
             try {
-                result.addAll(DlcCollectionSource.completionEntries(source, root, itemId))
+                result.addAll(DlcCollectionSource.completionEntries(item))
             } catch (_: IOException) {
             }
         }

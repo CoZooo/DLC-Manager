@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.core;
 
 import com.cozooo.dlc_manager.client.core.DlcZipUtil;
-import com.cozooo.dlc_manager.client.download.DlcDownloadService;
+import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
 import com.cozooo.dlc_manager.client.pack.DlcPackCFResolver;
 import com.cozooo.dlc_manager.client.pack.DlcPackInstallPlan;
 import com.cozooo.dlc_manager.client.pack.DlcPackManifest;
@@ -9,6 +9,9 @@ import com.cozooo.dlc_manager.client.pack.DlcPackMetadata;
 import com.cozooo.dlc_manager.client.pack.DlcPackModrinthManifest;
 import com.cozooo.dlc_manager.client.pack.DlcPackPackage;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
+import com.cozooo.dlc_manager.client.required.DlcRequiredService;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -45,35 +48,47 @@ public final class DlcCollectionSource {
     }
 
     public static List<DlcPackInstallPlan.FileEntry> entries(Path source, Path dlcRoot, Path gameRoot, boolean allowDownloads) throws IOException {
-        return entries(source, dlcRoot, gameRoot, allowDownloads, null);
+        return entries(source, dlcRoot, gameRoot, allowDownloads, null, List.of());
     }
 
     public static List<DlcPackInstallPlan.FileEntry> entries(Path source, Path dlcRoot, Path gameRoot, boolean allowDownloads, String collectionIdentifier) throws IOException {
+        return entries(source, dlcRoot, gameRoot, allowDownloads, collectionIdentifier, List.of());
+    }
+
+    public static List<DlcPackInstallPlan.FileEntry> entries(Path source, Path dlcRoot, Path gameRoot, boolean allowDownloads, String collectionIdentifier, List<JsonObject> remoteEntries) throws IOException {
         if (source == null || dlcRoot == null || gameRoot == null) return List.of();
         Path packageRoot = materialize(source, dlcRoot);
         CollectionInfo info = inspect(packageRoot, dlcRoot, source);
         if (info == null) return List.of();
         DlcPackInstallPlan plan = DlcPackInstallPlan.build(info.pack, gameRoot, dlcRoot);
-        if (info.pack.format == DlcPackPackage.Format.STANDARD) return plan.files;
+        if (info.pack.format == DlcPackPackage.Format.STANDARD && (remoteEntries == null || remoteEntries.isEmpty())) return plan.files;
         List<DlcPackInstallPlan.FileEntry> cached = new ArrayList<>();
-        for (DlcRequiredEntry entry : completionEntries(info, dlcRoot, collectionIdentifier)) {
+        for (DlcRequiredEntry entry : completionEntries(info, dlcRoot, collectionIdentifier, remoteEntries)) {
             String name = entry.getRequiredFileName();
+            if (name == null || name.isBlank()) name = entry.getResolvedFileName();
+            if (name == null || name.isBlank()) name = DlcRequiredService.resolveExistingFileName(entry);
             Path path = entry.resolveRequiredPath(name);
             if (path != null && Files.isRegularFile(path)) {
-                cached.add(new DlcPackInstallPlan.FileEntry(path, entry.getAppliedTargetRaw()));
+                for (Path target : entry.resolveInstallationTargets(name)) {
+                    cached.add(new DlcPackInstallPlan.FileEntry(path, DlcPathUtil.toGameRelativePath(target)));
+                }
             }
         }
         return DlcPackInstallPlan.merge(plan, allowDownloads ? cached : List.of()).files;
     }
 
     public static List<DlcRequiredEntry> completionEntries(Path source, Path dlcRoot, String collectionIdentifier) throws IOException {
+        return completionEntries(source, dlcRoot, collectionIdentifier, List.of());
+    }
+
+    public static List<DlcRequiredEntry> completionEntries(Path source, Path dlcRoot, String collectionIdentifier, List<JsonObject> remoteEntries) throws IOException {
         if (source == null || dlcRoot == null) return List.of();
         Path packageRoot = materialize(source, dlcRoot);
         CollectionInfo info = inspect(packageRoot, dlcRoot, source);
-        return completionEntries(info, dlcRoot, collectionIdentifier);
+        return completionEntries(info, dlcRoot, collectionIdentifier, remoteEntries);
     }
 
-    private static List<DlcRequiredEntry> completionEntries(CollectionInfo info, Path dlcRoot, String collectionIdentifier) throws IOException {
+    private static List<DlcRequiredEntry> completionEntries(CollectionInfo info, Path dlcRoot, String collectionIdentifier, List<JsonObject> remoteEntries) throws IOException {
         if (info == null) return List.of();
         Path requiredDir = dlcRoot.resolve("required");
         String prefix = collectionIdentifier == null || collectionIdentifier.isBlank() ? "collection" : collectionIdentifier;
@@ -103,14 +118,48 @@ public final class DlcCollectionSource {
             Thread.currentThread().interrupt();
             throw new IOException("Collection file resolution was interrupted", error);
         }
+        if (remoteEntries != null) {
+            for (JsonObject remote : remoteEntries) {
+                String identifier = stringValue(remote, "identifier");
+                if (identifier == null || identifier.isBlank()) continue;
+                DlcRequiredEntry entry = new DlcRequiredEntry(null, requiredDir);
+                entry.setIdentifier(prefix + ":remote:" + identifier);
+                entry.setRequiredFileName(stringValue(remote, "source"));
+                entry.setModrinthProjectId(stringValue(remote, "modrinth_projectid"));
+                entry.setModrinthVersionId(stringValue(remote, "modrinth_versionid"));
+                entry.setCurseforgeProjectId(stringValue(remote, "curseforge_projectid"));
+                entry.setCurseforgeFileId(stringValue(remote, "curseforge_fileid"));
+                entry.setDirectUrls(stringList(remote.get("directUrl")));
+                entry.setDownloadPriority(DlcDownloadCandidate.readPriority(remote));
+                entry.setAppliedTargetRaw(stringValue(remote, "target"));
+                result.add(entry);
+            }
+        }
+        return result;
+    }
+
+    public static List<DlcRequiredEntry> completionEntries(DlcItem item) throws IOException {
+        if (item == null || item.getType() != DlcType.COLLECTION) return List.of();
+        return completionEntries(item, new HashSet<>());
+    }
+
+    private static List<DlcRequiredEntry> completionEntries(DlcItem item, Set<String> visited) throws IOException {
+        List<DlcRequiredEntry> result = new ArrayList<>();
+        String id = item.getId();
+        if (id != null && !visited.add(id)) return result;
+        List<Path> sources = item.getSourcePaths().isEmpty() ? (item.getSourcePath() == null ? List.of() : List.of(item.getSourcePath())) : item.getSourcePaths();
+        for (Path source : sources) result.addAll(completionEntries(source, item.getDlcRoot(), item.getIdentifier(), item.getCollectionRemoteEntries()));
+        for (DlcItem included : item.getCollectionIncludedItems()) result.addAll(completionEntries(included, visited));
+        if (id != null) visited.remove(id);
         return result;
     }
 
     public static Path materialize(Path source, Path dlcRoot) throws IOException {
         Path normalized = source.toAbsolutePath().normalize();
         if (Files.isDirectory(normalized)) return normalized;
+        if (Files.isRegularFile(normalized) && isManifestFile(normalized)) return normalized;
         if (!Files.isRegularFile(normalized) || !isArchive(normalized)) {
-            throw new IOException("Collection source is not a directory or archive: " + source);
+            throw new IOException("Collection source is not a directory, metadata file, or archive: " + source);
         }
         Path cache = dlcRoot.toAbsolutePath().normalize().resolve("tmp/collection").resolve(cacheKey(normalized));
         Path content = cache.resolve("content");
@@ -125,6 +174,7 @@ public final class DlcCollectionSource {
     }
 
     private static CollectionInfo inspect(Path root, Path dlcRoot, Path source) throws IOException {
+        if (Files.isRegularFile(source) && isManifestFile(source)) return inspectMetadata(source, dlcRoot);
         Path normalized = normalizeGameRoot(root);
         Path cacheRoot = dlcRoot.toAbsolutePath().normalize().resolve("tmp/collection").resolve(Files.isRegularFile(source) ? cacheKey(source) : "dir-" + cacheKeyForDirectory(source));
         Path index = normalized.resolve("modrinth.index.json");
@@ -148,6 +198,20 @@ public final class DlcCollectionSource {
             normalized, null, null, List.of(), syntheticMetadata()
         );
         return new CollectionInfo(pack, cacheRoot);
+    }
+
+    private static CollectionInfo inspectMetadata(Path source, Path dlcRoot) throws IOException {
+        Path parent = source.getParent() == null ? dlcRoot : source.getParent();
+        Path emptyRoot = dlcRoot.resolve("tmp/collection").resolve("standalone-empty").resolve(cacheKey(source));
+        String name = source.getFileName().toString().toLowerCase(Locale.ROOT);
+        if (name.equals("modrinth.index.json")) {
+            var pack = new DlcPackPackage(parent, DlcPackPackage.Format.MODRINTH, emptyRoot, emptyRoot, parent,
+                source, null, source, List.of(), syntheticMetadata(), DlcPackModrinthManifest.read(source));
+            return new CollectionInfo(pack, dlcRoot.resolve("tmp/collection").resolve(cacheKey(source)));
+        }
+        var pack = new DlcPackPackage(parent, DlcPackPackage.Format.CURSEFORGE, emptyRoot, emptyRoot, parent,
+            source, null, source, DlcPackManifest.read(source).files, syntheticMetadata());
+        return new CollectionInfo(pack, dlcRoot.resolve("tmp/collection").resolve(cacheKey(source)));
     }
 
     private static Path normalizeGameRoot(Path root) {
@@ -181,6 +245,28 @@ public final class DlcCollectionSource {
     private static boolean isArchive(Path path) {
         String name = path.getFileName() == null ? "" : path.getFileName().toString().toLowerCase(Locale.ROOT);
         return name.endsWith(".zip") || name.endsWith(".mrpack");
+    }
+
+    private static boolean isManifestFile(Path path) {
+        String name = path.getFileName() == null ? "" : path.getFileName().toString().toLowerCase(Locale.ROOT);
+        return name.equals("manifest.json") || name.equals("modrinth.index.json");
+    }
+
+    private static String stringValue(JsonObject obj, String key) {
+        JsonElement value = obj.get(key);
+        return value != null && value.isJsonPrimitive() && !value.getAsString().isBlank() ? value.getAsString().trim() : null;
+    }
+
+    private static List<String> stringList(JsonElement element) {
+        if (element == null || element.isJsonNull()) return List.of();
+        if (element.isJsonPrimitive()) {
+            String value = element.getAsString().trim();
+            return value.isBlank() ? List.of() : List.of(value);
+        }
+        if (!element.isJsonArray()) return List.of();
+        List<String> result = new ArrayList<>();
+        for (JsonElement value : element.getAsJsonArray()) if (value.isJsonPrimitive() && !value.getAsString().isBlank()) result.add(value.getAsString().trim());
+        return result;
     }
 
     private static String cacheKey(Path path) throws IOException {

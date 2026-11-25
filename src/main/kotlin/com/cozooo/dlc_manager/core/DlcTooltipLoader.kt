@@ -45,6 +45,8 @@ class DlcTooltipLoader {
                                 entry.alarm,
                             )
                             data.setAlarmTips(entry.alarmTips)
+                            data.setIncludes(entry.includes)
+                            data.setRemoteEntries(entry.remoteEntries)
                             data.setMatchMode(entry.matchMode)
                             result[entry.dlcName!!] = data
                         }
@@ -194,6 +196,8 @@ class DlcTooltipLoader {
             entry.fileNames = parseFileNames(DlcDcConfigIO.getIgnoreCase(obj, "files"))
         }
         entry.source = getString(obj, "source")
+        entry.includes = parseStringList(DlcDcConfigIO.getIgnoreCase(obj, "include"))
+        entry.remoteEntries = parseRemoteEntries(DlcDcConfigIO.getObjectIgnoreCase(obj, "remote"))
         entry.displayName = readLocalized(localizedObjectFromAny(obj, "DisplayName"))
         if (entry.displayName.isEmpty() && entry.dlcName != null) {
             entry.displayName = readLocalized(buildDefaultDisplayName(entry.dlcName))
@@ -586,6 +590,8 @@ class DlcTooltipLoader {
         var alarm = false
         var alarmTips: Map<String, String> = emptyMap()
         var matchMode: String = "hash"
+        var includes: List<String> = emptyList()
+        var remoteEntries: List<JsonObject> = emptyList()
     }
 
     class TooltipData(
@@ -612,6 +618,8 @@ class DlcTooltipLoader {
         private val conflicts: List<String> = conflicts ?: emptyList()
         private val fileNames: List<String> = fileNames ?: emptyList()
         private var alarmTips: Map<String, String> = emptyMap()
+        private var includes: List<String> = emptyList()
+        private var remoteEntries: List<JsonObject> = emptyList()
 
         fun getTips(): Map<String, String> = tips
         private var matchMode: String = "hash"
@@ -635,6 +643,10 @@ class DlcTooltipLoader {
         fun isAlarm(): Boolean = alarm
         fun getAlarmTips(): Map<String, String> = alarmTips
         fun setAlarmTips(values: Map<String, String>?) { alarmTips = values ?: emptyMap() }
+        fun getIncludes(): List<String> = includes
+        fun setIncludes(values: List<String>?) { includes = values ?: emptyList() }
+        fun getRemoteEntries(): List<JsonObject> = remoteEntries
+        fun setRemoteEntries(values: List<JsonObject>?) { remoteEntries = values ?: emptyList() }
     }
 
     companion object {
@@ -677,6 +689,37 @@ class DlcTooltipLoader {
         @JvmStatic
         fun parseType(raw: String?): DlcType? {
             return parseTypeString(raw)
+        }
+
+        private fun parseStringList(element: JsonElement?): List<String> {
+            if (element == null || element.isJsonNull) return emptyList()
+            val result = ArrayList<String>()
+            fun add(value: String?) {
+                value?.split(',', '\n', '\r')?.forEach { token ->
+                    val trimmed = token.trim()
+                    if (trimmed.isNotBlank() && !result.contains(trimmed)) result.add(trimmed)
+                }
+            }
+            when {
+                element.isJsonPrimitive -> add(element.asString)
+                element.isJsonArray -> element.asJsonArray.forEach { value -> if (value.isJsonPrimitive) add(value.asString) }
+                element.isJsonObject -> element.asJsonObject.entrySet().forEach { (key, value) ->
+                    if (value.isJsonPrimitive) add(if (value.asString.isBlank()) key else value.asString) else if (value.isJsonNull) add(key)
+                }
+            }
+            return result
+        }
+
+        private fun parseRemoteEntries(remote: JsonObject?): List<JsonObject> {
+            if (remote == null) return emptyList()
+            val result = ArrayList<JsonObject>()
+            for ((identifier, value) in remote.entrySet()) {
+                if (!value.isJsonObject) continue
+                val copy = value.asJsonObject.deepCopy()
+                if (!copy.has("identifier")) copy.addProperty("identifier", identifier)
+                result.add(copy)
+            }
+            return result
         }
     }
 }

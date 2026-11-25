@@ -111,7 +111,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
             if (activeFilter != null && type != activeFilter) {
                 continue
             }
-            val visibleItems = typeItems.filter { !it.isHidden() }
+            val visibleItems = typeItems.filter { !it.isHidden() && !it.isIncludedHidden() }
             if (visibleItems.isEmpty()) {
                 continue
             }
@@ -537,7 +537,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
 
     private fun getActionItems(): List<DlcItem> = allItems.filter {
         (activeFilter == null || it.getType() == activeFilter) &&
-            (searchQuery.isBlank() || (!it.isHidden() && matchesItem(it)))
+            (searchQuery.isBlank() || (!it.isHidden() && !it.isIncludedHidden() && matchesItem(it)))
     }
 
     private fun handleBatchEnable(targets: List<DlcItem>, scopeLabel: Component) {

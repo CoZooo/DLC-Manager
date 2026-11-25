@@ -32,9 +32,9 @@ public class DlcScanner {
 
             List<Path> roots = DlcConfig.getDlcRoots();
             DlcTooltipLoader tooltipLoader = new DlcTooltipLoader();
-            Path mainDlcRoot = DlcConfig.getDlcRoots().isEmpty() ? null : DlcConfig.getDlcRoots().get(0);
+            Path mainDlcRoot = roots.isEmpty() ? null : roots.get(0);
             Path mainInfoDir = mainDlcRoot == null ? null : mainDlcRoot.resolve("info");
-            Map<String, DlcTooltipLoader.TooltipData> tooltips = mainDlcRoot == null
+            Map<String, DlcTooltipLoader.TooltipData> mainTooltips = mainDlcRoot == null
                 ? java.util.Map.of()
                 : tooltipLoader.loadTooltips(mainDlcRoot);
             Set<Path> seen = new HashSet<>();
@@ -43,9 +43,13 @@ public class DlcScanner {
                     continue;
                 }
                 seen.add(root);
+                Map<String, DlcTooltipLoader.TooltipData> tooltips = root.equals(mainDlcRoot)
+                    ? mainTooltips
+                    : tooltipLoader.loadTooltips(root);
                 scanRoot(grouped, root, tooltips, tooltipLoader, mainInfoDir, detectInstalledState);
             }
 
+            finalizeCollectionIncludes(grouped);
             return grouped;
         } finally { DlcFileMatch.endScan(); }
     }
@@ -170,6 +174,8 @@ public class DlcScanner {
                 data.isAlarm()
             );
             item.setAlarmTips(data.getAlarmTips());
+            item.setCollectionIncludeIdentifiers(data.getIncludes());
+            item.setCollectionRemoteEntries(data.getRemoteEntries());
             item.setRedirectUrl(data.getRedirectUrl());
             item.setDlcRoot(root);
             item.setMatchMode(data.getMatchMode());
@@ -186,6 +192,30 @@ public class DlcScanner {
             }
             grouped.get(DlcType.COLLECTION).add(item);
         }
+    }
+
+    private void finalizeCollectionIncludes(Map<DlcType, List<DlcItem>> grouped) {
+        Map<String, DlcItem> byIdentifier = new java.util.HashMap<>();
+        for (List<DlcItem> items : grouped.values()) {
+            for (DlcItem item : items) if (item != null && item.getIdentifier() != null && !item.getIdentifier().isBlank()) byIdentifier.putIfAbsent(item.getIdentifier(), item);
+        }
+        for (DlcItem item : grouped.get(DlcType.COLLECTION)) {
+            List<DlcItem> included = resolveIncludedItems(item, byIdentifier);
+            item.setCollectionIncludedItems(included);
+            for (DlcItem entry : included) entry.setIncludedHidden(true);
+        }
+    }
+
+    private List<DlcItem> resolveIncludedItems(DlcItem item, Map<String, DlcItem> byIdentifier) {
+        List<DlcItem> result = new ArrayList<>();
+        if (item.getType() != DlcType.COLLECTION) return result;
+        for (String identifier : item.getCollectionIncludeIdentifiers()) {
+            DlcItem included = byIdentifier.get(identifier);
+            if (included == null || included == item || included.getType() == DlcType.COLLECTION) continue;
+            if (result.stream().anyMatch(value -> java.util.Objects.equals(value.getId(), included.getId()))) continue;
+            result.add(included);
+        }
+        return result;
     }
 
     private boolean collectionStateStillPresent(DlcItem item) {

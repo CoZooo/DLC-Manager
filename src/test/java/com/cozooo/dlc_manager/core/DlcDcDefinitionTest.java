@@ -71,4 +71,16 @@ class DlcDcDefinitionTest {
         assertFalse(language.validate(DcDocuments.readText("[basic]\nunzip='true'\n")).valid());
         assertThrows(IllegalArgumentException.class, () -> DlcDcDefinition.register("not-registered"));
     }
+
+    @Test void collectionDefinitionRegistersIncludeAndInlineRemoteFields() {
+        var catalog = DlcDcDefinition.catalog();
+        var info = catalog.profile("info");
+        assertNotNull(catalog.field(info, List.of("basic"), "include"));
+        assertNotNull(catalog.field(info, List.of("remote", "example"), "target"));
+        assertNotNull(catalog.field(info, List.of("remote", "example"), "directUrl"));
+        assertTrue(new DcLanguageService(catalog).diagnostics(
+            "file:///instance/DLC/info/collection.dc",
+            "[basic]\ntype=collection\ninclude=[\"child\"]\n[remote.example]\ntarget=\"mods/\"\ndirectUrl=\"https://example.com/child.jar\"\n"
+        ).isEmpty());
+    }
 }

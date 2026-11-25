@@ -129,6 +129,26 @@ test("editing legacy dependency lists replaces the source and retains comments",
   assert.deepEqual(parse(output).dependencies.entries, ["new"]);
 });
 
+test("collection include and inline remote sections use collection fields", () => {
+  const raw = [
+    "[basic]",
+    'type = "collection"',
+    'include = ["child"]',
+    "[remote.example]",
+    'target = "mods/example.jar"',
+    'directUrl = ["https://example.com/example.jar"]',
+    'priority = ["directUrl"]',
+    ""
+  ].join("\n");
+  const parsed = parseStructuredDocument(raw, documentSchemas.info);
+  assert.deepEqual(parsed.model.basic.include, ["child"]);
+  assert.deepEqual(parsed.model["remote.example"].directUrl, ["https://example.com/example.jar"]);
+  assert.deepEqual(parsed.model["remote.example"].priority, ["directUrl"]);
+  assert.equal(parsed.issues.some((issue) => issue.severity === "error"), false);
+  const output = serializeStructuredDocumentWithPreservedRaw(raw, parsed.model, documentSchemas.info);
+  assert.deepEqual(parseStructuredDocument(output, documentSchemas.info).model["remote.example"].directUrl, ["https://example.com/example.jar"]);
+});
+
 test("all existing document templates still parse and serialize", () => {
   for (const type of Object.keys(documentSchemas)) {
     if (!documentSchemas[type].supportsStructured) {
@@ -264,4 +284,9 @@ test("legacy fields stay hidden in 5.0 and visible in 4.0", () => {
   assert.ok(!version40.find((field) => field.key === "dlc").hiddenInForm);
   assert.ok(update50.find((field) => field.key === "dlc").hiddenInForm);
   assert.ok(!update40.find((field) => field.key === "dlc").hiddenInForm);
+});
+
+test("collection fields stay in the 5.0 info schema", () => {
+  assert.ok(versionFields("5.0", "info", "basic").some((field) => field.key === "include"));
+  assert.ok(!versionFields("4.0", "info", "basic").some((field) => field.key === "include"));
 });

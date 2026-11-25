@@ -3,7 +3,9 @@ package com.cozooo.dlc_manager.core;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public final class DlcItemFiles {
     public record Target(Path source, Path target, boolean searchByHash) {}
@@ -14,15 +16,26 @@ public final class DlcItemFiles {
     }
 
     public static List<Target> expected(DlcItem item, boolean allowCollectionDownloads) {
+        return expected(item, allowCollectionDownloads, new HashSet<>());
+    }
+
+    private static List<Target> expected(DlcItem item, boolean allowCollectionDownloads, Set<String> visited) {
         List<Target> result = new ArrayList<>();
-        if (item.getType() == DlcType.COLLECTION) {
-            try {
-                for (var entry : DlcCollectionSource.entries(item.getSourcePath(), item.getDlcRoot(), DlcPaths.gameDir(), allowCollectionDownloads, item.getIdentifier())) {
-                    result.add(new Target(entry.source, DlcPathUtil.resolveInside(DlcPaths.gameDir(), entry.relativePath), false));
+        String id = item.getId();
+        if (id != null && !visited.add(id)) return result;
+        try {
+            if (item.getType() == DlcType.COLLECTION) {
+                try {
+                    List<Path> sources = item.getSourcePaths().isEmpty() ? (item.getSourcePath() == null ? List.of() : List.of(item.getSourcePath())) : item.getSourcePaths();
+                    for (Path source : sources) {
+                        for (var entry : DlcCollectionSource.entries(source, item.getDlcRoot(), DlcPaths.gameDir(), allowCollectionDownloads, item.getIdentifier(), item.getCollectionRemoteEntries())) {
+                            result.add(new Target(entry.source, DlcPathUtil.resolveInside(DlcPaths.gameDir(), entry.relativePath), false));
+                        }
+                    }
+                    for (DlcItem included : item.getCollectionIncludedItems()) result.addAll(expected(included, allowCollectionDownloads, visited));
+                } catch (IOException ignored) {
                 }
-            } catch (IOException ignored) {
-            }
-        } else if (item.getType() == DlcType.UNKNOWN) {
+            } else if (item.getType() == DlcType.UNKNOWN) {
             Path target = DlcPaths.resolveAppliedTarget(item.getAppliedTargetRaw());
             List<Path> sources = item.getSourcePaths();
             if (target == null || sources.isEmpty()) return result;
@@ -31,7 +44,7 @@ public final class DlcItemFiles {
             for (Path source : sources) {
                 if (source != null) result.add(new Target(source, directory ? target.resolve(source.getFileName()) : target, false));
             }
-        } else {
+            } else {
             List<Path> directories = switch (item.getType()) {
                 case MOD -> List.of(DlcPaths.modsDir());
                 case RESOURCE_PACK -> DlcConfig.getResourcepackRoots();
@@ -40,8 +53,11 @@ public final class DlcItemFiles {
                 default -> List.of();
             };
             for (Path directory : directories) result.add(new Target(item.getSourcePath(), directory.resolve(item.getSourcePath().getFileName()), true));
+            }
+            return result;
+        } finally {
+            if (id != null) visited.remove(id);
         }
-        return result;
     }
 
     public static List<Path> installed(DlcItem item) throws IOException {

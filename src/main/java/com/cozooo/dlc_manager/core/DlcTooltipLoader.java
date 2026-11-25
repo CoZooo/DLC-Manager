@@ -40,6 +40,8 @@ public class DlcTooltipLoader {
                         TooltipData data = new TooltipData(entry.dlcIdentifier, entry.tip, entry.displayName, entry.type, entry.typeValid, entry.hasTypeField, entry.configType,
                             entry.hidden, entry.allowEnableByAll, entry.dependencies, entry.conflicts, entry.appliedTargetRaw, entry.redirectUrl, entry.fileNames, entry.source, entry.alarm);
                         data.setAlarmTips(entry.alarmTips);
+                        data.setIncludes(entry.includes);
+                        data.setRemoteEntries(entry.remoteEntries);
                         data.setMatchMode(entry.matchMode);
                         result.put(entry.dlcName, data);
                     }
@@ -182,6 +184,8 @@ public class DlcTooltipLoader {
             entry.fileNames = parseFileNames(DlcDcConfigIO.getIgnoreCase(obj, "files"));
         }
         entry.source = getString(obj, "source");
+        entry.includes = parseStringList(DlcDcConfigIO.getIgnoreCase(obj, "include"));
+        entry.remoteEntries = parseRemoteEntries(DlcDcConfigIO.getObjectIgnoreCase(obj, "remote"));
         entry.displayName = readLocalized(localizedObjectFromAny(obj, "DisplayName"));
         if (entry.displayName.isEmpty() && entry.dlcName != null) {
             entry.displayName = readLocalized(buildDefaultDisplayName(entry.dlcName));
@@ -480,6 +484,45 @@ public class DlcTooltipLoader {
         return new java.util.ArrayList<>(result);
     }
 
+    private java.util.List<String> parseStringList(JsonElement element) {
+        java.util.LinkedHashSet<String> result = new java.util.LinkedHashSet<>();
+        if (element == null || element.isJsonNull()) return new java.util.ArrayList<>(result);
+        if (element.isJsonPrimitive()) {
+            addStringListValue(result, element.getAsString());
+        } else if (element.isJsonArray()) {
+            for (JsonElement child : element.getAsJsonArray()) if (child.isJsonPrimitive()) addStringListValue(result, child.getAsString());
+        } else if (element.isJsonObject()) {
+            for (Map.Entry<String, JsonElement> entry : element.getAsJsonObject().entrySet()) {
+                if (entry.getValue().isJsonPrimitive()) {
+                    String value = entry.getValue().getAsString();
+                    addStringListValue(result, value.isBlank() ? entry.getKey() : value);
+                }
+                else if (entry.getValue().isJsonNull()) result.add(entry.getKey().trim());
+            }
+        }
+        return new java.util.ArrayList<>(result);
+    }
+
+    private void addStringListValue(java.util.Set<String> result, String value) {
+        if (value == null) return;
+        for (String part : value.split("[\\n\\r,]+")) {
+            String trimmed = part.trim();
+            if (!trimmed.isEmpty()) result.add(trimmed);
+        }
+    }
+
+    private java.util.List<JsonObject> parseRemoteEntries(JsonObject remote) {
+        java.util.List<JsonObject> result = new java.util.ArrayList<>();
+        if (remote == null) return result;
+        for (Map.Entry<String, JsonElement> entry : remote.entrySet()) {
+            if (!entry.getValue().isJsonObject()) continue;
+            JsonObject copy = entry.getValue().getAsJsonObject().deepCopy();
+            if (!copy.has("identifier")) copy.addProperty("identifier", entry.getKey());
+            result.add(copy);
+        }
+        return result;
+    }
+
     private void collectFileNames(JsonElement element, java.util.Set<String> result) {
         if (element == null || element.isJsonNull()) {
             return;
@@ -567,6 +610,8 @@ public class DlcTooltipLoader {
         boolean alarm;
         Map<String, String> alarmTips = java.util.Map.of();
         String matchMode = "hash";
+        java.util.List<String> includes = java.util.List.of();
+        java.util.List<JsonObject> remoteEntries = java.util.List.of();
     }
 
     public static class TooltipData {
@@ -588,6 +633,8 @@ public class DlcTooltipLoader {
         private final boolean alarm;
         private Map<String, String> alarmTips = java.util.Map.of();
         private String matchMode = "hash";
+        private java.util.List<String> includes = java.util.List.of();
+        private java.util.List<JsonObject> remoteEntries = java.util.List.of();
         public String getMatchMode() { return matchMode; }
         public void setMatchMode(String value) { matchMode = DlcFileMatch.mode(value); }
 
@@ -690,6 +737,11 @@ public class DlcTooltipLoader {
         public void setAlarmTips(Map<String, String> values) {
             alarmTips = values == null ? java.util.Map.of() : values;
         }
+
+        public java.util.List<String> getIncludes() { return includes; }
+        public void setIncludes(java.util.List<String> values) { includes = values == null ? java.util.List.of() : values; }
+        public java.util.List<JsonObject> getRemoteEntries() { return remoteEntries; }
+        public void setRemoteEntries(java.util.List<JsonObject> values) { remoteEntries = values == null ? java.util.List.of() : values; }
     }
 
     public static DlcType parseTypeString(String raw) {

@@ -7,7 +7,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import com.google.gson.JsonObject;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -56,6 +58,84 @@ class DlcCollectionSourceTest {
         var entries = DlcCollectionSource.entries(archive, dlcRoot, tempDir.resolve("game"), false);
 
         assertEquals(Set.of("config/example.toml", "mods/example.jar"), relativePaths(entries));
+    }
+
+    @Test
+    void readsStandaloneModrinthMetadataAsACollectionSource() throws Exception {
+        Path dlcRoot = tempDir.resolve("DLC");
+        Path metadata = dlcRoot.resolve("collections/modrinth.index.json");
+        Files.createDirectories(metadata.getParent());
+        Files.writeString(metadata, """
+            {
+              "formatVersion": 1,
+              "game": "minecraft",
+              "files": [
+                {
+                  "path": "mods/example.jar",
+                  "hashes": {"sha1": "0123456789012345678901234567890123456789", "sha512": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"},
+                  "env": {"client": "required", "server": "required"},
+                  "downloads": ["https://example.com/example.jar"],
+                  "fileSize": 1
+                }
+              ]
+            }
+            """);
+
+        var entries = DlcCollectionSource.completionEntries(metadata, dlcRoot, "collection:test");
+
+        assertEquals(1, entries.size());
+        assertEquals("mods/example.jar", entries.get(0).getAppliedTargetRaw());
+        assertEquals("example.jar", entries.get(0).getRequiredFileName());
+    }
+
+    @Test
+    void acceptsStandaloneCurseForgeManifestAsACollectionSource() throws Exception {
+        Path dlcRoot = tempDir.resolve("DLC");
+        Path metadata = dlcRoot.resolve("collections/manifest.json");
+        Files.createDirectories(metadata.getParent());
+        Files.writeString(metadata, "{\"manifestType\":\"minecraftModpack\",\"manifestVersion\":1,\"minecraft\":{},\"files\":[]}");
+        Files.writeString(metadata.getParent().resolve("unrelated.txt"), "must not install");
+
+        assertEquals(metadata, DlcCollectionSource.materialize(metadata, dlcRoot));
+        assertEquals(List.of(), DlcCollectionSource.completionEntries(metadata, dlcRoot, "collection:test"));
+        assertEquals(List.of(), DlcCollectionSource.entries(metadata, dlcRoot, tempDir.resolve("game"), false));
+    }
+
+    @Test
+    void addsInlineRemoteEntriesToCollectionCompletion() throws Exception {
+        Path dlcRoot = tempDir.resolve("DLC");
+        Path source = dlcRoot.resolve("collections/inline");
+        Files.createDirectories(source);
+        JsonObject remote = new JsonObject();
+        remote.addProperty("identifier", "inline");
+        remote.addProperty("source", "inline.jar");
+        remote.addProperty("directUrl", "https://example.com/inline.jar");
+        remote.addProperty("target", "mods/");
+
+        var entries = DlcCollectionSource.completionEntries(source, dlcRoot, "collection:test", List.of(remote));
+
+        assertEquals(1, entries.size());
+        assertEquals("collection:test:remote:inline", entries.get(0).getIdentifier());
+        assertEquals("mods/", entries.get(0).getAppliedTargetRaw());
+    }
+
+    @Test
+    void appliesCachedInlineRemoteFilesToDirectoryTargets() throws Exception {
+        Path dlcRoot = tempDir.resolve("DLC");
+        Path source = dlcRoot.resolve("collections/inline");
+        Path cached = dlcRoot.resolve("downloaded/required/inline.jar");
+        Files.createDirectories(source);
+        Files.createDirectories(cached.getParent());
+        Files.writeString(cached, "jar");
+        JsonObject remote = new JsonObject();
+        remote.addProperty("identifier", "inline");
+        remote.addProperty("source", "inline.jar");
+        remote.addProperty("directUrl", "https://example.com/inline.jar");
+        remote.addProperty("target", "mods/");
+
+        var entries = DlcCollectionSource.entries(source, dlcRoot, tempDir.resolve("game"), true, "collection:test", List.of(remote));
+
+        assertEquals(Set.of("mods/inline.jar"), relativePaths(entries));
     }
 
     private static Set<String> relativePaths(java.util.List<com.cozooo.dlc_manager.client.pack.DlcPackInstallPlan.FileEntry> entries) {

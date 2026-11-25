@@ -123,7 +123,7 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
                 continue;
             }
             List<DlcItem> visibleItems = typeItems.stream()
-                .filter(item -> !item.isHidden())
+                .filter(item -> !item.isHidden() && !item.isIncludedHidden())
                 .toList();
             if (visibleItems.isEmpty()) {
                 continue;
@@ -587,7 +587,7 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
     private java.util.List<DlcItem> getActionItems() {
         return allItems.stream()
             .filter(item -> activeFilter == null || item.getType() == activeFilter)
-            .filter(item -> searchQuery.isBlank() || (!item.isHidden() && matchesItem(item)))
+            .filter(item -> searchQuery.isBlank() || (!item.isHidden() && !item.isIncludedHidden() && matchesItem(item)))
             .toList();
     }
 
