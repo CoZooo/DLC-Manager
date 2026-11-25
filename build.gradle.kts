@@ -137,12 +137,15 @@ fun Project.selectedModPublishPlatforms(): Set<String> =
 
 fun Project.modPublishReleaseType(): ReleaseType {
     val version = prop("mod_version").lowercase()
-    val suffix = version.substringAfter('-', "")
-    return when {
-        suffix.startsWith("alpha") -> ReleaseType.of("alpha")
-        suffix.startsWith("beta") || suffix.startsWith("rc") || suffix.startsWith("pre") -> ReleaseType.of("beta")
-        else -> ReleaseType.of(prop("mod_publish_release_type"))
+    val suffixStart = version.indexOfFirst { it != '.' && !it.isDigit() }
+    val suffix = if (suffixStart < 0) "" else version.substring(suffixStart).trimStart('-', '_', '.')
+    val type = when {
+        suffix.isBlank() || suffix.startsWith("hotfix") || suffix.startsWith("fix") -> "stable"
+        suffix.startsWith("beta") || suffix.startsWith("rc") -> "beta"
+        suffix.startsWith("alpha") || suffix.startsWith("build") || suffix.startsWith("nightly") -> "alpha"
+        else -> "stable"
     }
+    return ReleaseType.of(type)
 }
 
 fun Project.modPublishChangelog(): String =
@@ -151,14 +154,12 @@ fun Project.modPublishChangelog(): String =
         ?: readVersionChangelog(prop("mod_version"))
 
 fun Project.readVersionChangelog(version: String): String {
-    val exactDir = rootProject.file("website/changelog/$version")
-    val baseVersion = version.substringBefore('-')
-    val changelogDir = if (exactDir.isDirectory) exactDir else rootProject.file("website/changelog/$baseVersion")
+    val changelogDir = rootProject.file("website/changelog/$version")
     val englishFile = changelogDir.resolve("en_us.md")
     val chineseFile = changelogDir.resolve("zh_cn.md")
     require(englishFile.isFile && chineseFile.isFile) {
         "Missing website changelog for version $version." +
-            "or set -Pmod_publish_changelog=..."
+            " Or set -Pmod_publish_changelog=..."
     }
     val english = englishFile.readText().trim()
     val chinese = chineseFile.readText().trim()
@@ -997,6 +998,12 @@ if (stoneNodes.contains(project.name)) {
         outputs.upToDateWhen { false }
         doLast {
             val publishExtension = project.extensions.getByType<ModPublishExtension>()
+            require(rootProject.modPublishChangelog().isNotBlank()) {
+                "ModPublish changelog must come from the exact Website version directory or an explicit override."
+            }
+            require(publishExtension.type.get() == rootProject.modPublishReleaseType()) {
+                "Unexpected ModPublish release type for ${rootProject.prop("mod_version")}: ${publishExtension.type.get()}"
+            }
             val modrinth = publishExtension.platforms.findByName("modrinth") as? ModrinthOptions
             val curseforge = publishExtension.platforms.findByName("curseforge") as? CurseforgeOptions
 
