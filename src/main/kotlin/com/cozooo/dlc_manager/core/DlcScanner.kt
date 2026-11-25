@@ -61,6 +61,7 @@ class DlcScanner {
         val localTmpDir = DlcTmpPaths.root(root)
         val localLegacyTmpDir = DlcTmpPaths.legacyRoot(root)
         val groupedOwners = buildGroupedOwners(tooltips)
+        val collectionSources = buildCollectionSources(root, tooltips)
         val remoteMetadata = buildRemoteMetadata(root)
         addCollectionItems(grouped, root, tooltips, detectInstalledState)
         try {
@@ -85,6 +86,9 @@ class DlcScanner {
                             return FileVisitResult.SKIP_SUBTREE
                         }
                         if (isUnderUpdateDir(dir, localUpdateDir) || isUnderUpdateDir(dir, localTmpDir) || isUnderUpdateDir(dir, localLegacyTmpDir)) {
+                            return FileVisitResult.SKIP_SUBTREE
+                        }
+                        if (collectionSources.contains(dir.normalize())) {
                             return FileVisitResult.SKIP_SUBTREE
                         }
 
@@ -112,6 +116,9 @@ class DlcScanner {
                             return FileVisitResult.CONTINUE
                         }
                         if (isUnderUpdateDir(file, localUpdateDir) || isUnderUpdateDir(file, localTmpDir) || isUnderUpdateDir(file, localLegacyTmpDir)) {
+                            return FileVisitResult.CONTINUE
+                        }
+                        if (collectionSources.contains(file.normalize())) {
                             return FileVisitResult.CONTINUE
                         }
                         val name = file.fileName.toString()
@@ -361,6 +368,19 @@ class DlcScanner {
     private fun isEnabledInState(id: String): Boolean {
         val state = DlcStateConfig.getState(id)
         return state != null && state.enabled
+    }
+
+    private fun buildCollectionSources(root: Path, tooltips: Map<String, DlcTooltipLoader.TooltipData>?): Set<Path> {
+        val sources = HashSet<Path>()
+        if (tooltips == null) return sources
+        for (data in tooltips.values) {
+            if (data == null || data.getType() != DlcType.COLLECTION) continue
+            val source = data.getSource()
+            if (source.isNullOrBlank()) continue
+            val resolved = DlcCollectionSource.resolve(root, source)
+            if (resolved != null) sources.add(resolved.normalize())
+        }
+        return sources
     }
 
     private fun buildGroupedOwners(tooltips: Map<String, DlcTooltipLoader.TooltipData>?): Map<String, String> {

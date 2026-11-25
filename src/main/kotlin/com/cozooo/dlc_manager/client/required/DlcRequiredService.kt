@@ -5,6 +5,7 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadUtil
 import com.cozooo.dlc_manager.client.download.DlcSharedService
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcFileMatch
+import com.cozooo.dlc_manager.core.DlcPaths
 import com.cozooo.dlc_manager.core.DlcResourceHistory
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil
 import java.io.IOException
@@ -106,6 +107,14 @@ object DlcRequiredService {
         return downloadOneShared(entry, listener, cancelChecker, switchChecker)
     }
 
+    private fun noteCreatedTargetDirectories(entry: DlcRequiredEntry, createdDirectories: List<Path>) {
+        if (createdDirectories.isEmpty()) return
+        try {
+            DlcResourceHistory.noteCreatedDirectories(entry.getDlcRoot()!!, "required", entry.getHistoryKey(), createdDirectories)
+        } catch (ignored: IOException) {
+        }
+    }
+
     @Throws(IOException::class, InterruptedException::class)
     private fun downloadOneShared(
         entry: DlcRequiredEntry?,
@@ -160,9 +169,10 @@ object DlcRequiredService {
                         }
                         val finalFileName = fileName ?: throw IOException("missing file name")
                         val resolvedTarget = entry.resolveDownloadPath(finalFileName) ?: throw IOException("invalid target path")
-                        Files.createDirectories(resolvedTarget.parent)
+                        val createdTargetDirs = DlcPaths.createMissingDirectories(resolvedTarget.parent)
                         if (Files.exists(resolvedTarget)) {
                             entry.setResolvedFileName(finalFileName)
+                            noteCreatedTargetDirectories(entry, createdTargetDirs)
                             return finalFileName
                         }
                         val resolved = DlcSharedService.downloadCandidate(candidate, resolvedTarget, finalFileName, shouldProbe, listener) {
@@ -172,6 +182,7 @@ object DlcRequiredService {
                         entry.setResolvedFileName(finalFileName)
                         DlcRequiredRuntime.updateFileNameKey(entry, finalFileName)
                         DlcResourceHistory.downloaded(entry.getDlcRoot()!!, entry.getHistoryKey(), entry.getIdentifier(), entry.getConfigPath(), resolved)
+                        noteCreatedTargetDirectories(entry, createdTargetDirs)
                         return finalFileName
                     } catch (ex: com.cozooo.dlc_manager.client.download.DlcDownloadService.DownloadCanceledException) {
                         if (DlcSharedService.isSwitchRequested(switchChecker, entry)) {

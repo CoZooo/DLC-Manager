@@ -61,6 +61,35 @@ class DlcCollectionSourceTest {
     }
 
     @Test
+    void stripsASingleWrappedDirectoryThatHoldsOneGameRoot() throws Exception {
+        Path dlcRoot = tempDir.resolve("DLC");
+        Path archive = dlcRoot.resolve("collections/renyingDLC.zip");
+        Files.createDirectories(archive.getParent());
+        try (ZipOutputStream output = new ZipOutputStream(Files.newOutputStream(archive))) {
+            write(output, "renyingDLC/mods/example.jar", "mod");
+        }
+
+        var entries = DlcCollectionSource.entries(archive, dlcRoot, tempDir.resolve("game"), false);
+
+        assertEquals(Set.of("mods/example.jar"), relativePaths(entries));
+    }
+
+    @Test
+    void ignoresFinderMetadataWhenStrippingTheWrappedDirectory() throws Exception {
+        Path dlcRoot = tempDir.resolve("DLC");
+        Path archive = dlcRoot.resolve("collections/renyingDLC.zip");
+        Files.createDirectories(archive.getParent());
+        try (ZipOutputStream output = new ZipOutputStream(Files.newOutputStream(archive))) {
+            write(output, "renyingDLC/mods/example.jar", "mod");
+            write(output, "__MACOSX/renyingDLC/mods/._example.jar", "junk");
+        }
+
+        var entries = DlcCollectionSource.entries(archive, dlcRoot, tempDir.resolve("game"), false);
+
+        assertEquals(Set.of("mods/example.jar"), relativePaths(entries));
+    }
+
+    @Test
     void readsStandaloneModrinthMetadataAsACollectionSource() throws Exception {
         Path dlcRoot = tempDir.resolve("DLC");
         Path metadata = dlcRoot.resolve("collections/modrinth.index.json");

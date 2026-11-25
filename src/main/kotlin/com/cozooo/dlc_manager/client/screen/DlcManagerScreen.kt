@@ -234,7 +234,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
             else -> "dlc_manager.message.reopen_world"
         }
         val minecraft = Minecraft.getInstance()
-        if (applyMode == DlcApplyMode.RESTART_ONLY) {
+        if (modReloadNeeded || applyMode == DlcApplyMode.RESTART_ONLY) {
             minecraft.setScreen(
                 DlcConfirmScreen(
                     { accepted -> if (accepted) minecraft.stop() else minecraft.setScreen(parent) },
@@ -331,7 +331,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
 
     private fun computeModReloadChanges(): Boolean {
         for (item in allItems) {
-            if (item.getType() != DlcType.MOD && !DlcConfigTypeSupport.isConfigType(item)) {
+            if (!DlcApplier.requiresRestartOnToggle(item)) {
                 continue
             }
             if (DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {
@@ -343,7 +343,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUi
 
     private fun computeNonModReloadChanges(): Boolean {
         for (item in allItems) {
-            if (item.getType() == DlcType.MOD || DlcConfigTypeSupport.isConfigType(item)) {
+            if (DlcApplier.requiresRestartOnToggle(item)) {
                 continue
             }
             if (DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {

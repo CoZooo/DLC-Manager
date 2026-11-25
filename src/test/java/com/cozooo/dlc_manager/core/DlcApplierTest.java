@@ -1,6 +1,8 @@
 package com.cozooo.dlc_manager.core;
 
 import com.cozooo.dlc_manager.platform.PlatformServices;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.cozooo.dlc_manager.test.TestPlatformProvider;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -94,6 +96,116 @@ class DlcApplierTest {
         assertFalse(Files.exists(target));
         assertTrue(disabled.requiresRestart());
         assertFalse(DlcStateConfig.getState(item.getId()).enabled);
+    }
+
+    @Test
+    void rollbackRemovesDirectoriesCreatedByApply() throws Exception {
+        Files.createDirectories(dlcRoot);
+        Path source = dlcRoot.resolve("settings.toml");
+        Files.writeString(source, "value");
+        DlcItem item = new DlcItem(
+            "unknown:settings",
+            "settings",
+            "settings",
+            DlcType.UNKNOWN,
+            source,
+            "config/example/",
+            false,
+            null,
+            null,
+            List.of(),
+            List.of(),
+            true,
+            false
+        );
+
+        item.setEnabled(true);
+        DlcApplier.apply(List.of(item), DlcApplyMode.RESTART_ONLY);
+
+        Path target = gameDir.resolve("config/example/settings.toml");
+        assertTrue(Files.exists(target));
+
+        item.setEnabled(false);
+        DlcApplier.apply(List.of(item), DlcApplyMode.RESTART_ONLY);
+
+        assertFalse(Files.exists(target));
+        assertFalse(Files.exists(gameDir.resolve("config/example")));
+        assertFalse(Files.exists(gameDir.resolve("config")));
+    }
+
+    @Test
+    void applyRecordsDirectoriesItCreates() throws Exception {
+        Files.createDirectories(dlcRoot);
+        Path source = dlcRoot.resolve("settings.toml");
+        Files.writeString(source, "value");
+        DlcItem item = new DlcItem(
+            "unknown:recorded",
+            "recorded",
+            "recorded",
+            DlcType.UNKNOWN,
+            source,
+            "config/recorded/inner/",
+            false,
+            null,
+            null,
+            List.of(),
+            List.of(),
+            true,
+            false
+        );
+
+        item.setEnabled(true);
+        DlcApplier.apply(List.of(item), DlcApplyMode.RESTART_ONLY);
+
+        JsonObject data = DlcDcConfigIO.read(dlcRoot.resolve("tmp").resolve("dlc").resolve("history.dc"), DlcDcConfigIO.Layout.GENERIC);
+        JsonObject resource = data.getAsJsonObject("resources").getAsJsonObject(DlcResourceHistory.key("unknown:recorded", "dlc"));
+        assertTrue(resource != null);
+        JsonArray created = resource.getAsJsonArray("createdDirs");
+        assertTrue(created != null);
+        List<String> directories = new java.util.ArrayList<>();
+        for (var value : created) directories.add(value.getAsString());
+        assertEquals(List.of("config", "config/recorded", "config/recorded/inner"), directories);
+
+        item.setEnabled(false);
+        DlcApplier.apply(List.of(item), DlcApplyMode.RESTART_ONLY);
+
+        assertFalse(Files.exists(gameDir.resolve("config/recorded/inner")));
+        assertFalse(Files.exists(gameDir.resolve("config/recorded")));
+        assertFalse(Files.exists(gameDir.resolve("config")));
+    }
+
+    @Test
+    void rollbackKeepsDirectoriesItDidNotCreate() throws Exception {
+        Files.createDirectories(dlcRoot);
+        Files.createDirectories(gameDir.resolve("config"));
+        Path source = dlcRoot.resolve("entry.toml");
+        Files.writeString(source, "value");
+        DlcItem item = new DlcItem(
+            "unknown:keep",
+            "keep",
+            "keep",
+            DlcType.UNKNOWN,
+            source,
+            "config/kept/entry.toml",
+            false,
+            null,
+            null,
+            List.of(),
+            List.of(),
+            true,
+            false
+        );
+
+        item.setEnabled(true);
+        DlcApplier.apply(List.of(item), DlcApplyMode.RESTART_ONLY);
+        assertTrue(Files.exists(gameDir.resolve("config/kept/entry.toml")));
+
+        item.setEnabled(false);
+        DlcApplier.apply(List.of(item), DlcApplyMode.RESTART_ONLY);
+
+        assertFalse(Files.exists(gameDir.resolve("config/kept/entry.toml")));
+        assertFalse(Files.exists(gameDir.resolve("config/kept")));
+        assertTrue(Files.exists(gameDir.resolve("config")));
     }
 
     @Test

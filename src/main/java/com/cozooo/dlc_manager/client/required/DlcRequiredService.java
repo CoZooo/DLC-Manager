@@ -6,6 +6,7 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.download.DlcSharedService;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcFileMatch;
+import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcResourceHistory;
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import java.io.IOException;
@@ -128,6 +129,14 @@ public final class DlcRequiredService {
         return downloadOneShared(entry, listener, cancelChecker, switchChecker);
     }
 
+    private static void noteCreatedTargetDirectories(DlcRequiredEntry entry, List<Path> createdDirectories) {
+        if (createdDirectories == null || createdDirectories.isEmpty()) return;
+        try {
+            DlcResourceHistory.noteCreatedDirectories(entry.getDlcRoot(), "required", entry.getHistoryKey(), createdDirectories);
+        } catch (IOException ignored) {
+        }
+    }
+
     private static String downloadOneShared(DlcRequiredEntry entry,
                                             DlcSharedService.ProgressListener listener,
                                             DlcSharedService.CancelChecker cancelChecker,
@@ -182,9 +191,10 @@ public final class DlcRequiredService {
                         if (resolvedTarget == null) {
                             throw new IOException("invalid target path");
                         }
-                        Files.createDirectories(resolvedTarget.getParent());
+                        List<Path> createdTargetDirs = DlcPaths.createMissingDirectories(resolvedTarget.getParent());
                         if (Files.exists(resolvedTarget)) {
                             entry.setResolvedFileName(fileName);
+                            noteCreatedTargetDirectories(entry, createdTargetDirs);
                             return fileName;
                         }
                         Path resolved = DlcSharedService.downloadCandidate(candidate, resolvedTarget, fileName, shouldProbe, listener,
@@ -193,6 +203,7 @@ public final class DlcRequiredService {
                         entry.setResolvedFileName(fileName);
                         DlcRequiredRuntime.updateFileNameKey(entry, fileName);
                         DlcResourceHistory.downloaded(entry.getDlcRoot(), entry.getHistoryKey(), entry.getIdentifier(), entry.getConfigPath(), resolved);
+                        noteCreatedTargetDirectories(entry, createdTargetDirs);
                         return fileName;
                     } catch (DlcDownloadService.DownloadCanceledException ex) {
                         if (DlcSharedService.isSwitchRequested(switchChecker, entry)) {

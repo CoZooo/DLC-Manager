@@ -275,7 +275,7 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
         }
 
         Minecraft minecraft = Minecraft.getInstance();
-        if (applyMode == DlcApplyMode.RESTART_ONLY) {
+        if (modReloadNeeded || applyMode == DlcApplyMode.RESTART_ONLY) {
             minecraft.setScreen(new DlcConfirmScreen(accepted -> {
                 if (accepted) {
                     minecraft.stop();
@@ -381,7 +381,7 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
 
     private boolean computeModReloadChanges() {
         for (DlcItem item : allItems) {
-            if (item.getType() != DlcType.MOD && !DlcConfigTypeSupport.isConfigType(item)) {
+            if (!DlcApplier.requiresRestartOnToggle(item)) {
                 continue;
             }
             if (DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {
@@ -393,7 +393,7 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
 
     private boolean computeNonModReloadChanges() {
         for (DlcItem item : allItems) {
-            if (item.getType() == DlcType.MOD || DlcConfigTypeSupport.isConfigType(item)) {
+            if (DlcApplier.requiresRestartOnToggle(item)) {
                 continue;
             }
             if (DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {

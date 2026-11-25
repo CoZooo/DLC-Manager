@@ -53,7 +53,7 @@ object DlcCollectionSource {
         val packageRoot = materialize(source, dlcRoot)
         val info = inspect(packageRoot, dlcRoot, source)
         val plan = DlcPackInstallPlan.build(info.pack, gameRoot, dlcRoot)
-        if (info.pack.format == DlcPackPackage.Format.STANDARD && remoteEntries.isNullOrEmpty()) return plan.files
+        if (info.pack.format == DlcPackPackage.Format.STANDARD && remoteEntries.isNullOrEmpty()) return meaningful(plan.files)
         val completion = completionEntries(info, dlcRoot, collectionIdentifier, remoteEntries)
         val cached = completion.mapNotNull { entry ->
             val name = entry.getRequiredFileName() ?: entry.getResolvedFileName() ?: DlcRequiredService.resolveExistingFileName(entry) ?: return@mapNotNull null
@@ -61,7 +61,7 @@ object DlcCollectionSource {
             if (!Files.isRegularFile(path)) return@mapNotNull null
             entry.resolveInstallationTargets(name).map { target -> DlcPackInstallPlan.FileEntry(path, DlcPathUtil.toGameRelativePath(target)) }
         }.flatten()
-        return DlcPackInstallPlan.merge(plan, if (allowDownloads) cached else emptyList()).files
+        return meaningful(DlcPackInstallPlan.merge(plan, if (allowDownloads) cached else emptyList()).files)
     }
 
     @JvmStatic
@@ -197,7 +197,7 @@ object DlcCollectionSource {
     }
 
     private fun normalizeGameRoot(root: Path): Path {
-        val children = try { Files.list(root).use { it.toList() } } catch (_: IOException) { return root }
+        val children = try { Files.list(root).use { stream -> stream.filter { !isJunkName(it.fileName.toString()) }.toList() } } catch (_: IOException) { return root }
         val directories = children.filter(Files::isDirectory)
         if (children.none(Files::isRegularFile) && directories.size == 1) {
             val candidate = directories[0]
@@ -207,9 +207,24 @@ object DlcCollectionSource {
             val recognized = try {
                 Files.list(candidate).use { stream -> stream.filter(Files::isDirectory).map { it.fileName.toString().lowercase(Locale.ROOT) }.filter(GAME_ROOT_DIRECTORIES::contains).distinct().count() }
             } catch (_: IOException) { 0 }
+            val namedGameRoot = GAME_ROOT_DIRECTORIES.contains(candidate.fileName.toString().lowercase(Locale.ROOT))
+            if (!namedGameRoot && recognized >= 1) return candidate
             if (recognized >= 2) return candidate
         }
         return root
+    }
+
+    private fun meaningful(files: List<DlcPackInstallPlan.FileEntry>): List<DlcPackInstallPlan.FileEntry> {
+        return files.filter { !isJunkRelative(it.relativePath) }
+    }
+
+    private fun isJunkRelative(relative: String?): Boolean {
+        if (relative == null) return true
+        return relative.split("/").any { isJunkName(it) }
+    }
+
+    private fun isJunkName(name: String): Boolean {
+        return name == "__MACOSX" || name == ".DS_Store"
     }
 
     private fun isArchive(path: Path): Boolean {

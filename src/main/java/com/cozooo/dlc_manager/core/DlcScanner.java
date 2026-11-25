@@ -64,6 +64,7 @@ public class DlcScanner {
         Path localTmpDir = DlcTmpPaths.root(root);
         Path localLegacyTmpDir = DlcTmpPaths.legacyRoot(root);
         Map<String, String> groupedOwners = buildGroupedOwners(tooltips);
+        Set<Path> collectionSources = buildCollectionSources(root, tooltips);
         RemoteMetadataLookup remoteMetadata = buildRemoteMetadata(root);
         addCollectionItems(grouped, root, tooltips, detectInstalledState);
         try {
@@ -87,6 +88,9 @@ public class DlcScanner {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
                     if (isUnderUpdateDir(dir, localUpdateDir) || isUnderUpdateDir(dir, localTmpDir) || isUnderUpdateDir(dir, localLegacyTmpDir)) {
+                        return FileVisitResult.SKIP_SUBTREE;
+                    }
+                    if (collectionSources.contains(dir.normalize())) {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
 
@@ -117,6 +121,9 @@ public class DlcScanner {
                         return FileVisitResult.CONTINUE;
                     }
                     if (isUnderUpdateDir(file, localUpdateDir) || isUnderUpdateDir(file, localTmpDir) || isUnderUpdateDir(file, localLegacyTmpDir)) {
+                        return FileVisitResult.CONTINUE;
+                    }
+                    if (collectionSources.contains(file.normalize())) {
                         return FileVisitResult.CONTINUE;
                     }
                     String name = file.getFileName().toString();
@@ -366,6 +373,19 @@ public class DlcScanner {
     private boolean isEnabledInState(String id) {
         DlcStateConfig.DlcState state = DlcStateConfig.getState(id);
         return state != null && state.enabled;
+    }
+
+    private Set<Path> buildCollectionSources(Path root, Map<String, DlcTooltipLoader.TooltipData> tooltips) {
+        Set<Path> sources = new HashSet<>();
+        if (tooltips == null) return sources;
+        for (DlcTooltipLoader.TooltipData data : tooltips.values()) {
+            if (data == null || data.getType() != DlcType.COLLECTION) continue;
+            String source = data.getSource();
+            if (source == null || source.isBlank()) continue;
+            Path resolved = DlcCollectionSource.resolve(root, source);
+            if (resolved != null) sources.add(resolved.normalize());
+        }
+        return sources;
     }
 
     private Map<String, String> buildGroupedOwners(Map<String, DlcTooltipLoader.TooltipData> tooltips) {

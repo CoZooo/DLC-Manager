@@ -71,6 +71,17 @@ export interface SectionSchema {
   };
 }
 
+export interface PrefixSectionTemplate {
+  prefix: string;
+  template: SectionSchema;
+  visibleWhen?: {
+    sectionKey: string;
+    fieldKey: string;
+    equals?: string;
+    oneOf?: string[];
+  };
+}
+
 export interface DocumentSchema {
   type: DocumentType;
   label: string;
@@ -79,6 +90,7 @@ export interface DocumentSchema {
   supportsStructured: boolean;
   sections: SectionSchema[];
   sectionTemplate?: SectionSchema;
+  prefixSections?: PrefixSectionTemplate[];
 }
 
 export type StructuredRecordValue = Record<string, string>;

@@ -43,13 +43,12 @@ function fieldKey(key: string, schema: DocumentSchema): string {
 
 function documentSections(schema: DocumentSchema, model: StructuredModel): SectionSchema[] {
   if (!schema.sectionTemplate) {
-    if (schema.type !== "info") return schema.sections;
-    const remoteTemplate = schema.sections.find((section) => section.key === "remote");
-    if (!remoteTemplate) return schema.sections;
-    const dynamic = Object.keys(model)
-      .filter((key) => key.startsWith("remote.") && key !== "remote")
-      .map((key) => ({ ...remoteTemplate, key, label: `[${key}]` }));
-    return [...schema.sections.filter((section) => section.key !== "remote"), ...dynamic];
+    const dynamic = (schema.prefixSections ?? []).flatMap(({ prefix, template }) =>
+      Object.keys(model)
+        .filter((key) => key.startsWith(`${prefix}.`))
+        .map((key) => ({ ...template, key, label: `[${key}]` }))
+    );
+    return dynamic.length > 0 ? [...schema.sections, ...dynamic] : schema.sections;
   }
   const template = schema.sectionTemplate;
   return Object.keys(model).filter((key) => key !== ROOT_SECTION_KEY).map((key) => ({
@@ -68,7 +67,11 @@ function formatString(value: string): string {
 
 function buildFieldKindMap(schema: DocumentSchema): Record<string, FieldKind> {
   const result: Record<string, FieldKind> = {};
-  for (const section of [...schema.sections, ...(schema.sectionTemplate ? [schema.sectionTemplate] : [])]) {
+  for (const section of [
+    ...schema.sections,
+    ...(schema.sectionTemplate ? [schema.sectionTemplate] : []),
+    ...(schema.prefixSections ?? []).map((item) => item.template)
+  ]) {
     for (const field of section.fields) {
       result[`${section.key}.${field.key}`] = field.kind;
     }
@@ -354,8 +357,9 @@ export function parseStructuredDocument(text: string, schema: DocumentSchema): {
       model[currentSection] = model[currentSection] || {};
     }
 
+    const prefixed = (schema.prefixSections ?? []).find((item) => currentSection.startsWith(`${item.prefix}.`));
     const kind = fieldKinds[`${currentSection}.${key}`]
-      || (currentSection.startsWith("remote.") ? fieldKinds[`remote.${key}`] : undefined)
+      || (prefixed ? fieldKinds[`${prefixed.prefix}.${key}`] : undefined)
       || fieldKinds[`*.${key}`]
       || "text";
     if (schema.sectionTemplate && kind === "number") {

@@ -469,7 +469,8 @@ object DlcApplier {
         }
     }
 
-    private fun requiresRestartOnToggle(item: DlcItem): Boolean {
+    @JvmStatic
+    fun requiresRestartOnToggle(item: DlcItem): Boolean {
         return item.getType() == DlcType.MOD ||
             item.getType() == DlcType.TACZ_PACK ||
             item.getType() == DlcType.COLLECTION ||
@@ -478,6 +479,7 @@ object DlcApplier {
 
     private fun applyItem(item: DlcItem): List<Path> {
         val statePaths = ArrayList<Path>()
+        val createdDirs = ArrayList<Path>()
         val key = DlcResourceHistory.key(item.getId() ?: "", "dlc")
         try {
             for (pair in DlcItemFiles.expected(item, true)) {
@@ -489,7 +491,7 @@ object DlcApplier {
                 val replace = !DlcFileMatch.matches(pair.source(), target, "hash")
                 DlcResourceHistory.prepare(item.getDlcRoot(), "dlc", key, item.getIdentifier(), null, pair.source(), target, replace, item.getMatchMode())
                 if (replace) {
-                    Files.createDirectories(target.parent)
+                    createdDirs.addAll(DlcPaths.createMissingDirectories(target.parent))
                     if (Files.isDirectory(target)) deleteRecursive(target)
                     copyRecursive(pair.source(), target)
                 }
@@ -497,6 +499,12 @@ object DlcApplier {
             }
             if (statePaths.isNotEmpty()) DlcResourceHistory.complete(item.getDlcRoot(), "dlc", key)
         } catch (exception: IOException) { recordApplyFailure(exception) }
+        finally {
+            try {
+                if (createdDirs.isNotEmpty()) DlcResourceHistory.noteCreatedDirectories(item.getDlcRoot(), "dlc", key, createdDirs)
+            } catch (ignored: IOException) {
+            }
+        }
         return statePaths
     }
 

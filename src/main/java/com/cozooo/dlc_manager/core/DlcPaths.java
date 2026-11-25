@@ -5,9 +5,23 @@ import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.List;
 
 public class DlcPaths {
     private static final String MANAGER_CONFIG_DIR = "dlc_manager";
+
+    public static List<Path> createMissingDirectories(Path directory) throws IOException {
+        if (directory == null) return List.of();
+        List<Path> missing = new ArrayList<>();
+        Path current = directory.toAbsolutePath().normalize();
+        while (current != null && !Files.exists(current)) {
+            missing.add(0, current);
+            current = current.getParent();
+        }
+        Files.createDirectories(directory);
+        return missing;
+    }
 
     public static Path gameDir() {
         return DlcPlatformServices.gameDir();

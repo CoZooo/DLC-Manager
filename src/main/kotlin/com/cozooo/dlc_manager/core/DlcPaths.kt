@@ -11,6 +11,20 @@ object DlcPaths {
     private const val MANAGER_CONFIG_DIR = "dlc_manager"
 
     @JvmStatic
+    @Throws(IOException::class)
+    fun createMissingDirectories(directory: Path?): List<Path> {
+        if (directory == null) return emptyList()
+        val missing = ArrayList<Path>()
+        var current: Path? = directory.toAbsolutePath().normalize()
+        while (current != null && !Files.exists(current)) {
+            missing.add(0, current)
+            current = current.parent
+        }
+        Files.createDirectories(directory)
+        return missing
+    }
+
+    @JvmStatic
     fun gameDir(): Path {
         return DlcPlatformServices.gameDir()
     }

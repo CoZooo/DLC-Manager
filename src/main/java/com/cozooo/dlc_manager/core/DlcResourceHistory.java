@@ -205,6 +205,7 @@ public final class DlcResourceHistory {
             com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeWrite(replacement.getKey());
             replace(replacement.getValue(), replacement.getKey());
         }
+        deleteRecordedDirectories(item);
         for (JsonElement backupValue : backups.asMap().values()) {
             JsonObject backup = backupValue.getAsJsonObject();
             if (backup.get("resource").getAsString().equals(key)) backup.addProperty("old", true);
@@ -265,6 +266,53 @@ public final class DlcResourceHistory {
         if (item.get("downloaded").getAsBoolean()) paths.add(item.get("source").getAsString());
         return paths;
     }
+
+    public static synchronized void noteCreatedDirectories(Path root, String kind, String key, List<Path> directories) throws IOException {
+        if (directories == null || directories.isEmpty()) return;
+        JsonObject data = read(root, kind);
+        JsonObject resources = data.getAsJsonObject("resources");
+        if (!resources.has(key)) return;
+        JsonObject item = resources.getAsJsonObject(key);
+        Path gameRoot = DlcPaths.gameDir().toAbsolutePath().normalize();
+        JsonArray created = item.has("createdDirs") ? item.getAsJsonArray("createdDirs") : new JsonArray();
+        Set<String> existing = new HashSet<>();
+        for (JsonElement value : created) existing.add(value.getAsString());
+        boolean changed = false;
+        for (Path directory : directories) {
+            Path normalized = directory.toAbsolutePath().normalize();
+            if (!normalized.startsWith(gameRoot) || normalized.equals(gameRoot)) continue;
+            String relative = relativePath(normalized);
+            if (existing.add(relative)) {
+                created.add(relative);
+                changed = true;
+            }
+        }
+        if (!changed) return;
+        item.add("createdDirs", created);
+        save(root, kind, data);
+    }
+
+    private static void deleteRecordedDirectories(JsonObject item) {
+        if (item == null || !item.has("createdDirs") || !item.get("createdDirs").isJsonArray()) return;
+        Path gameRoot = DlcPaths.gameDir().toAbsolutePath().normalize();
+        List<Path> directories = new ArrayList<>();
+        for (JsonElement value : item.getAsJsonArray("createdDirs")) directories.add(resolvePath(value.getAsString()));
+        directories.sort(java.util.Comparator.comparingInt(Path::getNameCount).reversed());
+        for (Path directory : directories) {
+            if (!directory.startsWith(gameRoot) || directory.equals(gameRoot)) continue;
+            if (!Files.isDirectory(directory) || Files.isSymbolicLink(directory)) continue;
+            try (var children = Files.list(directory)) {
+                if (children.findAny().isPresent()) continue;
+            } catch (IOException exception) {
+                continue;
+            }
+            try {
+                Files.delete(directory);
+            } catch (IOException ignored) {
+            }
+        }
+    }
+
 
     private static Path checkedBackup(Path root, String kind, String value) throws IOException {
         Path base = root.toAbsolutePath().normalize().resolve("tmp").resolve(kind);

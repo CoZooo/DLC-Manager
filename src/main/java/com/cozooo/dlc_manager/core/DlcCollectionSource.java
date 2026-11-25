@@ -61,7 +61,7 @@ public final class DlcCollectionSource {
         CollectionInfo info = inspect(packageRoot, dlcRoot, source);
         if (info == null) return List.of();
         DlcPackInstallPlan plan = DlcPackInstallPlan.build(info.pack, gameRoot, dlcRoot);
-        if (info.pack.format == DlcPackPackage.Format.STANDARD && (remoteEntries == null || remoteEntries.isEmpty())) return plan.files;
+        if (info.pack.format == DlcPackPackage.Format.STANDARD && (remoteEntries == null || remoteEntries.isEmpty())) return meaningful(plan.files);
         List<DlcPackInstallPlan.FileEntry> cached = new ArrayList<>();
         for (DlcRequiredEntry entry : completionEntries(info, dlcRoot, collectionIdentifier, remoteEntries)) {
             String name = entry.getRequiredFileName();
@@ -74,7 +74,7 @@ public final class DlcCollectionSource {
                 }
             }
         }
-        return DlcPackInstallPlan.merge(plan, allowDownloads ? cached : List.of()).files;
+        return meaningful(DlcPackInstallPlan.merge(plan, allowDownloads ? cached : List.of()).files);
     }
 
     public static List<DlcRequiredEntry> completionEntries(Path source, Path dlcRoot, String collectionIdentifier) throws IOException {
@@ -218,7 +218,7 @@ public final class DlcCollectionSource {
         try {
             List<Path> children;
             try (var stream = Files.list(root)) {
-                children = stream.toList();
+                children = stream.filter(path -> !isJunkName(path.getFileName().toString())).toList();
             }
             List<Path> directories = children.stream().filter(Files::isDirectory).toList();
             boolean hasFiles = children.stream().anyMatch(Files::isRegularFile);
@@ -235,11 +235,34 @@ public final class DlcCollectionSource {
                         .distinct()
                         .count();
                 }
+                boolean namedGameRoot = GAME_ROOT_DIRECTORIES.contains(candidate.getFileName().toString().toLowerCase(Locale.ROOT));
+                if (!namedGameRoot && recognized >= 1) return candidate;
                 if (recognized >= 2) return candidate;
             }
         } catch (IOException ignored) {
         }
         return root;
+    }
+
+    private static List<DlcPackInstallPlan.FileEntry> meaningful(List<DlcPackInstallPlan.FileEntry> files) {
+        List<DlcPackInstallPlan.FileEntry> result = new ArrayList<>();
+        for (DlcPackInstallPlan.FileEntry file : files) {
+            if (isJunkRelative(file.relativePath)) continue;
+            result.add(file);
+        }
+        return result;
+    }
+
+    private static boolean isJunkRelative(String relative) {
+        if (relative == null) return true;
+        for (String part : relative.split("/")) {
+            if (isJunkName(part)) return true;
+        }
+        return false;
+    }
+
+    private static boolean isJunkName(String name) {
+        return name.equals("__MACOSX") || name.equals(".DS_Store");
     }
 
     private static boolean isArchive(Path path) {

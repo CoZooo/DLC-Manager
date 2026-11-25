@@ -199,6 +199,7 @@ object DlcResourceHistory {
             com.cozooo.dlc_manager.client.update.DlcUpdateJournal.beforeWrite(target)
             replace(backup, target)
         }
+        deleteRecordedDirectories(item)
         for (backupValue in backups.asMap().values) {
             val backup = backupValue.asJsonObject
             if (backup.get("resource").asString == key) backup.addProperty("old", true)
@@ -293,6 +294,55 @@ object DlcResourceHistory {
         } else {
             Files.createDirectories(target.parent)
             Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+        }
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun noteCreatedDirectories(root: Path, kind: String, key: String, directories: List<Path>?) {
+        if (directories.isNullOrEmpty()) return
+        val data = read(root, kind)
+        val resources = data.getAsJsonObject("resources")
+        if (!resources.has(key)) return
+        val item = resources.getAsJsonObject(key)
+        val gameRoot = DlcPaths.gameDir().toAbsolutePath().normalize()
+        val created = if (item.has("createdDirs")) item.getAsJsonArray("createdDirs") else JsonArray()
+        val existing = HashSet<String>()
+        for (value in created) existing.add(value.asString)
+        var changed = false
+        for (directory in directories) {
+            val normalized = directory.toAbsolutePath().normalize()
+            if (!normalized.startsWith(gameRoot) || normalized == gameRoot) continue
+            val relative = relativePath(normalized)
+            if (existing.add(relative)) {
+                created.add(relative)
+                changed = true
+            }
+        }
+        if (!changed) return
+        item.add("createdDirs", created)
+        save(root, kind, data)
+    }
+
+    private fun deleteRecordedDirectories(item: JsonObject?) {
+        if (item == null || !item.has("createdDirs") || !item.get("createdDirs").isJsonArray) return
+        val gameRoot = DlcPaths.gameDir().toAbsolutePath().normalize()
+        val directories = ArrayList<Path>()
+        for (value in item.getAsJsonArray("createdDirs")) directories.add(resolvePath(value.asString))
+        directories.sortByDescending { it.nameCount }
+        for (directory in directories) {
+            if (!directory.startsWith(gameRoot) || directory == gameRoot) continue
+            if (!Files.isDirectory(directory) || Files.isSymbolicLink(directory)) continue
+            val empty = try {
+                Files.list(directory).use { it.findAny().isEmpty }
+            } catch (exception: IOException) {
+                continue
+            }
+            if (!empty) continue
+            try {
+                Files.delete(directory)
+            } catch (ignored: IOException) {
+            }
         }
     }
 

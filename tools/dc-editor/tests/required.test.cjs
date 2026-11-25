@@ -11,6 +11,7 @@ require.extensions[".ts"] = (module, filename) => {
 };
 
 const { documentSchemas, requiredBasicDefaults } = require("../src/schemas/documentSchemas.ts");
+const { documentSchemas40 } = require("../src/schemas/documentSchemas40.ts");
 const { ALL_DOCUMENT_TYPES, getDocumentSchemas, getOrderedDocumentTypes, isEditorTargetVersion } = require("../src/schemas/versionedSchemas.ts");
 const { detectDocumentType } = require("../src/services/document/typeDetection.ts");
 const { createEmptyTemplate } = require("../src/services/document/templates.ts");
@@ -147,6 +148,44 @@ test("collection include and inline remote sections use collection fields", () =
   assert.equal(parsed.issues.some((issue) => issue.severity === "error"), false);
   const output = serializeStructuredDocumentWithPreservedRaw(raw, parsed.model, documentSchemas.info);
   assert.deepEqual(parseStructuredDocument(output, documentSchemas.info).model["remote.example"].directUrl, ["https://example.com/example.jar"]);
+});
+
+test("collection inline remote entries are declared one by one", () => {
+  const info = documentSchemas.info;
+  assert.ok(!info.sections.some((section) => section.key === "remote"));
+  assert.deepEqual(info.prefixSections.map((item) => item.prefix), ["remote"]);
+  const templateFields = info.prefixSections[0].template.fields.map((field) => field.key);
+  for (const key of ["target", "directUrl", "priority", "modrinth_projectid", "curseforge_fileid"]) {
+    assert.ok(templateFields.includes(key), key);
+  }
+  assert.equal(documentSchemas40.info.prefixSections, undefined);
+});
+
+test("multiple inline remote sections round-trip independently", () => {
+  const raw = [
+    "[basic]",
+    'type = "collection"',
+    'source = "collections/pack.mrpack"',
+    "[remote.first]",
+    'source = "first.jar"',
+    'target = "mods/first.jar"',
+    'directUrl = ["https://example.com/first.jar"]',
+    "",
+    "[remote.second]",
+    'source = "second.jar"',
+    'target = "config/second.toml"',
+    'priority = ["modrinth", "curseforge"]',
+    ""
+  ].join("\n");
+  const parsed = parseStructuredDocument(raw, documentSchemas.info);
+  assert.deepEqual(parsed.model["remote.first"].directUrl, ["https://example.com/first.jar"]);
+  assert.deepEqual(parsed.model["remote.second"].priority, ["modrinth", "curseforge"]);
+  assert.equal(parsed.model.remote, undefined);
+  const output = serializeStructuredDocumentWithPreservedRaw(raw, parsed.model, documentSchemas.info);
+  assert.ok(!output.includes("[remote.*]"));
+  const reparsed = parseStructuredDocument(output, documentSchemas.info);
+  assert.deepEqual(reparsed.model["remote.first"], parsed.model["remote.first"]);
+  assert.deepEqual(reparsed.model["remote.second"], parsed.model["remote.second"]);
 });
 
 test("all existing document templates still parse and serialize", () => {

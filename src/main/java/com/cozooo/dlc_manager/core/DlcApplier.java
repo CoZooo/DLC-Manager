@@ -479,7 +479,7 @@ public class DlcApplier {
         }
     }
 
-    private static boolean requiresRestartOnToggle(DlcItem item) {
+    public static boolean requiresRestartOnToggle(DlcItem item) {
         return item.getType() == DlcType.MOD
             || item.getType() == DlcType.TACZ_PACK
             || item.getType() == DlcType.COLLECTION
@@ -488,6 +488,7 @@ public class DlcApplier {
 
     private static List<Path> applyItem(DlcItem item) {
         List<Path> statePaths = new ArrayList<>();
+        List<Path> createdDirs = new ArrayList<>();
         String key = DlcResourceHistory.key(item.getId(), "dlc");
         try {
             for (DlcItemFiles.Target pair : DlcItemFiles.expected(item, true)) {
@@ -499,7 +500,7 @@ public class DlcApplier {
                 boolean replace = !DlcFileMatch.matches(pair.source(), target, "hash");
                 DlcResourceHistory.prepare(item.getDlcRoot(), "dlc", key, item.getIdentifier(), null, pair.source(), target, replace, item.getMatchMode());
                 if (replace) {
-                    Files.createDirectories(target.getParent());
+                    createdDirs.addAll(DlcPaths.createMissingDirectories(target.getParent()));
                     if (Files.isDirectory(target)) deleteRecursive(target);
                     copyRecursive(pair.source(), target);
                 }
@@ -507,6 +508,12 @@ public class DlcApplier {
             }
             if (!statePaths.isEmpty()) DlcResourceHistory.complete(item.getDlcRoot(), "dlc", key);
         } catch (IOException exception) { recordApplyFailure(exception); }
+        finally {
+            try {
+                if (!createdDirs.isEmpty()) DlcResourceHistory.noteCreatedDirectories(item.getDlcRoot(), "dlc", key, createdDirs);
+            } catch (IOException ignored) {
+            }
+        }
         return statePaths;
     }
 

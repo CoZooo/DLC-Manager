@@ -222,6 +222,23 @@ class DlcScannerTest {
     }
 
     @Test
+    void collectionArchiveIsListedOnce() throws Exception {
+        Files.createDirectories(dlcRoot.resolve("info"));
+        writeZip(dlcRoot.resolve("pack.zip"), "mods/example.jar", "jar");
+        Files.writeString(dlcRoot.resolve("info/pack.dc"), """
+            [basic]
+            identifier = "pack"
+            source = "pack.zip"
+            type = "collection"
+            """);
+
+        var grouped = new DlcScanner().scan();
+
+        assertEquals(1, grouped.get(DlcType.COLLECTION).size());
+        assertEquals(List.of(), grouped.get(DlcType.UNKNOWN));
+    }
+
+    @Test
     void scanLoadsCollectionsFromSecondaryDlcRoots() throws Exception {
         Path secondary = gameDir.resolve("DLC2");
         DlcConfig.setDlcRoot("DLC,DLC2");

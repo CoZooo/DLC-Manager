@@ -452,8 +452,14 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
       conflictsSection,
       displayNameSection,
       tipSection,
-      alarmSection,
-      collectionRemoteSection
+      alarmSection
+    ],
+    prefixSections: [
+      {
+        prefix: "remote",
+        template: collectionRemoteSection,
+        visibleWhen: { sectionKey: "basic", fieldKey: "type", equals: "collection" }
+      }
     ]
   },
   remote: {

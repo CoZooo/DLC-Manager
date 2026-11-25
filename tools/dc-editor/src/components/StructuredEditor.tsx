@@ -55,6 +55,28 @@ export function StructuredEditor(props: StructuredEditorProps) {
 
   const model = props.model || {};
 
+  const prefixSections = props.schema.prefixSections ?? [];
+  const generatedSections = prefixSections.flatMap(({ prefix, template }) =>
+    Object.keys(model)
+      .filter((key) => key.startsWith(`${prefix}.`))
+      .map((key) => ({ ...template, key, label: `[${key}]` }))
+  );
+  const prefixKeyOf = (key: string) => prefixSections.find(({ prefix }) => key.startsWith(`${prefix}.`));
+  const isPrefixSectionVisible = ({ visibleWhen }: { visibleWhen?: { sectionKey: string; fieldKey: string; equals?: string; oneOf?: string[] } }) => {
+    if (!visibleWhen) {
+      return true;
+    }
+    const values = model[visibleWhen.sectionKey] || {};
+    const expected = visibleWhen.oneOf ?? (visibleWhen.equals ? [visibleWhen.equals] : []);
+    return expected.length === 0 || expected.includes(String(values[visibleWhen.fieldKey] ?? ""));
+  };
+  const showPrefixAdder = prefixSections.some(isPrefixSectionVisible);
+  const removeSection = (key: string) => {
+    const next = { ...model };
+    delete next[key];
+    props.onChange(next);
+  };
+
   return (
     <section className="panel">
       <div className="panel-title">{t(props.locale, "formTitle")}</div>
@@ -74,7 +96,7 @@ export function StructuredEditor(props: StructuredEditorProps) {
       )}
       {props.schema.type === "folder_metadata" && <FolderMetadataEditor {...props} model={model} />}
       <div className="section-stack">
-        {props.schema.sections.map((section) => (
+        {[...props.schema.sections, ...generatedSections].map((section) => (
           <div key={section.key} className="section-card">
             <div className="section-title">{translateStaticText(props.locale, section.label) || section.label}</div>
             {section.description && <div className="field-help">{translateStaticText(props.locale, section.description)}</div>}
@@ -289,10 +311,50 @@ export function StructuredEditor(props: StructuredEditorProps) {
                 })}
               />
             )}
+            {prefixKeyOf(section.key) && (
+              <button type="button" className="secondary-action" onClick={() => removeSection(section.key)}>
+                {t(props.locale, "removeRemoteEntry")}
+              </button>
+            )}
           </div>
         ))}
+        {showPrefixAdder && (
+          <PrefixSectionAdder
+            locale={props.locale}
+            prefix={prefixSections[0].prefix}
+            existingKeys={generatedSections.map((section) => section.key)}
+            onAdd={(key) => props.onChange({ ...model, [key]: {} })}
+          />
+        )}
       </div>
     </section>
+  );
+}
+
+interface PrefixSectionAdderProps {
+  locale: EditorLocale;
+  prefix: string;
+  existingKeys: string[];
+  onAdd(key: string): void;
+}
+
+function PrefixSectionAdder(props: PrefixSectionAdderProps) {
+  const [name, setName] = useState("");
+  const trimmed = name.trim();
+  const key = `${props.prefix}.${trimmed}`;
+  const canAdd = Boolean(trimmed) && !/[.\s/\\[\]]/.test(trimmed) && !props.existingKeys.includes(key);
+  return (
+    <div className="section-card">
+      <div className="field-help">{t(props.locale, "remoteEntryHelp")}</div>
+      <div className="field">
+        <label className="field-label">{t(props.locale, "remoteEntryName")}</label>
+        <UndoableInput type="text" value={name} onChangeValue={setName} />
+        <button type="button" className="secondary-action" disabled={!canAdd} onClick={() => {
+          props.onAdd(key);
+          setName("");
+        }}>{t(props.locale, "addRemoteEntry")}</button>
+      </div>
+    </div>
   );
 }
 
